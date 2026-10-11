@@ -58,6 +58,16 @@ Skipped: Sequential Thinking (built-in thinking covers it), Serena (its own docs
 
 No official Modal MCP exists; use the Modal skills in [AI-Research-SKILLs](https://github.com/Orchestra-Research/AI-Research-SKILLs) if needed.
 
+## Reverse engineering
+
+Only for a project whose job is to inspect software we don't have the source for. Analyse only software you are allowed to (many EULAs forbid it).
+
+| Tool | What it does | Install |
+|------|--------------|---------|
+| [REA](https://github.com/morluto/rea) | Inspects native binaries (via Hopper, Ghidra or IDA), Electron/JS apps, APKs, .NET assemblies, firmware, websites and HAR captures | `claude mcp add --scope project rea -- npx -y rea-agents@6.4.0 mcp` (checked 2026-10-11; bump the pin on purpose) |
+
+⚠️ Don't run `npx rea-agents setup`: it writes user-level config and installs its own workflow skill, which competes with ours. Prefer the static analyzers (JS, APK, .NET), which read files without running them. Runtime capture executes the target as your user, so don't run it on the Beelink, which also serves the site. Use a container or a cloud session instead.
+
 ## Sharing config through the repo
 
 - **MCP servers:** `claude mcp add --scope project ...` writes `.mcp.json`. Commit it. Put secrets in env vars as `${VAR}`, never in the file.
