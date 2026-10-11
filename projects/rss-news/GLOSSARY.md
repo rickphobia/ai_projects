@@ -1,28 +1,40 @@
 # rss-news
 
-A personal news briefing: it reads many sources for one owner and writes a short Briefing to read first, so the owner only opens an Item when something catches their interest.
+A personal news briefing: it reads many sources for one owner and writes a short Briefing on request, so the owner only opens an Item when something catches their interest.
 
 ## Language
 
 ### What gets read
 
 **Source**:
-One place Items come from: an RSS or Atom feed, a subreddit, a newsletter, or a ticker's news.
+One place Items come from: an RSS or Atom feed, a subreddit, a newsletter mailbox, or a ticker's news.
 _Avoid_: Feed, channel, subscription
 
+**Folder**:
+A group of Sources made by the owner, such as AI, World, Macro, Stocks, Malaysia or Tech. Each Source is in exactly one Folder.
+_Avoid_: Topic, category, section, tag
+
 **Item**:
-One piece of news taken from a Source, such as an article, a Reddit post or a newsletter issue.
+One piece of news taken from a Source, such as an article, a Reddit post or a newsletter issue. It belongs to its Source's Folder.
 _Avoid_: Article, post, entry, story
 
-**Topic**:
-One of the owner's areas of interest that Items are sorted into, such as AI, World, Macro, Stocks, Malaysia or Tech.
-_Avoid_: Category, section, tag
+**Importance**:
+A score from 1 to 5 for how much an Item matters to the owner, given when the Item arrives.
+_Avoid_: Priority, rank, relevance
 
 ### What gets written
 
 **Briefing**:
-A short written overview of the Items from one period, grouped by Topic, where each point links to the Items it came from. It covers a day, a week or a month.
+A short written overview the owner asks for, covering all Sources or one Folder over the last 24 hours, 7 days or 30 days, or a set of Items picked by hand. Each point links to the Items it came from.
 _Avoid_: Digest, summary, recap, newsletter
+
+**Note**:
+Text the owner selected and saved, with an optional comment and a link back to where it came from.
+_Avoid_: Highlight, bookmark, clip
+
+**Alert**:
+A push notification about one Item, sent because the Item mentions a Holding or Watchlist stock or has Importance 5.
+_Avoid_: Notification, ping, breaking news
 
 ### The owner's stocks
 
