@@ -29,7 +29,7 @@ _Avoid_: Feed, timeline, stream
 ### What gets written
 
 **Chat**:
-A conversation with the AI about the owner's Items. Its answers list the matching Items, each with a one-line summary and the name of its Source. Selected text can be brought into the Chat.
+A conversation with the AI about the owner's Items. Its answers list the matching Items, each with a one-line summary and a Source button that opens that Item. Selected text can be brought into the Chat.
 _Avoid_: Ask AI, assistant, bot
 
 **Briefing**:
