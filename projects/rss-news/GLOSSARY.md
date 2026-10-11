@@ -7,7 +7,7 @@ A personal news briefing: it reads many sources for one owner and writes a short
 ### What gets read
 
 **Source**:
-One place Items come from: an RSS or Atom feed, a subreddit, a newsletter mailbox, or a ticker's news.
+One place Items come from: an RSS or Atom feed, a subreddit, one newsletter sender, or a ticker's news.
 _Avoid_: Feed, channel, subscription
 
 **Folder**:
