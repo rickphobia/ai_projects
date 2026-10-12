@@ -1,0 +1,5 @@
+# Offer web search by saying so in each message, not by adding the tool
+
+Chat may search the web only when the owner asks or `search_items` found nothing (spec story 54). The obvious way is to send the web search tool only on those calls. We send it on every call instead, with `max_uses` 5, and each message the model gets says how many web searches it may make now ("not allowed now" otherwise). A tool list that changes mid-conversation invalidates the prompt cache from the tools onward and, on Claude Opus 5.5, the thinking blocks passed back with the conversation (preserved thinking), so Chats would get dearer and lose their reasoning on exactly the questions that need the web.
+
+**Trade-offs:** the rule is kept by the model, not enforced by the API. A web search made when it wasn't offered is still paid for, counted and flagged on the answer, and logged as a warning, so a misbehaving model shows up in the logs and the spending page. The 5-per-question cap is enforced across calls by the Chat, which lowers the allowance as searches are used; `max_uses` caps a single call.

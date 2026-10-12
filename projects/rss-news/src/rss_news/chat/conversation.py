@@ -75,6 +75,8 @@ class OwnerQuestion:
     # The owner's local time, so the model can turn "since Monday" into a date.
     asked_at: datetime
     folder_names: list[str]
+    # How many web searches the model may make in this call; 0 when web search isn't offered.
+    web_searches_left: int = 0
 
 
 @dataclass(frozen=True)
@@ -82,6 +84,7 @@ class SearchResults:
     results: list[tuple[str, SearchResult]]
     # True when the model may not search again and must answer now.
     last: bool
+    web_searches_left: int = 0
 
 
 type ChatInput = OwnerQuestion | SearchResults

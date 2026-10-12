@@ -4,14 +4,14 @@
 
 **Blocked by:** 13 (Chat answers from Items)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** chat, adapters/language_model
 
 **Effort:** low
 
-- [ ] Web search is offered only when the owner asks for it or `search_items` found nothing, capped at 5 searches per question
-- [ ] Answers that used web search are flagged, and searches are counted in the ledger at the configured price
-- [ ] Server-side compaction is turned on past the configured threshold (70K tokens by default)
-- [ ] Adapter test against a saved response with web search results and one with a refusal; API tests cover when web search is and isn't offered
-- [ ] README and `.env.example` updated
+- [x] Web search is offered only when the owner asks for it or `search_items` found nothing, capped at 5 searches per question
+- [x] Answers that used web search are flagged, and searches are counted in the ledger at the configured price
+- [x] Server-side compaction is turned on past the configured threshold (70K tokens by default)
+- [x] Adapter test against a saved response with web search results and one with a refusal; API tests cover when web search is and isn't offered
+- [x] README and `.env.example` updated

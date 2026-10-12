@@ -105,12 +105,23 @@ def test_a_saved_turn_searches_then_answers_carrying_the_whole_conversation() ->
     assert first["output_config"]["effort"] == "low"
     assert first["output_config"]["format"]["type"] == "json_schema"
     assert first["tool_choice"] == {"type": "auto"}
-    assert [tool["name"] for tool in first["tools"]] == ["search_items"]
+    # Both tools always, so the tool list never changes within a Chat; the message says
+    # whether web search may be used.
+    assert [tool["name"] for tool in first["tools"]] == ["search_items", "web_search"]
     assert first["tools"][0]["strict"] is True
+    assert first["tools"][1] == {
+        "type": "web_search_20260318",
+        "name": "web_search",
+        "max_uses": 5,
+    }
+    assert first["context_management"] == {
+        "edits": [{"type": "compact_20260112", "trigger": {"type": "input_tokens", "value": 70000}}]
+    }
     assert "never answer from memory" in first["system"]
     (question,) = first["messages"]
     assert question["content"][0]["text"] == (
-        "Now: Monday 2026-10-12 20:00 (+08)\nFolders: AI, Malaysia\n\n"
+        "Now: Monday 2026-10-12 20:00 (+08)\nFolders: AI, Malaysia\n"
+        "Web search: not allowed now.\n\n"
         "Question: what happened in Malaysia?"
     )
     # The second call resends the question and the model's whole first answer, thinking
@@ -119,7 +130,8 @@ def test_a_saved_turn_searches_then_answers_carrying_the_whole_conversation() ->
         question,
         {"role": "assistant", "content": saved("chat-tool-use-response.json")["content"]},
     ]
-    (tool_result,) = second["messages"][2]["content"]
+    tool_result, allowance = second["messages"][2]["content"]
+    assert allowance == {"type": "text", "text": "Web search: not allowed now."}
     assert tool_result["tool_use_id"] == "toolu_01MalaysiaSearchExample"
     assert "is_error" not in tool_result
     result = json.loads(tool_result["content"])
@@ -155,16 +167,68 @@ def test_after_the_last_search_the_model_may_not_search_again() -> None:
 
 
 def test_a_refused_turn_fails_with_the_tokens_it_cost() -> None:
-    refused = saved("chat-answer-response.json")
-    refused["stop_reason"] = "refusal"
-    refused["stop_details"] = {"type": "refusal", "category": "cyber", "explanation": None}
-    refused["content"] = []
-    language_model, _ = answering(refused)
+    language_model, _ = answering(saved("chat-refusal-response.json"))
 
     with pytest.raises(ChatFailed, match=r"refusal \(cyber\)") as failure:
         language_model.continue_chat("", QUESTION)
     assert failure.value.usage is not None
     assert failure.value.usage.output_tokens == 158
+
+
+def test_a_saved_web_search_answer_counts_its_searches_and_compaction() -> None:
+    language_model, seen = answering(saved("chat-web-search-response.json"))
+    allowed = SearchResults(
+        [("toolu_1", SearchResult("the last 24 hours", 0, []))], last=False, web_searches_left=5
+    )
+
+    answered = language_model.continue_chat(
+        json.dumps([{"role": "user", "content": "earlier"}]), allowed
+    )
+
+    (body,) = seen
+    assert body["messages"][-1]["content"][-1] == {
+        "type": "text",
+        "text": "Web search: allowed, at most 5 searches.",
+    }
+    assert answered.answer == ModelAnswer(
+        "No Items covered Bursa today; The Star says the FBM KLCI closed 0.4% higher.", []
+    )
+    assert answered.usage.web_searches == 2
+    # Compaction's own tokens are only in `iterations`, but they are paid for.
+    assert (answered.usage.input_tokens, answered.usage.output_tokens) == (
+        3200 + 71000,
+        240 + 900,
+    )
+    # The compaction block and the search results are kept for the next call.
+    kept = json.loads(answered.context)[-1]["content"]
+    assert [block["type"] for block in kept] == [
+        "compaction",
+        "thinking",
+        "server_tool_use",
+        "web_search_tool_result",
+        "text",
+    ]
+
+
+def test_a_paused_web_search_is_resumed_and_both_calls_are_counted() -> None:
+    paused = saved("chat-web-search-response.json")
+    paused["stop_reason"] = "pause_turn"
+    paused["content"] = paused["content"][1:4]
+    paused["usage"]["iterations"] = None
+    language_model, seen = answering(paused, saved("chat-answer-response.json"))
+
+    answered = language_model.continue_chat("", QUESTION)
+
+    first, second = seen
+    # The resume sends the paused answer back with no new user message.
+    assert second["messages"] == [
+        *first["messages"],
+        {"role": "assistant", "content": paused["content"]},
+    ]
+    assert answered.answer is not None
+    assert answered.usage.web_searches == 2
+    assert answered.usage.output_tokens == 240 + 158
+    assert len(json.loads(answered.context)) == 3
 
 
 def test_an_unreachable_model_fails_the_turn_without_usage() -> None:

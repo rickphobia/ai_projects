@@ -1,11 +1,13 @@
-"""Chat turns in the Messages API's terms: the answer schema, the `search_items` tool, what
-the model is sent for each ChatInput, and the searches it asks for."""
+"""Chat turns in the Messages API's terms: the answer schema, the `search_items` and web
+search tools, what the model is sent for each ChatInput, and the searches it asks for."""
 
 import json
+from datetime import timedelta
 from typing import Any
 
-from anthropic.types import Message
+from anthropic.types.beta import BetaMessage
 
+from rss_news.chat.chatting import WEB_SEARCHES_PER_QUESTION
 from rss_news.chat.conversation import (
     ChatFailed,
     ChatInput,
@@ -68,12 +70,24 @@ SEARCH_ITEMS_TOOL: dict[str, Any] = {
     },
 }
 
+# Always sent, so the tool list never changes within a Chat: a changed list would invalidate the
+# cached prefix and the thinking blocks passed back. Whether the model may use it is said in
+# each message instead (decision 0006).
+WEB_SEARCH_TOOL: dict[str, Any] = {
+    "type": "web_search_20260318",
+    "name": "web_search",
+    "max_uses": WEB_SEARCHES_PER_QUESTION,
+}
+
 
 def chat_input(given: ChatInput) -> list[dict[str, Any]]:
     if isinstance(given, OwnerQuestion):
         asked = f"{given.asked_at:%A %Y-%m-%d %H:%M} ({given.asked_at.tzname()})"
         folders = ", ".join(given.folder_names)
-        text = f"Now: {asked}\nFolders: {folders}\n\nQuestion: {given.text}"
+        text = (
+            f"Now: {asked}\nFolders: {folders}\n{_web_allowance(given.web_searches_left)}\n\n"
+            f"Question: {given.text}"
+        )
         return [{"type": "text", "text": text}]
     blocks: list[dict[str, Any]] = [
         {
@@ -86,7 +100,15 @@ def chat_input(given: ChatInput) -> list[dict[str, Any]]:
     ]
     if given.last:
         blocks.append({"type": "text", "text": "No more searches: answer now."})
+    else:
+        blocks.append({"type": "text", "text": _web_allowance(given.web_searches_left)})
     return blocks
+
+
+def _web_allowance(searches_left: int) -> str:
+    if searches_left <= 0:
+        return "Web search: not allowed now."
+    return f"Web search: allowed, at most {searches_left} searches."
 
 
 def _search_result_json(result: SearchResult) -> dict[str, Any]:
@@ -110,7 +132,7 @@ def _search_result_json(result: SearchResult) -> dict[str, Any]:
     }
 
 
-def search_calls(message: Message, usage: AiUsage) -> list[SearchCall]:
+def search_calls(message: BetaMessage, usage: AiUsage) -> list[SearchCall]:
     calls = []
     for block in message.content:
         if block.type != "tool_use":
@@ -137,3 +159,35 @@ def search_calls(message: Message, usage: AiUsage) -> list[SearchCall]:
 
 def _text_or_none(value: object) -> str | None:
     return value if isinstance(value, str) and value.strip() else None
+
+
+def chat_usage(
+    message: BetaMessage, model: str, duration: timedelta, *, before: AiUsage | None
+) -> AiUsage:
+    """What a Chat call used, added to `before` when it resumes a paused call. Compaction's
+    own tokens are reported only in `iterations`, so they are added here to be paid for.
+    `model` is the name asked for, as the prices are keyed by it."""
+    reported = message.usage
+    compaction = [entry for entry in reported.iterations or [] if entry.type == "compaction"]
+    input_tokens = sum(
+        entry.input_tokens + entry.cache_read_input_tokens + entry.cache_creation_input_tokens
+        for entry in compaction
+    ) + (
+        reported.input_tokens
+        + (reported.cache_read_input_tokens or 0)
+        + (reported.cache_creation_input_tokens or 0)
+    )
+    output_tokens = reported.output_tokens + sum(entry.output_tokens for entry in compaction)
+    server_tools = reported.server_tool_use
+    web_searches = server_tools.web_search_requests if server_tools else 0
+    if before is not None:
+        input_tokens += before.input_tokens
+        output_tokens += before.output_tokens
+        web_searches += before.web_searches
+    return AiUsage(
+        model=model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        web_searches=web_searches,
+        duration=duration,
+    )
