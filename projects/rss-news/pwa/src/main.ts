@@ -3,6 +3,7 @@ import { HttpApiClient, SignedOutError } from "./api/client";
 import { browserDevicePush } from "./pwa/device-push";
 import { itemIdInPageUrl } from "./pwa/opened-item";
 import { registerServiceWorker } from "./pwa/register";
+import { shortcutInPageUrl } from "./pwa/shortcut";
 import { renderLogin } from "./screens/login";
 import { renderShell } from "./screens/shell";
 
@@ -18,8 +19,10 @@ const devicePush = browserDevicePush(
 
 // A tapped Alert opens the app on its Item. It is opened once, even if login comes first, and
 // dropped from the address so reloading shows the home screen.
+// An app icon shortcut is handled the same way.
 let openItemId = itemIdInPageUrl(location.href);
-if (openItemId !== null) {
+let shortcut = shortcutInPageUrl(location.href);
+if (openItemId !== null || shortcut !== null) {
   history.replaceState(null, "", new URL("./", location.href));
 }
 
@@ -28,8 +31,9 @@ function showLogin(): void {
 }
 
 function showShell(): void {
-  void renderShell(app, api, showLogin, { devicePush, openItemId });
+  void renderShell(app, api, showLogin, { devicePush, openItemId, shortcut });
   openItemId = null;
+  shortcut = null;
 }
 
 const api = new HttpApiClient(document.baseURI, showLogin);

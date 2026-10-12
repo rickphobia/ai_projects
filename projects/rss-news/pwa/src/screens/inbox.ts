@@ -9,7 +9,7 @@ import { relativeTime, shownTime } from "./shown-time";
 
 export type InboxChat = Pick<
   ChatPanelOptions,
-  "openChatId" | "onChatOpened" | "quote"
+  "openChatId" | "onChatOpened" | "quote" | "open"
 >;
 
 const ALL_FOLDERS = "";
