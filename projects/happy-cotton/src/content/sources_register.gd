@@ -68,7 +68,10 @@ static func entries() -> Array[Source]:
 				"https://www.jpolrisk.com/break-their-roots-evidence-for-chinas-parent-child"
 				+ "-separation-campaign-in-xinjiang/"
 			),
-			"Children separated from detained parents into boarding schools"
+			(
+				"Children separated from detained parents into boarding schools: Mandarin-only"
+				+ " schooling, Party slogans, teachers in place of parents"
+			)
 		),
 	]
 

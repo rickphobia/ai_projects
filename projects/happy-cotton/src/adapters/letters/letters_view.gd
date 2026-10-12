@@ -65,9 +65,10 @@ func show_letters(received: Array[StringName]) -> void:
 	for entry in _box_entries.get_children():
 		_box_entries.remove_child(entry)
 		entry.queue_free()
+	var letters := FamilyText.letters()
 	for index in _received.size():
 		var id := _received[index]
-		var letter: FamilyLetter = FamilyText.letters().get(id)
+		var letter: FamilyLetter = letters.get(id)
 		var name := FamilyText.child_name(letter) if letter != null else ""
 		var entry := _paper_button(BOX_ENTRY.format({"number": index + 1, "name": name}))
 		entry.name = "Letter%d" % (index + 1)
@@ -136,61 +137,59 @@ func _build_box_button() -> Button:
 
 
 func _build_page() -> Control:
-	var cover := _cover()
-	cover.name = "LetterPage"
-	var paper := _paper()
-	cover.add_child(paper)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 16)
-	paper.add_child(column)
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	column.add_child(scroll)
-	_page_text = Label.new()
+	var column := _sheet("LetterPage", PUT_AWAY_TEXT, "PutAway")
+	_page_text = _ink_label("")
 	_page_text.name = "LetterText"
 	_page_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_page_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_page_text.add_theme_font_override(&"font", HANDWRITING)
-	_page_text.add_theme_font_size_override(&"font_size", PAGE_FONT_SIZE)
-	_page_text.add_theme_color_override(&"font_color", INK)
-	scroll.add_child(_page_text)
-	var put_away := _paper_button(PUT_AWAY_TEXT)
-	put_away.name = "PutAway"
-	put_away.size_flags_horizontal = Control.SIZE_SHRINK_END
-	put_away.pressed.connect(cover.hide)
-	column.add_child(put_away)
-	return cover
+	column.get_node("Scroll").add_child(_page_text)
+	return column.get_parent().get_parent() as Control
 
 
 func _build_box() -> Control:
+	var column := _sheet("LettersBox", BOX_CLOSE_TEXT, "CloseBox")
+	var title := _ink_label(BOX_TITLE)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(title)
+	column.move_child(title, 0)
+	_box_entries = VBoxContainer.new()
+	_box_entries.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.get_node("Scroll").add_child(_box_entries)
+	return column.get_parent().get_parent() as Control
+
+
+## A sheet of paper over a cover, named `cover_name`: a column holding a scrolling area named
+## Scroll and, under it, a button that puts the sheet away. Returns the column; the cover is
+## its grandparent.
+func _sheet(cover_name: String, close_text: String, close_name: String) -> VBoxContainer:
 	var cover := _cover()
-	cover.name = "LettersBox"
+	cover.name = cover_name
 	var paper := _paper()
 	cover.add_child(paper)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 12)
+	column.add_theme_constant_override("separation", 14)
 	paper.add_child(column)
-	var title := Label.new()
-	title.text = BOX_TITLE
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_override(&"font", HANDWRITING)
-	title.add_theme_font_size_override(&"font_size", PAGE_FONT_SIZE)
-	title.add_theme_color_override(&"font_color", INK)
-	column.add_child(title)
 	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	column.add_child(scroll)
-	_box_entries = VBoxContainer.new()
-	_box_entries.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_box_entries)
-	var close := _paper_button(BOX_CLOSE_TEXT)
-	close.name = "CloseBox"
+	var close := _paper_button(close_text)
+	close.name = close_name
 	close.size_flags_horizontal = Control.SIZE_SHRINK_END
 	close.pressed.connect(cover.hide)
 	column.add_child(close)
-	return cover
+	return column
+
+
+## Words in ink, in the handwriting.
+func _ink_label(text: String) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_override(&"font", HANDWRITING)
+	label.add_theme_font_size_override(&"font_size", PAGE_FONT_SIZE)
+	label.add_theme_color_override(&"font_color", INK)
+	return label
 
 
 ## A dim backdrop over the whole screen that catches every tap.
@@ -212,13 +211,9 @@ func _paper() -> PanelContainer:
 	paper.anchor_right = 1.0 - paper.anchor_left
 	paper.anchor_top = (1.0 - PAGE_SHARE.y) / 2.0
 	paper.anchor_bottom = 1.0 - paper.anchor_top
-	var style := StyleBoxFlat.new()
-	style.bg_color = PAPER
-	style.border_color = PAPER_EDGE
-	style.set_border_width_all(1)
+	var style := _paper_style(MARGIN)
 	style.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
 	style.shadow_size = 6
-	style.set_content_margin_all(MARGIN)
 	paper.add_theme_stylebox_override("panel", style)
 	paper.rotation_degrees = PAGE_TILT_DEGREES
 	paper.resized.connect(func() -> void: paper.pivot_offset = paper.size / 2.0)
@@ -231,14 +226,22 @@ func _paper_button(text: String) -> Button:
 	button.text = text
 	button.add_theme_font_override(&"font", HANDWRITING)
 	button.add_theme_font_size_override(&"font_size", BUTTON_FONT_SIZE)
-	for colour: StringName in [&"font_color", &"font_hover_color", &"font_pressed_color"]:
+	var colours: Array[StringName] = [
+		&"font_color", &"font_hover_color", &"font_pressed_color", &"font_focus_color"
+	]
+	for colour in colours:
 		button.add_theme_color_override(colour, INK)
-	button.add_theme_color_override(&"font_focus_color", INK)
+	var style := _paper_style(MARGIN / 2.0)
+	for state: String in ["normal", "hover", "pressed", "focus"]:
+		button.add_theme_stylebox_override(state, style)
+	return button
+
+
+## Plain paper with a thin edge and square corners.
+func _paper_style(margin: float) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = PAPER
 	style.border_color = PAPER_EDGE
 	style.set_border_width_all(1)
-	style.set_content_margin_all(MARGIN / 2.0)
-	for state: String in ["normal", "hover", "pressed", "focus"]:
-		button.add_theme_stylebox_override(state, style)
-	return button
+	style.set_content_margin_all(margin)
+	return style

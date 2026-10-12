@@ -10,6 +10,8 @@
 
 **Effort:** medium
 
+**Owner steps:** on a phone held sideways (`scripts/try-pr.sh <PR>`), play to the start of Shift 2 (one 10-minute Shift; Skip time is offline time and doesn't move the Shift) and check the letter page and the Letters box read well and close. The session built the web export, but had no phone or working browser to check it on.
+
 - [x] The rules emit a "letter arrived" Family event (letter id) at the start of every Nth Shift (tuning), separate from App messages
 - [x] The letter is chosen by how many letter Shifts have passed, so letters missed while stopped are skipped; when the list runs out, no new letters come
 - [x] Letters stop while school fees are unpaid and start again when Debt reaches zero
@@ -20,4 +22,4 @@
 - [x] Letters received, the letter Shift count and the stopped state are saved; a save without them restores with none
 - [x] Letters stopping and starting are logged, never their text
 - [x] GUT tests through Farm cover arrival, stopping, starting again and skipping
-- [x] Works in the web export on a phone-sized screen (record what was checked in the PR)
+- [ ] Works in the web export on a phone-sized screen (record what was checked in the PR)

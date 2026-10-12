@@ -162,7 +162,9 @@ const LETTERS_STOPPED := &"letters_stopped"
 ## The Debt that stopped the letters was cleared, so the next letter Shift brings one again.
 const LETTERS_STARTED_AGAIN := &"letters_started_again"
 ## Every letter, in the order they arrive; the Family text table must have text for each. Their
-## tone moves from warm and homesick to distant and full of school slogans.
+## tone moves from warm and homesick to distant and full of school slogans. Saves hold these
+## ids, and one that holds an unknown id is damaged, so add new letters at the end and never
+## rename or remove one.
 const LETTER_IDS: Array[StringName] = [
 	&"letter_01",
 	&"letter_02",
@@ -269,7 +271,8 @@ func pick(index: int) -> CommandResult:
 		_messages.append(AppMessage.new(COTTON_DROPPED, {}))
 	else:
 		_picked += 1
-		_pay_in(roundi(_tuning.labour_points_per_pick), true)
+		var were_stopped := letters_stopped()
+		_note_paid_in(_ledger.earn(roundi(_tuning.labour_points_per_pick)), were_stopped)
 	return CommandResult.done()
 
 
@@ -327,7 +330,8 @@ func buy_upgrade(upgrade: StringName) -> CommandResult:
 ## Only the debug wiring calls this, so players can never use it: it adds Labour Points
 ## without work, to reach the store's dearer items quickly.
 func debug_add_labour_points(points: int) -> void:
-	_pay_in(points, false)
+	var were_stopped := letters_stopped()
+	_note_paid_in(_ledger.credit(points), were_stopped)
 
 
 ## Buys a Privilege with Labour Points. The only one so far is REST_HOUR.
@@ -765,11 +769,9 @@ func _charge_bills() -> void:
 		_family_events.append(FamilyEvent.new(LETTERS_STOPPED))
 
 
-## Adds Labour Points, as wages for work (counted on the pay slip) or not. Says so when they
-## paid off the last of the Debt, and when that starts the letters again.
-func _pay_in(points: int, wages: bool) -> void:
-	var were_stopped := letters_stopped()
-	var cleared := _ledger.earn(points) if wages else _ledger.credit(points)
+## After Labour Points came in: says so when they paid off the last of the Debt (`cleared`),
+## and when that starts again the letters that were stopped before they came in.
+func _note_paid_in(cleared: bool, were_stopped: bool) -> void:
 	if cleared:
 		_messages.append(AppMessage.new(DEBT_CLEARED, {"points": _ledger.labour_points()}))
 	if were_stopped and not letters_stopped():
