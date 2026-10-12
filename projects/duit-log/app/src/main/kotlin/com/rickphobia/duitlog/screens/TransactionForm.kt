@@ -57,8 +57,9 @@ private val dateShown = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
 private val timeShown = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
 
 /**
- * The + screen: an Expense or Income typed in by hand. [onSave] stores the entry and throws a
- * [LedgerException] when the Ledger refuses it; [onSaved] gets the new Transaction's date and time.
+ * The + screen: an Expense or Income typed in by hand, starting empty at [now]. [onSave] stores
+ * the entry and throws a [LedgerException] when the Ledger refuses it; [onSaved] gets the new
+ * Transaction's date and time.
  */
 @Composable
 fun AddTransactionScreen(
@@ -68,13 +69,44 @@ fun AddTransactionScreen(
     onSaved: (LocalDateTime) -> Unit,
     onCancel: () -> Unit,
 ) {
-    var kind by rememberSaveable { mutableStateOf(Kind.EXPENSE) }
-    var amount by rememberSaveable { mutableStateOf("") }
-    var date by rememberSaveable { mutableStateOf(now.toLocalDate()) }
-    var time by rememberSaveable { mutableStateOf(now.toLocalTime()) }
-    var merchant by rememberSaveable { mutableStateOf("") }
-    var categoryId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var note by rememberSaveable { mutableStateOf("") }
+    TransactionForm(categories, FormStart(now), onSave, onSaved, onCancel)
+}
+
+/** What the form shows when it opens: empty at [at], or every field of a Transaction being edited. */
+data class FormStart(
+    val at: LocalDateTime,
+    val kind: Kind = Kind.EXPENSE,
+    val amountSen: Long? = null,
+    val merchant: String = "",
+    val categoryId: Long? = null,
+    val note: String = "",
+)
+
+/**
+ * Every field of a Transaction, for adding or editing one. [extras] shows under the fields, above
+ * Cancel and Save.
+ */
+@Composable
+fun TransactionForm(
+    categories: Map<Kind, List<Category>>,
+    start: FormStart,
+    onSave: suspend (HandEntry) -> Unit,
+    onSaved: (LocalDateTime) -> Unit,
+    onCancel: () -> Unit,
+    extras: @Composable () -> Unit = {},
+) {
+    var kind by rememberSaveable { mutableStateOf(start.kind) }
+    // Shown as typed, without "RM", so Ringgit.parse reads it back.
+    var amount by rememberSaveable {
+        mutableStateOf(
+            start.amountSen?.let { Ringgit.format(it).removePrefix("RM") } ?: "",
+        )
+    }
+    var date by rememberSaveable { mutableStateOf(start.at.toLocalDate()) }
+    var time by rememberSaveable { mutableStateOf(start.at.toLocalTime()) }
+    var merchant by rememberSaveable { mutableStateOf(start.merchant) }
+    var categoryId by rememberSaveable { mutableStateOf(start.categoryId) }
+    var note by rememberSaveable { mutableStateOf(start.note) }
     var problem by rememberSaveable { mutableStateOf<Int?>(null) }
     // Stops a double tap on Save from adding the Transaction twice.
     var saving by remember { mutableStateOf(false) }
@@ -135,16 +167,26 @@ fun AddTransactionScreen(
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 modifier = Modifier.fillMaxWidth(),
             )
+            extras()
             problem?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                TextButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.cancel)) }
-                Button(
-                    onClick = ::save,
-                    enabled = !saving,
-                    modifier = Modifier.weight(1f),
-                ) { Text(stringResource(R.string.save)) }
-            }
+            CancelOrSave(saving, onCancel, ::save)
         }
+    }
+}
+
+@Composable
+private fun CancelOrSave(
+    saving: Boolean,
+    onCancel: () -> Unit,
+    onSave: () -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.cancel)) }
+        Button(
+            onClick = onSave,
+            enabled = !saving,
+            modifier = Modifier.weight(1f),
+        ) { Text(stringResource(R.string.save)) }
     }
 }
 
@@ -250,16 +292,17 @@ private suspend fun trySave(
     } catch (e: LedgerException) {
         problemText(e)
     } catch (e: SQLException) {
-        AppLog.e("saving a Transaction added by hand failed", e)
+        AppLog.e("saving a Transaction failed", e)
         R.string.problem_storage
     }
 
 @StringRes
-private fun problemText(problem: LedgerException): Int =
+internal fun problemText(problem: LedgerException): Int =
     when (problem) {
         is LedgerException.AmountUnreadable, is LedgerException.AmountNotPositive -> R.string.problem_amount
         is LedgerException.MerchantMissing -> R.string.problem_merchant
         is LedgerException.UnknownCategory, is LedgerException.CategoryKindMismatch -> R.string.problem_category
+        is LedgerException.UnknownTransaction -> R.string.problem_gone
     }
 
 @Preview

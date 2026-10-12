@@ -75,5 +75,13 @@
   <string name="problem_amount">Type an amount above zero, like 12.30</string>
   <string name="problem_merchant">Type who the money went to or came from</string>
   <string name="problem_category">Pick a Category</string>
+  <string name="problem_gone">This Transaction no longer exists</string>
   <string name="problem_storage">Couldn\'t save. Send the log from ⋮ → Share log.</string>
+
+  <!-- Edit a Transaction -->
+  <string name="excluded">Excluded</string>
+  <string name="excluded_explainer">Kept in the list but left out of every total</string>
+  <string name="delete">Delete</string>
+  <string name="delete_title">Delete this Transaction?</string>
+  <string name="delete_body">It is removed from duit-log for good.</string>
 </resources>

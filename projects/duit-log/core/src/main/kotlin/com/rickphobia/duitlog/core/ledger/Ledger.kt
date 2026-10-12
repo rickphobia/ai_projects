@@ -23,20 +23,70 @@ class Ledger(
 
     /** Saves [entry] and returns it as a Transaction, or throws a [LedgerException] and saves nothing. */
     fun addByHand(entry: HandEntry): Transaction {
-        if (entry.amountSen <= 0) throw LedgerException.AmountNotPositive(entry.amountSen)
-        val merchant = entry.merchant.trim()
-        if (merchant.isEmpty()) throw LedgerException.MerchantMissing()
-        val category = categoryFor(entry)
-        val occurredAt = entry.occurredAt.atZone(clock.zone).toInstant()
-        val note = entry.note?.trim()?.takeIf(String::isNotEmpty)
-
+        val checked = database.check(entry, clock.zone)
         val queries = database.ledgerTransactionQueries
         val id =
             database.transactionWithResult {
-                queries.insert(entry.kind.name, entry.amountSen, occurredAt.toEpochMilli(), merchant, category.id, note)
+                queries.insert(
+                    entry.kind.name,
+                    entry.amountSen,
+                    checked.occurredAt.toEpochMilli(),
+                    checked.merchant,
+                    checked.category.id,
+                    checked.note,
+                )
                 queries.lastInsertedId().executeAsOne()
             }
-        return Transaction(id, entry.kind, entry.amountSen, occurredAt, merchant, category.name, note)
+        return transaction(id)
+    }
+
+    /** The Transaction with [id], or [LedgerException.UnknownTransaction]. */
+    fun transaction(id: Long): Transaction =
+        database.ledgerTransactionQueries.byId(id, ::toTransaction).executeAsOneOrNull()
+            ?: throw LedgerException.UnknownTransaction(id)
+
+    /**
+     * Replaces every field of Transaction [id] with [entry]'s, checked as for [addByHand]; whether
+     * it is Excluded stays as it was.
+     */
+    fun edit(
+        id: Long,
+        entry: HandEntry,
+    ): Transaction {
+        val checked = database.check(entry, clock.zone)
+        database.changeOne(id) {
+            update(
+                entry.kind.name,
+                entry.amountSen,
+                checked.occurredAt.toEpochMilli(),
+                checked.merchant,
+                checked.category.id,
+                checked.note,
+                id,
+            )
+        }
+        return transaction(id)
+    }
+
+    /** A blank [note] removes the Note. */
+    fun setNote(
+        id: Long,
+        note: String?,
+    ): Transaction {
+        database.changeOne(id) { setNote(cleanNote(note), id) }
+        return transaction(id)
+    }
+
+    fun setExcluded(
+        id: Long,
+        excluded: Boolean,
+    ): Transaction {
+        database.changeOne(id) { setExcluded(if (excluded) 1L else 0L, id) }
+        return transaction(id)
+    }
+
+    fun delete(id: Long) {
+        database.changeOne(id) { delete(id) }
     }
 
     fun currentMonth(): YearMonth = YearMonth.now(clock)
@@ -55,35 +105,8 @@ class Ledger(
                 .toInstant()
         val transactions =
             database.ledgerTransactionQueries
-                .between(
-                    from.toEpochMilli(),
-                    until.toEpochMilli(),
-                ) { id, kind, amountSen, occurredAt, merchant, categoryName, note ->
-                    Transaction(
-                        id,
-                        Kind.valueOf(kind),
-                        amountSen,
-                        Instant.ofEpochMilli(occurredAt),
-                        merchant,
-                        categoryName,
-                        note,
-                    )
-                }.executeAsList()
+                .between(from.toEpochMilli(), until.toEpochMilli(), ::toTransaction)
+                .executeAsList()
         return summarizeMonth(month, transactions, zone)
     }
-
-    /** The entry's Category, which must exist and be in the list of the entry's kind. */
-    private fun categoryFor(entry: HandEntry): Category {
-        val category =
-            database.categoryQueries.byId(entry.categoryId, ::toCategory).executeAsOneOrNull()
-                ?: throw LedgerException.UnknownCategory(entry.categoryId)
-        if (category.kind != entry.kind) throw LedgerException.CategoryKindMismatch(category, entry.kind)
-        return category
-    }
-
-    private fun toCategory(
-        id: Long,
-        kind: String,
-        name: String,
-    ) = Category(id, Kind.valueOf(kind), name)
 }

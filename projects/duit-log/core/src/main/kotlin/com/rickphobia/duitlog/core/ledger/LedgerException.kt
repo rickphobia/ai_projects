@@ -21,4 +21,8 @@ sealed class LedgerException(
         category: Category,
         kind: Kind,
     ) : LedgerException("Category ${category.id} is in the ${category.kind} list, not $kind")
+
+    class UnknownTransaction(
+        transactionId: Long,
+    ) : LedgerException("no Transaction with id $transactionId")
 }

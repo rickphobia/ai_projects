@@ -1,6 +1,7 @@
 package com.rickphobia.duitlog.screens
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -48,6 +50,9 @@ private const val SWIPE_THRESHOLD_PX = 120f
 
 // The part of a Transaction's row that its Category name takes; the rest is Merchant, Note and time.
 private const val CATEGORY_SHARE = 0.3f
+
+// How visible an Excluded Transaction's row is, against 1 for the rest.
+private const val EXCLUDED_ALPHA = 0.45f
 
 private val dayTitle = DateTimeFormatter.ofPattern("EEE d MMM")
 private val timeOfDay = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
@@ -75,6 +80,7 @@ fun DailyScreen(
     state: MonthState,
     onMonthChange: (YearMonth) -> Unit,
     onAdd: () -> Unit,
+    onOpen: (Transaction) -> Unit,
     menu: @Composable () -> Unit,
     banner: @Composable () -> Unit = {},
 ) {
@@ -105,7 +111,7 @@ fun DailyScreen(
                 state is MonthState.Unreadable -> Message(R.string.month_unreadable)
                 state !is MonthState.Shown -> Unit
                 state.summary.days.isEmpty() -> Message(R.string.empty_month)
-                else -> DayList(state.summary)
+                else -> DayList(state.summary, onOpen)
             }
         }
     }
@@ -165,14 +171,17 @@ private fun Message(
 }
 
 @Composable
-private fun DayList(summary: MonthSummary) {
+private fun DayList(
+    summary: MonthSummary,
+    onOpen: (Transaction) -> Unit,
+) {
     LazyColumn(
         contentPadding = PaddingValues(bottom = 88.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
         summary.days.forEach { day ->
             item(key = day.date.toString()) { DayHeader(day) }
-            items(day.transactions, key = { it.id }) { TransactionRow(it, summary.zone) }
+            items(day.transactions, key = { it.id }) { TransactionRow(it, summary.zone, onOpen) }
         }
     }
 }
@@ -208,9 +217,16 @@ private fun DayHeader(day: DaySummary) {
 private fun TransactionRow(
     transaction: Transaction,
     zone: ZoneId,
+    onOpen: (Transaction) -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable { onOpen(transaction) }
+                // Greyed, so it reads as counting in no total.
+                .alpha(if (transaction.excluded) EXCLUDED_ALPHA else 1f)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -225,7 +241,15 @@ private fun TransactionRow(
         Column(modifier = Modifier.weight(1f - CATEGORY_SHARE)) {
             Text(transaction.note ?: transaction.merchant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val time = transaction.occurredAt.atZone(zone).format(timeOfDay)
-            val detail = if (transaction.note != null) "$time · ${transaction.merchant}" else time
+            val withMerchant = if (transaction.note != null) "$time · ${transaction.merchant}" else time
+            val detail =
+                if (transaction.excluded) {
+                    "$withMerchant · ${stringResource(
+                        R.string.excluded,
+                    )}"
+                } else {
+                    withMerchant
+                }
             Text(
                 detail,
                 style = MaterialTheme.typography.bodySmall,
@@ -260,6 +284,7 @@ private fun DailyScreenPreview() {
                 300_000,
                 LocalDateTime.of(2026, 10, 1, 9, 0).atZone(zone).toInstant(),
                 "Syarikat ABC",
+                1,
                 "Salary",
                 null,
             ),
@@ -269,11 +294,13 @@ private fun DailyScreenPreview() {
                 1_250,
                 LocalDateTime.of(2026, 10, 2, 12, 30).atZone(zone).toInstant(),
                 "Nasi Kandar",
+                2,
                 "F&B",
                 "lunch with Ali",
+                excluded = true,
             ),
         )
     DuitLogTheme {
-        DailyScreen(month, MonthState.Shown(summarizeMonth(month, transactions, zone)), {}, {}, {})
+        DailyScreen(month, MonthState.Shown(summarizeMonth(month, transactions, zone)), {}, {}, {}, {})
     }
 }
