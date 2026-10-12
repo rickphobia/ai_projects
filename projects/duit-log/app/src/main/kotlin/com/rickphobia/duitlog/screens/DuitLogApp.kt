@@ -2,6 +2,8 @@ package com.rickphobia.duitlog.screens
 
 import android.database.SQLException
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -10,11 +12,14 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.rickphobia.duitlog.core.ledger.HandEntry
 import com.rickphobia.duitlog.core.ledger.Kind
 import com.rickphobia.duitlog.core.ledger.Ledger
 import com.rickphobia.duitlog.core.ledger.LedgerException
 import com.rickphobia.duitlog.logging.AppLog
+import com.rickphobia.duitlog.onboarding.AccessMissingBanner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.YearMonth
@@ -28,6 +33,9 @@ fun DuitLogApp(
     ledger: Ledger,
     versionName: String,
     buildNumber: Int,
+    access: AccessBanner,
+    onOpenRecorder: () -> Unit,
+    onOpenGuide: () -> Unit,
     onShareLog: () -> Unit,
 ) {
     var month by rememberSaveable { mutableStateOf(ledger.currentMonth()) }
@@ -69,10 +77,23 @@ fun DuitLogApp(
             state = monthState,
             onMonthChange = { month = it },
             onAdd = { adding = true },
-            menu = { AppMenu(versionName, buildNumber, onShareLog) },
+            menu = { AppMenu(versionName, buildNumber, onOpenRecorder, onOpenGuide, onShareLog) },
+            banner = {
+                if (!access.granted) {
+                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        AccessMissingBanner(onFix = access.onFix)
+                    }
+                }
+            },
         )
     }
 }
+
+/** Whether notification access is on, and how to fix it when it isn't. */
+data class AccessBanner(
+    val granted: Boolean,
+    val onFix: () -> Unit,
+)
 
 /** Adds [entry] off the main thread and logs the outcome: kind and id only, never the Merchant or Note. */
 private suspend fun addByHand(

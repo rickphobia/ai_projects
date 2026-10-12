@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12 and later. The log stays on the phone it describes; everything else (the database
+<!-- Android 12 and later. The log stays on the phone it describes, and the recorder's Wallet
+     notifications stay on the phone too; everything else (the database
      and settings, once they exist) is backed up. Ticket 19 settles the full backup rules. -->
 <data-extraction-rules>
   <cloud-backup>
     <exclude domain="file" path="logs/" />
+    <exclude domain="file" path="recordings/" />
   </cloud-backup>
   <device-transfer>
     <exclude domain="file" path="logs/" />
+    <exclude domain="file" path="recordings/" />
   </device-transfer>
 </data-extraction-rules>

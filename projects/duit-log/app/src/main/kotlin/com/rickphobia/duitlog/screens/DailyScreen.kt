@@ -66,7 +66,8 @@ sealed interface MonthState {
 
 /**
  * The Daily tab: the Month's Income, Expenses and Total, then its days, newest first. [menu] is
- * the app menu at the end of the Month bar.
+ * the app menu at the end of the Month bar; [banner] shows above the totals when something needs
+ * fixing, such as notification access being off.
  */
 @Composable
 fun DailyScreen(
@@ -75,6 +76,7 @@ fun DailyScreen(
     onMonthChange: (YearMonth) -> Unit,
     onAdd: () -> Unit,
     menu: @Composable () -> Unit,
+    banner: @Composable () -> Unit = {},
 ) {
     val addLabel = stringResource(R.string.add_transaction)
     // The swipe handler lives across recompositions, so it must call the newest callback.
@@ -96,6 +98,7 @@ fun DailyScreen(
                     .fillMaxSize()
                     .swipeBetweenMonths(month) { currentOnMonthChange(it) },
         ) {
+            banner()
             MonthTotals((state as? MonthState.Shown)?.summary)
             HorizontalDivider()
             when {

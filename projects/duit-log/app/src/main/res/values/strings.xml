@@ -4,6 +4,54 @@
   <string name="version">Version %1$s (build %2$d)</string>
   <string name="share_log">Share log</string>
   <string name="share_log_chooser">Send the log file</string>
+  <string name="back">Back</string>
+
+  <!-- First-run notification access guide -->
+  <string name="guide_title">Let duit-log see your Wallet notifications</string>
+  <string name="guide_why">duit-log logs your spending from the notifications Touch \'n Go eWallet, Grab and Shopee show after each payment. To read them it needs notification access. Android has no way to give an app only some apps\' notifications, so this permission covers every notification on the phone.</string>
+  <string name="guide_promise">duit-log drops every notification that isn\'t from Touch \'n Go eWallet, Grab or Shopee the moment it arrives: it never saves it, logs it or sends it anywhere. Everything duit-log keeps stays on this phone, and its code is open for anyone to check.</string>
+  <string name="guide_step">%1$d. %2$s</string>
+  <string name="guide_restricted_title">Allow restricted settings</string>
+  <string name="guide_restricted_body">Android 13 and later block notification access for apps installed from outside the Play Store. Open App info, tap ⋮ in the top corner, then \"Allow restricted settings\", and confirm. If the option isn\'t there, do step 2 first: it appears once Android has blocked the switch, or never, if your phone doesn\'t restrict duit-log.</string>
+  <string name="guide_open_app_info">Open App info</string>
+  <string name="guide_access_title">Turn on notification access</string>
+  <string name="guide_access_body">Switch on duit-log and confirm.</string>
+  <string name="guide_open_access">Open notification access</string>
+  <string name="guide_access_on">Notification access is on.</string>
+  <string name="guide_other_apps_title">Switch other apps off</string>
+  <string name="guide_other_apps_body">On duit-log\'s notification access page, open \"Apps\" (on some phones \"See all apps\") and switch off every app except Touch \'n Go eWallet, Grab and Shopee. Then Android doesn\'t even pass their notifications to duit-log.</string>
+  <string name="guide_post_title">Allow duit-log\'s notifications</string>
+  <string name="guide_post_body">Later versions ask you right after each payment which Category it belongs to, in a notification.</string>
+  <string name="guide_allow_notifications">Allow notifications</string>
+  <string name="guide_post_on">duit-log may post notifications.</string>
+  <string name="guide_done">Done</string>
+  <string name="open_guide">Notification access guide</string>
+
+  <!-- Banner on the Daily tab -->
+  <string name="banner_access_missing">duit-log can\'t see notifications, so it isn\'t recording your Wallet payments. Turn notification access back on.</string>
+  <string name="banner_turn_on">Turn on</string>
+
+  <!-- Recorder -->
+  <string name="open_recorder">Recorder</string>
+  <string name="recorder_title">Recorder</string>
+  <string name="recorder_explainer">Records every notification from Touch \'n Go eWallet, Grab and Shopee, and nothing else, so their wording can be used to read payments later.</string>
+  <string name="recorder_wallet_apps">Wallet apps it accepts</string>
+  <string name="recorder_wallet_app">%1$s (%2$s): %3$s</string>
+  <string name="recorder_installed">installed</string>
+  <string name="recorder_not_found">not found on this phone</string>
+  <plurals name="recorder_count">
+    <item quantity="one">%d notification recorded</item>
+    <item quantity="other">%d notifications recorded</item>
+  </plurals>
+  <string name="recorder_full">The recordings are full, so new notifications aren\'t being recorded. Share them, then clear them.</string>
+  <string name="recorder_share">Share</string>
+  <string name="recorder_share_chooser">Send the recordings</string>
+  <string name="recorder_clear">Clear</string>
+  <string name="recorder_clear_title">Clear the recordings?</string>
+  <plurals name="recorder_clear_body">
+    <item quantity="one">This deletes the %d recorded notification from this phone.</item>
+    <item quantity="other">This deletes all %d recorded notifications from this phone.</item>
+  </plurals>
   <string name="menu">Menu</string>
 
   <!-- Daily tab -->

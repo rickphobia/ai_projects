@@ -57,6 +57,19 @@ _Avoid_: Hidden, ignored
 **Month**:
 A calendar month, 1st to last day. Every amount is in ringgit (MYR).
 
+## Capturing
+
+**Notification Reader**:
+The part of the app that decides what a posted notification is: Not a Wallet, or (from ticket 06) a read Transaction, Ignored or Unreadable.
+_Avoid_: Parser, scraper
+
+**Not a Wallet**:
+The Notification Reader's verdict on a notification whose posting app isn't a Wallet app. It is dropped at once, its text unread, and never saved, logged or counted.
+
+**Recorder**:
+The milestone 1 screen and storage that keep every Wallet notification as Android posted it, so the Notification Reader can be built from real wording.
+_Avoid_: Capture log, sample collector
+
 ## Sorting
 
 **Category**:

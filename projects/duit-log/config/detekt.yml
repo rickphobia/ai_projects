@@ -4,6 +4,11 @@ naming:
     # Compose functions are named like types (DailyScreen).
     ignoreAnnotated: ['Composable']
 
+complexity:
+  LongParameterList:
+    # Compose screens are stateless: they take their state and one callback per action.
+    ignoreAnnotated: ['Composable']
+
 style:
   UnusedPrivateMember:
     # @Preview functions are used by the IDE, not by code.
