@@ -9,7 +9,8 @@ extends Node3D
 ## when the rules say so (see OverseerLook), shows the Worker's tools on a rack by the
 ## Generator at their Upgrade tier (see ToolRack), plays the field's sounds (see FieldSounds), and
 ## reports which plot, or the Generator, was tapped. Knows nothing of the rules beyond the
-## views and events it is shown.
+## views and events it is shown. Nothing of the Farm is built until show_land() gives it the
+## land: the plots, fence and track follow the land's cells and edges.
 ##
 ## Dragging pans the camera and pinching or the mouse wheel zooms it (within FieldCamera's
 ## limits); a tap counts on release, only if the pointer barely moved (PointerGesture).
@@ -41,8 +42,10 @@ const TOOL_RACK_SPOT := Vector3(-2.2, 0.0, 2.4)
 ## How much colour is left in the world when the Worker is fully exhausted: nearly grey.
 const DRAINED_SATURATION := 0.1
 
-@export var columns := 4
-@export var rows := 3
+## Where the front-left plot's centre sits. Land added later grows to the right and the back
+## from here, so the gate, the Generator and the starting view never move; the first 4 × 3
+## land sits centred on the scene's origin, where the camera starts.
+@export var front_left_plot := Vector3(-3.6, 0.0, 2.4)
 @export var spacing := 2.4
 @export var plot_size := 2.0
 ## How long the time-left label stays up after a tap, in seconds.
@@ -67,6 +70,7 @@ var _shown_stages: Array[PlotView.Stage] = []
 var _labelled_plot := -1
 var _label_seconds_remaining := 0.0
 var _gesture := PointerGesture.new(TAP_SLOP)
+## Null until show_land(); the field ignores input and frames until then.
 var _worker: WorkerMotion
 var _overseer: OverseerLook
 var _sounds := FieldSounds.new()
@@ -78,6 +82,8 @@ var _tool_rack := ToolRack.new()
 var _camera_back: Vector3
 ## The scene's own colour saturation, shown while he is rested.
 var _full_saturation: float
+## Kept for the Worker, the power tiles and the lamp, which show_land() makes.
+var _reduced_motion := false
 
 @onready var _camera: Camera3D = $Camera
 @onready var _haze: WorldEnvironment = $Haze
@@ -86,7 +92,38 @@ var _full_saturation: float
 
 
 func _ready() -> void:
-	_grid = PlotGrid.new(columns, rows, spacing, plot_size)
+	# Its own copy: the scene's environment is shared by every instance of the scene.
+	_haze.environment = _haze.environment.duplicate()
+	_full_saturation = _haze.environment.adjustment_saturation
+	add_child(_sounds)
+	_time_left.visible = false
+
+
+## Builds the plots, fence and track from the Farm's land, with the Generator, the tool rack,
+## the Worker, the Overseer and the camera placed round them. Called once, before anything is
+## shown.
+func show_land(land: LandView) -> void:
+	_grid = PlotGrid.new(land, front_left_plot, spacing, plot_size)
+	_add_plots()
+	var fence_bounds := _grid.bounds().grow(fence_margin)
+	add_child(FenceLook.build(fence_bounds, gate_z))
+	_track = TrackPath.new(fence_bounds.grow(track_gap), track_corner_radius, gate_z)
+	add_child(TrackLook.build(_track, track_width))
+	_tiles = PowerTiles.new(_track, track_width)
+	_tiles.name = "PowerTiles"
+	add_child(_tiles)
+	_generator.position = _track.point_at(0.0)
+	_tool_rack.name = "ToolRack"
+	_tool_rack.position = _generator.position + TOOL_RACK_SPOT
+	add_child(_tool_rack)
+	_start_camera()
+	_start_worker(Vector3(fence_bounds.position.x + gate_inside, 0.0, gate_z))
+	_start_overseer()
+	_worker.stepped.connect(_on_worker_stepped)
+	set_reduced_motion(_reduced_motion)
+
+
+func _add_plots() -> void:
 	var soil := BoxMesh.new()
 	soil.size = Vector3(plot_size, SOIL_HEIGHT, plot_size)
 	var soil_material := _material(SOIL_COLOUR)
@@ -105,31 +142,6 @@ func _ready() -> void:
 		_crops.append(crop)
 		_shown_stages.append(PlotView.Stage.EMPTY)
 		add_child(plot)
-	add_child(FenceLook.build(_fence_half_size(), gate_z))
-	_track = TrackPath.new(
-		_fence_half_size() + Vector2.ONE * track_gap, track_corner_radius, gate_z
-	)
-	add_child(TrackLook.build(_track, track_width))
-	_tiles = PowerTiles.new(_track, track_width)
-	_tiles.name = "PowerTiles"
-	add_child(_tiles)
-	_generator.position = _track.point_at(0.0)
-	_tool_rack.name = "ToolRack"
-	_tool_rack.position = _generator.position + TOOL_RACK_SPOT
-	add_child(_tool_rack)
-	# Its own copy: the scene's environment is shared by every instance of the scene.
-	_haze.environment = _haze.environment.duplicate()
-	_full_saturation = _haze.environment.adjustment_saturation
-	_start_camera()
-	_start_worker()
-	_start_overseer()
-	add_child(_sounds)
-	_worker.stepped.connect(_on_worker_stepped)
-	_time_left.visible = false
-
-
-func plot_count() -> int:
-	return _grid.count()
 
 
 ## The track's centre line, round the fence.
@@ -178,6 +190,9 @@ func show_tools_tier(tier: int) -> void:
 ## at once instead of fading and the lamp doesn't pulse. The colour drain stays, as it only
 ## follows his Exhaustion and never moves on screen; so do the sounds.
 func set_reduced_motion(on: bool) -> void:
+	_reduced_motion = on
+	if _worker == null:
+		return
 	_worker.skip_slump = on
 	_worker.skip_stagger = on
 	_tiles.instant_fade = on
@@ -222,6 +237,8 @@ static func time_left_text(seconds_left: float) -> String:
 
 
 func _process(delta: float) -> void:
+	if _worker == null:
+		return
 	_worker.update(delta)
 	_sounds.set_generator_speed(_worker.track_speed())
 	if _labelled_plot < 0:
@@ -232,6 +249,8 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _worker == null:
+		return
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		_on_pointer_button(touch.index, touch.position, touch.pressed, touch.canceled)
@@ -353,18 +372,10 @@ func _hide_time_left() -> void:
 	_time_left.visible = false
 
 
-## How far the fence reaches from the field's centre: across (x) and front to back (y).
-func _fence_half_size() -> Vector2:
-	return Vector2(
-		(columns - 1) * spacing / 2.0 + plot_size / 2.0 + fence_margin,
-		(rows - 1) * spacing / 2.0 + plot_size / 2.0 + fence_margin
-	)
-
-
-func _start_worker() -> void:
+## `gate` is where he steps through the gate, just inside the fence.
+func _start_worker(gate: Vector3) -> void:
 	var body: Node3D = $Worker
 	var player := _animation_player_of(body, "worker")
-	var gate := Vector3(-_fence_half_size().x + gate_inside, 0.0, gate_z)
 	_worker = WorkerMotion.new(body, player, _track, gate)
 
 

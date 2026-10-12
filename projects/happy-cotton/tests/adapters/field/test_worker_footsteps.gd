@@ -15,7 +15,7 @@ const RUNNING := WorkerView.Activity.RUNNING
 
 var _body: Node3D
 var _player: AnimationPlayer
-var _track := TrackPath.new(Vector2(7.0, 5.0), 1.0, 3.0)
+var _track := TrackPath.new(Rect2(-7.0, -5.0, 14.0, 10.0), 1.0, 3.0)
 var _motion: WorkerMotion
 
 

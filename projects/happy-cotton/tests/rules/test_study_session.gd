@@ -10,7 +10,7 @@ var _farm: Farm
 
 
 func before_each() -> void:
-	_farm = Farm.new(FastTuning.table(), PLOTS)
+	_farm = Farm.new(FastTuning.with_land(FastTuning.table(), 4, 2))
 	_farm.take_messages()
 
 

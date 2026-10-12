@@ -4,21 +4,21 @@ extends GutTest
 ## test calls advance. With the fast table a lap takes 10 seconds and he runs 10 laps (100
 ## seconds) before he stops to breathe for 5.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 const RUN_SECONDS := FastTuning.LAP_SECONDS * FastTuning.LAPS_BEFORE_BREATH
 
 var _farm: Farm
 
 
 func before_each() -> void:
-	_farm = Farm.new(FastTuning.table(), PLOTS)
+	_farm = Farm.new(FastTuning.table())
 
 
 ## A Farm whose Shift is long enough for several runs and breaths without a Quota check.
 func _long_shift_farm() -> Farm:
 	var tuning := FastTuning.table()
 	tuning.shift_seconds = 1000.0
-	return Farm.new(tuning, PLOTS)
+	return Farm.new(tuning)
 
 
 func _activity() -> WorkerView.Activity:
@@ -197,7 +197,7 @@ func test_laps_and_breath_come_from_the_tuning_table() -> void:
 	tuning.laps_before_breath = 3.0
 	tuning.whistle_after_seconds = 4.0
 	tuning.whip_after_seconds = 3.0
-	var farm := Farm.new(tuning, PLOTS)
+	var farm := Farm.new(tuning)
 	farm.run_generator()
 
 	farm.advance(6.0)

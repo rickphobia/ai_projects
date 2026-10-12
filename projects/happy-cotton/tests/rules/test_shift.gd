@@ -2,13 +2,13 @@ extends GutTest
 ## The Shift, the Quota and Labour Points, through the Farm's public interface. Time moves
 ## only when the test calls advance.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 
 var _farm: Farm
 
 
 func before_each() -> void:
-	_farm = Farm.new(FastTuning.table(), PLOTS)
+	_farm = Farm.new(FastTuning.table())
 
 
 ## Plants `count` plots (at most PLOTS), runs the Generator until they ripen and picks them

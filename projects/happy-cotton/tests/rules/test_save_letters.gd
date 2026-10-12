@@ -4,7 +4,7 @@ extends GutTest
 ## before the letters restores with none. With the test table a letter arrives at the start of
 ## every second Shift; with the billing table the school fees at the end of Shift 3 go unpaid.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 
 
 ## The save as the store writes and reads it back.
@@ -34,7 +34,7 @@ func _seen(farm: Farm) -> Dictionary:
 
 ## A Farm with the letters played to this point, its queues emptied as a restore empties them.
 func _played(tuning: Tuning, shifts: int) -> Farm:
-	var farm := Farm.new(tuning, PLOTS)
+	var farm := Farm.new(tuning)
 	_miss_shifts(farm, shifts)
 	farm.take_family_events()
 	farm.take_messages()
@@ -49,7 +49,7 @@ func _assert_play_alike(saved: Farm, restored: Farm, shifts: int, what: String) 
 
 func test_the_letters_survive_a_save_and_the_next_one_still_comes() -> void:
 	var saved := _played(FastTuning.table(), 2)
-	var restored := Farm.new(FastTuning.table(), PLOTS)
+	var restored := Farm.new(FastTuning.table())
 
 	var problems := restored.restore(_through_json(saved.to_save()))
 
@@ -60,7 +60,7 @@ func test_the_letters_survive_a_save_and_the_next_one_still_comes() -> void:
 
 func test_letters_stopped_by_unpaid_fees_stay_stopped_after_a_save() -> void:
 	var saved := _played(FastTuning.billing_table(), 3)
-	var restored := Farm.new(FastTuning.billing_table(), PLOTS)
+	var restored := Farm.new(FastTuning.billing_table())
 
 	restored.restore(_through_json(saved.to_save()))
 
@@ -72,7 +72,7 @@ func test_a_save_from_before_the_letters_restores_with_none() -> void:
 	var save := _through_json(_played(FastTuning.table(), 2).to_save())
 	save["version"] = 5
 	save.erase("letters")
-	var restored := Farm.new(FastTuning.table(), PLOTS)
+	var restored := Farm.new(FastTuning.table())
 
 	var problems := restored.restore(save)
 
@@ -88,7 +88,7 @@ func test_a_save_with_an_unknown_letter_is_damaged_and_changes_nothing() -> void
 	var save := _through_json(_played(FastTuning.table(), 2).to_save())
 	var letters: Dictionary = save["letters"]
 	letters["received"] = ["letter_01", "a_letter_never_written"]
-	var farm := Farm.new(FastTuning.table(), PLOTS)
+	var farm := Farm.new(FastTuning.table())
 	var fresh := farm.to_save()
 
 	var problems := farm.restore(save)

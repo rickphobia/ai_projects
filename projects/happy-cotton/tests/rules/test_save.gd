@@ -4,13 +4,13 @@ extends GutTest
 ## plays on exactly as the saved one: through the next rest hour, Shift and Study Session.
 ## A save that can't be read names what is wrong and leaves the Farm as it was.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 ## Never under the dropped-cotton chance, so picks never drop and both Farms roll alike.
 const NO_DROPS := 0.9
 
 
 func _new_farm() -> Farm:
-	var farm := Farm.new(FastTuning.exhausting_table(), PLOTS, func() -> float: return NO_DROPS)
+	var farm := Farm.new(FastTuning.exhausting_table(), func() -> float: return NO_DROPS)
 	farm.take_messages()
 	return farm
 
@@ -125,7 +125,7 @@ func test_a_restored_farm_plays_on_exactly_as_the_saved_one() -> void:
 
 
 func test_a_restored_farm_drops_the_messages_queued_before_it() -> void:
-	var farm := Farm.new(FastTuning.table(), PLOTS)
+	var farm := Farm.new(FastTuning.table())
 
 	farm.restore(_through_json(_played_farm().to_save()))
 
@@ -174,7 +174,7 @@ func test_a_damaged_save_names_every_bad_field_and_changes_nothing() -> void:
 
 
 func test_a_save_for_another_number_of_plots_is_refused() -> void:
-	var farm := Farm.new(FastTuning.exhausting_table(), PLOTS + 1)
+	var farm := Farm.new(FastTuning.with_land(FastTuning.exhausting_table(), PLOTS + 1, 1))
 
 	var problems := farm.restore(_through_json(_played_farm().to_save()))
 
@@ -305,9 +305,9 @@ func test_upgrade_tiers_beyond_the_tuning_now_are_cut_to_its_top_tier() -> void:
 
 
 func test_debt_survives_a_save() -> void:
-	var saved := Farm.new(FastTuning.billing_table(), PLOTS)
+	var saved := Farm.new(FastTuning.billing_table())
 	saved.advance(FastTuning.SHIFT_SECONDS)
-	var restored := Farm.new(FastTuning.billing_table(), PLOTS)
+	var restored := Farm.new(FastTuning.billing_table())
 
 	var problems := restored.restore(_through_json(saved.to_save()))
 
@@ -350,9 +350,9 @@ func _end_shift_slip(farm: Farm) -> Dictionary:
 
 
 func test_the_school_fees_survive_a_save() -> void:
-	var saved := Farm.new(FastTuning.billing_table(), PLOTS)
+	var saved := Farm.new(FastTuning.billing_table())
 	_miss_shifts(saved, 3)
-	var restored := Farm.new(FastTuning.billing_table(), PLOTS)
+	var restored := Farm.new(FastTuning.billing_table())
 
 	var problems := restored.restore(_through_json(saved.to_save()))
 
@@ -363,14 +363,14 @@ func test_the_school_fees_survive_a_save() -> void:
 
 
 func test_a_save_from_before_the_school_fees_has_them_due_three_shifts_on() -> void:
-	var saved := Farm.new(FastTuning.billing_table(), PLOTS)
+	var saved := Farm.new(FastTuning.billing_table())
 	_miss_shifts(saved, 4)
 	var save := _through_json(saved.to_save())
 	save["version"] = 4
 	save.erase("school_fees_shift")
 	save.erase("school_fees_unpaid")
 	save.erase("school_fees_unpaid_in_a_row")
-	var restored := Farm.new(FastTuning.billing_table(), PLOTS)
+	var restored := Farm.new(FastTuning.billing_table())
 
 	var problems := restored.restore(save)
 

@@ -200,6 +200,7 @@ const OVERSEER_WHIP := Toil.WHIP
 const MISSED_KEYS := Shifts.MISSED_KEYS
 
 var _tuning: Tuning
+var _land: Land
 var _crops: Crops
 var _exhaustion: Exhaustion
 var _toil: Toil
@@ -224,10 +225,12 @@ var _random: RandomNumberGenerator
 
 
 ## `roll` is the source of chance, returning a number from 0 to 1; tests pass their own.
-## Without one the Farm uses a randomly seeded generator.
-func _init(tuning: Tuning, plot_count: int, roll: Callable = Callable()) -> void:
+## Without one the Farm uses a randomly seeded generator. The land starts at the tuning's first
+## columns and rows.
+func _init(tuning: Tuning, roll: Callable = Callable()) -> void:
 	_tuning = tuning
-	_crops = Crops.new(tuning.grow_seconds, tuning.wither_seconds, plot_count)
+	_land = Land.new(int(tuning.first_land_columns), int(tuning.first_land_rows))
+	_crops = Crops.new(tuning.grow_seconds, tuning.wither_seconds, _land.plot_count())
 	_exhaustion = Exhaustion.new(tuning)
 	_toil = Toil.new(tuning, _exhaustion)
 	_store = Store.new(tuning.generator_tiers, tuning.tools_tiers)
@@ -583,6 +586,11 @@ func plots() -> Array[PlotView]:
 	for index in _crops.count():
 		views.append(plot(index))
 	return views
+
+
+## The Farm's columns and rows and the cell each Plot sits in.
+func land() -> LandView:
+	return _land.view()
 
 
 func shift() -> ShiftView:

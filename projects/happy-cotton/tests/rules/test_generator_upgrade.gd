@@ -4,7 +4,7 @@ extends GutTest
 ## With the fast table the first tier costs 10 (two picks), doubles growth and raises the Quota
 ## by 1; the second costs 20, triples growth and raises it by 2 more.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 
 var _farm: Farm
 
@@ -16,7 +16,7 @@ func before_each() -> void:
 func _farm_with_shift(shift_seconds: float) -> Farm:
 	var tuning := FastTuning.table()
 	tuning.shift_seconds = shift_seconds
-	var farm := Farm.new(tuning, PLOTS)
+	var farm := Farm.new(tuning)
 	farm.take_messages()
 	return farm
 

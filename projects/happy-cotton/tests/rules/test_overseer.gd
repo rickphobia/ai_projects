@@ -4,7 +4,7 @@ extends GutTest
 ## runs again; advance() returns these events. With the fast table he stops after 100 seconds
 ## of running, the whistle comes 3 seconds later and the whip 2 seconds after that.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 const RUN_SECONDS := FastTuning.LAP_SECONDS * FastTuning.LAPS_BEFORE_BREATH
 const NONE: Array[StringName] = []
 const WHISTLE: Array[StringName] = [Farm.OVERSEER_WHISTLE]
@@ -21,7 +21,7 @@ func before_each() -> void:
 ## A Farm whose Shift is long enough for several runs and breaths without a Quota check.
 func _long_shift_farm(tuning: Tuning) -> Farm:
 	tuning.shift_seconds = 1000.0
-	return Farm.new(tuning, PLOTS)
+	return Farm.new(tuning)
 
 
 ## Runs him until he has just stopped to breathe.

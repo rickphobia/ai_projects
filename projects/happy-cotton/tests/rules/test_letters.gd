@@ -4,7 +4,7 @@ extends GutTest
 ## the school fees, 15 at the end of Shift 3, so a Worker who earned nothing falls 15 into Debt
 ## there and the letters stop; three picks (15) clear it and they start again.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 
 var _farm: Farm
 
@@ -22,7 +22,7 @@ func _fees_table() -> Tuning:
 
 
 func _new_farm(tuning: Tuning) -> Farm:
-	var farm := Farm.new(tuning, PLOTS)
+	var farm := Farm.new(tuning)
 	farm.take_family_events()
 	return farm
 

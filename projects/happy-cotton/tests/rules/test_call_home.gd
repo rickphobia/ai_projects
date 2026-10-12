@@ -5,7 +5,7 @@ extends GutTest
 ## Privilege it is refused after a missed Quota, in Debt and in a Study Session. With the test
 ## table it costs 5 Labour Points (one pick) and lasts 10 seconds.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 
 var _farm: Farm
 
@@ -15,7 +15,7 @@ func before_each() -> void:
 
 
 func _farm_with(tuning: Tuning) -> Farm:
-	var farm := Farm.new(tuning, PLOTS)
+	var farm := Farm.new(tuning)
 	farm.take_messages()
 	farm.take_family_events()
 	return farm
@@ -179,7 +179,7 @@ func test_a_call_waits_while_away_and_survives_a_save() -> void:
 	_farm.buy_privilege(Farm.CALL_HOME)
 	_farm.advance(4.0)
 	_farm.resume_offline(100.0)
-	var restored := Farm.new(FastTuning.table(), PLOTS)
+	var restored := Farm.new(FastTuning.table())
 
 	var save := _through_json(_farm.to_save())
 	assert_eq(restored.restore(save), [] as Array[String])
@@ -191,7 +191,7 @@ func test_a_save_from_before_the_call_restores_with_none_under_way() -> void:
 	var save := _through_json(_farm.to_save())
 	save["version"] = 6
 	save.erase("call_left")
-	var restored := Farm.new(FastTuning.table(), PLOTS)
+	var restored := Farm.new(FastTuning.table())
 
 	assert_eq(restored.restore(save), [] as Array[String])
 	assert_eq(restored.call_home_seconds_left(), 0.0)

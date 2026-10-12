@@ -5,7 +5,6 @@ extends GutTest
 ## save itself. Its save slot is in a test folder of its own.
 
 const MAIN_SCENE := preload("res://src/main.tscn")
-const FIELD_SCENE := preload("res://src/adapters/field/field.tscn")
 const SAVE_FOLDER := "user://test_main_save"
 const SAVE_SLOT := SAVE_FOLDER + "/save.json"
 
@@ -42,21 +41,18 @@ func _main() -> Node:
 	return main
 
 
-## The Farm in the save slot, restored with the shipped tuning table and the field's plots.
+## The Farm in the save slot, restored with the shipped tuning table.
 func _saved_farm(main: Node) -> Farm:
 	var tuning: Tuning = main.call("tuning")
-	var field: Field = main.get_node("Field")
-	var farm := Farm.new(tuning, field.plot_count())
+	var farm := Farm.new(tuning)
 	assert_eq(farm.restore(_store.read().farm), [] as Array[String])
 	return farm
 
 
-## A save of a Farm with plot 0 planted, written `seconds_ago`, for the field's plots.
+## A save of a Farm with plot 0 planted, written `seconds_ago`.
 func _write_save(seconds_ago: float) -> void:
-	var field: Field = add_child_autofree(FIELD_SCENE.instantiate())
-	await wait_process_frames(1)
 	var tuning := Tuning.load_file("res://data/tuning.tres")
-	var farm := Farm.new(tuning, field.plot_count())
+	var farm := Farm.new(tuning)
 	farm.plant(0)
 	_store.write(farm.to_save(), Time.get_unix_time_from_system() - seconds_ago)
 
@@ -102,7 +98,7 @@ func test_leaving_the_game_saves_it() -> void:
 
 
 func test_a_save_is_continued_with_the_time_away_counted_and_logged() -> void:
-	await _write_save(3600.0)
+	_write_save(3600.0)
 
 	var main: Node = add_child_autofree(_main())
 	await wait_process_frames(1)
@@ -119,7 +115,7 @@ func test_a_save_is_continued_with_the_time_away_counted_and_logged() -> void:
 
 
 func test_continuing_a_save_rewrites_it_so_the_time_away_counts_once() -> void:
-	await _write_save(3600.0)
+	_write_save(3600.0)
 	var main: Node = add_child_autofree(_main())
 	await wait_process_frames(1)
 
@@ -162,7 +158,7 @@ func test_a_save_the_rules_cannot_read_is_kept_aside_with_its_problems_logged() 
 
 func test_the_log_never_holds_the_save_itself() -> void:
 	GameLog.minimum_level = GameLog.Level.DEBUG
-	await _write_save(60.0)
+	_write_save(60.0)
 	var main: Node = add_child_autofree(_main())
 	await wait_process_frames(1)
 	var field: Field = main.get_node("Field")

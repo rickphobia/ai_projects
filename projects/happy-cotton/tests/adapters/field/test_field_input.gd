@@ -21,6 +21,7 @@ func before_each() -> void:
 	add_child_autofree(_viewport)
 	_field = FIELD_SCENE.instantiate()
 	_viewport.add_child(_field)
+	_field.show_land(FieldLand.first())
 	_camera = _field.get_node("Camera")
 	_field.plot_tapped.connect(func(index: int) -> void: _tapped.append(index))
 	_field.generator_tapped.connect(func() -> void: _generator_taps += 1)
@@ -28,7 +29,9 @@ func before_each() -> void:
 
 
 func _plot_on_screen(index: int) -> Vector2:
-	var grid := PlotGrid.new(_field.columns, _field.rows, _field.spacing, _field.plot_size)
+	var grid := PlotGrid.new(
+		FieldLand.first(), _field.front_left_plot, _field.spacing, _field.plot_size
+	)
 	return _camera.unproject_position(grid.centre_of(index))
 
 

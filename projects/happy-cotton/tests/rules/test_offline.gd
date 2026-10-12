@@ -3,13 +3,13 @@ extends GutTest
 ## crops grow at the slower offline rate (the night shift) with no Generator, a Study Session
 ## keeps counting down and the Shift waits. Coming back gives an away summary.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 
 var _farm: Farm
 
 
 func before_each() -> void:
-	_farm = Farm.new(FastTuning.table(), PLOTS)
+	_farm = Farm.new(FastTuning.table())
 	_farm.take_messages()
 
 
@@ -178,7 +178,7 @@ func test_offline_time_is_capped_at_the_tuning_maximum() -> void:
 func test_the_offline_cap_limits_growth_too() -> void:
 	var tuning := FastTuning.table()
 	tuning.offline_cap_seconds = _offline_for(10.0)
-	var farm := Farm.new(tuning, PLOTS)
+	var farm := Farm.new(tuning)
 	farm.plant(0)
 
 	farm.resume_offline(100000.0)
@@ -188,7 +188,7 @@ func test_the_offline_cap_limits_growth_too() -> void:
 
 ## A Farm where work adds Exhaustion, with `plants` plots planted (10 Exhaustion each).
 func _tired_farm(plants: int) -> Farm:
-	var farm := Farm.new(FastTuning.exhausting_table(), PLOTS)
+	var farm := Farm.new(FastTuning.exhausting_table())
 	for index in plants:
 		farm.plant(index)
 	farm.take_messages()

@@ -5,7 +5,7 @@ extends GutTest
 const WIDTH := 1.6
 
 ## The field's own track: round its corners the tiles must still meet.
-var _track := TrackPath.new(Vector2(7.5, 6.3), 1.6, 4.0)
+var _track := TrackPath.new(Rect2(-7.5, -6.3, 15.0, 12.6), 1.6, 4.0)
 var _tiles: PowerTiles
 
 

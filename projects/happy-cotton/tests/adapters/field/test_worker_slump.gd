@@ -13,7 +13,7 @@ func before_each() -> void:
 	_body = WORKER_MODEL.instantiate()
 	add_child_autofree(_body)
 	var player: AnimationPlayer = _body.find_children("*", "AnimationPlayer", true, false)[0]
-	var track := TrackPath.new(Vector2(7.0, 5.0), 1.0, 3.0)
+	var track := TrackPath.new(Rect2(-7.0, -5.0, 14.0, 10.0), 1.0, 3.0)
 	_motion = WorkerMotion.new(_body, player, track, GATE)
 
 
