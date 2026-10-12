@@ -6,6 +6,35 @@ export interface Health {
   database: "ok" | "unreachable";
 }
 
+export interface Folder {
+  id: number;
+  name: string;
+}
+
+export interface InboxItem {
+  id: number;
+  title: string;
+  // The original page, opened in a new tab.
+  url: string;
+  source: string;
+  folder: Folder;
+  // ISO 8601 with a time zone.
+  publishedAt: string;
+}
+
+export interface InboxQuery {
+  // Only this Folder's Items; all Folders when left out.
+  folderId?: number;
+  // The last page's nextCursor, for the page after it.
+  cursor?: string;
+}
+
+export interface InboxPage {
+  items: InboxItem[];
+  // Null on the last page.
+  nextCursor: string | null;
+}
+
 export type LoginResult =
   | { kind: "signed-in" }
   | { kind: "wrong-password" }
@@ -17,6 +46,8 @@ export interface ApiClient {
   logout(): Promise<void>;
   // Resolves when signed in; otherwise the client sends the owner to login and rejects.
   checkSession(): Promise<void>;
+  folders(): Promise<Folder[]>;
+  inbox(query: InboxQuery): Promise<InboxPage>;
 }
 
 export class ApiError extends Error {
@@ -68,6 +99,35 @@ export class HttpApiClient implements ApiClient {
     await this.sendWithSession("GET", "api/session");
   }
 
+  async folders(): Promise<Folder[]> {
+    const response = await this.sendWithSession("GET", "api/folders");
+    const body = (await response.json()) as { folders: Folder[] };
+    return body.folders;
+  }
+
+  async inbox(query: InboxQuery): Promise<InboxPage> {
+    const params = new URLSearchParams();
+    if (query.folderId !== undefined) {
+      params.set("folder", String(query.folderId));
+    }
+    if (query.cursor !== undefined) params.set("cursor", query.cursor);
+    const path =
+      params.size > 0 ? `api/inbox?${params.toString()}` : "api/inbox";
+    const response = await this.sendWithSession("GET", path);
+    const body = (await response.json()) as InboxPageJson;
+    return {
+      items: body.items.map((item) => ({
+        id: item.id,
+        title: item.title,
+        url: item.url,
+        source: item.source,
+        folder: item.folder,
+        publishedAt: item.published_at,
+      })),
+      nextCursor: body.next_cursor,
+    };
+  }
+
   // For every call except login: a 401 means the session is gone, so go to login.
   private async sendWithSession(
     method: string,
@@ -96,6 +156,19 @@ export class HttpApiClient implements ApiClient {
       body: body === undefined ? null : JSON.stringify(body),
     });
   }
+}
+
+// The Inbox as the backend sends it, in snake_case.
+interface InboxPageJson {
+  items: {
+    id: number;
+    title: string;
+    url: string;
+    source: string;
+    folder: Folder;
+    published_at: string;
+  }[];
+  next_cursor: string | null;
 }
 
 function unexpected(method: string, response: Response): ApiError {

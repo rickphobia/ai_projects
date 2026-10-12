@@ -19,7 +19,9 @@ describe("the app shell", () => {
     await renderShell(root, api, () => undefined);
 
     expect(screen.getByRole("heading", { name: "rss-news" })).toBeTruthy();
-    expect(screen.getByRole("status").textContent).toBe("The server is up.");
+    expect(screen.getByRole("status", { name: "Server" }).textContent).toBe(
+      "The server is up.",
+    );
   });
 
   it("says when the database is unreachable", async () => {
@@ -27,9 +29,9 @@ describe("the app shell", () => {
 
     await renderShell(root, api, () => undefined);
 
-    expect(screen.getByRole("status").textContent).toContain(
-      "database is unreachable",
-    );
+    expect(
+      screen.getByRole("status", { name: "Server" }).textContent,
+    ).toContain("database is unreachable");
   });
 
   it("says when the server can't be reached", async () => {
@@ -37,9 +39,26 @@ describe("the app shell", () => {
 
     await renderShell(root, api, () => undefined);
 
-    expect(screen.getByRole("status").textContent).toBe(
+    expect(screen.getByRole("status", { name: "Server" }).textContent).toBe(
       "Can't reach the server: GET /healthz answered 502",
     );
+  });
+
+  it("shows the Inbox", async () => {
+    api.items = [
+      {
+        id: 1,
+        title: "A story",
+        url: "https://news.example/1",
+        source: "Example",
+        folder: { id: 1, name: "AI" },
+        publishedAt: "2026-10-12T04:00:00+00:00",
+      },
+    ];
+
+    await renderShell(root, api, () => undefined);
+
+    expect(screen.getByRole("link", { name: "A story" })).toBeTruthy();
   });
 
   it("signs out and goes back to login", async () => {
