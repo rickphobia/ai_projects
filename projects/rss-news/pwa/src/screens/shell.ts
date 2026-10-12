@@ -10,6 +10,7 @@ import { renderNoteBriefing, renderNotes } from "./notes";
 import { installSelectionPopup } from "./selection";
 import { renderSettings, spendingBanner } from "./settings";
 import { renderSources } from "./sources";
+import { renderStocks } from "./stocks";
 
 export interface ShellOptions {
   // This browser's push subscription, for the Alerts opt-in in Settings.
@@ -24,7 +25,7 @@ export interface ShellOptions {
 // a sidebar with the screens and the Folders (a drawer opened from the header's Menu button on
 // a phone), a spending warning from 80% of the monthly limit, and the page: the home screen
 // (the latest Briefing), the Inbox (all of it or one Folder), an Item, the saved Briefings,
-// the Notes, the Sources or the Settings screen.
+// the Notes, the Sources, the Stocks or the Settings screen.
 export async function renderShell(
   root: HTMLElement,
   api: ApiClient,
@@ -57,6 +58,7 @@ export async function renderShell(
   const toBriefings = navButton("Briefings");
   const toNotes = navButton("Notes");
   const toSources = navButton("Sources");
+  const toStocks = navButton("Stocks");
   const toSettings = navButton("Settings");
   const folderHeading = document.createElement("p");
   folderHeading.className = "sidebar-heading";
@@ -72,6 +74,7 @@ export async function renderShell(
     toBriefings,
     toNotes,
     toSources,
+    toStocks,
     toSettings,
     folderHeading,
     folderList,
@@ -210,6 +213,12 @@ export async function renderShell(
   toSources.addEventListener("click", () => {
     showing(toSources);
     void renderSources(page, api, () => void listFolders());
+  });
+  // Adding or removing a stock adds or removes its ticker-news Source, which the Folders
+  // don't show, so the sidebar needs no refresh.
+  toStocks.addEventListener("click", () => {
+    showing(toStocks);
+    void renderStocks(page, api);
   });
   toSettings.addEventListener("click", () => {
     showing(toSettings);

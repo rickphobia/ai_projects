@@ -25,6 +25,7 @@ function item(
     summary: importance === null ? null : `Summary of ${title}`,
     read: false,
     imageUrl: null,
+    stocks: [],
   };
 }
 
@@ -286,6 +287,20 @@ describe("the Inbox", () => {
     expect(
       screen.getByRole("button", { name: /^Brief these/ }).textContent,
     ).toBe("Brief these (0)");
+  });
+
+  it("marks each row with the owner's stocks its Item mentions", async () => {
+    api.items[0] = {
+      ...api.items[0],
+      stocks: ["1155.KL", "NVDA"],
+    } as InboxItem;
+    await renderInbox(root, api, onOpen, onBriefThese);
+
+    const tags = screen.getAllByLabelText(/^Mentions /);
+    expect(tags.map((tag) => tag.getAttribute("aria-label"))).toEqual([
+      "Mentions 1155.KL, NVDA",
+    ]);
+    expect(tags[0]?.textContent).toBe("1155.KLNVDA");
   });
 
   it("shows a lazy thumbnail only on rows whose Item has an image", async () => {

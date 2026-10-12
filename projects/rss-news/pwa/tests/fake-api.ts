@@ -20,6 +20,7 @@ import type {
 } from "../src/api/chats";
 import type { Definition } from "../src/api/dictionary";
 import type { NewNote, Note } from "../src/api/notes";
+import type { OwnerStocks, WatchedStock } from "../src/api/stocks";
 import type {
   ApiClient,
   Folder,
@@ -391,6 +392,34 @@ export class FakeApiClient implements ApiClient {
         "\n\n",
       ),
     );
+  }
+
+  // The Holdings and the Watchlist; the calls below change the Watchlist like the backend.
+  ownerStocks: OwnerStocks = { holdings: [], watchlist: [] };
+
+  stocks(): Promise<OwnerStocks> {
+    return Promise.resolve({
+      holdings: [...this.ownerStocks.holdings],
+      watchlist: [...this.ownerStocks.watchlist],
+    });
+  }
+
+  watchStock(ticker: string): Promise<WatchedStock> {
+    const watched = {
+      ticker: ticker.toUpperCase(),
+      addedAt: "2026-10-12T20:00:00+08:00",
+    };
+    if (this.changeError === null) this.ownerStocks.watchlist.push(watched);
+    return this.change(["watchStock", ticker], watched);
+  }
+
+  unwatchStock(ticker: string): Promise<void> {
+    if (this.changeError === null) {
+      this.ownerStocks.watchlist = this.ownerStocks.watchlist.filter(
+        (stock) => stock.ticker !== ticker,
+      );
+    }
+    return this.change(["unwatchStock", ticker], undefined);
   }
 
   defineWord(term: string, context: string): Promise<Definition> {

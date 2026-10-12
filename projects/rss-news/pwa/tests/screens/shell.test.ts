@@ -37,6 +37,7 @@ describe("the app shell", () => {
         summary: "Malaysia's central bank kept its policy rate at 2.75%.",
         read: false,
         imageUrl: null,
+        stocks: [],
       },
     ];
 
@@ -101,6 +102,7 @@ describe("the app shell", () => {
         summary: "Malaysia's central bank kept its policy rate at 2.75%.",
         read: false,
         imageUrl: null,
+        stocks: [],
       },
     ];
     Range.prototype.getBoundingClientRect = () => new DOMRect(0, 0, 10, 10);
@@ -179,6 +181,7 @@ describe("the app shell", () => {
         summary: "Something happened.",
         read: false,
         imageUrl: null,
+        stocks: [],
       },
     ];
 
@@ -208,6 +211,7 @@ describe("the app shell", () => {
         summary: null,
         read: false,
         imageUrl: null,
+        stocks: [],
       },
     ];
 
@@ -232,6 +236,7 @@ describe("the app shell", () => {
         summary: "Something happened.",
         read: false,
         imageUrl: null,
+        stocks: [],
       },
     ];
     await renderShell(root, api, () => undefined);
@@ -265,6 +270,7 @@ describe("the app shell", () => {
           summary: "Malaysia's central bank kept its policy rate at 2.75%.",
           read: false,
           imageUrl: null,
+          stocks: [],
         },
       ];
       api.chatAnswers = [
@@ -380,6 +386,16 @@ describe("the app shell", () => {
     screen.getByRole("button", { name: "Settings" }).click();
 
     expect(current()).toEqual(["Settings"]);
+  });
+
+  it("opens the Stocks screen from the sidebar", async () => {
+    await renderShell(root, api, () => undefined);
+
+    screen.getByRole("button", { name: "Stocks" }).click();
+
+    expect(
+      await screen.findByRole("form", { name: "Add to the Watchlist" }),
+    ).toBeTruthy();
   });
 
   it("opens the Inbox of a Folder chosen in the sidebar", async () => {

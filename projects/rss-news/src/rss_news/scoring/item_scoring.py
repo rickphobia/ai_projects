@@ -1,8 +1,9 @@
-"""Scoring: giving new Items an Importance and a one-line English summary, in batches."""
+"""Scoring: giving new Items an Importance, a one-line English summary and the owner's stocks
+they mention, in batches."""
 
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from itertools import groupby
 from typing import Protocol
@@ -61,6 +62,8 @@ class ItemScore:
     importance: int
     # One line, in English whatever the Item's language.
     summary: str
+    # The owner's tickers the Item mentions.
+    stocks: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -70,9 +73,16 @@ class ScoringResult:
 
 
 class ScoringModel(Protocol):
-    def score_items(self, items: Sequence[UnscoredItem]) -> ScoringResult:
-        """Score every Item in one call. Raises ScoringFailed when the call fails over its
-        Items, and ScoringUnavailable when any call would fail."""
+    def score_items(self, items: Sequence[UnscoredItem], stocks: Sequence[str]) -> ScoringResult:
+        """Score every Item in one call, saying which of the `stocks` tickers each mentions.
+        Raises ScoringFailed when the call fails over its Items, and ScoringUnavailable when
+        any call would fail."""
+        ...
+
+
+class OwnerTickers(Protocol):
+    def tickers(self) -> list[str]:
+        """Every Holding and Watchlist ticker."""
         ...
 
 
@@ -95,6 +105,7 @@ class ItemScoring:
         *,
         store: ScoringStore,
         model: ScoringModel,
+        owner_tickers: OwnerTickers,
         ledger: SpendingLedger,
         clock: Clock,
         batch_size: int,
@@ -102,6 +113,7 @@ class ItemScoring:
     ) -> None:
         self._store = store
         self._model = model
+        self._owner_tickers = owner_tickers
         self._ledger = ledger
         self._clock = clock
         self._batch_size = batch_size
@@ -112,12 +124,15 @@ class ItemScoring:
         the other batches carry on, unless the model is unavailable."""
         started = self._clock.now()
         items = self._store.unscored(due_at=started, limit=self._batch_size * MAX_CALLS_PER_TICK)
+        if not items:
+            return
+        tickers = self._owner_tickers.tickers()
         for batch in self._batches(items)[:MAX_CALLS_PER_TICK]:
             if self._clock.now() - started >= MAX_SCORING_TIME_PER_TICK:
                 logger.info("scoring time for this tick used up; the rest wait")
                 return
             try:
-                self._score(batch)
+                self._score(batch, tickers)
             except ScoringUnavailable as error:
                 logger.error(
                     "scoring paused until the next tick: the model is unavailable",
@@ -149,10 +164,10 @@ class ItemScoring:
             batches.append(batch)
         return batches
 
-    def _score(self, batch: list[UnscoredItem]) -> None:
+    def _score(self, batch: list[UnscoredItem], tickers: list[str]) -> None:
         ids = [item.id for item in batch]
         try:
-            result = self._model.score_items(batch)
+            result = self._model.score_items(batch, tickers)
         except ScoringFailed as error:
             if error.usage is not None:
                 self._ledger.record(Feature.SCORING, error.usage)
@@ -164,7 +179,7 @@ class ItemScoring:
         self._ledger.record(Feature.SCORING, result.usage)
         wanted = set(ids)
         scores = [
-            score
+            _only_owner_stocks(score, tickers)
             for score in result.scores
             if score.item_id in wanted and MIN_IMPORTANCE <= score.importance <= MAX_IMPORTANCE
         ]
@@ -182,6 +197,15 @@ class ItemScoring:
     def _fail(self, items: Sequence[UnscoredItem]) -> None:
         now = self._clock.now()
         self._store.record_failures([(item.id, now + retry_delay(item)) for item in items])
+
+
+def _only_owner_stocks(score: ItemScore, tickers: Sequence[str]) -> ItemScore:
+    """Keep the mentions that are the owner's tickers, once each and in the owner's spelling;
+    the model may name others or change the case."""
+    by_upper = {ticker.upper(): ticker for ticker in tickers}
+    keys = (stock.strip().upper() for stock in score.stocks)
+    mentioned = {by_upper[key] for key in keys if key in by_upper}
+    return replace(score, stocks=tuple(sorted(mentioned)))
 
 
 def retry_delay(item: UnscoredItem) -> timedelta:
