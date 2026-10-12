@@ -1,21 +1,45 @@
 import type {
-  Briefing,
   BriefingEstimate,
   BriefingProgress,
+  BriefingRequest,
+  BriefingWindow,
 } from "../api/briefings";
 import { SignedOutError, type ApiClient } from "../api/client";
-import { shownTime } from "./shown-time";
+import { showBriefing } from "./briefing-view";
 
-// The home screen: the latest Briefing, and Brief me with its estimated cost. Pressing it
-// again the same day shows the saved Briefing with a Regenerate button.
+const ALL_SOURCES = "";
+const WINDOW_TEXT: Record<BriefingWindow, string> = {
+  "24h": "last 24 hours",
+  "7d": "last 7 days",
+  "30d": "last 30 days",
+};
+
+// The home screen: the latest Briefing, and Brief me with a scope (all Sources or one
+// Folder), a window and the estimated cost. Pressing it again the same day shows the saved
+// Briefing with a Regenerate button. Given `pickedItemIds` (from the Inbox's "Brief these"),
+// it offers a Briefing of exactly those Items instead.
 export async function renderHome(
   root: HTMLElement,
   api: ApiClient,
   onOpenItem: (itemId: number) => void,
+  pickedItemIds?: number[],
 ): Promise<void> {
-  const briefMe = button("Brief me");
+  const picked = pickedItemIds !== undefined && pickedItemIds.length > 0;
+  const briefMe = button(picked ? "Brief these" : "Brief me");
   // Waits for the estimate, so the owner never presses without seeing the cost.
   briefMe.disabled = true;
+  const scopeSelect = document.createElement("select");
+  scopeSelect.append(new Option("All Sources", ALL_SOURCES));
+  const windowSelect = document.createElement("select");
+  for (const [value, text] of Object.entries(WINDOW_TEXT)) {
+    windowSelect.append(new Option(capitalised(text), value));
+  }
+  const controls = document.createElement("div");
+  controls.hidden = picked;
+  controls.append(
+    labelled("Brief", scopeSelect),
+    labelled("Over", windowSelect),
+  );
   const regenerate = button("Regenerate");
   regenerate.hidden = true;
   const progress = document.createElement("p");
@@ -25,16 +49,68 @@ export async function renderHome(
   failure.setAttribute("role", "alert");
   const shown = document.createElement("section");
   shown.setAttribute("aria-label", "Briefing");
-  root.replaceChildren(briefMe, regenerate, progress, failure, shown);
+  root.replaceChildren(controls, briefMe, regenerate, progress, failure, shown);
+
+  const request = (): BriefingRequest =>
+    picked
+      ? { itemIds: pickedItemIds }
+      : {
+          window: windowSelect.value as BriefingWindow,
+          ...(scopeSelect.value === ALL_SOURCES
+            ? {}
+            : { folderId: Number(scopeSelect.value) }),
+        };
+  const scopeText = (): string => {
+    if (picked) return `${String(pickedItemIds.length)} picked Items`;
+    const window = WINDOW_TEXT[windowSelect.value as BriefingWindow];
+    const folder = scopeSelect.selectedOptions[0];
+    return scopeSelect.value === ALL_SOURCES || folder === undefined
+      ? window
+      : `${folder.text}, ${window}`;
+  };
 
   let estimate: BriefingEstimate | null = null;
+  let writing = false;
+  // Each estimate gets a number; one that arrives after the scope changed again is dropped.
+  let latestEstimate = 0;
+  const refreshEstimate = async (): Promise<void> => {
+    latestEstimate += 1;
+    const thisEstimate = latestEstimate;
+    estimate = null;
+    briefMe.disabled = true;
+    regenerate.hidden = true;
+    briefMe.textContent = `${picked ? "Brief these" : "Brief me"}: ${scopeText()}`;
+    try {
+      const answer = await api.briefingEstimate(request());
+      if (thisEstimate !== latestEstimate) return;
+      estimate = answer;
+      failure.textContent = "";
+      regenerate.textContent = `Regenerate (about $${answer.estimatedCostUsd})`;
+      if (answer.itemCount === 0) {
+        progress.textContent = picked
+          ? "None of the picked Items exist any more."
+          : `Nothing to brief in the ${scopeText()}.`;
+      } else {
+        if (!writing) progress.textContent = "";
+        briefMe.textContent += ` (about $${answer.estimatedCostUsd})`;
+        briefMe.disabled = writing;
+      }
+    } catch (error) {
+      if (thisEstimate !== latestEstimate || error instanceof SignedOutError) {
+        return;
+      }
+      failure.textContent = `Couldn't work out what a Briefing would cost: ${messageOf(error)}`;
+    }
+  };
+
   const write = async (again: boolean): Promise<void> => {
+    writing = true;
     briefMe.disabled = true;
     regenerate.disabled = true;
     failure.textContent = "";
     progress.textContent = "Starting the Briefing…";
     try {
-      const written = await api.writeBriefing(again, (step) => {
+      const written = await api.writeBriefing(request(), again, (step) => {
         progress.textContent = progressText(step);
       });
       showBriefing(shown, written.briefing, onOpenItem);
@@ -47,18 +123,25 @@ export async function renderHome(
       progress.textContent = "";
       failure.textContent = messageOf(error);
     } finally {
+      writing = false;
       briefMe.disabled = estimate === null || estimate.itemCount === 0;
       regenerate.disabled = false;
     }
   };
   briefMe.addEventListener("click", () => void write(false));
   regenerate.addEventListener("click", () => void write(true));
+  for (const select of [scopeSelect, windowSelect]) {
+    select.addEventListener("change", () => void refreshEstimate());
+  }
 
-  const [latest, estimated] = await Promise.allSettled([
+  const [latest] = await Promise.allSettled([
     api.latestBriefing(),
-    api.briefingEstimate(),
+    refreshEstimate(),
+    picked ? Promise.resolve() : fillFolders(api, scopeSelect),
   ]);
-  if (isSignedOut(latest) || isSignedOut(estimated)) return;
+  if (isSignedOut(latest)) return;
+  // A picked Briefing isn't shown until it is written; the latest one would confuse.
+  if (picked) return;
   if (latest.status === "fulfilled") {
     if (latest.value === null) {
       shown.textContent =
@@ -69,63 +152,23 @@ export async function renderHome(
   } else {
     shown.textContent = `Couldn't load the latest Briefing: ${messageOf(latest.reason)}`;
   }
-  if (estimated.status === "fulfilled") {
-    estimate = estimated.value;
-    regenerate.textContent = `Regenerate (about $${estimate.estimatedCostUsd})`;
-    if (estimate.itemCount === 0) {
-      progress.textContent = "Nothing arrived in the last 24 hours to brief.";
-    } else {
-      briefMe.textContent = `Brief me: last 24 hours (about $${estimate.estimatedCostUsd})`;
-      briefMe.disabled = false;
-    }
-  } else {
-    failure.textContent = `Couldn't work out what a Briefing would cost: ${messageOf(estimated.reason)}`;
-  }
 }
 
-function showBriefing(
-  shown: HTMLElement,
-  briefing: Briefing,
-  onOpenItem: (itemId: number) => void,
-): void {
-  const title = document.createElement("h2");
-  title.textContent = `Briefing of ${shownTime.format(new Date(briefing.createdAt))}`;
-  const details = document.createElement("p");
-  details.textContent = `All Sources, last 24 hours · ${String(briefing.itemCount)} Items · cost $${briefing.costUsd}`;
-  shown.replaceChildren(title, details);
-  for (const section of briefing.sections) {
-    const heading = document.createElement("h3");
-    heading.textContent = section.folder.name;
-    const points = document.createElement("ul");
-    for (const point of section.points) {
-      const row = document.createElement("li");
-      row.append(point.text);
-      for (const item of point.items) {
-        row.append(" ", itemLink(item.id, item.source, item.title, onOpenItem));
-      }
-      points.append(row);
-    }
-    shown.append(heading, points);
+async function fillFolders(
+  api: ApiClient,
+  scopeSelect: HTMLSelectElement,
+): Promise<void> {
+  try {
+    const folders = await api.folders();
+    scopeSelect.append(
+      ...folders.map((folder) => new Option(folder.name, String(folder.id))),
+    );
+  } catch (error) {
+    if (error instanceof SignedOutError) return;
+    // All Sources still works without the Folders.
+    scopeSelect.disabled = true;
+    scopeSelect.title = `Couldn't load the Folders: ${messageOf(error)}`;
   }
-}
-
-function itemLink(
-  itemId: number,
-  source: string,
-  title: string,
-  onOpenItem: (itemId: number) => void,
-): HTMLAnchorElement {
-  const link = document.createElement("a");
-  // A real link, so it can be focused and read out; the Item view opens in the app.
-  link.href = `#items/${String(itemId)}`;
-  link.textContent = source;
-  link.title = title;
-  link.setAttribute("aria-label", `${source}: ${title}`);
-  link.addEventListener("click", (event) => {
-    event.preventDefault();
-    onOpenItem(itemId);
-  });
-  return link;
 }
 
 function progressText(step: BriefingProgress): string {
@@ -140,6 +183,17 @@ function button(text: string): HTMLButtonElement {
   made.type = "button";
   made.textContent = text;
   return made;
+}
+
+function labelled(text: string, select: HTMLSelectElement): HTMLLabelElement {
+  const label = document.createElement("label");
+  label.textContent = text;
+  label.append(select);
+  return label;
+}
+
+function capitalised(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function isSignedOut(result: PromiseSettledResult<unknown>): boolean {

@@ -116,6 +116,7 @@ def build_app(
             timezone=settings.timezone,
             model_name=settings.briefing_model,
             token_budget=settings.briefing_token_budget,
+            importance_cutoff=settings.briefing_importance_cutoff,
         ),
         tick=tick,
         background=(TickLoop(tick, TICK_INTERVAL),) if run_tick_loop else (),

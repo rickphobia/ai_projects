@@ -8,6 +8,7 @@ const BASE = "https://example.test/ai-projects/rss-news/";
 const BRIEFING_JSON = {
   id: 3,
   scope: "all-24h",
+  title: "All Sources, last 24 hours",
   created_at: "2026-10-12T12:00:00+00:00",
   item_count: 2,
   cost_usd: "0.21",
@@ -69,12 +70,16 @@ describe("HttpApiClient Briefings", () => {
     const written = await new HttpApiClient(
       BASE,
       () => undefined,
-    ).writeBriefing(true, (step) => seen.push(step));
+    ).writeBriefing({ window: "7d", folderId: 2 }, true, (step) =>
+      seen.push(step),
+    );
 
     const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
     expect(url.href).toBe(`${BASE}api/briefings`);
     expect(init.method).toBe("POST");
-    expect(init.body).toBe(JSON.stringify({ regenerate: true }));
+    expect(init.body).toBe(
+      JSON.stringify({ window: "7d", folder_id: 2, regenerate: true }),
+    );
     expect(seen).toEqual([progress]);
     expect(written.reused).toBe(false);
     expect(written.briefing.createdAt).toBe(BRIEFING_JSON.created_at);
@@ -94,6 +99,7 @@ describe("HttpApiClient Briefings", () => {
 
     await expect(
       new HttpApiClient(BASE, () => undefined).writeBriefing(
+        { window: "24h" },
         false,
         () => undefined,
       ),
@@ -115,7 +121,91 @@ describe("HttpApiClient Briefings", () => {
     );
 
     expect(
-      await new HttpApiClient(BASE, () => undefined).briefingEstimate(),
+      await new HttpApiClient(BASE, () => undefined).briefingEstimate({
+        window: "24h",
+      }),
     ).toEqual({ itemCount: 40, sectionCount: 4, estimatedCostUsd: "0.31" });
+  });
+
+  it("asks for the estimate of a scope, or of picked Items", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item_count: 2,
+            section_count: 1,
+            estimated_cost_usd: "0.05",
+          }),
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new HttpApiClient(BASE, () => undefined);
+
+    await client.briefingEstimate({ window: "30d", folderId: 3 });
+    await client.briefingEstimate({ itemIds: [4, 9] });
+
+    const urls = fetchMock.mock.calls.map(
+      (call) => (call as unknown as [URL])[0].href,
+    );
+    expect(urls).toEqual([
+      `${BASE}api/briefings/estimate?window=30d&folder=3`,
+      `${BASE}api/briefings/estimate?item=4&item=9`,
+    ]);
+  });
+
+  it("sends picked Items to be briefed", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        eventStream(
+          event("briefing", { briefing: BRIEFING_JSON, reused: false }),
+          50,
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new HttpApiClient(BASE, () => undefined).writeBriefing(
+      { itemIds: [4, 9] },
+      false,
+      () => undefined,
+    );
+
+    const [, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    expect(init.body).toBe(
+      JSON.stringify({ item_ids: [4, 9], regenerate: false }),
+    );
+  });
+
+  it("lists the saved Briefings and reads one", async () => {
+    const summary: Partial<typeof BRIEFING_JSON> = { ...BRIEFING_JSON };
+    delete summary.sections;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ briefings: [summary] })),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ briefing: BRIEFING_JSON })),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new HttpApiClient(BASE, () => undefined);
+
+    const listed = await client.briefings();
+    const opened = await client.briefing(3);
+
+    expect(listed).toEqual([
+      {
+        id: 3,
+        scope: "all-24h",
+        title: "All Sources, last 24 hours",
+        createdAt: "2026-10-12T12:00:00+00:00",
+        itemCount: 2,
+        costUsd: "0.21",
+      },
+    ]);
+    expect(opened.sections[0]?.folder.name).toBe("AI");
+    const [url] = fetchMock.mock.calls[1] as [URL];
+    expect(url.href).toBe(`${BASE}api/briefings/3`);
   });
 });

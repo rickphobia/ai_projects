@@ -10,6 +10,7 @@ from typing import Literal
 from zoneinfo import ZoneInfo
 
 from rss_news.briefings.briefing import (
+    ALL_SOURCES_24H,
     Briefing,
     BriefingFailed,
     BriefingItem,
@@ -19,9 +20,12 @@ from rss_news.briefings.briefing import (
     BriefingSection,
     BriefingStore,
     NothingToBrief,
+    PickedScope,
     PointItem,
     SectionItem,
     SectionRequest,
+    WindowScope,
+    window_text,
 )
 from rss_news.briefings.fitting import (
     FULL_TEXT_ITEMS,
@@ -85,7 +89,9 @@ class Briefings:
         timezone: ZoneInfo,
         model_name: str,
         token_budget: int,
+        importance_cutoff: int,
     ) -> None:
+        self._importance_cutoff = importance_cutoff
         self._store = store
         self._model = model
         self._extractor = extractor
@@ -102,13 +108,19 @@ class Briefings:
         """Today's Briefing of this scope, so asking twice doesn't pay twice."""
         return self._store.latest_on(scope.key, self._today())
 
+    def all_newest_first(self) -> list[Briefing]:
+        return self._store.all_newest_first()
+
+    def get(self, briefing_id: int) -> Briefing | None:
+        return self._store.get(briefing_id)
+
     def plan(self, scope: BriefingScope) -> BriefingPlan:
-        """Every Item in the window, grouped by Folder. Raises NothingToBrief."""
-        items = self._store.items_since(self._clock.now() - scope.window)
+        """The scope's Items grouped by Folder: every Item for 24 hours, only those at or above
+        the Importance cut-off for longer windows, and the picked ones as they are. Raises
+        NothingToBrief."""
+        items = self._items_in(scope)
         if not items:
-            raise NothingToBrief(
-                f"No Items were published in the last {_window_text(scope.window)}."
-            )
+            raise NothingToBrief(_nothing_text(scope, self._cutoff_for(scope)))
         by_folder: dict[int, PlannedSection] = {}
         for item in items:
             section = by_folder.setdefault(
@@ -116,6 +128,21 @@ class Briefings:
             )
             section.items.append(item)
         return BriefingPlan(scope, list(by_folder.values()))
+
+    def _items_in(self, scope: BriefingScope) -> list[BriefingItem]:
+        if isinstance(scope, PickedScope):
+            return self._store.items_with_ids(scope.item_ids)
+        return self._store.items_since(
+            self._clock.now() - scope.window,
+            folder_id=scope.folder_id,
+            min_importance=self._cutoff_for(scope),
+        )
+
+    def _cutoff_for(self, scope: BriefingScope) -> int | None:
+        """Longer windows keep to the more important Items, so they stay focused and cheap."""
+        if isinstance(scope, WindowScope) and scope.window > ALL_SOURCES_24H.window:
+            return self._importance_cutoff
+        return None
 
     def estimated_cost(self, plan: BriefingPlan) -> Decimal:
         """Worked out from the Items and the configured prices; the model isn't called."""
@@ -249,6 +276,11 @@ def _point_item(item: BriefingItem) -> PointItem:
     return PointItem(item.id, item.title, item.source_name)
 
 
-def _window_text(window: timedelta) -> str:
-    hours = window // timedelta(hours=1)
-    return f"{hours} hours" if hours < 48 else f"{hours // 24} days"
+def _nothing_text(scope: BriefingScope, cutoff: int | None) -> str:
+    if isinstance(scope, PickedScope):
+        return "None of the picked Items exist any more."
+    where = "" if scope.folder_id is None else " in this Folder"
+    text = f"No Items were published{where} in the last {window_text(scope.window)}"
+    if cutoff is not None:
+        text += f" with Importance {cutoff} or higher"
+    return text + "."

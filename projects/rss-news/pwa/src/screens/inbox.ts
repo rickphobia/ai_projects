@@ -11,11 +11,12 @@ const ANY_IMPORTANCE = "";
 
 // The Inbox: every Item newest first or most important first, a keyword search, filters by
 // Folder and Importance, and a button for the next page. Unread Items are marked; choosing one calls
-// onOpen with its id.
+// onOpen with its id. Items can be ticked, and "Brief these" calls onBriefThese with their ids.
 export async function renderInbox(
   root: HTMLElement,
   api: ApiClient,
   onOpen: (itemId: number) => void,
+  onBriefThese: (itemIds: number[]) => void,
 ): Promise<void> {
   const filter = document.createElement("select");
   filter.append(new Option("All folders", ALL_FOLDERS));
@@ -60,9 +61,27 @@ export async function renderInbox(
   loadMore.type = "button";
   loadMore.textContent = "Load more";
   loadMore.hidden = true;
+  // Ticks stay while the filters change, so Items from several searches can be briefed.
+  const picked = new Set<number>();
+  const briefThese = document.createElement("button");
+  briefThese.type = "button";
+  const showPicked = (): void => {
+    briefThese.textContent = `Brief these (${String(picked.size)})`;
+    briefThese.disabled = picked.size === 0;
+  };
+  showPicked();
+  briefThese.addEventListener("click", () => {
+    onBriefThese([...picked]);
+  });
+  const onPick = (itemId: number, ticked: boolean): void => {
+    if (ticked) picked.add(itemId);
+    else picked.delete(itemId);
+    showPicked();
+  };
   root.replaceChildren(
     searchForm,
     filters,
+    briefThese,
     folderError,
     list,
     status,
@@ -84,7 +103,9 @@ export async function renderInbox(
     try {
       const page = await api.inbox(pageQuery);
       if (thisLoad !== latestLoad) return;
-      const rows = page.items.map((item) => itemRow(item, onOpen));
+      const rows = page.items.map((item) =>
+        itemRow(item, onOpen, picked.has(item.id), onPick),
+      );
       if (append) list.append(...rows);
       else list.replaceChildren(...rows);
       nextCursor = page.nextCursor;
@@ -164,8 +185,18 @@ function emptyMessage(query: InboxQuery): string {
 function itemRow(
   item: InboxItem,
   onOpen: (itemId: number) => void,
+  ticked: boolean,
+  onPick: (itemId: number, ticked: boolean) => void,
 ): HTMLLIElement {
   const row = document.createElement("li");
+  const pick = document.createElement("input");
+  pick.type = "checkbox";
+  pick.checked = ticked;
+  pick.setAttribute("aria-label", `Pick ${item.title}`);
+  pick.addEventListener("change", () => {
+    onPick(item.id, pick.checked);
+  });
+  row.append(pick, " ");
   if (!item.read) {
     const unread = document.createElement("span");
     unread.textContent = "●";

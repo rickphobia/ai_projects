@@ -9,6 +9,7 @@ import { FakeApiClient } from "../fake-api";
 const BRIEFING: Briefing = {
   id: 3,
   scope: "all-24h",
+  title: "All Sources, last 24 hours",
   createdAt: "2026-10-12T00:30:00+00:00",
   itemCount: 12,
   costUsd: "0.21",
@@ -85,7 +86,7 @@ describe("the home screen", () => {
     await renderHome(root, api, () => undefined);
 
     expect(briefMe().disabled).toBe(true);
-    expect(progress()).toBe("Nothing arrived in the last 24 hours to brief.");
+    expect(progress()).toBe("Nothing to brief in the last 24 hours.");
   });
 
   it("won't brief blind when the estimate fails", async () => {
@@ -183,4 +184,88 @@ describe("the home screen", () => {
     expect(progress()).toBe("");
     expect(briefMe().disabled).toBe(false);
   });
+
+  it("re-estimates as the scope and window change, and briefs that scope", async () => {
+    api.foldersAnswer = [
+      { id: 1, name: "Malaysia" },
+      { id: 2, name: "AI" },
+    ];
+    api.writeAnswers = [
+      { progress: [], result: { briefing: BRIEFING, reused: false } },
+    ];
+    await renderHome(root, api, () => undefined);
+    api.estimateAnswer = {
+      itemCount: 4,
+      sectionCount: 1,
+      estimatedCostUsd: "0.09",
+    };
+
+    choose("Brief", "AI");
+    choose("Over", "Last 7 days");
+
+    await waitFor(() => {
+      expect(briefMe().textContent).toBe(
+        "Brief me: AI, last 7 days (about $0.09)",
+      );
+    });
+    expect(api.estimateRequests).toEqual([
+      { window: "24h" },
+      { window: "24h", folderId: 2 },
+      { window: "7d", folderId: 2 },
+    ]);
+    briefMe().click();
+    await waitFor(() => {
+      expect(api.writeScopes).toEqual([{ window: "7d", folderId: 2 }]);
+    });
+  });
+
+  it("says when the chosen scope has nothing to brief", async () => {
+    api.foldersAnswer = [{ id: 2, name: "AI" }];
+    await renderHome(root, api, () => undefined);
+    api.estimateAnswer = {
+      itemCount: 0,
+      sectionCount: 0,
+      estimatedCostUsd: "0.00",
+    };
+
+    choose("Over", "Last 30 days");
+
+    await waitFor(() => {
+      expect(progress()).toBe("Nothing to brief in the last 30 days.");
+    });
+    expect(briefMe().disabled).toBe(true);
+  });
+
+  it("offers a Briefing of exactly the picked Items", async () => {
+    api.writeAnswers = [
+      { progress: [], result: { briefing: BRIEFING, reused: false } },
+    ];
+    api.latestBriefingAnswer = { ...BRIEFING, id: 1 };
+
+    await renderHome(root, api, () => undefined, [7, 8]);
+
+    const briefThese = screen.getByRole("button", { name: /^Brief these/ });
+    expect(briefThese.textContent).toBe(
+      "Brief these: 2 picked Items (about $0.24)",
+    );
+    expect(screen.queryByRole("combobox", { name: "Brief" })).toBeNull();
+    expect(api.estimateRequests).toEqual([{ itemIds: [7, 8] }]);
+    briefThese.click();
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Malaysia" })).toBeTruthy();
+    });
+    expect(api.writeScopes).toEqual([{ itemIds: [7, 8] }]);
+  });
 });
+
+function choose(label: string, optionText: string): void {
+  const select = screen.getByRole<HTMLSelectElement>("combobox", {
+    name: label,
+  });
+  const option = Array.from(select.options).find(
+    (candidate) => candidate.text === optionText,
+  );
+  if (!option) throw new Error(`no option ${optionText} in ${label}`);
+  select.value = option.value;
+  select.dispatchEvent(new Event("change"));
+}

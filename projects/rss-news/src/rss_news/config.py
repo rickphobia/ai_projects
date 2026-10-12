@@ -66,6 +66,8 @@ class Settings:
     briefing_effort: Effort
     # Most estimated prompt tokens per Briefing section call.
     briefing_token_budget: int
+    # 7 and 30 day Briefings only read Items with at least this Importance.
+    briefing_importance_cutoff: int
     # USD per million input and output tokens, by model name. Every configured model needs one.
     model_prices: Mapping[str, ModelPrice]
     web_search_price_usd: Decimal
@@ -136,6 +138,9 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         briefing_token_budget=_positive_int(
             environ, "RSS_NEWS_BRIEFING_TOKEN_BUDGET", default=40_000
         ),
+        briefing_importance_cutoff=_importance(
+            environ, "RSS_NEWS_BRIEFING_IMPORTANCE_CUTOFF", default=3
+        ),
         model_prices=model_prices,
         web_search_price_usd=_usd(environ, "RSS_NEWS_WEB_SEARCH_PRICE_USD", default="0.01"),
     )
@@ -181,6 +186,13 @@ def _positive_int(environ: Mapping[str, str], name: str, *, default: int) -> int
         raise ConfigError(f"{name} must be a whole number, got {raw!r}") from None
     if number < 1:
         raise ConfigError(f"{name} must be at least 1, got {number}")
+    return number
+
+
+def _importance(environ: Mapping[str, str], name: str, *, default: int) -> int:
+    number = _positive_int(environ, name, default=default)
+    if number > 5:
+        raise ConfigError(f"{name} must be an Importance from 1 to 5, got {number}")
     return number
 
 
