@@ -26,25 +26,34 @@ var bollworms: bool:
 var bollworm_seconds_left: float:
 	get:
 		return _bollworm_seconds_left
+## Pesticide was sprayed on it: no Bollworms come until the crop in it, or the next one planted,
+## leaves the Plot.
+var protected: bool:
+	get:
+		return _protected
 
 var _stage: Stage
 var _seconds_left: float
 var _fertilised: bool
 var _bollworm_seconds_left: float
+var _protected: bool
 
 
 func _init(
 	plot_stage: Stage,
 	plot_seconds_left: float,
 	is_fertilised := false,
-	bollworms_seconds_left := 0.0
+	bollworms_seconds_left := 0.0,
+	is_protected := false
 ) -> void:
 	_stage = plot_stage
 	_seconds_left = plot_seconds_left
 	_fertilised = is_fertilised
 	_bollworm_seconds_left = bollworms_seconds_left
+	_protected = is_protected
 
 
-## This view with Bollworms that eat the crop in `seconds_left` (0 for none).
-func with_bollworms(eat_seconds_left: float) -> PlotView:
-	return PlotView.new(_stage, _seconds_left, _fertilised, eat_seconds_left)
+## This view with Bollworms that eat the crop in `eat_seconds_left` (0 for none), and
+## `is_protected` by Pesticide or not.
+func with_bollworms(eat_seconds_left: float, is_protected := false) -> PlotView:
+	return PlotView.new(_stage, _seconds_left, _fertilised, eat_seconds_left, is_protected)

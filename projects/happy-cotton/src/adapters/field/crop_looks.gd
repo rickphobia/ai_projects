@@ -12,6 +12,9 @@ extends RefCounted
 ## from bare soil whatever the crop's stage.
 ## A Plot with Bollworms gets fat pink caterpillars crawling round the plant and up into it (see
 ## bollworm_mark()), big and bright enough against the dust and leaves to spot across the field.
+## A Plot sprayed with Pesticide gets a thin stake at each corner flying a small yellow flag (see
+## pesticide_mark()): standing up at the Plot's edge, it reads apart from the soil marks and the
+## plant whatever the crop's stage, even on an empty Plot.
 
 const LEAF_COLOUR := Color(0.36, 0.4, 0.27)
 const FLOWER_COLOUR := Color(0.85, 0.8, 0.62)
@@ -23,6 +26,8 @@ const DAMP_SOIL_COLOUR := Color(0.2, 0.15, 0.11)
 const GRANULE_COLOUR := Color(0.72, 0.84, 0.95)
 ## The pink bollworm's larva: pinkish brown.
 const BOLLWORM_COLOUR := Color(0.88, 0.5, 0.45)
+const STAKE_COLOUR := Color(0.45, 0.36, 0.25)
+const FLAG_COLOUR := Color(0.95, 0.8, 0.15)
 ## The fertiliser mark's ring, in metres: inside a 2 m Plot, around the plant's stem.
 const DAMP_RING_RADIUS := 0.8
 const GRANULE_RADIUS := 0.04
@@ -35,6 +40,12 @@ const BOLLWORM_SEGMENTS := 4
 const BOLLWORM_SEGMENT_RADIUS := 0.09
 const BOLLWORM_REACHES: Array[float] = [0.45, 0.7]
 const BOLLWORM_HEIGHTS: Array[float] = [0.05, 0.6]
+## The pesticide mark's stakes, in metres: at each corner of a 2 m Plot, taller than a Seedling
+## so they show over the crop, each with a flag at its top.
+const STAKE_CORNER := 0.85
+const STAKE_HEIGHT := 0.9
+const STAKE_RADIUS := 0.025
+const FLAG_SIZE := Vector3(0.25, 0.16, 0.01)
 ## How a Withered bush slumps: squashed to this share of its height and leaning over.
 const WITHERED_SLUMP := 0.65
 const WITHERED_LEAN_DEGREES := 18.0
@@ -59,6 +70,7 @@ var cotton := _material(COTTON_COLOUR)
 var withered := _material(WITHERED_COLOUR)
 var granule := _material(GRANULE_COLOUR)
 var bollworm := _material(BOLLWORM_COLOUR)
+var flag := _material(FLAG_COLOUR)
 
 var _leaf := _material(LEAF_COLOUR)
 var _flower := _material(FLOWER_COLOUR)
@@ -135,6 +147,33 @@ func bollworm_mark() -> Node3D:
 			instance.position.z = (part - BOLLWORM_SEGMENTS / 2.0) * BOLLWORM_SEGMENT_RADIUS * 1.5
 			caterpillar.add_child(instance)
 		mark.add_child(caterpillar)
+	return mark
+
+
+## A new node marking a Plot sprayed with Pesticide, standing on y = 0.
+func pesticide_mark() -> Node3D:
+	var mark := Node3D.new()
+	var stake := CylinderMesh.new()
+	stake.top_radius = STAKE_RADIUS
+	stake.bottom_radius = STAKE_RADIUS
+	stake.height = STAKE_HEIGHT
+	stake.radial_segments = 6
+	stake.material = _material(STAKE_COLOUR)
+	var cloth := BoxMesh.new()
+	cloth.size = FLAG_SIZE
+	cloth.material = flag
+	for corner: Vector2 in [Vector2(1, 1), Vector2(1, -1), Vector2(-1, 1), Vector2(-1, -1)]:
+		var spot := corner * STAKE_CORNER
+		var stake_instance := MeshInstance3D.new()
+		stake_instance.mesh = stake
+		stake_instance.position = Vector3(spot.x, STAKE_HEIGHT / 2.0, spot.y)
+		mark.add_child(stake_instance)
+		var flag_instance := MeshInstance3D.new()
+		flag_instance.mesh = cloth
+		# Flying off the stake, towards the inside of the Plot.
+		var flag_x := spot.x - corner.x * FLAG_SIZE.x / 2.0
+		flag_instance.position = Vector3(flag_x, STAKE_HEIGHT - FLAG_SIZE.y / 2.0, spot.y)
+		mark.add_child(flag_instance)
 	return mark
 
 

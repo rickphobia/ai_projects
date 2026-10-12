@@ -1,5 +1,6 @@
 extends GutTest
-## Tuning validation for supplies: Fertiliser's prices and growth factor, and the most held.
+## Tuning validation for supplies: Fertiliser's prices and growth factor, Pesticide's price,
+## and the most held.
 
 
 func test_the_fast_table_is_good() -> void:
@@ -58,3 +59,13 @@ func test_a_missing_supply_value_is_reported() -> void:
 	tuning.fertiliser_growth_factor = NAN
 
 	assert_has(tuning.problems(), "fertiliser_growth_factor is missing from the tuning table")
+
+
+func test_the_pesticide_price_must_be_a_whole_number_of_at_least_one() -> void:
+	var tuning := FastTuning.table()
+	tuning.pesticide_price = 2.5
+
+	assert_eq(
+		tuning.problems(),
+		["pesticide_price is 2.5, but it must be a whole number"] as Array[String]
+	)

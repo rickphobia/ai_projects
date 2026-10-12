@@ -100,6 +100,7 @@ caught_study_session_seconds = 7200.0
 fertiliser_first_price = 3.0
 fertiliser_price_rise = 1.0
 fertiliser_growth_factor = 1.5
+pesticide_price = 4.0
 most_supplies_held = 5.0
 bollworm_check_seconds = 30.0
 bollworm_chance = 0.05

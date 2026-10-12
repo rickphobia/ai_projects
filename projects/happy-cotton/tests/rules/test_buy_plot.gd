@@ -80,7 +80,15 @@ func test_land_comes_after_the_upgrades_and_before_the_supplies_and_privileges()
 
 	assert_eq(
 		ids,
-		[Farm.GENERATOR, Farm.TOOLS, Farm.LAND, Farm.FERTILISER, Farm.REST_HOUR, Farm.CALL_HOME]
+		[
+			Farm.GENERATOR,
+			Farm.TOOLS,
+			Farm.LAND,
+			Farm.FERTILISER,
+			Farm.PESTICIDE,
+			Farm.REST_HOUR,
+			Farm.CALL_HOME
+		]
 	)
 
 

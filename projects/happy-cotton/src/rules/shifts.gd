@@ -183,8 +183,18 @@ func serve_study_session(seconds: float) -> float:
 	return served
 
 
-## Negligence's Study Session. One already under way runs on if it is the longer.
-func start_negligence_study_session() -> void:
+## Logs the plots lost at one moment, Withered or eaten (`key`, Farm.NEGLIGENCE_LOGGED or
+## Bollworms.CROP_EATEN), as Negligence: docks Labour Points for each, never below zero, and
+## starts the Negligence Study Session. Plots lost together share one, and one already under
+## way runs on if it is the longer. An eaten crop's message also says which Plots, for the log.
+func log_negligence(lost_plots: Array[int], key: StringName) -> void:
+	if lost_plots.is_empty():
+		return
+	var docked := _ledger.dock(lost_plots.size() * roundi(_tuning.negligence_labour_points))
+	var values := {"plots": lost_plots.size(), "points": docked}
+	if key == Bollworms.CROP_EATEN:
+		values["plot_indexes"] = Bollworms.plain(lost_plots)
+	_messages.append(AppMessage.new(key, values))
 	_begin_study_session(maxf(_study_left, _tuning.negligence_study_session_seconds))
 
 

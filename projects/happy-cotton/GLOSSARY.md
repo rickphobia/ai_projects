@@ -119,7 +119,7 @@ A supply bought in The App's store and spread on a Seedling so the crop grows fa
 _Avoid_: boost, plant food, booster
 
 **Pesticide**:
-A supply bought in The App's store and sprayed on a Plot to keep Bollworms off its crop.
+A supply bought in The App's store at a fixed price and sprayed on a Plot without Bollworms, empty or growing. The Plot is then protected: no Bollworms come to the crop in it, or the next one planted, until that crop is picked, eaten or Withered.
 _Avoid_: spray (as a noun), poison, bug killer
 
 ### The Worker's body

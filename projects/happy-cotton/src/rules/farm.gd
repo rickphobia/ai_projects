@@ -51,7 +51,8 @@ extends RefCounted
 ## Shift, is spread on a Seedling so that crop grows faster until it leaves the Plot.
 ## Bollworms come to growing Plots by chance in online play outside Study Sessions (see
 ## Bollworms). Tapping the Plot picks them off, which is slow field work; left too long they eat
-## the crop, emptying the Plot, and it is Negligence as for a Withered Plot.
+## the crop, emptying the Plot, and it is Negligence as for a Withered Plot. Pesticide, sprayed
+## on a Plot without them, keeps them off until the crop in it, or the next one planted, leaves.
 ## to_save() gives the whole Farm as plain data and restore() takes it back, so a restored Farm
 ## plays on exactly as the saved one would have.
 
@@ -101,6 +102,7 @@ const TOOLS := StoreFront.TOOLS
 const NO_SUCH_UPGRADE := &"no_such_upgrade"
 ## Supplies, their message key and their refusals, documented in Supplies.
 const FERTILISER := Supplies.FERTILISER
+const PESTICIDE := Supplies.PESTICIDE
 const SUPPLIES := Supplies.KINDS
 const SUPPLY_BOUGHT := Supplies.SUPPLY_BOUGHT
 const STOCK_FULL := Supplies.STOCK_FULL
@@ -113,8 +115,11 @@ const BOLLWORMS_ARRIVED := Bollworms.BOLLWORMS_ARRIVED
 const CROP_EATEN := Bollworms.CROP_EATEN
 const NO_BOLLWORMS := Bollworms.NO_BOLLWORMS
 const BOLLWORMS_ON_PLOT := Bollworms.BOLLWORMS_ON_PLOT
+const ALREADY_PROTECTED := Bollworms.ALREADY_PROTECTED
 ## The reasons fertilise() refuses that The App explains; the others it shares with planting.
 const FERTILISE_REFUSALS: Array[StringName] = [NONE_HELD, WRONG_STAGE, ALREADY_FERTILISED]
+## The reasons spray() refuses that The App explains.
+const SPRAY_REFUSALS: Array[StringName] = [NONE_HELD, BOLLWORMS_ON_PLOT, ALREADY_PROTECTED]
 ## Every reason a store item can be refused with; the App text table explains each.
 const STORE_REFUSALS: Array[StringName] = [
 	HAND_IN_OPEN,
@@ -142,9 +147,10 @@ const STORE_REFUSALS: Array[StringName] = [
 ## Version 11 added hidden savings; an older save restores with none. Version 12 added Harmony
 ## Audits; an older save restores with a clean record, none planned, never caught. Version 13
 ## added supplies; an older save restores with none held and nothing fertilised. Version 14
-## added Bollworms; an older save restores with none.
-const SAVE_VERSION := 14
-const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, SAVE_VERSION]
+## added Bollworms; an older save restores with none. Version 15 added Pesticide; an older save
+## restores with no Plot protected.
+const SAVE_VERSION := 15
+const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
 ## Why resume_offline() didn't use the clock's time as given (AwayReport.clock_problem).
 const NEGATIVE_OFFLINE_TIME := &"negative_offline_time"
@@ -337,6 +343,7 @@ func pick(index: int) -> CommandResult:
 	var drops := _exhaustion.can_drop_cotton() and roll < drop_chance
 	_start_field_work(_tuning.exhaustion_per_pick, work_share)
 	_crops.empty(index)
+	_bollworms.crop_left(index)
 	if drops:
 		_messages.append(AppMessage.new(COTTON_DROPPED, {}))
 	else:
@@ -459,7 +466,7 @@ func buy_plot(pay_with: Ledger.PayWith = PAY_LABOUR_POINTS) -> CommandResult:
 	return CommandResult.done()
 
 
-## Buys one of a supply (FERTILISER) into his stock, paid as buy_upgrade() is.
+## Buys one of a supply (FERTILISER, PESTICIDE) into his stock, paid as buy_upgrade() is.
 func buy_supply(supply: StringName, pay_with: Ledger.PayWith = PAY_LABOUR_POINTS) -> CommandResult:
 	if supply not in SUPPLIES:
 		return CommandResult.refused(NO_SUCH_SUPPLY)
@@ -467,11 +474,11 @@ func buy_supply(supply: StringName, pay_with: Ledger.PayWith = PAY_LABOUR_POINTS
 	var refusal := front.refusal(supply, pay_with)
 	if refusal != &"":
 		return CommandResult.refused(refusal)
-	var price := front.fertiliser_price()
+	var price := front.supply_price(supply)
 	_pay(price, pay_with)
 	_supplies.add(supply)
 	var values := {"kind": supply, "price": price, "held": _supplies.held(supply)}
-	values["next_price"] = _supplies.fertiliser_price(shift().number + 1)
+	values["next_price"] = _supplies.price(supply, shift().number + 1)
 	_messages.append(AppMessage.new(SUPPLY_BOUGHT, values))
 	return CommandResult.done()
 
@@ -479,20 +486,14 @@ func buy_supply(supply: StringName, pay_with: Ledger.PayWith = PAY_LABOUR_POINTS
 ## Spreads one Fertiliser from his stock on plot `index`'s Seedling: that crop grows faster for
 ## the rest of its growth. Like planting, it is field work.
 func fertilise(index: int) -> CommandResult:
-	var refusal := _held_up()
-	if refusal == &"" and not _crops.exists(index):
-		refusal = NO_SUCH_PLOT
-	if refusal == &"":
-		var stage := _crops.view(index).stage
-		refusal = _supplies.fertiliser_refusal(stage, _crops.is_fertilised(index))
-	if refusal == &"":
-		refusal = _unable_to_work()
-	if refusal != &"":
-		return CommandResult.refused(refusal)
-	_start_field_work(0.0)
-	_supplies.use(FERTILISER)
-	_crops.fertilise(index)
-	return CommandResult.done()
+	return _use_supply(FERTILISER, index)
+
+
+## Sprays one Pesticide from his stock on plot `index`, empty or not: no Bollworms come to it
+## until the crop in it, or the next one planted, leaves the Plot. Like planting, it is field
+## work.
+func spray(index: int) -> CommandResult:
+	return _use_supply(PESTICIDE, index)
 
 
 ## Only the debug wiring calls this, so players can never use it: it adds Labour Points
@@ -610,6 +611,8 @@ func resume_offline(seconds: float) -> AwayReport:
 			var step := minf(remaining, _crops.seconds_until_wither(rate))
 			var withered_plots := _crops.tend(step, rate)
 			withered += withered_plots.size()
+			for index in withered_plots:
+				_bollworms.crop_left(index)
 			_log_negligence(withered_plots)
 			remaining -= step
 	# Withered plots are no longer ripe, and nothing else stops being ripe while away.
@@ -657,7 +660,8 @@ func to_save() -> Dictionary:
 ## before land (version 7 or older) restores with the first land's Plots only. One from before
 ## the Hand-in (version 9 or older) keeps the Shift's picks as cotton in hand, and one from
 ## before hidden savings (version 10 or older) has none, and one from before supplies (version 12
-## or older) holds none and has nothing fertilised, and one from before Bollworms has none.
+## or older) holds none and has nothing fertilised, and one from before Bollworms has none, and
+## one from before Pesticide has no Plot protected.
 func restore(save: Dictionary) -> Array[String]:
 	var reader := SaveReader.new(save)
 	var version := reader.whole("version")
@@ -668,12 +672,10 @@ func restore(save: Dictionary) -> Array[String]:
 		land.restore(reader)
 	var crops := _new_crops(land)
 	crops.restore(reader.section("crops"), version >= 13)
-	var supplies := Supplies.new(_tuning)
-	if version >= 13:
-		supplies.restore(reader.section("supplies"))
+	var supplies := Supplies.restored(_tuning, reader, version >= 13)
 	var bollworms := Bollworms.new(_tuning, land.plot_count(), _roll, _messages)
 	if version >= 14:
-		bollworms.restore(reader.section("bollworms"))
+		bollworms.restore(reader.section("bollworms"), version >= 15)
 	var exhaustion := Exhaustion.new(_tuning)
 	exhaustion.restore(reader.section("exhaustion"))
 	var toil := Toil.new(_tuning, exhaustion, _lap_seconds(land))
@@ -732,7 +734,7 @@ func restore(save: Dictionary) -> Array[String]:
 ## The plot at index; it must exist.
 func plot(index: int) -> PlotView:
 	var view := _crops.view(index, _store.growth_multiplier())
-	return view.with_bollworms(_bollworms.seconds_left(index))
+	return view.with_bollworms(_bollworms.seconds_left(index), _bollworms.is_protected(index))
 
 
 func plots() -> Array[PlotView]:
@@ -807,16 +809,7 @@ func study_session_seconds_left() -> float:
 
 
 func worker() -> WorkerView:
-	var activity := WorkerView.Activity.IN_FIELD
-	if _privileges.is_resting():
-		activity = WorkerView.Activity.RESTING
-	elif _toil.is_breathing():
-		activity = WorkerView.Activity.BREATHING
-	elif _toil.is_running():
-		activity = WorkerView.Activity.RUNNING
-	return WorkerView.new(
-		activity, _toil.laps_left(), _exhaustion.level(), _toil.lap_progress(), _toil.lap_seconds()
-	)
+	return _toil.worker_view(_privileges.is_resting())
 
 
 ## From 0 (rested) to Exhaustion.MOST (spent).
@@ -890,18 +883,9 @@ func _fees_every() -> int:
 	return roundi(_tuning.school_fees_every_shifts)
 
 
-## Logs the plots lost at one moment, Withered or eaten (`key`), as Negligence: docks Labour
-## Points for each, never below zero, and starts the Negligence Study Session. Plots lost
-## together share one. An eaten crop's message also says which Plots, for the log.
+## Logs the plots lost at one moment, Withered or eaten (`key`), as Negligence (see Shifts).
 func _log_negligence(lost_plots: Array[int], key := NEGLIGENCE_LOGGED) -> void:
-	if lost_plots.is_empty():
-		return
-	var docked := _ledger.dock(lost_plots.size() * roundi(_tuning.negligence_labour_points))
-	var values := {"plots": lost_plots.size(), "points": docked}
-	if key == CROP_EATEN:
-		values["plot_indexes"] = Bollworms.plain(lost_plots)
-	_messages.append(AppMessage.new(key, values))
-	_shifts.start_negligence_study_session()
+	_shifts.log_negligence(lost_plots, key)
 	_cut_short_for_study_session()
 
 
@@ -946,6 +930,26 @@ func _pay(price: int, pay_with: Ledger.PayWith) -> void:
 func _cut_short_for_study_session() -> void:
 	if in_study_session():
 		_privileges.cut_short()
+
+
+## Uses one of supply `kind` from his stock on plot `index`. Like planting, it is field work.
+func _use_supply(kind: StringName, index: int) -> CommandResult:
+	var refusal := _held_up()
+	if refusal == &"" and not _crops.exists(index):
+		refusal = NO_SUCH_PLOT
+	if refusal == &"":
+		refusal = _supplies.use_refusal(kind, _crops, index, _bollworms.spray_refusal(index))
+	if refusal == &"":
+		refusal = _unable_to_work()
+	if refusal != &"":
+		return CommandResult.refused(refusal)
+	_start_field_work(0.0)
+	_supplies.use(kind)
+	if kind == FERTILISER:
+		_crops.fertilise(index)
+	else:
+		_bollworms.protect(index)
+	return CommandResult.done()
 
 
 ## Why plot `index` can't be picked right now, or &"" when it can.
