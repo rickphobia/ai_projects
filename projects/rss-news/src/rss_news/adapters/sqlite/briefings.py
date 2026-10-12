@@ -1,7 +1,7 @@
 """Briefings in SQLite: the Items a Briefing reads, and saved Briefings."""
 
 import json
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
@@ -30,7 +30,27 @@ class SqliteBriefings:
     def __init__(self, database: SqliteDatabase) -> None:
         self._database = database
 
-    def items_since(self, since: datetime) -> list[BriefingItem]:
+    def items_since(
+        self, since: datetime, *, folder_id: int | None, min_importance: int | None
+    ) -> list[BriefingItem]:
+        conditions = ["items.published_at >= ?"]
+        parameters: list[str | int] = [to_db_time(since)]
+        if folder_id is not None:
+            conditions.append("folders.id = ?")
+            parameters.append(folder_id)
+        if min_importance is not None:
+            conditions.append("items.importance >= ?")
+            parameters.append(min_importance)
+        return self._items(" AND ".join(conditions), parameters)
+
+    def items_with_ids(self, item_ids: Iterable[int]) -> list[BriefingItem]:
+        wanted = sorted(set(item_ids))
+        if not wanted:
+            return []
+        placeholders = ", ".join("?" * len(wanted))
+        return self._items(f"items.id IN ({placeholders})", list(wanted))
+
+    def _items(self, where: str, parameters: Sequence[str | int]) -> list[BriefingItem]:
         with self._database.connection() as connection:
             rows = connection.execute(
                 "SELECT items.id, items.title, items.url, sources.name, folders.id, "
@@ -38,9 +58,9 @@ class SqliteBriefings:
                 "items.excerpt "
                 "FROM items JOIN sources ON sources.id = items.source_id "
                 "JOIN folders ON folders.id = sources.folder_id "
-                "WHERE items.published_at >= ? "
+                f"WHERE {where} "
                 "ORDER BY folders.position, folders.id, items.published_at DESC, items.id DESC",
-                (to_db_time(since),),
+                parameters,
             ).fetchall()
         return [
             BriefingItem(
@@ -93,6 +113,16 @@ class SqliteBriefings:
     def latest(self) -> Briefing | None:
         with self._database.connection() as connection:
             row = connection.execute(f"{_BRIEFING_SELECT} ORDER BY id DESC LIMIT 1").fetchone()
+        return None if row is None else _briefing(row)
+
+    def all_newest_first(self) -> list[Briefing]:
+        with self._database.connection() as connection:
+            rows = connection.execute(f"{_BRIEFING_SELECT} ORDER BY id DESC").fetchall()
+        return [_briefing(row) for row in rows]
+
+    def get(self, briefing_id: int) -> Briefing | None:
+        with self._database.connection() as connection:
+            row = connection.execute(f"{_BRIEFING_SELECT} WHERE id = ?", (briefing_id,)).fetchone()
         return None if row is None else _briefing(row)
 
     def latest_on(self, scope_key: str, local_day: date) -> Briefing | None:

@@ -1,17 +1,25 @@
-"""Briefings over the JSON API: the latest one, the cost estimate, and writing one with its
+"""Briefings over the JSON API: the saved ones, the cost estimate, and writing one with its
 progress streamed as server-sent events."""
 
 import json
 import logging
 from collections.abc import Iterator
 from decimal import Decimal
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from rss_news.briefings.briefing import ALL_SOURCES_24H, Briefing, BriefingFailed, NothingToBrief
+from rss_news.briefings.briefing import (
+    WINDOWS,
+    Briefing,
+    BriefingFailed,
+    BriefingScope,
+    NothingToBrief,
+    PickedScope,
+    WindowScope,
+)
 from rss_news.briefings.writing import BriefingPlan, BriefingProgress, Briefings
 
 logger = logging.getLogger(__name__)
@@ -21,7 +29,25 @@ briefings_router = APIRouter(prefix="/api/briefings")
 _CENT_FRACTION = Decimal("0.01")
 
 
-class NewBriefing(BaseModel):
+# More than a Briefing could use anyway: the token budget cuts each section to fit.
+_MOST_PICKED_ITEMS = 500
+type WindowName = Literal["24h", "7d", "30d"]
+
+
+class ScopeRequest(BaseModel):
+    """All Sources or one Folder over a window, or, when `item_ids` is given, those Items."""
+
+    window: WindowName = "24h"
+    folder_id: int | None = None
+    item_ids: list[int] | None = Field(default=None, min_length=1, max_length=_MOST_PICKED_ITEMS)
+
+    def scope(self) -> BriefingScope:
+        if self.item_ids is not None:
+            return PickedScope(frozenset(self.item_ids))
+        return WindowScope(WINDOWS[self.window], self.folder_id)
+
+
+class NewBriefing(ScopeRequest):
     # Write a new one even when one of this scope was saved today.
     regenerate: bool = False
 
@@ -38,12 +64,30 @@ def latest_briefing(request: Request) -> dict[str, Any]:
     return {"briefing": None if latest is None else briefing_json(latest)}
 
 
+@briefings_router.get("")
+def list_briefings(request: Request) -> dict[str, Any]:
+    """Every saved Briefing, newest first, without its points."""
+    return {
+        "briefings": [
+            {key: value for key, value in briefing_json(briefing).items() if key != "sections"}
+            for briefing in briefings_of(request).all_newest_first()
+        ]
+    }
+
+
 @briefings_router.get("/estimate")
-def estimate(request: Request) -> dict[str, Any]:
-    """What pressing "Brief me" would cost, worked out without calling the model."""
+def estimate(
+    request: Request,
+    window: WindowName = "24h",
+    folder: int | None = None,
+    item: Annotated[list[int] | None, Query(max_length=_MOST_PICKED_ITEMS)] = None,
+) -> dict[str, Any]:
+    """What writing this scope's Briefing would cost, worked out without calling the model.
+    Repeat `item` to price picked Items."""
     briefings = briefings_of(request)
+    scope = ScopeRequest(window=window, folder_id=folder, item_ids=item or None).scope()
     try:
-        plan = briefings.plan(ALL_SOURCES_24H)
+        plan = briefings.plan(scope)
     except NothingToBrief:
         return {"item_count": 0, "section_count": 0, "estimated_cost_usd": "0.00"}
     return {
@@ -53,19 +97,28 @@ def estimate(request: Request) -> dict[str, Any]:
     }
 
 
+@briefings_router.get("/{briefing_id}")
+def show_briefing(request: Request, briefing_id: int) -> dict[str, Any]:
+    briefing = briefings_of(request).get(briefing_id)
+    if briefing is None:
+        raise HTTPException(status_code=404, detail="That Briefing doesn't exist.")
+    return {"briefing": briefing_json(briefing)}
+
+
 @briefings_router.post("")
 def create_briefing(request: Request, body: NewBriefing) -> StreamingResponse:
     """A `text/event-stream`: `progress` events, then `briefing` (with `reused` true when
     today's saved one is given back) or `failed` with a `detail` for the owner. 422 when there
     is nothing to brief."""
     briefings = briefings_of(request)
-    saved = None if body.regenerate else briefings.saved_today(ALL_SOURCES_24H)
+    scope = body.scope()
+    saved = None if body.regenerate else briefings.saved_today(scope)
     if saved is not None:
         logger.info("briefing reused", extra={"briefing_id": saved.id})
         events: Iterator[str] = iter([_event("briefing", _done_json(saved, reused=True))])
     else:
         try:
-            plan = briefings.plan(ALL_SOURCES_24H)
+            plan = briefings.plan(scope)
         except NothingToBrief as error:
             raise HTTPException(status_code=422, detail=str(error)) from None
         events = _written(briefings, plan)
@@ -122,6 +175,7 @@ def briefing_json(briefing: Briefing) -> dict[str, Any]:
     return {
         "id": briefing.id,
         "scope": briefing.scope_key,
+        "title": briefing.title,
         "created_at": briefing.created_at.isoformat(),
         "item_count": briefing.item_count,
         "cost_usd": str(briefing.cost_usd.quantize(_CENT_FRACTION)),

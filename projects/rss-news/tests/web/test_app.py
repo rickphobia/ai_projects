@@ -104,6 +104,7 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
                 timezone=settings.timezone,
                 model_name=settings.briefing_model,
                 token_budget=settings.briefing_token_budget,
+                importance_cutoff=settings.briefing_importance_cutoff,
             ),
             tick=NeverTicked(),
         )

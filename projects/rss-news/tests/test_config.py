@@ -58,6 +58,7 @@ def test_defaults_apply_when_only_the_pwa_folder_and_secrets_are_set(pwa_dir: Pa
         briefing_model="claude-opus-5-5",
         briefing_effort="low",
         briefing_token_budget=40_000,
+        briefing_importance_cutoff=3,
         model_prices=DEFAULT_PRICES,
         web_search_price_usd=Decimal("0.01"),
     )
@@ -93,6 +94,7 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
             "RSS_NEWS_BRIEFING_MODEL": "claude-sonnet-5-5",
             "RSS_NEWS_BRIEFING_EFFORT": "Medium",
             "RSS_NEWS_BRIEFING_TOKEN_BUDGET": "20000",
+            "RSS_NEWS_BRIEFING_IMPORTANCE_CUTOFF": "4",
             "RSS_NEWS_MODEL_PRICES": "claude-sonnet-5-5=2.5/12, claude-haiku-5-5=0.1/0.5",
             "RSS_NEWS_WEB_SEARCH_PRICE_USD": "0.02",
         }
@@ -128,6 +130,7 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         briefing_model="claude-sonnet-5-5",
         briefing_effort="medium",
         briefing_token_budget=20_000,
+        briefing_importance_cutoff=4,
         model_prices={
             "claude-sonnet-5-5": ModelPrice(Decimal("2.5"), Decimal(12)),
             "claude-haiku-5-5": ModelPrice(Decimal("0.1"), Decimal("0.5")),
@@ -168,6 +171,7 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         ("RSS_NEWS_BRIEFING_MODEL", "claude-unknown", "has no price in RSS_NEWS_MODEL_PRICES"),
         ("RSS_NEWS_BRIEFING_EFFORT", "max", "RSS_NEWS_BRIEFING_EFFORT must be one of"),
         ("RSS_NEWS_BRIEFING_TOKEN_BUDGET", "0", "RSS_NEWS_BRIEFING_TOKEN_BUDGET must be at"),
+        ("RSS_NEWS_BRIEFING_IMPORTANCE_CUTOFF", "6", "must be an Importance from 1 to 5"),
         ("RSS_NEWS_MODEL_PRICES", "claude-haiku-5-5=cheap", "must look like 'model=input/output"),
         ("RSS_NEWS_MODEL_PRICES", "claude-haiku-5-5=-1/2", "must look like 'model=input/output"),
         ("RSS_NEWS_MODEL_PRICES", "=1/2", "must look like 'model=input/output"),
