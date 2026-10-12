@@ -47,6 +47,8 @@ class Settings:
     fetch_timeout: timedelta
     # Sent with every feed request, so site owners can see who is asking.
     user_agent: str
+    # Items that arrived longer ago than this are deleted.
+    item_max_age: timedelta
     anthropic_api_key: str = field(repr=False)
     anthropic_timeout: timedelta
     # Tries per AI call, the first included; network errors, 429 and 5xx are tried again.
@@ -103,6 +105,9 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
             environ,
             "RSS_NEWS_USER_AGENT",
             default="rss-news/0.1 (+https://rickphobia.com/ai-projects/rss-news/)",
+        ),
+        item_max_age=timedelta(
+            days=_positive_int(environ, "RSS_NEWS_ITEM_MAX_AGE_DAYS", default=90)
         ),
         anthropic_api_key=_required(environ, "RSS_NEWS_ANTHROPIC_API_KEY"),
         anthropic_timeout=timedelta(

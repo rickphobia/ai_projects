@@ -100,6 +100,35 @@ describe("the Inbox", () => {
     );
   });
 
+  it("searches by keyword, keeping the Folder filter", async () => {
+    await renderInbox(root, api, onOpen);
+    choose(folderFilter(), "World");
+    await waitFor(() => {
+      expect(shownTitles()).toHaveLength(2);
+    });
+
+    const box = screen.getByRole("searchbox", { name: "Search" });
+    (box as HTMLInputElement).value = "  older  ";
+    screen.getByRole("button", { name: "Search" }).click();
+
+    await waitFor(() => {
+      expect(shownTitles()).toEqual(["Older world story"]);
+    });
+    expect(api.inboxQueries.at(-1)).toEqual({
+      folderId: WORLD.id,
+      search: "older",
+    });
+
+    (box as HTMLInputElement).value = "nothing like this";
+    screen.getByRole("button", { name: "Search" }).click();
+    await waitFor(() => {
+      expect(shownTitles()).toEqual([]);
+    });
+    expect(screen.getByRole("status", { name: "Inbox" }).textContent).toBe(
+      "No Items match this search.",
+    );
+  });
+
   it("sorts by Importance on request", async () => {
     await renderInbox(root, api, onOpen);
 

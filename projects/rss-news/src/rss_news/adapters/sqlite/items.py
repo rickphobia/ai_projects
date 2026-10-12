@@ -66,11 +66,17 @@ class SqliteItems:
         order: InboxOrder,
         folder_id: int | None,
         min_importance: int | None,
+        search: str | None,
         after: InboxPosition | None,
         limit: int,
     ) -> list[InboxItem]:
         conditions: list[str] = []
         parameters: list[object] = []
+        if search is not None:
+            conditions.append(
+                "items.id IN (SELECT rowid FROM items_search WHERE items_search MATCH ?)"
+            )
+            parameters.append(_match_expression(search))
         if folder_id is not None:
             conditions.append("sources.folder_id = ?")
             parameters.append(folder_id)
@@ -94,6 +100,12 @@ class SqliteItems:
                 [*parameters, limit],
             ).fetchall()
         return [_inbox_item(row) for row in rows]
+
+    def delete_fetched_before(self, cutoff: datetime) -> int:
+        with self._database.connection() as connection:
+            return connection.execute(
+                "DELETE FROM items WHERE fetched_at < ?", (to_db_time(cutoff),)
+            ).rowcount
 
     def item(self, item_id: int) -> InboxItem | None:
         with self._database.connection() as connection:
@@ -137,3 +149,10 @@ class SqliteItems:
                 "WHERE id = ?",
                 [(to_db_time(retry_at), item_id) for item_id, retry_at in failures],
             )
+
+
+def _match_expression(search: str) -> str:
+    """Each word as a quoted FTS prefix term, so every word must match the start of a word and
+    the owner's quotes, dashes or stars can't be read as FTS syntax."""
+    words = search.split()
+    return " ".join('"' + word.replace('"', '""') + '"*' for word in words)

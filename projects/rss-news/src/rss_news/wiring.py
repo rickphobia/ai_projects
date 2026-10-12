@@ -17,7 +17,7 @@ from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.adapters.sqlite.spending import SqliteSpending
 from rss_news.clock import Clock
 from rss_news.config import Settings
-from rss_news.items.inbox import Inbox
+from rss_news.items.inbox import Inbox, OldItemCleanup
 from rss_news.items.reading import ArticleExtractor, ItemReading
 from rss_news.scoring.item_scoring import ItemScoring, ScoringModel
 from rss_news.sources.catalog import StarterFolder, load_starter_sources
@@ -84,6 +84,10 @@ def build_app(
         [
             TickStep("fetch due sources", fetching.fetch_due),
             TickStep("score new items", scoring.score_new),
+            TickStep(
+                "delete old items",
+                OldItemCleanup(items, clock, settings.item_max_age).delete_old,
+            ),
         ],
         clock,
     )
