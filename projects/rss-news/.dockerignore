@@ -1,0 +1,10 @@
+# Only the Python project, its source and the PWA's source go into the build.
+*
+!pyproject.toml
+!uv.lock
+!.python-version
+!src/
+!pwa/
+pwa/node_modules
+pwa/dist
+**/__pycache__

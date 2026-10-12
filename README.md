@@ -80,5 +80,6 @@ Follow [`docs/new-project.md`](docs/new-project.md). It is ticket 01 of the proj
 | [ricknotes](projects/ricknotes) | Android tablet app for writing on study PDFs with a pen, with ink saved beside each PDF | Kotlin, Jetpack Compose, Android | in progress |
 | [court-booker](projects/court-booker) | Books a badminton court on Picktime at midnight when a date opens, for one Operator | Python, FastAPI, SQLite, Playwright, Docker | in progress |
 | [happy-cotton](projects/happy-cotton) | Browser farm game in the style of Hay Day that satirises forced labour in Xinjiang's cotton fields | Godot 4 (GDScript), web export | in progress |
+| [rss-news](projects/rss-news) | Personal news briefing: reads many feeds for one owner and writes a short Briefing on request | Python, FastAPI, SQLite, TypeScript PWA, Docker | in progress |
 
 Status values: `idea`, `in progress`, `working`, `abandoned`.

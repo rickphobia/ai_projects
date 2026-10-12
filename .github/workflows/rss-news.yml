@@ -1,0 +1,53 @@
+name: rss-news
+
+on:
+  push:
+    paths:
+      - "projects/rss-news/**"
+      - ".github/workflows/rss-news.yml"
+  pull_request:
+    paths:
+      - "projects/rss-news/**"
+      - ".github/workflows/rss-news.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rss-news-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: projects/rss-news
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.9.13"
+          enable-cache: true
+          cache-dependency-glob: projects/rss-news/uv.lock
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: projects/rss-news/pwa/.nvmrc
+          cache: npm
+          cache-dependency-path: projects/rss-news/pwa/package-lock.json
+      # Backend: lint, format, types, tests.
+      - run: uv sync --locked
+      - run: uv run ruff check
+      - run: uv run ruff format --check
+      - run: uv run mypy
+      - run: uv run pytest
+      # PWA: eslint, prettier, tsc and Vitest; the list lives in pwa/package.json.
+      - run: npm ci
+        working-directory: projects/rss-news/pwa
+      - run: npm run check
+        working-directory: projects/rss-news/pwa
+      # shellcheck comes preinstalled on the runner.
+      - run: shellcheck -x scripts/*.sh
+      - run: scripts/docker-smoke-test.sh
