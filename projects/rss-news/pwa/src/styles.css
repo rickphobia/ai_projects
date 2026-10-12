@@ -580,6 +580,7 @@ form label {
 /* A Briefing: Folder headings, each point a short paragraph with its Source links. */
 .briefing li {
   margin-bottom: var(--space-3);
+  font-size: var(--text-lg);
   line-height: var(--leading-reading);
 }
 

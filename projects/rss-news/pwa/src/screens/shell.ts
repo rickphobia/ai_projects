@@ -56,7 +56,14 @@ export async function renderShell(
     folderList,
     signOut,
   );
-  const drawer = drawerControls(root, sidebar);
+  const warning = document.createElement("div");
+  const main = document.createElement("main");
+  main.className = "page";
+  main.append(warning, page);
+  // The shell's own element, so the login screen that replaces it inherits none of its layout.
+  const app = document.createElement("div");
+  app.className = "app";
+  const drawer = drawerControls(app, sidebar, main);
   const header = document.createElement("header");
   header.className = "app-header";
   header.append(drawer.menuButton, heading, status);
@@ -139,12 +146,8 @@ export async function renderShell(
     showing(toSettings);
     void renderSettings(page, api);
   });
-  const warning = document.createElement("div");
-  const main = document.createElement("main");
-  main.className = "page";
-  main.append(warning, page);
-  root.className = "app";
-  root.replaceChildren(header, sidebar, drawer.backdrop, main);
+  app.append(header, sidebar, drawer.backdrop, main);
+  root.replaceChildren(app);
 
   await Promise.all([
     showHealth(api, status),
@@ -160,10 +163,15 @@ interface Drawer {
   close: () => void;
 }
 
-// The sidebar as a drawer on a narrow screen: the Menu button opens it, and the backdrop, the
-// Escape key or choosing a screen closes it. On a wide screen the stylesheet always shows the
-// sidebar and hides the button and the backdrop.
-function drawerControls(root: HTMLElement, sidebar: HTMLElement): Drawer {
+// The sidebar as a drawer on a narrow screen: the Menu button opens it and moves focus into it,
+// and the backdrop, the Escape key or choosing a screen closes it. While it is open the page
+// behind is inert, so the keyboard stays in the drawer. On a wide screen the stylesheet always
+// shows the sidebar and hides the button and the backdrop.
+function drawerControls(
+  app: HTMLElement,
+  sidebar: HTMLElement,
+  behind: HTMLElement,
+): Drawer {
   const menuButton = navButton("☰");
   menuButton.className = "menu-button";
   menuButton.setAttribute("aria-label", "Menu");
@@ -173,26 +181,26 @@ function drawerControls(root: HTMLElement, sidebar: HTMLElement): Drawer {
   backdrop.setAttribute("aria-label", "Close menu");
   // Escape closes it from the keyboard, so the backdrop needn't be a tab stop.
   backdrop.tabIndex = -1;
+  const isOpen = (): boolean => app.dataset.drawer === "open";
   const setOpen = (open: boolean): void => {
-    root.dataset.drawer = open ? "open" : "closed";
+    app.dataset.drawer = open ? "open" : "closed";
     menuButton.setAttribute("aria-expanded", String(open));
     backdrop.hidden = !open;
+    behind.inert = open;
   };
   setOpen(false);
   menuButton.addEventListener("click", () => {
-    setOpen(root.dataset.drawer !== "open");
+    setOpen(!isOpen());
+    if (isOpen()) sidebar.querySelector("button")?.focus();
   });
   backdrop.addEventListener("click", () => {
     setOpen(false);
   });
-  // On the shell's own elements, not root, which outlives this shell after a sign-out.
-  const closeOnEscape = (event: KeyboardEvent): void => {
-    if (event.key !== "Escape" || root.dataset.drawer !== "open") return;
+  app.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !isOpen()) return;
     setOpen(false);
     menuButton.focus();
-  };
-  sidebar.addEventListener("keydown", closeOnEscape);
-  menuButton.addEventListener("keydown", closeOnEscape);
+  });
   return {
     menuButton,
     backdrop,

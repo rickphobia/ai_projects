@@ -3,6 +3,7 @@ import {
   type ApiClient,
   type SpendingSummary,
 } from "../api/client";
+import { showInReadingColumn } from "./reading-column";
 
 // The features the spending page names, in the order it lists them.
 const featureNames: Record<string, string> = {
@@ -18,10 +19,7 @@ export async function renderSettings(
 ): Promise<void> {
   const heading = document.createElement("h2");
   heading.textContent = "Spending this month";
-  const column = document.createElement("div");
-  column.className = "reading";
-  column.append(heading);
-  root.replaceChildren(column);
+  const column = showInReadingColumn(root, "div", heading);
   let summary: SpendingSummary;
   try {
     summary = await api.spending();

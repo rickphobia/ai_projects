@@ -1,6 +1,7 @@
 import type { BriefingSummary } from "../api/briefings";
 import { SignedOutError, type ApiClient } from "../api/client";
 import { showBriefing } from "./briefing-view";
+import { showInReadingColumn } from "./reading-column";
 import { shownTime } from "./shown-time";
 
 // The Briefings list: every saved Briefing newest first. Choosing one shows it here, with a
@@ -16,10 +17,7 @@ export async function renderBriefings(
   const status = document.createElement("p");
   status.setAttribute("role", "status");
   status.setAttribute("aria-label", "Briefings");
-  const column = document.createElement("div");
-  column.className = "reading";
-  column.append(list, status);
-  root.replaceChildren(column);
+  showInReadingColumn(root, "div", list, status);
   try {
     const briefings = await api.briefings();
     list.replaceChildren(
@@ -46,10 +44,7 @@ export async function renderBriefings(
     shown.setAttribute("aria-label", "Briefing");
     shown.className = "briefing";
     shown.textContent = "Loading the Briefing…";
-    const column = document.createElement("article");
-    column.className = "reading";
-    column.append(back, shown);
-    root.replaceChildren(column);
+    showInReadingColumn(root, "article", back, shown);
     try {
       showBriefing(shown, await api.briefing(briefingId), onOpenItem);
     } catch (error) {

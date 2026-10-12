@@ -60,7 +60,6 @@ export function renderLogin(
   const card = document.createElement("div");
   card.className = "login";
   card.append(heading, form);
-  root.className = "";
   root.replaceChildren(card);
   password.focus();
 }

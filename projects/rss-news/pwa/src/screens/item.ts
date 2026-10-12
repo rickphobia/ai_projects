@@ -1,4 +1,5 @@
 import { SignedOutError, type ApiClient, type InboxItem } from "../api/client";
+import { showInReadingColumn } from "./reading-column";
 import { shownTime } from "./shown-time";
 
 // One Item: its summary, Source, time and Importance at once, a link to the original page,
@@ -18,10 +19,7 @@ export async function renderItem(
   status.setAttribute("role", "status");
   status.setAttribute("aria-label", "Item");
   status.textContent = "Loading the Item…";
-  const column = document.createElement("article");
-  column.className = "reading";
-  column.append(back, status);
-  root.replaceChildren(column);
+  const column = showInReadingColumn(root, "article", back, status);
 
   let item: InboxItem;
   try {

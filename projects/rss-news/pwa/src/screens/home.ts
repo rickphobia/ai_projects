@@ -6,6 +6,7 @@ import type {
 } from "../api/briefings";
 import { SignedOutError, type ApiClient } from "../api/client";
 import { showBriefing } from "./briefing-view";
+import { showInReadingColumn } from "./reading-column";
 
 const ALL_SOURCES = "";
 const WINDOW_TEXT: Record<BriefingWindow, string> = {
@@ -55,10 +56,7 @@ export async function renderHome(
   const actions = document.createElement("div");
   actions.className = "toolbar";
   actions.append(briefMe, regenerate);
-  const column = document.createElement("div");
-  column.className = "reading";
-  column.append(controls, actions, progress, failure, shown);
-  root.replaceChildren(column);
+  showInReadingColumn(root, "div", controls, actions, progress, failure, shown);
 
   const request = (): BriefingRequest =>
     picked
