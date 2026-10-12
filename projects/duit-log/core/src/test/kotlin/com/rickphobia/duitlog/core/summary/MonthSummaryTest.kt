@@ -1,5 +1,6 @@
 package com.rickphobia.duitlog.core.summary
 
+import com.rickphobia.duitlog.core.ledger.KUALA_LUMPUR
 import com.rickphobia.duitlog.core.ledger.Kind
 import com.rickphobia.duitlog.core.ledger.add
 import com.rickphobia.duitlog.core.ledger.newLedger
@@ -108,6 +109,8 @@ class MonthSummaryTest {
                 .single()
                 .date,
         )
+
+        assertEquals(KUALA_LUMPUR, inKualaLumpur.monthSummary(november).zone)
 
         val inUtc = newLedger(zone = ZoneId.of("UTC"))
         inUtc.add(Kind.EXPENSE, 700, LocalDateTime.of(2026, 10, 31, 16, 30))

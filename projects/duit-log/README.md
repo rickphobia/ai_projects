@@ -168,7 +168,7 @@ app/src/main/kotlin/com/rickphobia/duitlog/
   DuitLogApplication.kt  process start: the log and the Ledger
   MainActivity.kt      entrypoint: wiring only
   logging/             AppLog, the rolling log file behind "Share log", crash recording
-  screens/             Compose screens (Daily tab, add by hand, Month bar) and the theme
+  screens/             Compose screens (Daily tab, add by hand, Month bar, ⋮ menu) and the theme
   storage/             the phone's database and clock
 app/src/test/kotlin/   JUnit tests for app code that runs on the JVM
 app/src/preview/res/   the Preview app's label

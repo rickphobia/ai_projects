@@ -2,7 +2,9 @@ package com.rickphobia.duitlog.screens
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.database.SQLException
 import android.text.format.DateFormat
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -43,13 +45,13 @@ import com.rickphobia.duitlog.core.ledger.HandEntry
 import com.rickphobia.duitlog.core.ledger.Kind
 import com.rickphobia.duitlog.core.ledger.LedgerException
 import com.rickphobia.duitlog.core.ledger.Ringgit
+import com.rickphobia.duitlog.logging.AppLog
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.time.temporal.ChronoUnit
 
 private val dateShown = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
 private val timeShown = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
@@ -61,14 +63,15 @@ private val timeShown = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
 @Composable
 fun AddTransactionScreen(
     categories: Map<Kind, List<Category>>,
+    now: LocalDateTime,
     onSave: suspend (HandEntry) -> Unit,
     onSaved: (LocalDateTime) -> Unit,
     onCancel: () -> Unit,
 ) {
     var kind by rememberSaveable { mutableStateOf(Kind.EXPENSE) }
     var amount by rememberSaveable { mutableStateOf("") }
-    var date by rememberSaveable { mutableStateOf(LocalDate.now()) }
-    var time by rememberSaveable { mutableStateOf(LocalTime.now().truncatedTo(ChronoUnit.MINUTES)) }
+    var date by rememberSaveable { mutableStateOf(now.toLocalDate()) }
+    var time by rememberSaveable { mutableStateOf(now.toLocalTime()) }
     var merchant by rememberSaveable { mutableStateOf("") }
     var categoryId by rememberSaveable { mutableStateOf<Long?>(null) }
     var note by rememberSaveable { mutableStateOf("") }
@@ -93,14 +96,10 @@ fun AddTransactionScreen(
         val entry = HandEntry(kind, amountSen, LocalDateTime.of(date, time), merchant, pickedCategory, note)
         saving = true
         scope.launch {
-            try {
-                onSave(entry)
-                onSaved(entry.occurredAt)
-            } catch (e: LedgerException) {
-                problem = problemText(e)
-            } finally {
-                saving = false
-            }
+            problem = trySave(entry, onSave)
+            saving = false
+            // Last, because it closes this screen.
+            if (problem == null) onSaved(entry.occurredAt)
         }
     }
 
@@ -240,6 +239,22 @@ private fun DateAndTime(
     }
 }
 
+/** Saves [entry]; returns the string resource to show if it wasn't saved, or null if it was. */
+private suspend fun trySave(
+    entry: HandEntry,
+    onSave: suspend (HandEntry) -> Unit,
+): Int? =
+    try {
+        onSave(entry)
+        null
+    } catch (e: LedgerException) {
+        problemText(e)
+    } catch (e: SQLException) {
+        AppLog.e("saving a Transaction added by hand failed", e)
+        R.string.problem_storage
+    }
+
+@StringRes
 private fun problemText(problem: LedgerException): Int =
     when (problem) {
         is LedgerException.AmountUnreadable, is LedgerException.AmountNotPositive -> R.string.problem_amount
@@ -256,5 +271,13 @@ private fun AddTransactionScreenPreview() {
                 listOf("Transport", "F&B", "Other").mapIndexed { i, name -> Category(i.toLong(), Kind.EXPENSE, name) },
             Kind.INCOME to listOf("Salary", "Other").mapIndexed { i, name -> Category(10L + i, Kind.INCOME, name) },
         )
-    DuitLogTheme { AddTransactionScreen(categories, onSave = {}, onSaved = {}, onCancel = {}) }
+    DuitLogTheme {
+        AddTransactionScreen(
+            categories,
+            LocalDateTime.of(2026, 10, 12, 12, 30),
+            onSave = {},
+            onSaved = {},
+            onCancel = {},
+        )
+    }
 }

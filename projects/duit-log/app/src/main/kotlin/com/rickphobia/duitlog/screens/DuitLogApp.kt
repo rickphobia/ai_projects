@@ -1,5 +1,6 @@
 package com.rickphobia.duitlog.screens
 
+import android.database.SQLException
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -13,7 +14,6 @@ import com.rickphobia.duitlog.core.ledger.HandEntry
 import com.rickphobia.duitlog.core.ledger.Kind
 import com.rickphobia.duitlog.core.ledger.Ledger
 import com.rickphobia.duitlog.core.ledger.LedgerException
-import com.rickphobia.duitlog.core.summary.MonthSummary
 import com.rickphobia.duitlog.logging.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -35,8 +35,15 @@ fun DuitLogApp(
     // Bumped after a save, so the Month is read again.
     var saves by remember { mutableIntStateOf(0) }
 
-    val summary by produceState<MonthSummary?>(null, month, saves) {
-        value = withContext(Dispatchers.IO) { ledger.monthSummary(month) }
+    val monthState by produceState<MonthState>(MonthState.Loading, month, saves) {
+        value = MonthState.Loading
+        value =
+            try {
+                MonthState.Shown(withContext(Dispatchers.IO) { ledger.monthSummary(month) })
+            } catch (e: SQLException) {
+                AppLog.e("reading the Month from the database failed", e)
+                MonthState.Unreadable
+            }
     }
 
     if (adding) {
@@ -46,6 +53,7 @@ fun DuitLogApp(
         }
         AddTransactionScreen(
             categories = categories,
+            now = ledger.now(),
             onSave = { entry -> addByHand(ledger, entry) },
             onSaved = { occurredAt ->
                 // Show the Month the new Transaction landed in.
@@ -58,7 +66,7 @@ fun DuitLogApp(
     } else {
         DailyScreen(
             month = month,
-            summary = summary?.takeIf { it.month == month },
+            state = monthState,
             onMonthChange = { month = it },
             onAdd = { adding = true },
             menu = { AppMenu(versionName, buildNumber, onShareLog) },

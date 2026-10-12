@@ -1,5 +1,6 @@
 package com.rickphobia.duitlog.screens
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,30 +10,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -58,6 +52,18 @@ private const val CATEGORY_SHARE = 0.3f
 private val dayTitle = DateTimeFormatter.ofPattern("EEE d MMM")
 private val timeOfDay = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
 
+/** What the Daily tab knows about the Month it shows. */
+sealed interface MonthState {
+    data object Loading : MonthState
+
+    data class Shown(
+        val summary: MonthSummary,
+    ) : MonthState
+
+    /** The database couldn't be read; the log has why. */
+    data object Unreadable : MonthState
+}
+
 /**
  * The Daily tab: the Month's Income, Expenses and Total, then its days, newest first. [menu] is
  * the app menu at the end of the Month bar.
@@ -65,12 +71,14 @@ private val timeOfDay = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
 @Composable
 fun DailyScreen(
     month: YearMonth,
-    summary: MonthSummary?,
+    state: MonthState,
     onMonthChange: (YearMonth) -> Unit,
     onAdd: () -> Unit,
     menu: @Composable () -> Unit,
 ) {
     val addLabel = stringResource(R.string.add_transaction)
+    // The swipe handler lives across recompositions, so it must call the newest callback.
+    val currentOnMonthChange by rememberUpdatedState(onMonthChange)
     Scaffold(
         topBar = {
             MonthBar(month, onMonthChange, menu)
@@ -86,14 +94,15 @@ fun DailyScreen(
                 Modifier
                     .padding(padding)
                     .fillMaxSize()
-                    .swipeBetweenMonths(month, onMonthChange),
+                    .swipeBetweenMonths(month) { currentOnMonthChange(it) },
         ) {
-            MonthTotals(summary)
+            MonthTotals((state as? MonthState.Shown)?.summary)
             HorizontalDivider()
             when {
-                summary == null -> Unit
-                summary.days.isEmpty() -> EmptyMonth()
-                else -> DayList(summary.days)
+                state is MonthState.Unreadable -> Message(R.string.month_unreadable)
+                state !is MonthState.Shown -> Unit
+                state.summary.days.isEmpty() -> Message(R.string.empty_month)
+                else -> DayList(state.summary)
             }
         }
     }
@@ -127,7 +136,7 @@ private fun MonthTotals(summary: MonthSummary?) {
 
 @Composable
 private fun LabelledAmount(
-    label: Int,
+    @StringRes label: Int,
     sen: Long?,
     kind: Kind?,
     modifier: Modifier,
@@ -144,21 +153,23 @@ private fun LabelledAmount(
 }
 
 @Composable
-private fun EmptyMonth() {
+private fun Message(
+    @StringRes text: Int,
+) {
     Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-        Text(stringResource(R.string.empty_month), style = MaterialTheme.typography.bodyLarge)
+        Text(stringResource(text), style = MaterialTheme.typography.bodyLarge)
     }
 }
 
 @Composable
-private fun DayList(days: List<DaySummary>) {
+private fun DayList(summary: MonthSummary) {
     LazyColumn(
         contentPadding = PaddingValues(bottom = 88.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        days.forEach { day ->
+        summary.days.forEach { day ->
             item(key = day.date.toString()) { DayHeader(day) }
-            items(day.transactions, key = { it.id }) { TransactionRow(it) }
+            items(day.transactions, key = { it.id }) { TransactionRow(it, summary.zone) }
         }
     }
 }
@@ -191,7 +202,10 @@ private fun DayHeader(day: DaySummary) {
 }
 
 @Composable
-private fun TransactionRow(transaction: Transaction) {
+private fun TransactionRow(
+    transaction: Transaction,
+    zone: ZoneId,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -207,7 +221,7 @@ private fun TransactionRow(transaction: Transaction) {
         )
         Column(modifier = Modifier.weight(1f - CATEGORY_SHARE)) {
             Text(transaction.note ?: transaction.merchant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val time = transaction.occurredAt.atZone(ZoneId.systemDefault()).format(timeOfDay)
+            val time = transaction.occurredAt.atZone(zone).format(timeOfDay)
             val detail = if (transaction.note != null) "$time · ${transaction.merchant}" else time
             Text(
                 detail,
@@ -257,6 +271,6 @@ private fun DailyScreenPreview() {
             ),
         )
     DuitLogTheme {
-        DailyScreen(month, summarizeMonth(month, transactions, zone), {}, {}, {})
+        DailyScreen(month, MonthState.Shown(summarizeMonth(month, transactions, zone)), {}, {}, {})
     }
 }

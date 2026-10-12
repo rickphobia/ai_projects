@@ -157,6 +157,13 @@ class LedgerTest {
         assertEquals(YearMonth.of(2026, 11), ledger.currentMonth())
     }
 
+    @Test
+    fun `a new Transaction starts at now on the phone's clock, to the minute`() {
+        val ledger = newLedger(now = LocalDateTime.of(2026, 10, 12, 9, 41, 37))
+
+        assertEquals(LocalDateTime.of(2026, 10, 12, 9, 41), ledger.now())
+    }
+
     private fun entry(
         kind: Kind,
         categoryId: Long,

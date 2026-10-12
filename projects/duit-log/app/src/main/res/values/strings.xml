@@ -13,6 +13,7 @@
   <string name="expenses">Expenses</string>
   <string name="total">Total</string>
   <string name="empty_month">Nothing this Month yet. Tap + to add a Transaction.</string>
+  <string name="month_unreadable">Couldn\'t read this Month. Send the log from ⋮ → Share log.</string>
   <string name="add_transaction">Add a Transaction</string>
 
   <!-- Add by hand -->
@@ -26,4 +27,5 @@
   <string name="problem_amount">Type an amount above zero, like 12.30</string>
   <string name="problem_merchant">Type who the money went to or came from</string>
   <string name="problem_category">Pick a Category</string>
+  <string name="problem_storage">Couldn\'t save. Send the log from ⋮ → Share log.</string>
 </resources>

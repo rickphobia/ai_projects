@@ -6,9 +6,13 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 
-/** What the Daily tab shows for one Month: its totals and its days, newest first. */
+/**
+ * What the Daily tab shows for one Month: its totals and its days, newest first. [zone] is the
+ * time zone the days were cut in, for showing each Transaction's time of day.
+ */
 data class MonthSummary(
     val month: YearMonth,
+    val zone: ZoneId,
     val incomeSen: Long,
     val expensesSen: Long,
     val days: List<DaySummary>,
@@ -41,7 +45,7 @@ fun summarizeMonth(
             .groupBy { it.occurredAt.atZone(zone).toLocalDate() }
             .map { (date, ofDay) -> DaySummary(date, ofDay.sumOf(Kind.INCOME), ofDay.sumOf(Kind.EXPENSE), ofDay) }
             .sortedByDescending { it.date }
-    return MonthSummary(month, transactions.sumOf(Kind.INCOME), transactions.sumOf(Kind.EXPENSE), days)
+    return MonthSummary(month, zone, transactions.sumOf(Kind.INCOME), transactions.sumOf(Kind.EXPENSE), days)
 }
 
 private fun List<Transaction>.sumOf(kind: Kind): Long = filter { it.kind == kind }.sumOf { it.amountSen }

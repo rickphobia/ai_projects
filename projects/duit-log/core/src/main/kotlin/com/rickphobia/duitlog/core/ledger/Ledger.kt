@@ -5,7 +5,9 @@ import com.rickphobia.duitlog.core.summary.MonthSummary
 import com.rickphobia.duitlog.core.summary.summarizeMonth
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDateTime
 import java.time.YearMonth
+import java.time.temporal.ChronoUnit
 
 /**
  * Everything the app decides about money goes through here; the screens and Android adapters talk
@@ -38,6 +40,9 @@ class Ledger(
     }
 
     fun currentMonth(): YearMonth = YearMonth.now(clock)
+
+    /** Now on the phone's clock, for the date and time a new Transaction starts with. */
+    fun now(): LocalDateTime = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MINUTES)
 
     fun monthSummary(month: YearMonth): MonthSummary {
         val zone = clock.zone

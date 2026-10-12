@@ -10,7 +10,7 @@ indent_size = 4
 [*.{kt,kts}]
 ktlint_code_style = ktlint_official
 max_line_length = 120
-# Compose functions are named like types (HomeScreen), which ktlint otherwise rejects.
+# Compose functions are named like types (DailyScreen), which ktlint otherwise rejects.
 ktlint_function_naming_ignore_when_annotated_with = Composable
 
 [*.{yml,yaml,toml,xml}]
