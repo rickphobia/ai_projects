@@ -48,6 +48,7 @@ const DISASTER_WARNED := "{name} in {time}!"
 const DISASTER_STRIKING := "{name}!  ·  {time} left"
 const DISASTER_NAMES: Dictionary[StringName, String] = {
 	Farm.SANDSTORM: "Sandstorm",
+	Farm.HEATWAVE: "Heatwave",
 }
 ## Shown while he is on watch after being caught, with the Shifts left counting this one.
 const ON_WATCH := "Selected for Harmony Support!  ·  Shifts left: {shifts}"
@@ -328,6 +329,21 @@ static func lines() -> Dictionary[StringName, AppLine]:
 			(
 				"Sandstorm! Nature cannot stop us! The Quota stands where it was. Run harder and"
 				+ " the cotton will not notice!"
+			)
+		),
+		Farm.HEATWAVE_WARNED:
+		AppLine.new(
+			(
+				"Weather notice! A Heatwave arrives in {seconds} seconds. Drink later: the"
+				+ " Generator runs on devotion, not water!"
+			)
+		),
+		# The heat is a gift: the Worker sweats for the Motherland and the Quota stands.
+		Farm.HEATWAVE_STRUCK:
+		AppLine.new(
+			(
+				"Heatwave! Nature cannot stop us! The Quota stands where it was. Every drop of"
+				+ " sweat is a drop for the harvest!"
 			)
 		),
 		Farm.DISASTER_PASSED:

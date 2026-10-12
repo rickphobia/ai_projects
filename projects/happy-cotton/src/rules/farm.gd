@@ -54,8 +54,8 @@ extends RefCounted
 ## the crop, emptying the Plot, and it is Negligence as for a Withered Plot. Pesticide, sprayed
 ## on a Plot without them, keeps them off until the crop in it, or the next one planted, leaves.
 ## Now and then a Shift after the first has a Disaster (see Disasters): The App warns of it,
-## then it strikes for a while, and a Sandstorm slows growth while it lasts. The Quota never
-## changes for one, and it is never saved.
+## then it strikes for a while: a Sandstorm slows growth while it lasts, and a Heatwave tires
+## the Worker faster. The Quota never changes for one, and it is never saved.
 ## to_save() gives the whole Farm as plain data and restore() takes it back, so a restored Farm
 ## plays on exactly as the saved one would have.
 
@@ -123,6 +123,9 @@ const ALREADY_PROTECTED := Bollworms.ALREADY_PROTECTED
 const SANDSTORM := Disasters.SANDSTORM
 const SANDSTORM_WARNED := Disasters.SANDSTORM_WARNED
 const SANDSTORM_STRUCK := Disasters.SANDSTORM_STRUCK
+const HEATWAVE := Disasters.HEATWAVE
+const HEATWAVE_WARNED := Disasters.HEATWAVE_WARNED
+const HEATWAVE_STRUCK := Disasters.HEATWAVE_STRUCK
 const DISASTER_PASSED := Disasters.DISASTER_PASSED
 ## The reasons fertilise() refuses that The App explains; the others it shares with planting.
 const FERTILISE_REFUSALS: Array[StringName] = [NONE_HELD, WRONG_STAGE, ALREADY_FERTILISED]
@@ -247,6 +250,8 @@ const MESSAGE_KEYS: Array[StringName] = [
 	CROP_EATEN,
 	SANDSTORM_WARNED,
 	SANDSTORM_STRUCK,
+	HEATWAVE_WARNED,
+	HEATWAVE_STRUCK,
 	DISASTER_PASSED,
 ]
 ## Family events (FamilyEvent kinds), the Children's side, never App text. The Shift's own are
@@ -521,10 +526,10 @@ func debug_bollworms_now() -> void:
 	_bollworms.arrive(_crops.growing())
 
 
-## Only the debug wiring calls this: a Disaster of `kind` (SANDSTORM) strikes at once, cut to
-## the Shift's time left, unless one is striking already or the Hand-in is open. It replaces a
-## Sandstorm only warned of, and may come after one has passed: debug alone breaks the "at most
-## one a Shift" rule, so the look can be tried again and again.
+## Only the debug wiring calls this: a Disaster of `kind` (SANDSTORM or HEATWAVE) strikes at once,
+## cut to the Shift's time left, unless one is striking already or the Hand-in is open. It replaces
+## a Disaster only warned of, and may come after one has passed: debug alone breaks the "at most one
+## a Shift" rule, so the look can be tried again and again.
 func debug_disaster_now(kind: StringName) -> void:
 	_disasters.strike_now(kind, _shifts.seconds_left())
 
@@ -584,7 +589,7 @@ func advance(seconds: float) -> Array[StringName]:
 			worked = minf(worked, _crops.seconds_until_wither(growth_rate))
 			worked = minf(worked, _privileges.seconds_until_end())
 			worked = minf(worked, _bollworms.seconds_until_next())
-			var overseer_event := _toil.pass_time(worked)
+			var overseer_event := _toil.pass_time(worked, _disasters.exhaustion_factor())
 			if overseer_event != Toil.NO_EVENT:
 				overseer_events.append(overseer_event)
 			_privileges.pass_time(worked)

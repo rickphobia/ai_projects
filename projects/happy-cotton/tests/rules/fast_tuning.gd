@@ -43,6 +43,8 @@ extends RefCounted
 ## Sandstorms never come in table(): their chance is 0. with_sandstorms() plans one at the start
 ## of every Shift after the first. The App warns 10 seconds before one strikes, it lasts 20
 ## seconds (a fifth of the Shift) and halves growth while it does.
+## Heatwaves never come in table() either. with_heatwaves() plans one at the start of every
+## Shift after the first with no Sandstorm; it doubles Exhaustion from running.
 
 const GROW_SECONDS := 30.0
 const SHIFT_SECONDS := 100.0
@@ -119,6 +121,7 @@ const BOLLWORM_PICK_OFF_EXHAUSTION := 5.0
 const DISASTER_WARNING_SECONDS := 10.0
 const DISASTER_SECONDS := 20.0
 const SANDSTORM_GROWTH_FACTOR := 0.5
+const HEATWAVE_EXHAUSTION_FACTOR := 2.0
 
 
 static func table() -> Tuning:
@@ -192,6 +195,8 @@ static func table() -> Tuning:
 	tuning.disaster_warning_seconds = DISASTER_WARNING_SECONDS
 	tuning.disaster_seconds = DISASTER_SECONDS
 	tuning.sandstorm_growth_factor = SANDSTORM_GROWTH_FACTOR
+	tuning.heatwave_chance = 0.0
+	tuning.heatwave_exhaustion_factor = HEATWAVE_EXHAUSTION_FACTOR
 	var tiers: Array[GeneratorTier] = []
 	for index in GENERATOR_PRICES.size():
 		tiers.append(
@@ -254,6 +259,12 @@ static func with_bollworms(tuning: Tuning) -> Tuning:
 ## A table where a Sandstorm is planned at the start of every Shift after the first.
 static func with_sandstorms(tuning: Tuning) -> Tuning:
 	tuning.sandstorm_chance = 1.0
+	return tuning
+
+
+## A table where a Heatwave is planned at the start of every Shift after the first.
+static func with_heatwaves(tuning: Tuning) -> Tuning:
+	tuning.heatwave_chance = 1.0
 	return tuning
 
 

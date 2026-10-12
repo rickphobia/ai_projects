@@ -1,6 +1,7 @@
 extends GutTest
 ## Tuning validation for Disasters: no longer than a quarter of a Shift, the warning and the
-## Disaster fitting in one, and a Sandstorm slowing growth to no less than half.
+## Disaster fitting in one, a Sandstorm slowing growth to no less than half, and a
+## Heatwave tiring the Worker no more than twice as fast.
 
 
 func test_the_fast_table_is_good_with_sandstorms() -> void:
@@ -62,6 +63,30 @@ func test_a_sandstorm_may_not_speed_growth_up() -> void:
 	assert_eq(
 		tuning.problems(),
 		["sandstorm_growth_factor is 1.2, but it must be between 0.5 and 1.0"] as Array[String]
+	)
+
+
+func test_the_fast_table_is_good_with_heatwaves() -> void:
+	assert_eq(FastTuning.with_heatwaves(FastTuning.table()).problems(), [] as Array[String])
+
+
+func test_a_heatwave_may_not_more_than_double_exhaustion() -> void:
+	var tuning := FastTuning.table()
+	tuning.heatwave_exhaustion_factor = 2.5
+
+	assert_eq(
+		tuning.problems(),
+		["heatwave_exhaustion_factor is 2.5, but it must be between 1.0 and 2.0"] as Array[String]
+	)
+
+
+func test_a_heatwave_may_not_ease_exhaustion() -> void:
+	var tuning := FastTuning.table()
+	tuning.heatwave_exhaustion_factor = 0.9
+
+	assert_eq(
+		tuning.problems(),
+		["heatwave_exhaustion_factor is 0.9, but it must be between 1.0 and 2.0"] as Array[String]
 	)
 
 

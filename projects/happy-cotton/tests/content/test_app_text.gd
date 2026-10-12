@@ -183,6 +183,7 @@ func test_every_spray_refusal_has_text_citing_only_registered_sources() -> void:
 
 func test_every_disaster_has_a_name() -> void:
 	assert_has(AppText.DISASTER_NAMES, Farm.SANDSTORM)
+	assert_has(AppText.DISASTER_NAMES, Farm.HEATWAVE)
 
 
 func test_the_sandstorm_warning_counts_whole_seconds() -> void:

@@ -142,7 +142,8 @@ func seconds_until_turn() -> float:
 ## Some seconds of his time outside a Study Session, never past the next turn. The crops'
 ## growth for them is the caller's. Returns WHISTLE or WHIP if the
 ## Overseer acted at the end of them, NO_EVENT otherwise. The whip changes no numbers.
-func pass_time(seconds: float) -> StringName:
+## Exhaustion from running is multiplied by `exhaustion_factor` (a Heatwave's).
+func pass_time(seconds: float, exhaustion_factor := 1.0) -> StringName:
 	if not _on_generator:
 		return NO_EVENT
 	if _breath_left > 0.0:
@@ -158,14 +159,14 @@ func pass_time(seconds: float) -> StringName:
 			return WHIP
 		_breath_left -= seconds
 		return NO_EVENT
-	_run(seconds)
+	_run(seconds, exhaustion_factor)
 	return NO_EVENT
 
 
 ## Some seconds running, never past the end of his run, which starts his breath.
-func _run(seconds: float) -> void:
+func _run(seconds: float, exhaustion_factor: float) -> void:
 	# Charged per second at the first Farm's rate, so a longer lap tires him more.
-	_exhaustion.add(_tuning.exhaustion_per_lap * seconds / _tuning.lap_seconds)
+	_exhaustion.add(_tuning.exhaustion_per_lap * seconds / _tuning.lap_seconds * exhaustion_factor)
 	if seconds >= _run_seconds_left():
 		_laps_run += _laps_this_run - _laps_done
 		_start_run()

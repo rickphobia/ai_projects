@@ -23,11 +23,11 @@ func test_debug_on_the_command_line_turns_it_on() -> void:
 	assert_false(DebugMode.asked_for("", PackedStringArray(["--verbose"])))
 
 
-func test_the_panel_offers_skips_labour_points_an_audit_bollworms_and_a_sandstorm() -> void:
+func test_the_panel_offers_skips_labour_points_an_audit_bollworms_and_disasters() -> void:
 	var panel: DebugPanel = add_child_autofree(DebugPanel.new())
 	watch_signals(panel)
 	var buttons := panel.find_children("*", "Button", true, false)
-	assert_eq(buttons.size(), 6)
+	assert_eq(buttons.size(), 7)
 
 	for node in buttons:
 		(node as Button).pressed.emit()
@@ -42,3 +42,5 @@ func test_the_panel_offers_skips_labour_points_an_audit_bollworms_and_a_sandstor
 	assert_eq((buttons[4] as Button).text, "Bollworms now")
 	assert_signal_emitted(panel, "sandstorm_requested")
 	assert_eq((buttons[5] as Button).text, "Sandstorm now")
+	assert_signal_emitted(panel, "heatwave_requested")
+	assert_eq((buttons[6] as Button).text, "Heatwave now")

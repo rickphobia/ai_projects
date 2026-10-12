@@ -71,3 +71,38 @@ func test_turning_on_reduced_motion_mid_storm_stops_the_dust() -> void:
 
 	assert_false(_look.is_blowing_dust())
 	assert_eq(_look.strength(), 1.0)
+
+
+func _heatwave() -> DisasterView:
+	return DisasterView.new(DisasterView.Phase.STRIKING, Disasters.HEATWAVE, 20.0)
+
+
+func test_a_heatwave_shimmers_and_fades_to_a_harsh_light() -> void:
+	_look.show_disaster(_heatwave())
+
+	assert_true(_look.is_shimmering())
+	assert_false(_look.is_blowing_dust())
+	_look._process(DisasterLook.FADE_SECONDS)
+	assert_eq(_look.heat_strength(), 1.0)
+	assert_eq(_environment.background_color, DisasterLook.HEATWAVE_SKY)
+
+
+func test_it_stops_shimmering_once_the_heatwave_passes() -> void:
+	_look.show_disaster(_heatwave())
+	_look._process(DisasterLook.FADE_SECONDS)
+
+	_look.show_disaster(DisasterView.new())
+	_look._process(DisasterLook.FADE_SECONDS)
+
+	assert_false(_look.is_shimmering())
+	assert_eq(_environment.background_color, CALM_SKY)
+
+
+func test_with_reduced_motion_a_heatwave_is_a_still_tint() -> void:
+	_look.set_reduced_motion(true)
+
+	_look.show_disaster(_heatwave())
+
+	assert_false(_look.is_shimmering())
+	assert_eq(_look.heat_strength(), 1.0)
+	assert_eq(_environment.background_color, DisasterLook.HEATWAVE_SKY)

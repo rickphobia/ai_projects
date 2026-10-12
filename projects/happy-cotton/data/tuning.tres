@@ -111,5 +111,7 @@ sandstorm_chance = 0.25
 disaster_warning_seconds = 20.0
 disaster_seconds = 120.0
 sandstorm_growth_factor = 0.6
+heatwave_chance = 0.25
+heatwave_exhaustion_factor = 1.5
 generator_tiers = Array[ExtResource("2_generator_tier")]([SubResource("GeneratorTier_1"), SubResource("GeneratorTier_2"), SubResource("GeneratorTier_3")])
 tools_tiers = Array[ExtResource("3_tools_tier")]([SubResource("ToolsTier_1"), SubResource("ToolsTier_2"), SubResource("ToolsTier_3")])

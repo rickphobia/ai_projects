@@ -76,6 +76,8 @@ const LIMITS: Dictionary = {
 	"disaster_warning_seconds": [1.0, 86400.0],
 	"disaster_seconds": [1.0, 86400.0],
 	"sandstorm_growth_factor": [0.5, 1.0],
+	"heatwave_chance": [0.0, 1.0],
+	"heatwave_exhaustion_factor": [1.0, 2.0],
 }
 ## Fields that count things (picks, points), so they must be whole numbers.
 const WHOLE_NUMBERS: Array[String] = [
@@ -285,6 +287,11 @@ const MOST_TIER_QUOTA_RISE := 10000.0
 @export var disaster_seconds: float = NAN
 ## What a Sandstorm multiplies growth per second of running by: from half up to 1.
 @export var sandstorm_growth_factor: float = NAN
+## The chance a Heatwave is planned at the start of each Shift after the first that has no
+## Sandstorm.
+@export var heatwave_chance: float = NAN
+## What a Heatwave multiplies Exhaustion per second of running by: from 1 up to double.
+@export var heatwave_exhaustion_factor: float = NAN
 ## The Generator Upgrade's tiers, bought in order: each one's price, growth per second of
 ## running, and Quota rise. At least one tier.
 @export var generator_tiers: Array[GeneratorTier] = []

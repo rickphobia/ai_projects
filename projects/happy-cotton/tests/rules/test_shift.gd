@@ -278,6 +278,8 @@ func test_every_key_the_rules_emit_is_listed() -> void:
 		Farm.CROP_EATEN,
 		Farm.SANDSTORM_WARNED,
 		Farm.SANDSTORM_STRUCK,
+		Farm.HEATWAVE_WARNED,
+		Farm.HEATWAVE_STRUCK,
 		Farm.DISASTER_PASSED,
 	]
 	assert_eq(Farm.MESSAGE_KEYS, emitted)

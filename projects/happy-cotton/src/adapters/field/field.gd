@@ -277,7 +277,8 @@ func set_reduced_motion(on: bool) -> void:
 	_generator.skip_pulse = on
 
 
-## The Shift's Disaster: a striking Sandstorm brings its weather, which clears once it passes.
+## The Shift's Disaster: a striking Sandstorm or Heatwave brings its weather, which clears once
+## it passes.
 func show_disaster(disaster: DisasterView) -> void:
 	_disaster_look.show_disaster(disaster)
 
