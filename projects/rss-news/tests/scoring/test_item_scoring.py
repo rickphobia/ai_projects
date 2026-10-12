@@ -5,9 +5,7 @@ import logging
 from collections.abc import Sequence
 from datetime import timedelta
 from decimal import Decimal
-from email.utils import format_datetime
 from pathlib import Path
-from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,14 +13,15 @@ from fastapi.testclient import TestClient
 from rss_news.config import Settings, load_settings
 from rss_news.scoring.item_scoring import (
     MAX_CALLS_PER_TICK,
+    MAX_SCORING_TIME_PER_TICK,
     ItemScore,
     ScoringResult,
     UnscoredItem,
 )
 from rss_news.sources.catalog import StarterFolder, StarterSource
-from rss_news.sources.fetching import Fetched
 from rss_news.spending.ledger import Feature
 from rss_news.wiring import Wiring
+from tests.scoring.scored_feeds import feed, inbox
 from tests.support import (
     OWNER_PASSWORD,
     PREFIX,
@@ -81,36 +80,6 @@ def client(wiring: Wiring) -> TestClient:
     return client
 
 
-def feed(clock: FakeClock, *titles: str, excerpt: str = "") -> Fetched:
-    """A feed whose first title is the newest, an hour apart."""
-    entries = "".join(
-        f"<item><title>{title}</title><link>https://news.example/{number}</link>"
-        f"<description>{excerpt}</description><pubDate>"
-        f"{format_datetime(clock.now() - timedelta(hours=number + 1), usegmt=True)}"
-        "</pubDate></item>"
-        for number, title in enumerate(titles)
-    )
-    body = f'<rss version="2.0"><channel><title>t</title>{entries}</channel></rss>'
-    return Fetched(body.encode(), "application/rss+xml", etag=None, last_modified=None)
-
-
-def importance_by_title(items: Sequence[UnscoredItem]) -> ScoringResult:
-    """Scores 'Story <n> ...' with Importance n."""
-    scores = [
-        ItemScore(item.id, int(item.title.split()[1]), f"Summary of {item.title}") for item in items
-    ]
-    return ScoringResult(scores, FakeLanguageModel.USAGE)
-
-
-def inbox(client: TestClient, **params: Any) -> list[dict[str, Any]]:
-    items: list[dict[str, Any]] = client.get(INBOX, params=params).json()["items"]
-    return items
-
-
-def titles(items: list[dict[str, Any]]) -> list[str]:
-    return [item["title"] for item in items]
-
-
 def test_new_items_show_their_importance_and_summary_in_the_inbox(
     client: TestClient, wiring: Wiring, clock: FakeClock, fetcher: FakeFeedFetcher
 ) -> None:
@@ -137,9 +106,9 @@ def test_items_are_sent_in_batches_of_the_configured_size(
 def test_a_batch_stays_under_the_prompt_token_limit(
     tmp_path: Path, clock: FakeClock, fetcher: FakeFeedFetcher, language_model: FakeLanguageModel
 ) -> None:
-    # Each Item is about 330 estimated tokens (600 characters of excerpt shown, at 2 per
-    # token), and the instructions count 1,000: two Items fit under 1,800, three don't.
-    settings = load_settings(app_env(tmp_path, RSS_NEWS_SCORING_PROMPT_TOKEN_LIMIT="1800"))
+    # Each Item is about 270 estimated tokens (the 500-character excerpt the feed parser keeps,
+    # at 2 per token), and the instructions about 930: two Items fit under 1,600, three don't.
+    settings = load_settings(app_env(tmp_path, RSS_NEWS_SCORING_PROMPT_TOKEN_LIMIT="1600"))
     wiring = make_wiring(
         settings,
         clock,
@@ -335,84 +304,18 @@ def test_a_large_backlog_is_scored_over_several_ticks(
     assert sum(len(call) for call in language_model.calls) == 45
 
 
-def test_the_inbox_filters_by_minimum_importance(
-    client: TestClient,
-    wiring: Wiring,
-    clock: FakeClock,
-    fetcher: FakeFeedFetcher,
-    language_model: FakeLanguageModel,
+def test_scoring_starts_no_call_once_its_time_for_the_tick_is_used_up(
+    wiring: Wiring, clock: FakeClock, fetcher: FakeFeedFetcher, language_model: FakeLanguageModel
 ) -> None:
-    language_model.answer = importance_by_title
-    fetcher.answers[FEED] = feed(clock, "Story 2 a", "Story 5 b", "Story 4 c", "Story 1 d")
+    def slow(items: Sequence[UnscoredItem]) -> ScoringResult:
+        clock.advance(MAX_SCORING_TIME_PER_TICK / 2)
+        return FakeLanguageModel.score_all(items)
+
+    language_model.answer = slow
+    fetcher.answers[FEED] = feed(clock, *[f"Story {number}" for number in range(12)])
+
     wiring.tick.run()
+    assert len(language_model.calls) == 2
 
-    assert titles(inbox(client, min_importance=4)) == ["Story 5 b", "Story 4 c"]
-
-
-def test_the_inbox_sorts_by_importance_with_unscored_items_last(
-    client: TestClient,
-    wiring: Wiring,
-    clock: FakeClock,
-    fetcher: FakeFeedFetcher,
-    language_model: FakeLanguageModel,
-) -> None:
-    def all_but_unscored(items: Sequence[UnscoredItem]) -> ScoringResult:
-        return importance_by_title([item for item in items if "Unscored" not in item.title])
-
-    language_model.answer = all_but_unscored
-    fetcher.answers[FEED] = feed(
-        clock, "Story 2 newer", "Unscored 9", "Story 5 only", "Story 2 older"
-    )
     wiring.tick.run()
-
-    assert titles(inbox(client, sort="importance")) == [
-        "Story 5 only",
-        "Story 2 newer",
-        "Story 2 older",
-        "Unscored 9",
-    ]
-
-
-def test_paging_by_importance_visits_every_item_once(
-    client: TestClient,
-    wiring: Wiring,
-    clock: FakeClock,
-    fetcher: FakeFeedFetcher,
-    language_model: FakeLanguageModel,
-) -> None:
-    language_model.answer = importance_by_title
-    fetcher.answers[FEED] = feed(
-        clock, "Story 3 a", "Story 5 b", "Story 3 c", "Story 1 d", "Story 4 e"
-    )
-    wiring.tick.run()
-
-    seen: list[str] = []
-    cursor = None
-    while True:
-        params: dict[str, Any] = {"sort": "importance", "limit": 2}
-        if cursor:
-            params["cursor"] = cursor
-        page = client.get(INBOX, params=params).json()
-        seen += titles(page["items"])
-        cursor = page["next_cursor"]
-        if cursor is None:
-            break
-
-    assert seen == ["Story 5 b", "Story 4 e", "Story 3 a", "Story 3 c", "Story 1 d"]
-
-
-def test_a_cursor_from_the_other_order_is_refused(
-    client: TestClient, wiring: Wiring, clock: FakeClock, fetcher: FakeFeedFetcher
-) -> None:
-    fetcher.answers[FEED] = feed(clock, "Story 1", "Story 2")
-    wiring.tick.run()
-    newest_cursor = client.get(INBOX, params={"limit": 1}).json()["next_cursor"]
-
-    response = client.get(INBOX, params={"sort": "importance", "cursor": newest_cursor})
-
-    assert response.status_code == 400
-
-
-@pytest.mark.parametrize("params", [{"min_importance": 0}, {"min_importance": 6}, {"sort": "x"}])
-def test_bad_importance_filters_are_refused(client: TestClient, params: dict[str, Any]) -> None:
-    assert client.get(INBOX, params=params).status_code == 422
+    assert len(language_model.calls) == 3

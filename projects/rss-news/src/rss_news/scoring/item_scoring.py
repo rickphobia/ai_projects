@@ -8,15 +8,16 @@ from itertools import groupby
 from typing import Protocol
 
 from rss_news.clock import Clock
+from rss_news.scoring.instructions import MAX_IMPORTANCE, MIN_IMPORTANCE, SCORING_INSTRUCTIONS
 from rss_news.spending.ledger import AiUsage, Feature, SpendingLedger
 
 logger = logging.getLogger(__name__)
 
-MIN_IMPORTANCE = 1
-MAX_IMPORTANCE = 5
-# Each tick makes at most this many scoring calls, so a large backlog (the first run, or after
-# an outage) can't hold up fetching for long. The rest wait for the next tick.
+# Each tick makes at most this many scoring calls, and starts none after this long, so a large
+# backlog (the first run) or slow answers can't hold up fetching for long. The rest wait for the
+# next tick.
 MAX_CALLS_PER_TICK = 10
+MAX_SCORING_TIME_PER_TICK = timedelta(minutes=2)
 # A failed Item waits this long before its first retry, twice as long after each further
 # failure, but never longer than the cap.
 FIRST_RETRY_DELAY = timedelta(minutes=1)
@@ -26,8 +27,8 @@ EXCERPT_CHARACTERS = 600
 # A rough upper bound for how many tokens a piece of text becomes: real text is nearer 4
 # characters per token, so 2 leaves room for other scripts and tokenizer changes.
 _CHARACTERS_PER_TOKEN = 2
-# The instructions sent with every batch, as estimated tokens.
-_INSTRUCTION_TOKENS = 1_000
+# The instructions and the answer format sent with every batch, as estimated tokens.
+_INSTRUCTION_TOKENS = len(SCORING_INSTRUCTIONS) // _CHARACTERS_PER_TOKEN + 500
 
 
 class ScoringFailed(Exception):
@@ -39,7 +40,7 @@ class ScoringFailed(Exception):
         self.usage = usage
 
 
-class ScoringUnavailable(ScoringFailed):
+class ScoringUnavailable(Exception):
     """The model can't be reached or won't take calls (network, outage, bad API key), whatever
     the Items. Nothing is held against them; they wait for the next tick."""
 
@@ -70,7 +71,8 @@ class ScoringResult:
 
 class ScoringModel(Protocol):
     def score_items(self, items: Sequence[UnscoredItem]) -> ScoringResult:
-        """Score every Item in one call. Raises ScoringFailed when the call fails."""
+        """Score every Item in one call. Raises ScoringFailed when the call fails over its
+        Items, and ScoringUnavailable when any call would fail."""
         ...
 
 
@@ -108,10 +110,12 @@ class ItemScoring:
     def score_new(self) -> None:
         """Score unscored Items, a batch per call. A failed batch is retried on a later tick;
         the other batches carry on, unless the model is unavailable."""
-        items = self._store.unscored(
-            due_at=self._clock.now(), limit=self._batch_size * MAX_CALLS_PER_TICK
-        )
+        started = self._clock.now()
+        items = self._store.unscored(due_at=started, limit=self._batch_size * MAX_CALLS_PER_TICK)
         for batch in self._batches(items)[:MAX_CALLS_PER_TICK]:
+            if self._clock.now() - started >= MAX_SCORING_TIME_PER_TICK:
+                logger.info("scoring time for this tick used up; the rest wait")
+                return
             try:
                 self._score(batch)
             except ScoringUnavailable as error:
@@ -149,8 +153,6 @@ class ItemScoring:
         ids = [item.id for item in batch]
         try:
             result = self._model.score_items(batch)
-        except ScoringUnavailable:
-            raise
         except ScoringFailed as error:
             if error.usage is not None:
                 self._ledger.record(Feature.SCORING, error.usage)

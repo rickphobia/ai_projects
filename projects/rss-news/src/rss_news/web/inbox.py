@@ -13,7 +13,7 @@ from rss_news.items.inbox import (
     InboxOrder,
     InvalidCursor,
 )
-from rss_news.scoring.item_scoring import MAX_IMPORTANCE, MIN_IMPORTANCE
+from rss_news.scoring.instructions import MAX_IMPORTANCE, MIN_IMPORTANCE
 
 inbox_router = APIRouter(prefix="/api")
 
