@@ -131,14 +131,12 @@ class AlertPush:
         if not subscription.p256dh or not subscription.auth:
             raise InvalidSubscription("A push subscription needs its p256dh and auth keys.")
         self._store.save(subscription, self._clock.now())
-        logger.info("alerts turned on for a phone", extra={"push_host": subscription.push_host})
+        logger.info("alerts turned on for a phone", extra={"host": subscription.push_host})
 
     def unsubscribe(self, endpoint: str) -> None:
         """Forget the subscription; one that isn't stored is already off."""
         self._store.remove(endpoint)
-        logger.info(
-            "alerts turned off for a phone", extra={"push_host": urlsplit(endpoint).hostname}
-        )
+        logger.info("alerts turned off for a phone", extra={"host": urlsplit(endpoint).hostname})
 
     def send(self, alert: Alert) -> SendReport:
         """Send the Alert to every subscription, deleting the gone ones."""
@@ -151,14 +149,14 @@ class AlertPush:
                 failed += 1
                 logger.warning(
                     "alert not delivered",
-                    extra={"push_host": subscription.push_host, "error": str(error)},
+                    extra={"host": subscription.push_host, "error": str(error)},
                 )
                 continue
             if delivery is Delivery.GONE:
                 self._store.remove(subscription.endpoint)
                 removed += 1
                 logger.info(
-                    "gone push subscription removed", extra={"push_host": subscription.push_host}
+                    "gone push subscription removed", extra={"host": subscription.push_host}
                 )
             else:
                 delivered += 1

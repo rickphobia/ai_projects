@@ -140,6 +140,18 @@ describe("the Alerts settings", () => {
     expect(testButton().disabled).toBe(true);
   });
 
+  it("drops a subscription made with a key the server no longer has", async () => {
+    await phone.subscribe("BOldServerKey");
+    api.pushEndpoints.add("https://fcm.googleapis.com/fcm/send/this-phone");
+
+    await renderSettings(root, api, phone);
+
+    expect(status()).toBe("Alerts are off for this phone.");
+    expect(optIn().checked).toBe(false);
+    expect(phone.subscription).toBeNull();
+    expect(api.pushEndpoints.size).toBe(0);
+  });
+
   it("says so and stays off when notifications are blocked", async () => {
     phone.permissionDenied = true;
     await renderSettings(root, api, phone);

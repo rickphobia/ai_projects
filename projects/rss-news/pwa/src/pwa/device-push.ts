@@ -2,11 +2,18 @@
 // a DevicePush passed in, and tests pass a fake.
 import type { DeviceSubscription } from "../api/alerts";
 
+// This browser's subscription, and the server key it was made with (base64url); null when the
+// browser doesn't say.
+export interface DeviceState {
+  subscription: DeviceSubscription;
+  serverKey: string | null;
+}
+
 export interface DevicePush {
   // False when this browser can't receive push messages at all.
   readonly supported: boolean;
   // This browser's subscription, or null when Alerts are off here.
-  current(): Promise<DeviceSubscription | null>;
+  current(): Promise<DeviceState | null>;
   // Asks for permission to show notifications, then subscribes with the server's key.
   // Rejects with NotificationsBlocked when permission is refused.
   subscribe(applicationServerKey: string): Promise<DeviceSubscription>;
@@ -41,7 +48,12 @@ export function browserDevicePush(
     supported: true,
     async current() {
       const subscription = await (await pushManager()).getSubscription();
-      return subscription ? deviceSubscription(subscription) : null;
+      if (!subscription) return null;
+      const key = subscription.options.applicationServerKey;
+      return {
+        subscription: deviceSubscription(subscription),
+        serverKey: key ? base64Url(key) : null,
+      };
     },
     async subscribe(applicationServerKey) {
       const permission = await notifications.requestPermission();
@@ -62,6 +74,15 @@ export function browserDevicePush(
       return subscription.endpoint;
     },
   };
+}
+
+// The same form the server gives its key in, so the two can be compared.
+function base64Url(key: ArrayBuffer): string {
+  const binary = String.fromCharCode(...new Uint8Array(key));
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 function deviceSubscription(

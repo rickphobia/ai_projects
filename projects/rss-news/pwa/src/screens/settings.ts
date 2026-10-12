@@ -98,8 +98,19 @@ async function showAlerts(
       return;
     }
     publicKey = setup.publicKey;
-    const current = await devicePush.current();
-    if (current) await api.subscribePush(current);
+    let current = await devicePush.current();
+    // Made with a VAPID key the server no longer has: the push service would refuse every
+    // Alert to it, so drop it here and on the server, and let the owner turn Alerts on again.
+    if (
+      current &&
+      current.serverKey !== null &&
+      current.serverKey !== publicKey
+    ) {
+      await devicePush.unsubscribe();
+      await api.unsubscribePush(current.subscription.endpoint);
+      current = null;
+    }
+    if (current) await api.subscribePush(current.subscription);
     optIn.checked = current !== null;
   } catch (error) {
     if (error instanceof SignedOutError) return;
@@ -111,11 +122,9 @@ async function showAlerts(
     optIn.disabled = false;
     testButton.disabled = !optIn.checked;
   };
-  settle(
-    optIn.checked
-      ? "Alerts are on for this phone."
-      : "Alerts are off for this phone.",
-  );
+  const onOrOff = (on: boolean): string =>
+    `Alerts are ${on ? "on" : "off"} for this phone.`;
+  settle(onOrOff(optIn.checked));
 
   optIn.addEventListener("change", () => {
     const turningOn = optIn.checked;
@@ -135,11 +144,7 @@ async function showAlerts(
           );
     change.then(
       () => {
-        settle(
-          turningOn
-            ? "Alerts are on for this phone."
-            : "Alerts are off for this phone.",
-        );
+        settle(onOrOff(turningOn));
       },
       (error: unknown) => {
         if (error instanceof SignedOutError) return;
