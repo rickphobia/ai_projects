@@ -7,13 +7,14 @@ extends RefCounted
 ## miss in a row, and takes every Privilege away for the next Shift; the Shift's clock waits while
 ## a Study Session runs. Negligence starts a Study Session of its own. Each Shift after the first
 ## rolls a Harmony Audit (see Audits); the Shift's end runs it after the Quota check, and being
-## caught starts the caught Study Session in place of a missed Quota's.
+## caught starts the caught Study Session in place of a missed Quota's. Each Shift after the
+## first also rolls its Disaster (see Disasters), whose clock is the Shift's.
 ## What The App should say goes on the Farm's message queue, and the Children's side on its
 ## Family event queue, in the order it happens. Farm owns this and decides when time passes;
 ## tested through Farm, not on its own.
 
 ## App message keys (see Farm.MESSAGE_KEYS). A Shift began: values shift, quota, and for the
-## log only (the plan is secret) audit_chance and audit_planned.
+## log only (the plans are secret) audit_chance, audit_planned and disaster (Disasters.plan()).
 const SHIFT_STARTED := &"shift_started"
 ## The Shift's time ran out and The App asks for the cotton: values shift, in_hand, quota.
 const HAND_IN_OPENED := &"hand_in_opened"
@@ -51,6 +52,7 @@ var _store: Store
 var _land: Land
 var _letters: Letters
 var _audits: Audits
+var _disasters: Disasters
 ## The Farm's queues, shared so messages keep the order things happened in.
 var _messages: Array[AppMessage]
 var _family_events: Array[FamilyEvent]
@@ -73,6 +75,8 @@ var _misses_in_a_row := 0
 var _privileges_taken_away := false
 
 
+# The Shift's end runs on every one of these parts in turn, so each comes in here.
+# gdlint: ignore=function-arguments-number
 func _init(
 	tuning: Tuning,
 	ledger: Ledger,
@@ -82,6 +86,7 @@ func _init(
 	land: Land,
 	letters: Letters,
 	audits: Audits,
+	disasters: Disasters,
 	messages: Array[AppMessage],
 	family_events: Array[FamilyEvent]
 ) -> void:
@@ -93,6 +98,7 @@ func _init(
 	_land = land
 	_letters = letters
 	_audits = audits
+	_disasters = disasters
 	_messages = messages
 	_family_events = family_events
 
@@ -104,6 +110,7 @@ func start() -> void:
 	var chance := _audits.plan() if _number > 1 else 0.0
 	var values := {"shift": _number, "quota": _quota(), "audit_chance": chance}
 	values["audit_planned"] = _audits.planned()
+	values["disaster"] = _disasters.plan(_number)
 	_messages.append(AppMessage.new(SHIFT_STARTED, values))
 	var every := roundi(_tuning.letter_every_shifts)
 	var letter := _letters.start_shift(_number, every, _ledger.fees_unpaid())
@@ -116,9 +123,10 @@ func seconds_left() -> float:
 	return _tuning.shift_seconds - _elapsed
 
 
-## Counts some seconds of online play; when they cover what is left, the Hand-in opens. The
-## Farm stops counting while it is open.
+## Counts some seconds of online play, and the Disaster's time with them; when they cover what
+## is left, the Hand-in opens. The Farm stops counting while it is open.
 func run(seconds: float) -> void:
+	_disasters.pass_time(seconds)
 	if seconds >= seconds_left():
 		_elapsed = _tuning.shift_seconds
 		_hand_in_open = true
@@ -153,7 +161,13 @@ func hand_in(handed_in: int, kept: int) -> void:
 
 func view() -> ShiftView:
 	return ShiftView.new(
-		_number, _quota(), _picked, seconds_left(), _ledger.next_fees_shift(), _hand_in_open
+		_number,
+		_quota(),
+		_picked,
+		seconds_left(),
+		_ledger.next_fees_shift(),
+		_hand_in_open,
+		_disasters.view()
 	)
 
 

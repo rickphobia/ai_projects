@@ -3,6 +3,8 @@ extends GutTest
 ## only when the test calls advance.
 
 const PLOTS := FastTuning.FIRST_PLOTS
+## The Shift start's Disaster plan when none comes (the test table never has one).
+const NO_DISASTER := {"kind": &"", "strikes_at": 0.0, "seconds": 0.0}
 
 var _farm: Farm
 
@@ -44,10 +46,11 @@ func test_a_new_farm_tells_of_the_children_then_announces_the_first_shift() -> v
 
 	var expected: Array[StringName] = [Farm.CHILDREN_AT_SCHOOL, Farm.SHIFT_STARTED]
 	assert_eq(_keys(messages), expected)
-	# The first Shift never rolls an audit.
+	# The first Shift never rolls an audit or a Disaster.
 	var started := {
 		"shift": 1, "quota": FastTuning.FIRST_QUOTA, "audit_chance": 0.0, "audit_planned": false
 	}
+	started["disaster"] = NO_DISASTER
 	assert_eq(messages[1].values, started)
 
 
@@ -133,6 +136,7 @@ func test_the_next_shift_starts_at_once_with_a_higher_quota() -> void:
 	assert_eq(shift.quota, raised)
 	assert_eq(shift.seconds_left, FastTuning.SHIFT_SECONDS)
 	var started := {"shift": 2, "quota": raised, "audit_chance": 0.0, "audit_planned": false}
+	started["disaster"] = NO_DISASTER
 	assert_eq(_farm.take_messages()[-1].values, started)
 
 
@@ -272,5 +276,8 @@ func test_every_key_the_rules_emit_is_listed() -> void:
 		Farm.SUPPLY_BOUGHT,
 		Farm.BOLLWORMS_ARRIVED,
 		Farm.CROP_EATEN,
+		Farm.SANDSTORM_WARNED,
+		Farm.SANDSTORM_STRUCK,
+		Farm.DISASTER_PASSED,
 	]
 	assert_eq(Farm.MESSAGE_KEYS, emitted)

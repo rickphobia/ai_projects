@@ -3,8 +3,8 @@ extends Node
 ## saved Farm (or starts a new one) and wires it to the field, The App and its store, the
 ## Children's letters (see LettersView), the hidden savings tin (see SavingsTin) and the wall
 ## clock, and adds the debug controls (Skip time, +100 Labour Points, Audit this Shift,
-## Bollworms now) in debug mode. It puts the player's settings into effect and opens the
-## Settings screen from The App. It autosaves after every command, when a Shift's Hand-in
+## Bollworms now, Sandstorm now) in debug mode. It puts the player's settings into effect and
+## opens the Settings screen from The App. It autosaves after every command, when a Shift's Hand-in
 ## opens, when the player leaves (see LeavingWatch), and every AUTOSAVE_SECONDS of play.
 ## Kept thin: no game rules here.
 
@@ -13,6 +13,12 @@ const TUNING_PATH := "res://data/tuning.tres"
 ## gets none, so the save made as the tab hides is lost if the tab is closed while hidden.
 ## Saving this often bounds what that loses: online play that would count as offline time.
 const AUTOSAVE_SECONDS := 15.0
+## The log line for each Disaster message: warned of, struck and passed (kind, seconds).
+const DISASTER_LOG_EVENTS: Dictionary[StringName, String] = {
+	Farm.SANDSTORM_WARNED: "disaster warned",
+	Farm.SANDSTORM_STRUCK: "disaster struck",
+	Farm.DISASTER_PASSED: "disaster passed",
+}
 
 ## The save slot. Tests set their own before adding the scene.
 var save_store := SaveStore.new()
@@ -70,6 +76,7 @@ func _ready() -> void:
 		debug_panel.labour_points_requested.connect(_on_labour_points_requested)
 		debug_panel.audit_requested.connect(_on_audit_requested)
 		debug_panel.bollworms_requested.connect(_on_bollworms_requested)
+		debug_panel.sandstorm_requested.connect(_on_sandstorm_requested)
 		add_child(debug_panel)
 
 
@@ -376,6 +383,16 @@ func _on_bollworms_requested() -> void:
 	_show_farm()
 
 
+## Debug mode only: a Sandstorm strikes at once, to see it without waiting.
+func _on_sandstorm_requested() -> void:
+	if _farm == null:
+		return
+	GameLog.info("debug sandstorm now", {"shift": _farm.shift().number})
+	_farm.debug_disaster_now(Farm.SANDSTORM)
+	_save("command")
+	_show_farm()
+
+
 ## Skip time runs exactly the offline resume of a real absence that long.
 func _on_skip_requested(seconds: float) -> void:
 	if _farm == null:
@@ -487,7 +504,9 @@ func _show_app() -> void:
 	if not lines.is_empty():
 		_app.say("\n".join(lines))
 	var audit := _farm.audit()
-	_app.show_shift(_farm.shift(), _farm.labour_points(), _farm.debt(), audit.watch_shifts_left)
+	var shift := _farm.shift()
+	_app.show_shift(shift, _farm.labour_points(), _farm.debt(), audit.watch_shifts_left)
+	_field.show_disaster(shift.disaster)
 	_app.show_study_session(_farm.study_session_seconds_left())
 	_app.show_exhaustion(_farm.exhaustion())
 	_app.show_resting(_farm.rest_hour().seconds_left, _farm.call_home_seconds_left())
@@ -532,17 +551,26 @@ func _log_message(message: AppMessage) -> void:
 		GameLog.info("hand-in opened", message.values)
 	elif message.key == Farm.HANDED_IN:
 		GameLog.info("handed in", message.values)
+	elif message.key in DISASTER_LOG_EVENTS:
+		GameLog.info(DISASTER_LOG_EVENTS[message.key], message.values)
 	else:
 		_log_audit(message)
 
 
 ## Audits planned (with their chance; the plan itself is secret), their result, catches and
-## the end of being on watch.
+## the end of being on watch; and the Shift's Disaster planned (kind, when it strikes, length).
 func _log_audit(message: AppMessage) -> void:
-	if message.key == Farm.SHIFT_STARTED and message.values.get("audit_planned", false):
-		var planned := {"shift": message.values["shift"]}
-		planned["chance"] = message.values["audit_chance"]
-		GameLog.info("audit planned", planned)
+	if message.key == Farm.SHIFT_STARTED:
+		var shift_number: int = message.values["shift"]
+		if message.values.get("audit_planned", false):
+			GameLog.info(
+				"audit planned", {"shift": shift_number, "chance": message.values["audit_chance"]}
+			)
+		var disaster: Dictionary = message.values.get("disaster", {})
+		if disaster.get("kind", &"") != &"":
+			var planned := {"shift": shift_number}
+			planned.merge(disaster)
+			GameLog.info("disaster planned", planned)
 	elif message.key == Farm.AUDIT_PASSED:
 		GameLog.info("audit passed", message.values)
 	elif message.key in [Farm.CAUGHT, Farm.CAUGHT_AGAIN]:
