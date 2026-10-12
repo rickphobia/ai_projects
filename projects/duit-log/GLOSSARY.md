@@ -81,7 +81,7 @@ A bucket a Transaction belongs to, such as Transport or F&B. Expenses and Income
 _Avoid_: Tag, type, group
 
 **Other**:
-The Category in each list that always exists and cannot be deleted; Transactions from a deleted Category can be moved here.
+The Category in each list that always exists and cannot be deleted or renamed; Transactions from a deleted Category can be moved here.
 
 **Merchant Rule**:
 A remembered pairing of a Merchant to a Category, made or updated whenever you pick a Category yourself, so that Merchant's later Transactions get it without asking the AI.

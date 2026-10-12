@@ -90,17 +90,19 @@ internal fun DeleteCategoryDialog(
     actions: CategoryActions,
     onClose: () -> Unit,
 ) {
+    var problem by remember { mutableStateOf<Int?>(null) }
+    // Null while counting, or when the count failed and [problem] says so.
     val count by produceState<Long?>(null, category.id) {
         value =
             try {
                 actions.transactionCount(category.id)
             } catch (e: SQLException) {
                 AppLog.e("counting Category ${category.id}'s Transactions failed", e)
+                problem = R.string.problem_storage
                 null
             }
     }
     var moveTo by remember { mutableStateOf(moveTargets.firstOrNull { it.name == OTHER }?.id) }
-    var problem by remember { mutableStateOf<Int?>(null) }
     var deleting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -112,21 +114,7 @@ internal fun DeleteCategoryDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                val transactions = count ?: 0L
-                if (transactions == 0L) {
-                    Text(stringResource(R.string.delete_category_empty))
-                } else {
-                    Text(
-                        pluralStringResource(
-                            R.plurals.delete_category_move,
-                            transactions.toInt(),
-                            transactions.toInt(),
-                        ),
-                    )
-                    moveTargets.forEach { target ->
-                        MoveTarget(target, selected = target.id == moveTo) { moveTo = target.id }
-                    }
-                }
+                count?.let { MoveChoice(it, moveTargets, moveTo) { picked -> moveTo = picked } }
                 problem?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
             }
         },
@@ -148,6 +136,24 @@ internal fun DeleteCategoryDialog(
         },
         dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.cancel)) } },
     )
+}
+
+/** "It has no Transactions", or where its [transactions] Transactions move to. */
+@Composable
+private fun MoveChoice(
+    transactions: Long,
+    moveTargets: List<Category>,
+    moveTo: Long?,
+    onPick: (Long) -> Unit,
+) {
+    if (transactions == 0L) {
+        Text(stringResource(R.string.delete_category_empty))
+        return
+    }
+    Text(pluralStringResource(R.plurals.delete_category_move, transactions.toInt(), transactions.toInt()))
+    moveTargets.forEach { target ->
+        MoveTarget(target, selected = target.id == moveTo) { onPick(target.id) }
+    }
 }
 
 @Composable
