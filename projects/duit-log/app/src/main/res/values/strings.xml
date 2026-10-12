@@ -84,4 +84,23 @@
   <string name="delete">Delete</string>
   <string name="delete_title">Delete this Transaction?</string>
   <string name="delete_body">It is removed from duit-log for good.</string>
+
+  <!-- Categories -->
+  <string name="open_categories">Categories</string>
+  <string name="categories_title">Categories</string>
+  <string name="expense_categories">Expense Categories</string>
+  <string name="income_categories">Income Categories</string>
+  <string name="add_category">Add a Category</string>
+  <string name="rename_category">Rename</string>
+  <string name="category_name">Name</string>
+  <string name="delete_category_title">Delete %1$s?</string>
+  <string name="delete_category_empty">It has no Transactions.</string>
+  <plurals name="delete_category_move">
+    <item quantity="one">Move its %1$d Transaction to:</item>
+    <item quantity="other">Move its %1$d Transactions to:</item>
+  </plurals>
+  <string name="problem_category_name">Type a name</string>
+  <string name="problem_category_taken">This list already has a Category with that name</string>
+  <string name="problem_other_fixed">Other can\'t be renamed or deleted</string>
+  <string name="problem_move_target">Pick another Category in the same list</string>
 </resources>

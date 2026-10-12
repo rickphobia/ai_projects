@@ -21,6 +21,9 @@ class Ledger(
     fun categories(kind: Kind): List<Category> =
         database.categoryQueries.ofKind(kind.name, ::toCategory).executeAsList()
 
+    /** Adding, renaming and deleting Categories. */
+    val categoryLists = CategoryLists(database)
+
     /** Saves [entry] and returns it as a Transaction, or throws a [LedgerException] and saves nothing. */
     fun addByHand(entry: HandEntry): Transaction {
         val checked = database.check(entry, clock.zone)

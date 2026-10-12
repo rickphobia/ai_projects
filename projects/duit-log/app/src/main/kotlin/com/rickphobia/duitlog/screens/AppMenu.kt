@@ -17,11 +17,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.rickphobia.duitlog.R
 
-/** The ⋮ menu: the Recorder, the notification access guide, "Share log" and the app's version. */
+/** The ⋮ menu: Categories, the Recorder, the notification access guide, "Share log" and the app's version. */
 @Composable
 fun AppMenu(
     versionName: String,
     buildNumber: Int,
+    onOpenCategories: () -> Unit,
     onOpenRecorder: () -> Unit,
     onOpenGuide: () -> Unit,
     onShareLog: () -> Unit,
@@ -33,6 +34,13 @@ fun AppMenu(
             Text("⋮", style = MaterialTheme.typography.titleLarge)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.open_categories)) },
+                onClick = {
+                    open = false
+                    onOpenCategories()
+                },
+            )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.open_recorder)) },
                 onClick = {

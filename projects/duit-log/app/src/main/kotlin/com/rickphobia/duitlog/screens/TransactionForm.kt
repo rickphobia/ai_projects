@@ -296,15 +296,6 @@ private suspend fun trySave(
         R.string.problem_storage
     }
 
-@StringRes
-internal fun problemText(problem: LedgerException): Int =
-    when (problem) {
-        is LedgerException.AmountUnreadable, is LedgerException.AmountNotPositive -> R.string.problem_amount
-        is LedgerException.MerchantMissing -> R.string.problem_merchant
-        is LedgerException.UnknownCategory, is LedgerException.CategoryKindMismatch -> R.string.problem_category
-        is LedgerException.UnknownTransaction -> R.string.problem_gone
-    }
-
 @Preview
 @Composable
 private fun AddTransactionScreenPreview() {

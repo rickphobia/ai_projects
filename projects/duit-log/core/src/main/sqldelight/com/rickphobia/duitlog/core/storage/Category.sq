@@ -30,3 +30,17 @@ SELECT id, kind, name FROM category WHERE kind = ? ORDER BY position;
 
 byId:
 SELECT id, kind, name FROM category WHERE id = ?;
+
+-- A new Category goes at the end of its list.
+insert:
+INSERT INTO category(kind, name, position)
+SELECT :kind, :name, coalesce(max(position), 0) + 1 FROM category WHERE kind = :kind;
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+rename:
+UPDATE category SET name = ? WHERE id = ?;
+
+delete:
+DELETE FROM category WHERE id = ?;

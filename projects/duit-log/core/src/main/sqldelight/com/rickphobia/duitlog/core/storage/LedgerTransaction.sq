@@ -52,3 +52,9 @@ DELETE FROM ledger_transaction WHERE id = ?;
 
 changes:
 SELECT changes();
+
+countInCategory:
+SELECT count(*) FROM ledger_transaction WHERE category_id = ?;
+
+moveCategory:
+UPDATE ledger_transaction SET category_id = :to WHERE category_id = :from;
