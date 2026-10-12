@@ -12,12 +12,14 @@ from starlette.responses import Response
 
 from rss_news.auth.login import LoginFailures, OwnerLogin
 from rss_news.auth.sessions import SessionSigner
+from rss_news.briefings.writing import Briefings
 from rss_news.clock import Clock
 from rss_news.config import Settings
 from rss_news.items.inbox import Inbox
 from rss_news.items.reading import ItemReading
 from rss_news.sources.managing import SourceManagement
 from rss_news.web.auth import Access, public_router, require_session, session_router
+from rss_news.web.briefings import briefings_router
 from rss_news.web.inbox import inbox_router
 from rss_news.web.items import items_router
 from rss_news.web.sources import sources_router
@@ -48,6 +50,7 @@ def create_app(
     inbox: Inbox,
     item_reading: ItemReading,
     source_management: SourceManagement,
+    briefings: Briefings,
     tick: TickHealth,
     background: tuple[BackgroundJob, ...] = (),
 ) -> FastAPI:
@@ -89,6 +92,7 @@ def create_app(
     app.state.inbox = inbox
     app.state.item_reading = item_reading
     app.state.source_management = source_management
+    app.state.briefings = briefings
 
     @app.get("/healthz")
     def healthz() -> Response:
@@ -109,7 +113,13 @@ def create_app(
 
     app.include_router(public_router)
     # Every other API route needs a session: include feature routers with this dependency.
-    for router in (session_router, inbox_router, items_router, sources_router):
+    for router in (
+        session_router,
+        inbox_router,
+        items_router,
+        sources_router,
+        briefings_router,
+    ):
         app.include_router(router, dependencies=[Depends(require_session)])
 
     # Mounted last so API routes win; everything else is the PWA's files. They hold no data

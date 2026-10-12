@@ -258,7 +258,7 @@ The monthly limit defaults to 100 USD.
 | Stocks | Holdings (read), Watchlist (list, add, remove) |
 | Inbox | list with filters and paging, search, mark read |
 | Items | show one; Reader view (fetches and extracts when the Item is opened) |
-| Briefings | estimate, create (returns progress as server-sent events), list, show, regenerate |
+| Briefings | latest, estimate, create (returns progress as server-sent events; a `regenerate` flag writes a new one even when today's is saved), list, show |
 | Chats | list, create, send message (streamed), show |
 | Dictionary | look up |
 | Notes | list, create, update, delete, export as Markdown |

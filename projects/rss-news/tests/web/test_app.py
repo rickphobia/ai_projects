@@ -4,14 +4,18 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from rss_news.adapters.sqlite.briefings import SqliteBriefings
 from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.adapters.sqlite.items import SqliteItems
 from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
 from rss_news.adapters.sqlite.sources import SqliteSources
+from rss_news.adapters.sqlite.spending import SqliteSpending
+from rss_news.briefings.writing import Briefings
 from rss_news.config import load_settings
 from rss_news.items.inbox import Inbox
 from rss_news.items.reading import ItemReading
 from rss_news.sources.managing import SourceManagement
+from rss_news.spending.ledger import SpendingLedger
 from rss_news.web.app import create_app
 from rss_news.wiring import Wiring
 from tests.support import (
@@ -20,6 +24,7 @@ from tests.support import (
     FakeArticleExtractor,
     FakeClock,
     FakeFeedFetcher,
+    FakeLanguageModel,
     app_env,
     make_wiring,
 )
@@ -84,6 +89,21 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
             ),
             source_management=SourceManagement(
                 sources=SqliteSources(database), fetcher=FakeFeedFetcher()
+            ),
+            briefings=Briefings(
+                store=SqliteBriefings(database),
+                model=FakeLanguageModel(),
+                extractor=FakeArticleExtractor(),
+                ledger=SpendingLedger(
+                    SqliteSpending(database),
+                    clock,
+                    prices=settings.model_prices,
+                    web_search_price_usd=settings.web_search_price_usd,
+                ),
+                clock=clock,
+                timezone=settings.timezone,
+                model_name=settings.briefing_model,
+                token_budget=settings.briefing_token_budget,
             ),
             tick=NeverTicked(),
         )

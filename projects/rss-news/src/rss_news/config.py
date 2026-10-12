@@ -5,12 +5,15 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Literal, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from rss_news.auth.passwords import InvalidPasswordHash, PasswordHash, parse_password_hash
 from rss_news.spending.ledger import ModelPrice
 
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR")
+EFFORTS = ("low", "medium", "high")
+type Effort = Literal["low", "medium", "high"]
 _MIN_SESSION_SECRET_LENGTH = 32
 
 
@@ -58,6 +61,11 @@ class Settings:
     scoring_batch_size: int
     # Haiku costs 5x more for prompts over 100K tokens, so scoring calls stay under this.
     scoring_prompt_token_limit: int
+    briefing_model: str
+    # How hard the Briefing model thinks; low keeps a Briefing at a few tens of cents.
+    briefing_effort: Effort
+    # Most estimated prompt tokens per Briefing section call.
+    briefing_token_budget: int
     # USD per million input and output tokens, by model name. Every configured model needs one.
     model_prices: Mapping[str, ModelPrice]
     web_search_price_usd: Decimal
@@ -121,6 +129,13 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         scoring_prompt_token_limit=_positive_int(
             environ, "RSS_NEWS_SCORING_PROMPT_TOKEN_LIMIT", default=90_000
         ),
+        briefing_model=_priced_model(
+            environ, "RSS_NEWS_BRIEFING_MODEL", default="claude-opus-5-5", prices=model_prices
+        ),
+        briefing_effort=_effort(environ, "RSS_NEWS_BRIEFING_EFFORT", default="low"),
+        briefing_token_budget=_positive_int(
+            environ, "RSS_NEWS_BRIEFING_TOKEN_BUDGET", default=40_000
+        ),
         model_prices=model_prices,
         web_search_price_usd=_usd(environ, "RSS_NEWS_WEB_SEARCH_PRICE_USD", default="0.01"),
     )
@@ -142,6 +157,13 @@ def _log_level(environ: Mapping[str, str], name: str, *, default: str) -> str:
     if value not in LOG_LEVELS:
         raise ConfigError(f"{name} must be one of {', '.join(LOG_LEVELS)}, got {value!r}")
     return value
+
+
+def _effort(environ: Mapping[str, str], name: str, *, default: Effort) -> Effort:
+    value = environ.get(name, default).strip().lower()
+    if value not in EFFORTS:
+        raise ConfigError(f"{name} must be one of {', '.join(EFFORTS)}, got {value!r}")
+    return cast(Effort, value)
 
 
 def _non_blank(environ: Mapping[str, str], name: str, *, default: str) -> str:

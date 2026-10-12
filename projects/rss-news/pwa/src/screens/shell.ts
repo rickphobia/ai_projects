@@ -1,10 +1,11 @@
 import { SignedOutError, type ApiClient } from "../api/client";
+import { renderHome } from "./home";
 import { renderInbox } from "./inbox";
 import { renderItem } from "./item";
 import { renderSources } from "./sources";
 
 // The app shell for a signed-in owner: the name, whether the backend is up, sign out, and
-// the Inbox, an Item or the Sources screen below.
+// the home screen (the latest Briefing), the Inbox, an Item or the Sources screen below.
 export async function renderShell(
   root: HTMLElement,
   api: ApiClient,
@@ -28,14 +29,22 @@ export async function renderShell(
     });
   });
   const page = document.createElement("section");
+  const toHome = navButton("Home");
   const toInbox = navButton("Inbox");
   const toSources = navButton("Sources");
   const nav = document.createElement("nav");
-  nav.append(toInbox, toSources);
-  const showInbox = (): Promise<void> => renderInbox(page, api, showItem);
-  const showItem = (itemId: number): void => {
-    void renderItem(page, api, itemId, () => void showInbox());
-  };
+  nav.append(toHome, toInbox, toSources);
+  const showHome = (): Promise<void> =>
+    renderHome(page, api, (itemId) => {
+      void renderItem(page, api, itemId, () => void showHome(), "Back to Home");
+    });
+  const showInbox = (): Promise<void> =>
+    renderInbox(page, api, (itemId) => {
+      void renderItem(page, api, itemId, () => void showInbox());
+    });
+  toHome.addEventListener("click", () => {
+    void showHome();
+  });
   toInbox.addEventListener("click", () => {
     void showInbox();
   });
@@ -44,7 +53,7 @@ export async function renderShell(
   });
   root.replaceChildren(heading, status, signOut, nav, page);
 
-  await Promise.all([showHealth(api, status), showInbox()]);
+  await Promise.all([showHealth(api, status), showHome()]);
 }
 
 async function showHealth(api: ApiClient, status: HTMLElement): Promise<void> {

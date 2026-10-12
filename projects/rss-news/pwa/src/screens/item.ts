@@ -8,10 +8,11 @@ export async function renderItem(
   api: ApiClient,
   itemId: number,
   onBack: () => void,
+  backLabel = "Back to Inbox",
 ): Promise<void> {
   const back = document.createElement("button");
   back.type = "button";
-  back.textContent = "Back to Inbox";
+  back.textContent = backLabel;
   back.addEventListener("click", onBack);
   const status = document.createElement("p");
   status.setAttribute("role", "status");

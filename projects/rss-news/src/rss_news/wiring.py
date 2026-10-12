@@ -7,14 +7,18 @@ tests, so tests run the same app with fakes for the outside world.
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import timedelta
+from typing import Protocol
 
 from fastapi import FastAPI
 
+from rss_news.adapters.sqlite.briefings import SqliteBriefings
 from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.adapters.sqlite.items import SqliteItems
 from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
 from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.adapters.sqlite.spending import SqliteSpending
+from rss_news.briefings.briefing import BriefingModel
+from rss_news.briefings.writing import Briefings
 from rss_news.clock import Clock
 from rss_news.config import Settings
 from rss_news.items.inbox import Inbox, OldItemCleanup
@@ -31,6 +35,10 @@ from rss_news.web.app import create_app
 TICK_INTERVAL = timedelta(minutes=1)
 
 
+class LanguageModel(ScoringModel, BriefingModel, Protocol):
+    """Every job the app gives the language model."""
+
+
 @dataclass(frozen=True)
 class Wiring:
     app: FastAPI
@@ -44,7 +52,7 @@ def build_app(
     *,
     database: SqliteDatabase,
     feed_fetcher: FeedFetcher,
-    language_model: ScoringModel,
+    language_model: LanguageModel,
     article_extractor: ArticleExtractor,
     clock: Clock,
     starter_folders: Sequence[StarterFolder],
@@ -99,6 +107,16 @@ def build_app(
         inbox=Inbox(items),
         item_reading=ItemReading(items=items, extractor=article_extractor, clock=clock),
         source_management=SourceManagement(sources=sources, fetcher=feed_fetcher),
+        briefings=Briefings(
+            store=SqliteBriefings(database),
+            model=language_model,
+            extractor=article_extractor,
+            ledger=ledger,
+            clock=clock,
+            timezone=settings.timezone,
+            model_name=settings.briefing_model,
+            token_budget=settings.briefing_token_budget,
+        ),
         tick=tick,
         background=(TickLoop(tick, TICK_INTERVAL),) if run_tick_loop else (),
     )
