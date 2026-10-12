@@ -1,6 +1,6 @@
 """The approved starter Sources from docs/starter-sources.md, loaded on first run.
 
-Ticker-news Sources come from the owner's Holdings and Watchlist, so they aren't here.
+Ticker-news Sources come from the owner's Watchlist, so they aren't here.
 """
 
 from rss_news.sources.catalog import StarterFolder, StarterSource, subreddit_feed_url

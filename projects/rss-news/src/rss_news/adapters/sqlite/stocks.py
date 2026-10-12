@@ -1,7 +1,6 @@
-"""The Watchlist, Holdings and ticker-news Sources in SQLite."""
+"""The Watchlist and its ticker-news Sources in SQLite."""
 
 import sqlite3
-from collections.abc import Sequence
 from datetime import datetime
 
 from rss_news.adapters.sqlite.database import SqliteDatabase, from_db_time, to_db_time
@@ -34,18 +33,6 @@ class SqliteStocks:
         with self._database.connection() as connection:
             if not connection.execute("DELETE FROM watchlist WHERE ticker = ?", (ticker,)).rowcount:
                 raise NotWatched(f"{ticker} isn't on the Watchlist")
-
-    def holdings(self) -> list[str]:
-        with self._database.connection() as connection:
-            rows = connection.execute("SELECT ticker FROM holdings ORDER BY ticker").fetchall()
-        return [row[0] for row in rows]
-
-    def replace_holdings(self, tickers: Sequence[str]) -> None:
-        with self._database.connection() as connection:
-            connection.execute("DELETE FROM holdings")
-            connection.executemany(
-                "INSERT INTO holdings (ticker) VALUES (?)", [(ticker,) for ticker in tickers]
-            )
 
     def ticker_sources(self) -> dict[str, int]:
         with self._database.connection() as connection:

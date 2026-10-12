@@ -1,9 +1,8 @@
 import { SignedOutError, type ApiClient } from "../api/client";
 import type { OwnerStocks } from "../api/stocks";
 
-// The owner's stocks: add a US or Bursa ticker to the Watchlist, remove one, and see the
-// Holdings, which come from IBKR and can't be edited here. Every stock gets its own news
-// Source in the Stocks Folder, which the server adds and removes with it.
+// The owner's stocks: add a US or Bursa ticker to the Watchlist, or remove one. Every stock
+// gets its own news Source in the Stocks Folder, which the server adds and removes with it.
 export async function renderStocks(
   root: HTMLElement,
   api: ApiClient,
@@ -31,20 +30,15 @@ export async function renderStocks(
   const watchlist = document.createElement("ul");
   watchlist.setAttribute("aria-label", "Watchlist");
   watchlist.className = "rows";
-  const holdings = document.createElement("ul");
-  holdings.setAttribute("aria-label", "Holdings");
-  holdings.className = "rows";
   root.replaceChildren(
     sectionHeading("Watchlist"),
     problem,
     addForm,
     paragraph(hint),
     watchlist,
-    sectionHeading("Holdings"),
-    holdings,
   );
 
-  // Every change reloads the lists, so the screen always shows what the server holds.
+  // Every change reloads the Watchlist, so the screen always shows what the server holds.
   async function act(change: () => Promise<unknown>): Promise<void> {
     problem.textContent = "";
     try {
@@ -82,15 +76,6 @@ export async function renderStocks(
               void act(() => api.unwatchStock(stock.ticker));
             });
             row.append(name, remove);
-            return row;
-          })),
-    );
-    holdings.replaceChildren(
-      ...(stocks.holdings.length === 0
-        ? [emptyRow("No Holdings yet: they are read from IBKR.")]
-        : stocks.holdings.map((holding) => {
-            const row = document.createElement("li");
-            row.textContent = holding;
             return row;
           })),
     );

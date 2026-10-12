@@ -4,14 +4,14 @@
 
 **Blocked by:** 17 (Watchlist, ticker Sources and stock mentions)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** stocks, adapters/sqlite/stocks, scoring, web/stocks, pwa/stocks
 
 **Effort:** low
 
-- [ ] Stocks code, the Stocks API and the PWA Stocks screen deal only with the Watchlist; nothing mentions Holdings any more
-- [ ] Ticker Sources, stock mentions in scoring, Briefings and Chat use the Watchlist alone
-- [ ] A database migration drops the `holdings` table, which nothing ever wrote to
-- [ ] Existing tests are updated, not weakened; an API test shows a migrated database still serves the Watchlist
-- [ ] README updated (status, Stocks module, layout); nothing about IBKR is left
+- [x] Stocks code, the Stocks API and the PWA Stocks screen deal only with the Watchlist; nothing mentions Holdings any more
+- [x] Ticker Sources, stock mentions in scoring, Briefings and Chat use the Watchlist alone
+- [x] A database migration drops the `holdings` table, which nothing ever wrote to
+- [x] Existing tests are updated, not weakened; an API test shows a migrated database still serves the Watchlist
+- [x] README updated (status, Stocks module, layout); nothing about IBKR is left

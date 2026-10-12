@@ -75,14 +75,10 @@ describe("the Stocks screen", () => {
     expect(api.changes).toEqual([["unwatchStock", "NVDA"]]);
   });
 
-  it("lists the Holdings without a way to edit them", async () => {
-    api.ownerStocks.holdings = ["AAPL", "NVDA"];
+  it("shows only the Watchlist, with no Holdings", async () => {
     await renderStocks(root, api);
 
-    const holdings = within(screen.getByRole("list", { name: "Holdings" }));
-    expect(
-      holdings.getAllByRole("listitem").map((row) => row.textContent),
-    ).toEqual(["AAPL", "NVDA"]);
-    expect(holdings.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Holdings" })).toBeNull();
+    expect(screen.queryByText(/Holdings/)).toBeNull();
   });
 });

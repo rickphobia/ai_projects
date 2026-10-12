@@ -180,7 +180,7 @@ MIGRATIONS: tuple[str, ...] = (
     CREATE TABLE holdings (
         ticker TEXT PRIMARY KEY
     );
-    -- The ticker-news Source kept for each Holding or Watchlist stock. Deleting the Source by
+    -- The ticker-news Source kept for each Watchlist stock. Deleting the Source by
     -- hand drops the row, and the next change to the stocks adds it back.
     CREATE TABLE ticker_sources (
         ticker TEXT PRIMARY KEY,
@@ -188,6 +188,10 @@ MIGRATIONS: tuple[str, ...] = (
     );
     -- The owner's tickers the Item mentions, as a JSON list; set by scoring.
     ALTER TABLE items ADD COLUMN stocks TEXT NOT NULL DEFAULT '[]';
+    """,
+    """
+    -- The owner keeps every stock on the Watchlist; nothing ever wrote Holdings.
+    DROP TABLE holdings;
     """,
 )
 
