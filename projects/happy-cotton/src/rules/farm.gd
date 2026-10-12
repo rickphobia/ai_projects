@@ -1,7 +1,7 @@
-# gdlint: disable=max-public-methods
+# gdlint: disable=max-public-methods, max-file-lines
 # Farm is the one seam the game and the tests drive (see the specs), so every command and view
-# is public here; the work itself is delegated to Crops, Toil, Exhaustion, Ledger, Store,
-# StoreFront and Shifts.
+# is public here, and its keys and doc with them; the work itself is delegated to Crops, Toil,
+# Exhaustion, Ledger, Store, StoreFront, Shifts and the parts they use.
 class_name Farm
 extends RefCounted
 ## The Farm rules: the plots and the cotton growing in them. No scene tree, clock or file
@@ -53,6 +53,9 @@ extends RefCounted
 ## Bollworms). Tapping the Plot picks them off, which is slow field work; left too long they eat
 ## the crop, emptying the Plot, and it is Negligence as for a Withered Plot. Pesticide, sprayed
 ## on a Plot without them, keeps them off until the crop in it, or the next one planted, leaves.
+## Now and then a Shift after the first has a Disaster (see Disasters): The App warns of it,
+## then it strikes for a while, and a Sandstorm slows growth while it lasts. The Quota never
+## changes for one, and it is never saved.
 ## to_save() gives the whole Farm as plain data and restore() takes it back, so a restored Farm
 ## plays on exactly as the saved one would have.
 
@@ -116,6 +119,11 @@ const CROP_EATEN := Bollworms.CROP_EATEN
 const NO_BOLLWORMS := Bollworms.NO_BOLLWORMS
 const BOLLWORMS_ON_PLOT := Bollworms.BOLLWORMS_ON_PLOT
 const ALREADY_PROTECTED := Bollworms.ALREADY_PROTECTED
+## The Disaster kinds, and their App message keys (see Disasters).
+const SANDSTORM := Disasters.SANDSTORM
+const SANDSTORM_WARNED := Disasters.SANDSTORM_WARNED
+const SANDSTORM_STRUCK := Disasters.SANDSTORM_STRUCK
+const DISASTER_PASSED := Disasters.DISASTER_PASSED
 ## The reasons fertilise() refuses that The App explains; the others it shares with planting.
 const FERTILISE_REFUSALS: Array[StringName] = [NONE_HELD, WRONG_STAGE, ALREADY_FERTILISED]
 ## The reasons spray() refuses that The App explains.
@@ -237,6 +245,9 @@ const MESSAGE_KEYS: Array[StringName] = [
 	SUPPLY_BOUGHT,
 	BOLLWORMS_ARRIVED,
 	CROP_EATEN,
+	SANDSTORM_WARNED,
+	SANDSTORM_STRUCK,
+	DISASTER_PASSED,
 ]
 ## Family events (FamilyEvent kinds), the Children's side, never App text. The Shift's own are
 ## documented in Shifts.
@@ -270,6 +281,7 @@ var _shifts: Shifts
 var _audits: Audits
 var _supplies: Supplies
 var _bollworms: Bollworms
+var _disasters: Disasters
 ## Shared with Shifts, so both queues are emptied in place, never replaced.
 var _messages: Array[AppMessage] = []
 var _letters := Letters.new(LETTER_IDS)
@@ -305,7 +317,8 @@ func _init(tuning: Tuning, roll: Callable = Callable()) -> void:
 	_bollworms = Bollworms.new(tuning, _land.plot_count(), _roll, _messages)
 	_ledger = Ledger.new(0, 0, _fees_every())
 	_audits = Audits.new(tuning, _ledger, _messages, _roll)
-	_shifts = _new_shifts(_ledger, _exhaustion, _toil, _store, _land, _letters, _audits)
+	_disasters = Disasters.new(tuning, _roll, _messages)
+	_shifts = _new_shifts(_ledger, _exhaustion, _toil, _store, _land, _letters, _audits, _disasters)
 	var children := {"school_fees_shift": _ledger.next_fees_shift(), "every": _fees_every()}
 	_messages.append(AppMessage.new(CHILDREN_AT_SCHOOL, children))
 	_shifts.start()
@@ -508,6 +521,12 @@ func debug_bollworms_now() -> void:
 	_bollworms.arrive(_crops.growing())
 
 
+## Only the debug wiring calls this: a Disaster of `kind` (SANDSTORM) strikes at once, cut to
+## the Shift's time left, unless one is striking already or the Hand-in is open.
+func debug_disaster_now(kind: StringName) -> void:
+	_disasters.strike_now(kind, _shifts.seconds_left())
+
+
 ## Only the debug wiring calls this: it plans a Harmony Audit for this Shift, announced at once
 ## if the Hand-in is already open.
 func debug_plan_audit() -> void:
@@ -557,7 +576,9 @@ func advance(seconds: float) -> Array[StringName]:
 		else:
 			var shift_left := _shifts.seconds_left()
 			var growth_rate := _store.growth_multiplier() if _toil.is_running() else 0.0
+			growth_rate *= _disasters.growth_factor()
 			var worked := minf(minf(remaining, shift_left), _toil.seconds_until_turn())
+			worked = minf(worked, _disasters.seconds_until_next())
 			worked = minf(worked, _crops.seconds_until_wither(growth_rate))
 			worked = minf(worked, _privileges.seconds_until_end())
 			worked = minf(worked, _bollworms.seconds_until_next())
@@ -700,7 +721,9 @@ func restore(save: Dictionary) -> Array[String]:
 	var audits := Audits.new(_tuning, ledger, _messages, _roll)
 	if version >= 12:
 		audits.restore(reader.section("audits"))
-	var shifts := _new_shifts(ledger, exhaustion, toil, store, land, letters, audits)
+	# Never saved: a restored Shift has no Disaster planned or striking.
+	var disasters := Disasters.new(_tuning, _roll, _messages)
+	var shifts := _new_shifts(ledger, exhaustion, toil, store, land, letters, audits, disasters)
 	shifts.restore(
 		shift_number,
 		shift_elapsed,
@@ -719,6 +742,7 @@ func restore(save: Dictionary) -> Array[String]:
 	_toil = toil
 	_ledger = ledger
 	_audits = audits
+	_disasters = disasters
 	_supplies = supplies
 	_bollworms = bollworms
 	_letters = letters
@@ -912,10 +936,21 @@ func _new_shifts(
 	store: Store,
 	land: Land,
 	letters: Letters,
-	audits: Audits
+	audits: Audits,
+	disasters: Disasters
 ) -> Shifts:
 	return Shifts.new(
-		_tuning, ledger, exhaustion, toil, store, land, letters, audits, _messages, _family_events
+		_tuning,
+		ledger,
+		exhaustion,
+		toil,
+		store,
+		land,
+		letters,
+		audits,
+		disasters,
+		_messages,
+		_family_events
 	)
 
 

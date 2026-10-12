@@ -8,7 +8,8 @@ extends Node3D
 ## (see WorkerMotion), lights the tile under each of his steps, shows the Overseer beside the
 ## Generator whistling and whipping when the rules say so (see OverseerLook), shows the Worker's
 ## tools on a rack by the Generator at their Upgrade tier (see ToolRack), plays the field's sounds
-## (see FieldSounds), and reports which plot, or the Generator, was tapped. Knows nothing of the
+## (see FieldSounds), shows a Disaster's weather (see DisasterLook), and reports which plot, or
+## the Generator, was tapped. Knows nothing of the
 ## rules beyond the views and events it is shown. Nothing of the Farm is built until show_land()
 ## gives it the land: the plots, unworked ground, fence and track follow the land's cells and edges,
 ## and are built again, with the camera's limits, each time the land grows.
@@ -91,6 +92,7 @@ var _tiles: PowerTiles
 var _view: FieldCamera
 var _tool_rack := ToolRack.new()
 var _scale := WeighingScale.new()
+var _disaster_look := DisasterLook.new()
 var _overseer_body: Node3D
 ## The unit vector from the ground back to the camera: the camera's fixed angle.
 var _camera_back: Vector3
@@ -101,6 +103,7 @@ var _reduced_motion := false
 
 @onready var _camera: Camera3D = $Camera
 @onready var _haze: WorldEnvironment = $Haze
+@onready var _sun: DirectionalLight3D = $Sun
 @onready var _time_left: Label3D = $TimeLeft
 @onready var _generator: Generator = $Generator
 
@@ -109,6 +112,8 @@ func _ready() -> void:
 	# Its own copy: the scene's environment is shared by every instance of the scene.
 	_haze.environment = _haze.environment.duplicate()
 	_full_saturation = _haze.environment.adjustment_saturation
+	add_child(_disaster_look)
+	_disaster_look.setup(_haze.environment, _sun)
 	add_child(_sounds)
 	_time_left.visible = false
 
@@ -259,15 +264,26 @@ func show_tools_tier(tier: int) -> void:
 
 ## Reduced motion: the Worker neither slumps nor staggers, the power tiles' trail goes dark
 ## at once instead of fading and the lamp doesn't pulse. The colour drain stays, as it only
-## follows his Exhaustion and never moves on screen; so do the sounds.
+## follows his Exhaustion and never moves on screen; so do the sounds. A Disaster's weather is a
+## still tint, with nothing blowing.
 func set_reduced_motion(on: bool) -> void:
 	_reduced_motion = on
+	_disaster_look.set_reduced_motion(on)
 	if _worker == null:
 		return
 	_worker.skip_slump = on
 	_worker.skip_stagger = on
 	_tiles.instant_fade = on
 	_generator.skip_pulse = on
+
+
+## The Shift's Disaster: a striking Sandstorm brings its weather, which clears once it passes.
+func show_disaster(disaster: DisasterView) -> void:
+	_disaster_look.show_disaster(disaster)
+
+
+func disaster_look() -> DisasterLook:
+	return _disaster_look
 
 
 ## The Overseer acts on an event from the rules (Farm.OVERSEER_WHISTLE or OVERSEER_WHIP): he

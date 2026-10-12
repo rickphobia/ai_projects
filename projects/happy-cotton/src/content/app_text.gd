@@ -42,6 +42,13 @@ const STUDY_SESSION_TIMER := "Study Session  ·  {time} left"
 const EXHAUSTION := "Exhaustion {level}%"
 const RESTING := "Resting  ·  {time} left"
 const ON_A_CALL := "On a call home  ·  {time} left"
+## The Disaster banner under the top bar: what is coming and when, or what is striking and for
+## how long; each Disaster by its name.
+const DISASTER_WARNED := "{name} in {time}!"
+const DISASTER_STRIKING := "{name}!  ·  {time} left"
+const DISASTER_NAMES: Dictionary[StringName, String] = {
+	Farm.SANDSTORM: "Sandstorm",
+}
 ## Shown while he is on watch after being caught, with the Shifts left counting this one.
 const ON_WATCH := "Selected for Harmony Support!  ·  Shifts left: {shifts}"
 const STORE_BUTTON := "Store"
@@ -307,6 +314,24 @@ static func lines() -> Dictionary[StringName, AppLine]:
 				+ " Points have been deducted. Vigilance is everyone's duty!"
 			)
 		),
+		# The weather is announced like a work target: the Worker must prepare, never rest.
+		Farm.SANDSTORM_WARNED:
+		AppLine.new(
+			(
+				"Weather notice! A Sandstorm arrives in {seconds} seconds. Keep running: the"
+				+ " harvest waits for no wind!"
+			)
+		),
+		# The state blames nobody but the Worker for the weather, and the Quota stands.
+		Farm.SANDSTORM_STRUCK:
+		AppLine.new(
+			(
+				"Sandstorm! Nature cannot stop us! The Quota stands where it was. Run harder and"
+				+ " the cotton will not notice!"
+			)
+		),
+		Farm.DISASTER_PASSED:
+		AppLine.new("The skies are clear again, thanks to your devotion! Full speed ahead!"),
 	}
 
 
