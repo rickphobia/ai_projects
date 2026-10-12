@@ -10,7 +10,8 @@ extends Node3D
 ## Generator at their Upgrade tier (see ToolRack), plays the field's sounds (see FieldSounds), and
 ## reports which plot, or the Generator, was tapped. Knows nothing of the rules beyond the
 ## views and events it is shown. Nothing of the Farm is built until show_land() gives it the
-## land: the plots, fence and track follow the land's cells and edges.
+## land: the plots, unworked ground, fence and track follow the land's cells and edges, and
+## are built again, with the camera's limits, each time the land grows.
 ##
 ## Dragging pans the camera and pinching or the mouse wheel zooms it (within FieldCamera's
 ## limits); a tap counts on release, only if the pointer barely moved (PointerGesture).
@@ -25,6 +26,9 @@ signal generator_tapped
 const SOIL_HEIGHT := 0.1
 ## Tilled soil: the dust texture, darker.
 const SOIL_COLOUR := Color(0.42, 0.34, 0.27)
+## Unworked ground inside the fence: hard, pale, flat earth, barely above the dust.
+const UNWORKED_COLOUR := Color(0.62, 0.55, 0.45)
+const UNWORKED_HEIGHT := 0.02
 const SOIL_TEXTURE := preload("res://assets/polyhaven/dry_ground_01_diff_1k.jpg")
 ## How far a finger or the mouse may move between press and release, in viewport units
 ## (the 1280x720 base size, whatever the screen), and still count as a tap.
@@ -99,19 +103,43 @@ func _ready() -> void:
 	_time_left.visible = false
 
 
-## Builds the plots, fence and track from the Farm's land, with the Generator, the tool rack,
-## the Worker, the Overseer and the camera placed round them. Called once, before anything is
-## shown.
+## Builds the plots, unworked ground, fence and track from the Farm's land. The first time,
+## before anything is shown, it also places the Generator, the tool rack, the Worker, the
+## Overseer and the camera round them. Each later call is the land grown: the new plots are
+## added, the fence and track move out (the gate, lap line and Generator stay put), the Worker
+## keeps his share of the lap, and the camera's limits follow the track.
 func show_land(land: LandView) -> void:
+	var first_time := _grid == null
 	_grid = PlotGrid.new(land, front_left_plot, spacing, plot_size)
 	_add_plots()
+	_replace(_unworked_ground())
 	var fence_bounds := _grid.bounds().grow(fence_margin)
-	add_child(FenceLook.build(fence_bounds, gate_z))
+	_replace(FenceLook.build(fence_bounds, gate_z))
 	_track = TrackPath.new(fence_bounds.grow(track_gap), track_corner_radius, gate_z)
-	add_child(TrackLook.build(_track, track_width))
+	_replace(TrackLook.build(_track, track_width))
 	_tiles = PowerTiles.new(_track, track_width)
 	_tiles.name = "PowerTiles"
-	add_child(_tiles)
+	_replace(_tiles)
+	if first_time:
+		_place_round_the_land(fence_bounds)
+	else:
+		_worker.follow_track(_track)
+		_view.follow(_track_reach())
+		_place_camera()
+	set_reduced_motion(_reduced_motion)
+
+
+## Swaps a part of the land's look for its new build, by name, freeing the old one.
+func _replace(part: Node3D) -> void:
+	var old := get_node_or_null(NodePath(part.name))
+	if old != null:
+		remove_child(old)
+		old.queue_free()
+	add_child(part)
+
+
+## The Generator, tool rack, camera, Worker and Overseer, placed once round the first land.
+func _place_round_the_land(fence_bounds: Rect2) -> void:
 	_generator.position = _track.point_at(0.0)
 	_tool_rack.name = "ToolRack"
 	_tool_rack.position = _generator.position + TOOL_RACK_SPOT
@@ -120,16 +148,16 @@ func show_land(land: LandView) -> void:
 	_start_worker(Vector3(fence_bounds.position.x + gate_inside, 0.0, gate_z))
 	_start_overseer()
 	_worker.stepped.connect(_on_worker_stepped)
-	set_reduced_motion(_reduced_motion)
 
 
+## Adds a plot for each of the grid's plots not shown yet; plots never move once added.
 func _add_plots() -> void:
 	var soil := BoxMesh.new()
 	soil.size = Vector3(plot_size, SOIL_HEIGHT, plot_size)
 	var soil_material := _material(SOIL_COLOUR)
 	soil_material.albedo_texture = SOIL_TEXTURE
 	soil.material = soil_material
-	for index in _grid.count():
+	for index in range(_crops.size(), _grid.count()):
 		var plot := Node3D.new()
 		plot.name = "Plot%d" % index
 		plot.position = _grid.centre_of(index)
@@ -142,6 +170,21 @@ func _add_plots() -> void:
 		_crops.append(crop)
 		_shown_stages.append(PlotView.Stage.EMPTY)
 		add_child(plot)
+
+
+## A flat patch of hard ground in each cell of the land with no plot yet.
+func _unworked_ground() -> Node3D:
+	var ground := Node3D.new()
+	ground.name = "UnworkedGround"
+	var patch := BoxMesh.new()
+	patch.size = Vector3(plot_size, UNWORKED_HEIGHT, plot_size)
+	patch.material = _material(UNWORKED_COLOUR)
+	for centre in _grid.unworked_centres():
+		var cell := MeshInstance3D.new()
+		cell.mesh = patch
+		cell.position = centre
+		ground.add_child(cell)
+	return ground
 
 
 ## The track's centre line, round the fence.
@@ -358,9 +401,24 @@ func _start_camera() -> void:
 	_camera_back = _camera.transform.basis.z.normalized()
 	var start_distance := _camera.position.y / _camera_back.y
 	var start_focus := _camera.position - _camera_back * start_distance
-	var track_reach := _track.half_size + Vector2.ONE * track_width / 2.0
-	_view = FieldCamera.new(Vector2(start_focus.x, start_focus.z), start_distance, track_reach)
+	_view = FieldCamera.new(Vector2(start_focus.x, start_focus.z), start_distance, _track_reach())
 	_place_camera()
+
+
+## The ground the camera may look over: the track, out to its outer edge.
+func _track_reach() -> Rect2:
+	var half_size := _track.half_size + Vector2.ONE * track_width / 2.0
+	return Rect2(_track.centre - half_size, half_size * 2.0)
+
+
+## How far the camera may pull back now, in metres; it grows with the Farm.
+func farthest_zoom() -> float:
+	return _view.far_distance
+
+
+## The ground the camera may look over, on the ground plane (x, z).
+func camera_reach() -> Rect2:
+	return _view.reach
 
 
 func _place_camera() -> void:

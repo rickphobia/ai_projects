@@ -11,6 +11,7 @@ const SAMPLE_VALUES := {
 	"ripened": 3,
 	"withered": 2,
 	"plots": 2,
+	"plot": 13,
 	"points": 10,
 	"study_minutes": 4,
 	"exhaustion_recovered": 6,

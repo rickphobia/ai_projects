@@ -48,6 +48,17 @@ func index_at(point: Vector3) -> int:
 	return index
 
 
+## The centres of the land's cells with no Plot yet: unworked ground inside the fence.
+func unworked_centres() -> Array[Vector3]:
+	var centres: Array[Vector3] = []
+	for row in _land.rows:
+		for column in _land.columns:
+			var cell := Vector2i(column, row)
+			if not _plot_in.has(cell):
+				centres.append(_front_left + Vector3(cell.x * spacing, 0.0, -cell.y * spacing))
+	return centres
+
+
 ## The ground the land's cells cover, from the outer plots' edges, on the ground plane: x
 ## across and y front to back (the ground's z).
 func bounds() -> Rect2:

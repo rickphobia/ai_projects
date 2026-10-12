@@ -1,8 +1,9 @@
 class_name StoreRow
 extends HBoxContainer
 ## One item in the store: its name (and tier for an Upgrade), The App's pitch, the Quota rise
-## an Upgrade brings, why it can't be bought right now, and a button with its price. The button
-## is off while the item can't be bought; a fully upgraded item says so on it.
+## an Upgrade or a Plot brings, why it can't be bought right now, and a button with its price.
+## The button is off while the item can't be bought; a fully upgraded Upgrade, or fully bought
+## land, says so on it.
 
 ## The buy button was pressed for this row's item.
 signal buy_pressed(id: StringName)
@@ -63,18 +64,21 @@ func show_item(item: StoreItemView, labour_points: int) -> void:
 	var blurb: String = AppText.STORE_BLURBS.get(item.id, "")
 	_blurb.text = AppText.fill(blurb, effects)
 	_quota_rise.text = ""
-	if item.kind == StoreItemView.Kind.UPGRADE and not item.is_fully_upgraded():
+	var sold_out := item.is_fully_upgraded() or item.is_fully_bought()
+	if item.kind != StoreItemView.Kind.PRIVILEGE and not sold_out:
 		_quota_rise.text = AppText.fill(AppText.STORE_QUOTA_RISE, {"quota_rise": item.quota_rise})
 	_quota_rise.visible = not _quota_rise.text.is_empty()
 	var values := {"price": item.price, "points": labour_points}
 	var reason := item.refusal
-	# A fully upgraded item says so on its button, not twice.
-	if item.is_fully_upgraded():
+	# A sold-out item says so on its button, not twice.
+	if sold_out:
 		reason = &""
 	_refusal.text = AppText.render_store_refusal(reason, values) if reason != &"" else ""
 	_refusal.visible = not _refusal.text.is_empty()
 	if item.is_fully_upgraded():
 		_button.text = AppText.STORE_FULLY_UPGRADED
+	elif item.is_fully_bought():
+		_button.text = AppText.STORE_FULLY_BOUGHT
 	else:
 		_button.text = AppText.fill(AppText.STORE_PRICE, {"price": item.price})
 	_button.disabled = item.refusal != &""

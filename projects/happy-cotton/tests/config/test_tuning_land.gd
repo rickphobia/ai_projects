@@ -1,5 +1,5 @@
 extends GutTest
-## Tuning validation for the Farm's first and largest land.
+## Tuning validation for the Farm's first and largest land, and the Plots sold to grow it.
 
 
 func _good_table() -> Tuning:
@@ -53,3 +53,50 @@ func test_a_largest_farm_the_same_size_as_the_first_is_allowed() -> void:
 	var tuning := FastTuning.with_land(_good_table(), 4, 3)
 
 	assert_eq(tuning.problems(), [] as Array[String])
+
+
+func test_a_plot_that_adds_as_much_to_the_quota_as_it_yields_is_reported() -> void:
+	var tuning := _good_table()
+	tuning.plot_yield_per_shift = FastTuning.PLOT_QUOTA_RISE
+
+	assert_eq(
+		tuning.problems(),
+		["plot_yield_per_shift is 1, but it must be more than plot_quota_rise (1)"] as Array[String]
+	)
+
+
+func test_plot_prices_must_be_whole_labour_points() -> void:
+	var tuning := _good_table()
+	tuning.plot_price_rise = 2.5
+
+	assert_eq(
+		tuning.problems(),
+		["plot_price_rise is 2.5, but it must be a whole number"] as Array[String]
+	)
+
+
+func test_a_plot_always_raises_the_quota() -> void:
+	var tuning := _good_table()
+	tuning.plot_quota_rise = 0.0
+
+	var problems := tuning.problems()
+
+	assert_eq(problems.size(), 1)
+	assert_string_contains(problems[0], "plot_quota_rise is 0")
+
+
+func test_the_first_plot_price_is_required() -> void:
+	var tuning := _good_table()
+	tuning.first_plot_price = NAN
+
+	assert_has(tuning.problems(), "first_plot_price is missing from the tuning table")
+
+
+func test_each_plot_costs_more_than_the_last() -> void:
+	var tuning := _good_table()
+	tuning.plot_price_rise = 0.0
+
+	var problems := tuning.problems()
+
+	assert_eq(problems.size(), 1)
+	assert_string_contains(problems[0], "plot_price_rise is 0")

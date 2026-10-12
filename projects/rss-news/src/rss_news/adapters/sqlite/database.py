@@ -89,6 +89,30 @@ MIGRATIONS: tuple[str, ...] = (
     ALTER TABLE items ADD COLUMN read_at TEXT;  -- first time the owner opened it; NULL if unread
     """,
     """
+    -- Keyword search over each Item's title, excerpt and one-line summary. The index reads
+    -- the text from items; the triggers keep it in step on insert, scoring and delete.
+    CREATE VIRTUAL TABLE items_search USING fts5 (
+        title, excerpt, summary, content = 'items', content_rowid = 'id'
+    );
+    INSERT INTO items_search (items_search) VALUES ('rebuild');
+    CREATE TRIGGER items_search_insert AFTER INSERT ON items BEGIN
+        INSERT INTO items_search (rowid, title, excerpt, summary)
+        VALUES (new.id, new.title, new.excerpt, new.summary);
+    END;
+    CREATE TRIGGER items_search_delete AFTER DELETE ON items BEGIN
+        INSERT INTO items_search (items_search, rowid, title, excerpt, summary)
+        VALUES ('delete', old.id, old.title, old.excerpt, old.summary);
+    END;
+    CREATE TRIGGER items_search_update AFTER UPDATE OF title, excerpt, summary ON items BEGIN
+        INSERT INTO items_search (items_search, rowid, title, excerpt, summary)
+        VALUES ('delete', old.id, old.title, old.excerpt, old.summary);
+        INSERT INTO items_search (rowid, title, excerpt, summary)
+        VALUES (new.id, new.title, new.excerpt, new.summary);
+    END;
+    -- Deleting old Items looks them up by when they arrived.
+    CREATE INDEX items_fetched_at ON items (fetched_at);
+    """,
+    """
     CREATE TABLE briefings (
         id INTEGER PRIMARY KEY,
         scope TEXT NOT NULL,  -- such as all-24h

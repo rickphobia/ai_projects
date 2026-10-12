@@ -1,6 +1,6 @@
 extends GutTest
 ## The field's time-left text, the world's colour draining as the Worker tires, the Overseer,
-## and the power tiles lighting under his steps.
+## the power tiles lighting under his steps, and the field growing with the land.
 
 const FIELD_SCENE := preload("res://src/adapters/field/field.tscn")
 
@@ -141,3 +141,61 @@ func test_a_bigger_farm_adds_plots_and_leaves_the_generator_where_it_was() -> vo
 		Vector3.ONE * 0.0001
 	)
 	assert_gt(bigger.track().length(), first.track().length())
+
+
+func test_buying_land_adds_its_plots_and_keeps_the_ones_already_there() -> void:
+	var field := _field()
+	var plot0: Node3D = field.get_node("Plot0")
+
+	field.show_land(FieldLand.grown(1, 0))
+
+	assert_true(field.has_node("Plot12"))
+	assert_eq(field.get_node("Plot0"), plot0, "the first plots are not rebuilt")
+	# Every plot, old and new, can be shown.
+	field.show_plots(_empty_plots(13))
+
+
+func test_the_unbought_cells_of_a_new_strip_show_as_unworked_ground() -> void:
+	var field := _field()
+	assert_eq(field.get_node("UnworkedGround").get_child_count(), 0)
+
+	field.show_land(FieldLand.grown(1, 0))
+
+	assert_eq(field.get_node("UnworkedGround").get_child_count(), 2, "the column behind its Plot")
+
+
+func test_the_fence_and_track_move_out_and_the_generator_stays() -> void:
+	var field := _field()
+	var generator := (field.get_node("Generator") as Node3D).position
+	var first_length := field.track().length()
+
+	field.show_land(FieldLand.grown(1, 1))
+
+	assert_eq(
+		field.get_children().filter(func(n: Node) -> bool: return n.name == "Fence").size(), 1
+	)
+	assert_almost_eq(field.track().length(), first_length + 4.0 * 2.4, 0.0001, "two spacings each")
+	assert_eq((field.get_node("Generator") as Node3D).position, generator)
+	var tiles: PowerTiles = field.get_node("PowerTiles")
+	assert_almost_eq((tiles.get_node("LapLine") as Node3D).position.x, generator.x, 0.001)
+
+
+func test_the_cameras_limits_and_farthest_zoom_follow_the_track() -> void:
+	var field := _field()
+	var first_reach := field.camera_reach()
+
+	field.show_land(FieldLand.grown(2, 2))
+
+	var reach := field.camera_reach()
+	assert_almost_eq(reach.position.x, first_reach.position.x, 0.0001, "the left edge stays")
+	assert_almost_eq(reach.end.y, first_reach.end.y, 0.0001, "the front edge stays")
+	assert_almost_eq(reach.end.x, first_reach.end.x + 2 * 2.4, 0.0001)
+	assert_almost_eq(reach.position.y, first_reach.position.y - 2 * 2.4, 0.0001)
+	assert_gt(field.farthest_zoom(), FieldCamera.FAR_DISTANCE)
+
+
+func _empty_plots(count: int) -> Array[PlotView]:
+	var views: Array[PlotView] = []
+	for index in count:
+		views.append(PlotView.new(PlotView.Stage.EMPTY, 0.0))
+	return views
