@@ -43,6 +43,11 @@ const MOUSE_POINTER := -2
 const OVERSEER_SPOT := Vector3(-1.9, 0.0, -1.7)
 ## Where the tool rack stands, from the Generator: beyond its pump, away from the Overseer.
 const TOOL_RACK_SPOT := Vector3(-2.2, 0.0, 2.4)
+## Where the weighing scale stands, from the Generator: outside the track by the gate, between
+## the Overseer and the tool rack.
+const SCALE_SPOT := Vector3(-2.4, 0.0, 0.4)
+## Where the Overseer stands to watch the scale, from the scale: behind it, facing the gate.
+const SCALE_WATCH_SPOT := Vector3(-0.8, 0.0, 0.0)
 ## How much colour is left in the world when the Worker is fully exhausted: nearly grey.
 const DRAINED_SATURATION := 0.1
 
@@ -82,6 +87,8 @@ var _track: TrackPath
 var _tiles: PowerTiles
 var _view: FieldCamera
 var _tool_rack := ToolRack.new()
+var _scale := WeighingScale.new()
+var _overseer_body: Node3D
 ## The unit vector from the ground back to the camera: the camera's fixed angle.
 var _camera_back: Vector3
 ## The scene's own colour saturation, shown while he is rested.
@@ -144,6 +151,9 @@ func _place_round_the_land(fence_bounds: Rect2) -> void:
 	_tool_rack.name = "ToolRack"
 	_tool_rack.position = _generator.position + TOOL_RACK_SPOT
 	add_child(_tool_rack)
+	_scale.name = "WeighingScale"
+	_scale.position = _generator.position + SCALE_SPOT
+	add_child(_scale)
 	_start_camera()
 	_start_worker(Vector3(fence_bounds.position.x + gate_inside, 0.0, gate_z))
 	_start_overseer()
@@ -256,6 +266,27 @@ func show_overseer(event: StringName) -> void:
 			_worker.flinch()
 		_:
 			GameLog.warning("unknown overseer event", {"event": event})
+
+
+## The audit's tell: with an audit coming the Overseer stands by the weighing scale, watching
+## it; otherwise he stands by the Generator.
+func show_audit_tell(watching: bool) -> void:
+	if _overseer_body == null:
+		return
+	var spot := _scale.position + SCALE_WATCH_SPOT if watching else _overseer_spot()
+	if _overseer_body.position.is_equal_approx(spot):
+		return
+	_overseer_body.position = spot
+	var facing := _scale.position if watching else _generator.position
+	_overseer_body.rotation.y = atan2(facing.x - spot.x, facing.z - spot.z)
+	GameLog.debug("overseer watching the scale", {"watching": watching})
+
+
+func is_overseer_at_the_scale() -> bool:
+	return (
+		_overseer_body != null
+		and _overseer_body.position.is_equal_approx(_scale.position + SCALE_WATCH_SPOT)
+	)
 
 
 ## The field's colour saturation at some Exhaustion: the scene's own when rested, falling
@@ -453,10 +484,15 @@ func _on_worker_stepped(foot: Vector3) -> void:
 
 func _start_overseer() -> void:
 	var body: Node3D = $Overseer
-	body.position = _generator.position + OVERSEER_SPOT
+	_overseer_body = body
+	body.position = _overseer_spot()
 	body.rotation.y = atan2(-OVERSEER_SPOT.x, -OVERSEER_SPOT.z)
 	var player := _animation_player_of(body, "overseer")
 	_overseer = OverseerLook.new(body, player)
+
+
+func _overseer_spot() -> Vector3:
+	return _generator.position + OVERSEER_SPOT
 
 
 ## The model's animation player, or null (with a warning) if it has none: he then moves

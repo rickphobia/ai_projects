@@ -53,6 +53,15 @@ const LIMITS: Dictionary = {
 	"plot_quota_rise": [1.0, 10000.0],
 	"plot_yield_per_shift": [1.0, 10000.0],
 	"hidden_savings_per_kept_pick": [1.0, 10000.0],
+	"audit_memory_shifts": [1.0, 100.0],
+	"audit_base_chance": [0.0, 1.0],
+	"audit_chance_per_kept_share": [0.0, 100.0],
+	"audit_chance_per_savings_spent": [0.0, 1.0],
+	"audit_tolerance": [0.0, 1.0],
+	"audit_tell_seconds": [1.0, 86400.0],
+	"on_watch_shifts": [1.0, 1000.0],
+	"on_watch_chance_factor": [1.0, 100.0],
+	"caught_study_session_seconds": [1.0, 604800.0],
 }
 ## Fields that count things (picks, points), so they must be whole numbers.
 const WHOLE_NUMBERS: Array[String] = [
@@ -77,6 +86,8 @@ const WHOLE_NUMBERS: Array[String] = [
 	"plot_quota_rise",
 	"plot_yield_per_shift",
 	"hidden_savings_per_kept_pick",
+	"audit_memory_shifts",
+	"on_watch_shifts",
 ]
 ## What a Generator tier's growth multiplier is measured against: no Upgrade at all.
 const NO_UPGRADE_GROWTH := 1.0
@@ -203,6 +214,29 @@ const MOST_TIER_QUOTA_RISE := 10000.0
 ## Hidden savings each pick kept back at the Hand-in sells for on the side. More than
 ## labour_points_per_pick, so keeping back is worth the risk.
 @export var hidden_savings_per_kept_pick: float = NAN
+## How many of the last Shifts a Harmony Audit looks back over: what was kept back, what the
+## Plots should have yielded, and the hidden savings spent in the store.
+@export var audit_memory_shifts: float = NAN
+## The chance of an audit at the start of each Shift after the first, kept back or not.
+@export var audit_base_chance: float = NAN
+## How much the chance rises with the kept share: cotton kept back over the remembered Shifts,
+## against what the Plots should have yielded in them (1 is all of it).
+@export var audit_chance_per_kept_share: float = NAN
+## How much the chance rises for each hidden saving spent in the state's store over the
+## remembered Shifts: the store sees what he buys. Bills paid from them don't count.
+@export var audit_chance_per_savings_spent: float = NAN
+## The kept share an ordinary audit lets pass; above it he is caught. On watch it is zero.
+@export var audit_tolerance: float = NAN
+## How long before the Shift's end the Overseer watches the scale when an audit is planned, in
+## seconds of online play. At most a Shift.
+@export var audit_tell_seconds: float = NAN
+## How many Shifts he is on watch ("Harmony Support") after being caught.
+@export var on_watch_shifts: float = NAN
+## What the audit chance is multiplied by while he is on watch (still at most 1).
+@export var on_watch_chance_factor: float = NAN
+## How long the Study Session for being caught lasts. Longer than Negligence's, so being caught
+## is always the heaviest punishment; it replaces a missed Quota's in the same Shift.
+@export var caught_study_session_seconds: float = NAN
 ## The Generator Upgrade's tiers, bought in order: each one's price, growth per second of
 ## running, and Quota rise. At least one tier.
 @export var generator_tiers: Array[GeneratorTier] = []
@@ -260,8 +294,26 @@ func problems() -> Array[String]:
 			+ " labour_points_per_pick (%d)"
 		)
 		found.append(savings_problem % [hidden_savings_per_kept_pick, labour_points_per_pick])
+	found.append_array(_audit_problems())
 	found.append_array(_generator_tier_problems())
 	found.append_array(_tools_tier_problems())
+	return found
+
+
+## Being caught must be the heaviest Study Session, and the tell must fit in a Shift.
+func _audit_problems() -> Array[String]:
+	var found: Array[String] = []
+	if caught_study_session_seconds <= negligence_study_session_seconds:
+		var caught_problem := (
+			"caught_study_session_seconds is %s, but it must be longer than"
+			+ " negligence_study_session_seconds (%s)"
+		)
+		found.append(
+			caught_problem % [caught_study_session_seconds, negligence_study_session_seconds]
+		)
+	if audit_tell_seconds > shift_seconds:
+		var tell_problem := "audit_tell_seconds is %s, but it must be at most shift_seconds (%s)"
+		found.append(tell_problem % [audit_tell_seconds, shift_seconds])
 	return found
 
 

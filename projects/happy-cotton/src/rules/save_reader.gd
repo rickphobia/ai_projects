@@ -68,6 +68,24 @@ func numbers(key: String, size: int, least: float = 0.0) -> Array[float]:
 	return read
 
 
+## A list of whole numbers, each `least` or more, read as numbers() reads them: `size` long, or
+## any length when `size` is -1.
+func wholes(key: String, size: int = -1, least: int = 0) -> Array[int]:
+	var length := size
+	if length < 0:
+		var value: Variant = _data.get(key)
+		var list: Array = value if value is Array else []
+		length = list.size()
+	var read: Array[int] = []
+	var all_whole := true
+	for number_read in numbers(key, length, least):
+		all_whole = all_whole and number_read == floorf(number_read)
+		read.append(int(number_read))
+	if not all_whole:
+		_problem(key, "holds something other than a whole number")
+	return read
+
+
 ## A list of `size` true or false values, its problems counted as numbers() counts them.
 func flags(key: String, size: int) -> Array[bool]:
 	var read: Array[bool] = []

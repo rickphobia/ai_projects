@@ -108,6 +108,13 @@ func save_up(amount: int) -> void:
 	_savings += maxi(amount, 0)
 
 
+## Takes every hidden saving, as a Harmony Audit does when it catches him. Returns how many.
+func take_hidden_savings() -> int:
+	var taken := _savings
+	_savings = 0
+	return taken
+
+
 ## Why `price` can't be paid with `pay_with` right now, or &"" when it can. Debt blocks every
 ## purchase, whatever pays.
 func payment_refusal(price: int, pay_with: PayWith) -> StringName:

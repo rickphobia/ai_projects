@@ -1,12 +1,14 @@
 class_name DebugPanel
 extends CanvasLayer
-## Debug mode's controls: Skip time buttons that ask to jump ahead by a set time, and a button
-## that asks for Labour Points to try the store. They only ask; the entrypoint feeds skipped
-## time through the same offline resume as a real absence, and adds the points through the
-## rules' debug command. The entrypoint adds this only in debug mode, so players never see it.
+## Debug mode's controls: Skip time buttons that ask to jump ahead by a set time, a button
+## that asks for Labour Points to try the store, and one that asks for a Harmony Audit this
+## Shift. They only ask; the entrypoint feeds skipped time through the same offline resume as
+## a real absence, and adds the points and plans the audit through the rules' debug commands.
+## The entrypoint adds this only in debug mode, so players never see it.
 
 signal skip_requested(seconds: float)
 signal labour_points_requested(points: int)
+signal audit_requested
 
 ## Button label to seconds skipped.
 const CHOICES: Dictionary[String, float] = {
@@ -15,6 +17,7 @@ const CHOICES: Dictionary[String, float] = {
 }
 const LABOUR_POINTS_ADDED := 100
 const LABOUR_POINTS_LABEL := "+%d Labour Points"
+const AUDIT_LABEL := "Audit this Shift"
 const MARGIN := 16
 const TOP_OFFSET := 96
 const FONT_SIZE := 24
@@ -32,6 +35,7 @@ func _ready() -> void:
 		column.add_child(_button(label, skip_requested.emit.bind(CHOICES[label])))
 	var add_points := labour_points_requested.emit.bind(LABOUR_POINTS_ADDED)
 	column.add_child(_button(LABOUR_POINTS_LABEL % LABOUR_POINTS_ADDED, add_points))
+	column.add_child(_button(AUDIT_LABEL, audit_requested.emit))
 	add_child(column)
 
 

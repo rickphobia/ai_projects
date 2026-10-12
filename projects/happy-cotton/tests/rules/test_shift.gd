@@ -44,7 +44,11 @@ func test_a_new_farm_tells_of_the_children_then_announces_the_first_shift() -> v
 
 	var expected: Array[StringName] = [Farm.CHILDREN_AT_SCHOOL, Farm.SHIFT_STARTED]
 	assert_eq(_keys(messages), expected)
-	assert_eq(messages[1].values, {"shift": 1, "quota": FastTuning.FIRST_QUOTA})
+	# The first Shift never rolls an audit.
+	var started := {
+		"shift": 1, "quota": FastTuning.FIRST_QUOTA, "audit_chance": 0.0, "audit_planned": false
+	}
+	assert_eq(messages[1].values, started)
 
 
 func test_taking_messages_empties_the_queue() -> void:
@@ -128,7 +132,8 @@ func test_the_next_shift_starts_at_once_with_a_higher_quota() -> void:
 	assert_eq(shift.number, 2)
 	assert_eq(shift.quota, raised)
 	assert_eq(shift.seconds_left, FastTuning.SHIFT_SECONDS)
-	assert_eq(_farm.take_messages()[-1].values, {"shift": 2, "quota": raised})
+	var started := {"shift": 2, "quota": raised, "audit_chance": 0.0, "audit_planned": false}
+	assert_eq(_farm.take_messages()[-1].values, started)
 
 
 func test_time_past_the_end_of_a_shift_carries_into_the_next() -> void:
@@ -259,5 +264,10 @@ func test_every_key_the_rules_emit_is_listed() -> void:
 		Farm.FELL_INTO_DEBT,
 		Farm.DEBT_CLEARED,
 		Farm.CHILDREN_AT_SCHOOL,
+		Farm.AUDIT_ANNOUNCED,
+		Farm.AUDIT_PASSED,
+		Farm.CAUGHT,
+		Farm.CAUGHT_AGAIN,
+		Farm.ON_WATCH_ENDED,
 	]
 	assert_eq(Farm.MESSAGE_KEYS, emitted)
