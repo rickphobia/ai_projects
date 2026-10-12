@@ -8,8 +8,6 @@ export interface WatchedStock {
 }
 
 export interface OwnerStocks {
-  // Read from IBKR; the app doesn't edit them.
-  holdings: string[];
   // Oldest first.
   watchlist: WatchedStock[];
 }
@@ -20,7 +18,6 @@ export interface WatchedStockJson {
 }
 
 export interface OwnerStocksJson {
-  holdings: { ticker: string }[];
   watchlist: WatchedStockJson[];
 }
 
@@ -30,7 +27,6 @@ export function watchedFromJson(body: WatchedStockJson): WatchedStock {
 
 export function stocksFromJson(body: OwnerStocksJson): OwnerStocks {
   return {
-    holdings: body.holdings.map((holding) => holding.ticker),
     watchlist: body.watchlist.map(watchedFromJson),
   };
 }

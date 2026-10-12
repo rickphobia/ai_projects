@@ -82,7 +82,7 @@ class ScoringModel(Protocol):
 
 class OwnerTickers(Protocol):
     def tickers(self) -> list[str]:
-        """Every Holding and Watchlist ticker."""
+        """Every Watchlist ticker."""
         ...
 
 

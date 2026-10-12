@@ -1,8 +1,7 @@
-"""The owner's stocks: the Watchlist they edit, the Holdings they own, and one ticker-news
-Source per stock in the Stocks Folder, added and removed as the two lists change."""
+"""The owner's stocks: the Watchlist they edit, and one ticker-news Source per stock in the
+Stocks Folder, added and removed as the Watchlist changes."""
 
 import logging
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -43,12 +42,6 @@ class StockStore(Protocol):
         """Raises NotWatched."""
         ...
 
-    def holdings(self) -> list[str]:
-        """The Holdings' tickers, in order."""
-        ...
-
-    def replace_holdings(self, tickers: Sequence[str]) -> None: ...
-
     def ticker_sources(self) -> dict[str, int]:
         """The Source id kept for each ticker. A Source the owner deleted by hand is gone
         from here too."""
@@ -72,13 +65,9 @@ class Stocks:
     def watchlist(self) -> list[WatchedStock]:
         return self._store.watchlist()
 
-    def holdings(self) -> list[str]:
-        return self._store.holdings()
-
     def tickers(self) -> list[str]:
-        """Every Holding and Watchlist ticker, once each, in order."""
-        watched = [stock.ticker for stock in self._store.watchlist()]
-        return sorted({*self._store.holdings(), *watched})
+        """Every Watchlist ticker, in alphabetical order."""
+        return sorted(stock.ticker for stock in self._store.watchlist())
 
     def watch(self, typed: str) -> WatchedStock:
         """Add a ticker to the Watchlist and give it a news Source. Raises InvalidTicker or
@@ -89,21 +78,16 @@ class Stocks:
         return stock
 
     def unwatch(self, typed: str) -> None:
-        """Take a ticker off the Watchlist; its Source goes too unless it is a Holding.
-        Raises InvalidTicker or NotWatched."""
+        """Take a ticker off the Watchlist, and its Source with it. Raises InvalidTicker or
+        NotWatched."""
         ticker = ticker_symbol(typed)
         self._store.remove_from_watchlist(ticker)
         logger.info("stock unwatched", extra={"ticker": ticker})
         self.keep_ticker_sources()
 
-    def replace_holdings(self, tickers: Sequence[str]) -> None:
-        self._store.replace_holdings(sorted(set(tickers)))
-        logger.info("holdings replaced", extra={"holdings": len(set(tickers))})
-        self.keep_ticker_sources()
-
     def keep_ticker_sources(self) -> None:
-        """One ticker-news Source per Holding or Watchlist stock: add the missing ones and
-        remove those of stocks in neither list."""
+        """One ticker-news Source per Watchlist stock: add the missing ones and remove those
+        of stocks no longer on it."""
         wanted = set(self.tickers())
         kept = self._store.ticker_sources()
         for ticker in sorted(wanted - kept.keys()):

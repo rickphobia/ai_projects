@@ -394,12 +394,11 @@ export class FakeApiClient implements ApiClient {
     );
   }
 
-  // The Holdings and the Watchlist; the calls below change the Watchlist like the backend.
-  ownerStocks: OwnerStocks = { holdings: [], watchlist: [] };
+  // The Watchlist; the calls below change the Watchlist like the backend.
+  ownerStocks: OwnerStocks = { watchlist: [] };
 
   stocks(): Promise<OwnerStocks> {
     return Promise.resolve({
-      holdings: [...this.ownerStocks.holdings],
       watchlist: [...this.ownerStocks.watchlist],
     });
   }

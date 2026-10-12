@@ -1,5 +1,4 @@
-"""The owner's stocks over the JSON API: Holdings to read, and the Watchlist to list, add to and
-remove from."""
+"""The owner's stocks over the JSON API: the Watchlist to list, add to and remove from."""
 
 from typing import Any
 
@@ -27,10 +26,9 @@ def watched_json(stock: WatchedStock) -> dict[str, Any]:
 
 @stocks_router.get("")
 def list_stocks(request: Request) -> dict[str, Any]:
-    """The Holdings (read from IBKR, not edited here) and the Watchlist, oldest first."""
+    """The Watchlist, oldest first."""
     stocks = stocks_of(request)
     return {
-        "holdings": [{"ticker": ticker} for ticker in stocks.holdings()],
         "watchlist": [watched_json(stock) for stock in stocks.watchlist()],
     }
 

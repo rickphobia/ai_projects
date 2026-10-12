@@ -1,6 +1,8 @@
-"""The owner's stocks over the API: the Watchlist and its ticker validation, Holdings, the
-ticker-news Source kept per stock, and the stocks scoring marks on each Item."""
+"""The owner's stocks over the API: the Watchlist and its ticker validation, the ticker-news
+Source kept per stock, a database from before Holdings were dropped, and the stocks scoring
+marks on each Item."""
 
+import sqlite3
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -8,6 +10,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from rss_news.adapters.sqlite.database import MIGRATIONS, SqliteDatabase, to_db_time
 from rss_news.config import Settings, load_settings
 from rss_news.scoring.item_scoring import ItemScore, ScoringResult, UnscoredItem
 from rss_news.sources.catalog import StarterFolder, StarterSource
@@ -86,8 +89,8 @@ def ticker_sources(client: TestClient) -> dict[str, Any]:
     }
 
 
-def test_the_watchlist_starts_empty_and_holdings_are_read_only(client: TestClient) -> None:
-    assert client.get(STOCKS).json() == {"holdings": [], "watchlist": []}
+def test_the_watchlist_starts_empty_and_there_are_no_holdings(client: TestClient) -> None:
+    assert client.get(STOCKS).json() == {"watchlist": []}
     assert client.post(f"{STOCKS}/holdings", json={"ticker": "NVDA"}).status_code in (404, 405)
 
 
@@ -170,18 +173,26 @@ def test_removing_a_stock_not_on_the_watchlist_is_a_404(client: TestClient) -> N
     assert response.json() == {"detail": "NVDA isn't on the Watchlist"}
 
 
-def test_a_holding_keeps_its_source_until_it_leaves_both_lists(
-    client: TestClient, wiring: Wiring
+def test_a_database_from_before_holdings_were_dropped_still_serves_the_watchlist(
+    settings: Settings, clock: FakeClock
 ) -> None:
-    wiring.stocks.replace_holdings(["NVDA"])
-    client.post(WATCHLIST, json={"ticker": "NVDA"})
-    assert client.get(STOCKS).json()["holdings"] == [{"ticker": "NVDA"}]
+    settings.database_path.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(settings.database_path) as connection:
+        connection.executescript(
+            "".join(MIGRATIONS[:-1]) + f"PRAGMA user_version = {len(MIGRATIONS) - 1};"
+        )
+        connection.execute(
+            "INSERT INTO watchlist (ticker, added_at) VALUES ('NVDA', ?)",
+            (to_db_time(clock.now()),),
+        )
 
-    client.delete(f"{WATCHLIST}/NVDA")
-    assert "NVDA news" in ticker_sources(client)
+    migrated = TestClient(make_wiring(settings, clock, starter_folders=STARTER).app)
+    migrated.post(f"{PREFIX}/api/login", json={"password": OWNER_PASSWORD})
 
-    wiring.stocks.replace_holdings([])
-    assert "NVDA news" not in ticker_sources(client)
+    assert [stock["ticker"] for stock in migrated.get(STOCKS).json()["watchlist"]] == ["NVDA"]
+    with SqliteDatabase(settings.database_path).connection() as connection:
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
+    assert "holdings" not in tables
 
 
 def test_a_ticker_source_deleted_by_hand_comes_back_after_a_restart(

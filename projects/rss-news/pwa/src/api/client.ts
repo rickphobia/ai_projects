@@ -218,12 +218,12 @@ export interface ApiClient {
   deleteNote(noteId: number): Promise<void>;
   // Every Note as one Markdown file.
   exportNotes(): Promise<string>;
-  // The Holdings and the Watchlist.
+  // The Watchlist.
   stocks(): Promise<OwnerStocks>;
   // Rejects with RefusedError, saying why, when the ticker isn't a US or Bursa .KL one or is
   // on the Watchlist already. The server gives the stock its ticker-news Source.
   watchStock(ticker: string): Promise<WatchedStock>;
-  // Its ticker-news Source goes too, unless it is a Holding.
+  // Its ticker-news Source goes too.
   unwatchStock(ticker: string): Promise<void>;
 }
 
