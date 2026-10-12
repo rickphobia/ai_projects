@@ -522,7 +522,9 @@ func debug_bollworms_now() -> void:
 
 
 ## Only the debug wiring calls this: a Disaster of `kind` (SANDSTORM) strikes at once, cut to
-## the Shift's time left, unless one is striking already or the Hand-in is open.
+## the Shift's time left, unless one is striking already or the Hand-in is open. It replaces a
+## Sandstorm only warned of, and may come after one has passed: debug alone breaks the "at most
+## one a Shift" rule, so the look can be tried again and again.
 func debug_disaster_now(kind: StringName) -> void:
 	_disasters.strike_now(kind, _shifts.seconds_left())
 

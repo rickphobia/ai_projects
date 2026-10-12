@@ -64,7 +64,7 @@ func setup(environment: Environment, sun: DirectionalLight3D) -> void:
 
 func show_disaster(disaster: DisasterView) -> void:
 	var sandstorm := (
-		disaster.phase == DisasterView.Phase.STRIKING and disaster.kind == Disasters.SANDSTORM
+		disaster.phase == DisasterView.Phase.STRIKING and disaster.kind == Farm.SANDSTORM
 	)
 	_target = 1.0 if sandstorm else 0.0
 	_update_dust()

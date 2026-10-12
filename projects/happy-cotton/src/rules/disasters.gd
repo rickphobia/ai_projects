@@ -19,6 +19,9 @@ const SANDSTORM_WARNED := &"sandstorm_warned"
 const SANDSTORM_STRUCK := &"sandstorm_struck"
 ## The Disaster passed: values kind, seconds (how long it lasted).
 const DISASTER_PASSED := &"disaster_passed"
+## Each kind's warning and strike keys.
+const WARNED_KEYS: Dictionary[StringName, StringName] = {SANDSTORM: SANDSTORM_WARNED}
+const STRUCK_KEYS: Dictionary[StringName, StringName] = {SANDSTORM: SANDSTORM_STRUCK}
 
 var _tuning: Tuning
 var _roll: Callable
@@ -130,9 +133,10 @@ func view() -> DisasterView:
 
 func _warn() -> void:
 	_warned = true
-	_messages.append(AppMessage.new(SANDSTORM_WARNED, {"kind": _kind, "seconds": _until_strike}))
+	var values := {"kind": _kind, "seconds": _until_strike}
+	_messages.append(AppMessage.new(WARNED_KEYS[_kind], values))
 
 
 func _strike() -> void:
 	_left = _length
-	_messages.append(AppMessage.new(SANDSTORM_STRUCK, {"kind": _kind, "seconds": _length}))
+	_messages.append(AppMessage.new(STRUCK_KEYS[_kind], {"kind": _kind, "seconds": _length}))

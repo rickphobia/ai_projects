@@ -282,10 +282,6 @@ func show_disaster(disaster: DisasterView) -> void:
 	_disaster_look.show_disaster(disaster)
 
 
-func disaster_look() -> DisasterLook:
-	return _disaster_look
-
-
 ## The Overseer acts on an event from the rules (Farm.OVERSEER_WHISTLE or OVERSEER_WHIP): he
 ## blows his whistle, or cracks the whip and the Worker flinches and staggers. The camera
 ## stays where the player put it.
