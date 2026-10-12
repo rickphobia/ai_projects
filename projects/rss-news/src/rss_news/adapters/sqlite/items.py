@@ -76,7 +76,7 @@ class SqliteItems:
             conditions.append(
                 "items.id IN (SELECT rowid FROM items_search WHERE items_search MATCH ?)"
             )
-            parameters.append(_match_expression(search))
+            parameters.append(match_expression(search))
         if folder_id is not None:
             conditions.append("sources.folder_id = ?")
             parameters.append(folder_id)
@@ -151,7 +151,7 @@ class SqliteItems:
             )
 
 
-def _match_expression(search: str) -> str:
+def match_expression(search: str) -> str:
     """Each word as a quoted FTS prefix term, so every word must match the start of a word and
     the owner's quotes, dashes or stars can't be read as FTS syntax."""
     words = search.split()

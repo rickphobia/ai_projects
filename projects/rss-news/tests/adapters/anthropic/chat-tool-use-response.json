@@ -1,0 +1,35 @@
+{
+  "id": "msg_01ChatToolUseExample7d1a",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "EqQBCkYIBxgCKkBexampleChatSignatureNotReal"
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01MalaysiaSearchExample",
+      "name": "search_items",
+      "input": {
+        "folder": "Malaysia",
+        "since": null,
+        "keyword": null,
+        "min_importance": null
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 1830,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 96,
+    "server_tool_use": null,
+    "service_tier": "standard"
+  }
+}

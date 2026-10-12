@@ -69,6 +69,9 @@ class Settings:
     briefing_token_budget: int
     # 7 and 30 day Briefings only read Items with at least this Importance.
     briefing_importance_cutoff: int
+    chat_model: str
+    # How hard the Chat model thinks; low keeps a question at a few cents.
+    chat_effort: Effort
     # USD per million input and output tokens, by model name. Every configured model needs one.
     model_prices: Mapping[str, ModelPrice]
     web_search_price_usd: Decimal
@@ -148,6 +151,10 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         briefing_importance_cutoff=_importance(
             environ, "RSS_NEWS_BRIEFING_IMPORTANCE_CUTOFF", default=3
         ),
+        chat_model=_priced_model(
+            environ, "RSS_NEWS_CHAT_MODEL", default="claude-opus-5-5", prices=model_prices
+        ),
+        chat_effort=_effort(environ, "RSS_NEWS_CHAT_EFFORT", default="low"),
         model_prices=model_prices,
         web_search_price_usd=_usd(environ, "RSS_NEWS_WEB_SEARCH_PRICE_USD", default="0.01"),
         monthly_limit_usd=_usd(environ, "RSS_NEWS_MONTHLY_LIMIT_USD", default="100"),

@@ -11,6 +11,12 @@ from typing import Any
 import anthropic
 from anthropic.types import Message
 
+from rss_news.adapters.anthropic_chat import (
+    ANSWER_SCHEMA,
+    SEARCH_ITEMS_TOOL,
+    chat_input,
+    search_calls,
+)
 from rss_news.briefings.briefing import (
     BriefingFailed,
     SectionRequest,
@@ -18,6 +24,17 @@ from rss_news.briefings.briefing import (
     WrittenPoint,
 )
 from rss_news.briefings.instructions import SECTION_INSTRUCTIONS
+from rss_news.chat.conversation import (
+    AnswerEntry,
+    ChatFailed,
+    ChatInput,
+    ChatStep,
+    ModelAnswer,
+    OwnerQuestion,
+)
+from rss_news.chat.instructions import (
+    CHAT_INSTRUCTIONS,
+)
 from rss_news.config import Effort
 from rss_news.scoring.instructions import MAX_IMPORTANCE, MIN_IMPORTANCE, SCORING_INSTRUCTIONS
 from rss_news.scoring.item_scoring import (
@@ -36,6 +53,8 @@ logger = logging.getLogger(__name__)
 _SCORING_MAX_TOKENS = 16_000
 # Room for a section's points plus the model's thinking.
 _SECTION_MAX_TOKENS = 16_000
+# Room for a Chat answer or a search call plus the model's thinking.
+_CHAT_MAX_TOKENS = 16_000
 _MAX_RETRY_DELAY_SECONDS = 60.0
 
 _SCORES_SCHEMA: dict[str, Any] = {
@@ -100,6 +119,8 @@ class AnthropicLanguageModel:
         scoring_model: str,
         briefing_model: str,
         briefing_effort: Effort,
+        chat_model: str,
+        chat_effort: Effort,
         timeout: timedelta,
         max_attempts: int,
         http_client: anthropic.DefaultHttpxClient | None = None,
@@ -116,6 +137,8 @@ class AnthropicLanguageModel:
         self._scoring_model = scoring_model
         self._briefing_model = briefing_model
         self._briefing_effort = briefing_effort
+        self._chat_model = chat_model
+        self._chat_effort = chat_effort
         self._max_attempts = max_attempts
         self._sleep = sleep
 
@@ -157,6 +180,41 @@ class AnthropicLanguageModel:
             raise BriefingFailed(str(error)) from error
         usage = _usage(message, self._briefing_model, timedelta(seconds=time.monotonic() - started))
         return SectionResult(points=_parse_points(message, usage), usage=usage)
+
+    def continue_chat(self, context: str, given: ChatInput) -> ChatStep:
+        """`context` is the Messages API conversation as JSON. The full assistant content,
+        thinking included, goes back into it after each call, as tool use needs."""
+        messages: list[dict[str, Any]] = json.loads(context) if context else []
+        messages.append({"role": "user", "content": chat_input(given)})
+        last = not isinstance(given, OwnerQuestion) and given.last
+        started = time.monotonic()
+        try:
+            message = self._create(
+                "continue chat",
+                model=self._chat_model,
+                max_tokens=_CHAT_MAX_TOKENS,
+                system=CHAT_INSTRUCTIONS,
+                messages=messages,
+                tools=[SEARCH_ITEMS_TOOL],
+                # After the last allowed search the model must answer.
+                tool_choice={"type": "none"} if last else {"type": "auto"},
+                # Follow-ups and searches resend the conversation; caching makes that cheap.
+                cache_control={"type": "ephemeral"},
+                output_config={
+                    "effort": self._chat_effort,
+                    "format": {"type": "json_schema", "schema": ANSWER_SCHEMA},
+                },
+            )
+        except _CallFailed as error:
+            raise ChatFailed(str(error)) from error
+        usage = _usage(message, self._chat_model, timedelta(seconds=time.monotonic() - started))
+        messages.append(
+            {"role": "assistant", "content": [block.to_dict() for block in message.content]}
+        )
+        updated = json.dumps(messages, ensure_ascii=False)
+        if message.stop_reason == "tool_use":
+            return ChatStep(updated, usage, search_calls(message, usage), None)
+        return ChatStep(updated, usage, [], _parse_answer(message, usage))
 
     def close(self) -> None:
         self._client.close()
@@ -225,6 +283,22 @@ def _section_prompt(section: SectionRequest) -> str:
     return f"Write the {section.folder_name} section from these Items:\n" + json.dumps(
         listed, ensure_ascii=False
     )
+
+
+def _parse_answer(message: Message, usage: AiUsage) -> ModelAnswer:
+    if (stopped := _stop_detail(message)) is not None:
+        raise ChatFailed(f"no answer: {stopped}", usage)
+    try:
+        answer = json.loads(_answer_text(message))
+        return ModelAnswer(
+            intro=" ".join(str(answer["intro"]).split()),
+            entries=[
+                AnswerEntry(int(entry["item_id"]), " ".join(str(entry["summary"]).split()))
+                for entry in answer["items"]
+            ],
+        )
+    except (ValueError, KeyError, TypeError) as error:
+        raise ChatFailed(f"answer is not the Chat answer JSON: {error}", usage) from error
 
 
 def _usage(message: Message, model: str, duration: timedelta) -> AiUsage:

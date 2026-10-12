@@ -44,6 +44,8 @@ def serve(settings: Settings) -> int:
         scoring_model=settings.scoring_model,
         briefing_model=settings.briefing_model,
         briefing_effort=settings.briefing_effort,
+        chat_model=settings.chat_model,
+        chat_effort=settings.chat_effort,
         timeout=settings.anthropic_timeout,
         max_attempts=settings.anthropic_max_attempts,
     )

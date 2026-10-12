@@ -135,6 +135,28 @@ MIGRATIONS: tuple[str, ...] = (
         subscribed_at TEXT NOT NULL
     );
     """,
+    """
+    CREATE TABLE chats (
+        id INTEGER PRIMARY KEY,
+        title TEXT,  -- the first question, cut short; NULL until it is asked
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        cost_micro_usd INTEGER NOT NULL DEFAULT 0,
+        -- The conversation as the model reads it (Anthropic message JSON), sent back each turn.
+        context TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE chat_messages (
+        id INTEGER PRIMARY KEY,
+        chat_id INTEGER NOT NULL REFERENCES chats (id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL,
+        role TEXT NOT NULL,  -- owner or assistant
+        text TEXT NOT NULL,  -- the question, or the answer's intro line
+        -- An answer's Items as JSON: [{id, title, source, summary}], copied in so they outlive
+        -- the Items.
+        items TEXT NOT NULL DEFAULT '[]'
+    );
+    CREATE INDEX chat_messages_chat ON chat_messages (chat_id, id);
+    """,
 )
 
 
