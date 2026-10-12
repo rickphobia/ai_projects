@@ -20,6 +20,7 @@ from rss_news.items.inbox import Inbox
 from rss_news.sources.catalog import StarterFolder, load_starter_sources
 from rss_news.sources.fetching import FeedFetcher, SourceFetching
 from rss_news.sources.managing import SourceManagement
+from rss_news.sources.polite_queue import FetchPacing
 from rss_news.tick import Tick, TickLoop, TickStep
 from rss_news.web.app import create_app
 
@@ -51,7 +52,12 @@ def build_app(
         items=items,
         fetcher=feed_fetcher,
         clock=clock,
-        interval=settings.fetch_interval,
+        pacing=FetchPacing(
+            interval=settings.fetch_interval,
+            reddit_gap=settings.reddit_gap,
+            reddit_interval=settings.reddit_interval,
+            max_backoff=settings.fetch_max_backoff,
+        ),
     )
     tick = Tick([TickStep("fetch due sources", fetching.fetch_due)], clock)
     app = create_app(

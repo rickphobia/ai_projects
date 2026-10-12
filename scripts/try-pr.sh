@@ -14,7 +14,14 @@
 #
 # The PR is checked out in .claude/worktrees/try-pr-<N>-<port>, so no other checkout changes branch.
 # Press Ctrl+C to stop; the folder is then removed unless --keep was given.
+#
+# Settings (environment variables, all optional):
+#   TRY_PR_RSS_NEWS_PASSWORD  the password an rss-news preview signs in with (default "preview")
 set -euo pipefail
+
+# A preview-only password, not the real site's: a preview has a throwaway database and is reachable
+# only from this machine and your Tailscale devices.
+rss_news_password="${TRY_PR_RSS_NEWS_PASSWORD:-preview}"
 
 die() {
   printf 'try-pr: %s\n' "$*" >&2
@@ -128,7 +135,11 @@ main() {
 serve_web() {
   case $1 in
     rss-news)
+      local password_hash
+      password_hash=$(printf '%s\n' "$rss_news_password" | uv run rss-news hash-password) ||
+        die "could not hash the rss-news preview password"
       RSS_NEWS_PORT=$3 RSS_NEWS_PWA_DIR=$2 RSS_NEWS_DATABASE_PATH=data/try-pr.sqlite3 \
+        RSS_NEWS_PASSWORD_HASH=$password_hash RSS_NEWS_SESSION_SECRET=$(openssl rand -hex 32) \
         uv run rss-news serve
       ;;
     *) python3 -m http.server --bind 127.0.0.1 --directory "$2" "$3" ;;
