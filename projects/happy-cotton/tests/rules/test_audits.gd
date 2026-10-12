@@ -269,3 +269,13 @@ func test_a_planned_audit_is_used_up_by_its_hand_in() -> void:
 
 	assert_null(_message(Farm.CAUGHT, messages))
 	assert_null(_message(Farm.AUDIT_PASSED, messages))
+
+
+func test_an_audit_planned_from_debug_at_an_open_hand_in_is_announced_at_once() -> void:
+	_farm = _new_farm(FastTuning.table())
+	_farm.advance(FastTuning.SHIFT_SECONDS)
+	_farm.take_messages()
+
+	_farm.debug_plan_audit()
+
+	assert_eq(_keys(_farm.take_messages()), [Farm.AUDIT_ANNOUNCED] as Array[StringName])

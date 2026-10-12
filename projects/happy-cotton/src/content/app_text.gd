@@ -43,7 +43,7 @@ const EXHAUSTION := "Exhaustion {level}%"
 const RESTING := "Resting  ·  {time} left"
 const ON_A_CALL := "On a call home  ·  {time} left"
 ## Shown while he is on watch after being caught, with the Shifts left counting this one.
-const ON_WATCH := "Harmony Support  ·  Shifts left: {shifts}"
+const ON_WATCH := "Selected for Harmony Support!  ·  Shifts left: {shifts}"
 const STORE_BUTTON := "Store"
 const STORE_TITLE := "Happy Store"
 const STORE_UPGRADES := "Upgrades"

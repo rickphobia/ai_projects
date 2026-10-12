@@ -24,7 +24,7 @@ func test_on_watch_shows_harmony_support_and_the_shifts_left() -> void:
 	_overlay.show_shift(ShiftView.new(2, 12, 5, 90.0, 3), 30, 0, 2)
 
 	assert_true(_on_watch().visible)
-	assert_eq(_on_watch().text, "Harmony Support  ·  Shifts left: 2")
+	assert_eq(_on_watch().text, "Selected for Harmony Support!  ·  Shifts left: 2")
 
 
 func test_harmony_support_goes_when_on_watch_ends() -> void:

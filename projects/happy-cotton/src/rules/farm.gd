@@ -420,9 +420,12 @@ func debug_add_labour_points(points: int) -> void:
 	_note_paid_in(_ledger.credit(points), were_stopped)
 
 
-## Only the debug wiring calls this: it plans a Harmony Audit for this Shift.
+## Only the debug wiring calls this: it plans a Harmony Audit for this Shift, announced at once
+## if the Hand-in is already open.
 func debug_plan_audit() -> void:
 	_audits.plan_now()
+	if hand_in_open():
+		_audits.announce(shift().number)
 
 
 ## Buys a Privilege, REST_HOUR or CALL_HOME, paid as buy_upgrade() is.

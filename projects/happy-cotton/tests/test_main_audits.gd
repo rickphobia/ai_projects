@@ -85,7 +85,7 @@ func test_being_caught_is_logged_said_and_shown_as_harmony_support() -> void:
 	var on_watch: Label = app.find_child("OnWatch", true, false)
 	assert_true(on_watch.visible)
 	var shifts := roundi(_tuning.on_watch_shifts)
-	assert_eq(on_watch.text, "Harmony Support  ·  Shifts left: %d" % shifts)
+	assert_eq(on_watch.text, "Selected for Harmony Support!  ·  Shifts left: %d" % shifts)
 
 
 func test_the_debug_button_plans_an_audit_and_logs_it() -> void:
