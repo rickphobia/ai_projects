@@ -1,6 +1,6 @@
 # Starter Sources
 
-The first set of Sources, sorted by Topic. Every feed below returned HTTP 200 with recent entries when fetched from the Beelink on 2026-10-11. The owner approves this list before it is loaded.
+The first set of Sources, grouped by Folder. Every feed below returned HTTP 200 with recent entries when fetched from the Beelink on 2026-10-11. The owner approves this list before it is loaded.
 
 ## AI
 
