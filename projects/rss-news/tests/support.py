@@ -7,6 +7,7 @@ from pathlib import Path
 from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.auth.passwords import hash_password
 from rss_news.config import Settings
+from rss_news.items.reading import ExtractionFailed, ReaderView
 from rss_news.scoring.item_scoring import (
     ItemScore,
     ScoringFailed,
@@ -85,6 +86,20 @@ class FakeFeedFetcher:
         return self.answers.get(request.url, FetchFailed("connect", "no answer set in the test"))
 
 
+class FakeArticleExtractor:
+    """Answers each page URL with the Reader view the test set for it; others fail."""
+
+    def __init__(self) -> None:
+        self.pages: dict[str, ReaderView] = {}
+        self.requested: list[str] = []
+
+    def extract(self, url: str) -> ReaderView:
+        self.requested.append(url)
+        if url not in self.pages:
+            raise ExtractionFailed("no article text was found on the page")
+        return self.pages[url]
+
+
 type ScoringAnswer = Callable[[Sequence[UnscoredItem]], ScoringResult]
 
 
@@ -128,6 +143,7 @@ def make_wiring(
     *,
     feed_fetcher: FakeFeedFetcher | None = None,
     language_model: FakeLanguageModel | None = None,
+    article_extractor: FakeArticleExtractor | None = None,
     starter_folders: Sequence[StarterFolder] = (),
 ) -> Wiring:
     """The whole app over the settings' database file, with fakes for the outside world.
@@ -141,6 +157,7 @@ def make_wiring(
         database=database,
         feed_fetcher=feed_fetcher or FakeFeedFetcher(),
         language_model=language_model or FakeLanguageModel(),
+        article_extractor=article_extractor or FakeArticleExtractor(),
         clock=clock,
         starter_folders=starter_folders,
         run_tick_loop=False,

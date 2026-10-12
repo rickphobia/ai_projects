@@ -85,6 +85,9 @@ MIGRATIONS: tuple[str, ...] = (
     );
     CREATE INDEX ai_calls_called_at ON ai_calls (called_at);
     """,
+    """
+    ALTER TABLE items ADD COLUMN read_at TEXT;  -- first time the owner opened it; NULL if unread
+    """,
 )
 
 

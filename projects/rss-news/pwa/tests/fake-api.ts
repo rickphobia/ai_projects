@@ -6,6 +6,7 @@ import type {
   InboxPage,
   InboxQuery,
   LoginResult,
+  ReaderView,
   NewSource,
   SourceChange,
   SourceInfo,
@@ -24,6 +25,12 @@ export class FakeApiClient implements ApiClient {
   inboxError: Error | null = null;
   pageSize = 50;
   inboxQueries: InboxQuery[] = [];
+  // Reader view per Item id; an Item without one fails as the server would.
+  readerViews = new Map<number, ReaderView | Error>();
+  // While true, readerView() waits until the test calls releaseReaderView.
+  holdReaderView = false;
+  releaseReaderView: (() => void) | null = null;
+  itemsOpened: number[] = [];
   sourcesAnswer: SourceInfo[] = [];
   // When set, the next change is refused with it.
   changeError: Error | null = null;
@@ -75,6 +82,26 @@ export class FakeApiClient implements ApiClient {
       items: matching.slice(start, end),
       nextCursor: end < matching.length ? String(end) : null,
     });
+  }
+
+  item(itemId: number): Promise<InboxItem> {
+    this.itemsOpened.push(itemId);
+    const found = this.items.find((item) => item.id === itemId);
+    if (!found) return Promise.reject(new Error(`no Item ${String(itemId)}`));
+    found.read = true;
+    return Promise.resolve({ ...found });
+  }
+
+  async readerView(itemId: number): Promise<ReaderView> {
+    if (this.holdReaderView) {
+      await new Promise<void>((resolve) => {
+        this.releaseReaderView = resolve;
+      });
+    }
+    return settle(
+      this.readerViews.get(itemId) ??
+        new Error("Reader view isn't available: no article text was found."),
+    );
   }
 
   // Changes are only recorded; the lists stay as the test set them.

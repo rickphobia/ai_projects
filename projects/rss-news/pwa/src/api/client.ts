@@ -23,6 +23,15 @@ export interface InboxItem {
   // 1 to 5, and one line in English; both null until the Item is scored.
   importance: number | null;
   summary: string | null;
+  // True once the owner has opened the Item.
+  read: boolean;
+}
+
+// The article as the server extracted it just now; nothing is kept.
+export interface ReaderView {
+  title: string | null;
+  // Plain text, one paragraph per line.
+  text: string;
 }
 
 export type InboxOrder = "newest" | "importance";
@@ -80,6 +89,10 @@ export interface ApiClient {
   checkSession(): Promise<void>;
   folders(): Promise<Folder[]>;
   inbox(query: InboxQuery): Promise<InboxPage>;
+  // One Item; showing it marks it read.
+  item(itemId: number): Promise<InboxItem>;
+  // Rejects with RefusedError, saying why, when the page can't be extracted.
+  readerView(itemId: number): Promise<ReaderView>;
   // The calls below reject with RefusedError when the server says no, such as deleting a
   // Folder that still has Sources.
   sources(): Promise<SourceInfo[]>;
@@ -166,18 +179,25 @@ export class HttpApiClient implements ApiClient {
     const response = await this.sendWithSession("GET", path);
     const body = (await response.json()) as InboxPageJson;
     return {
-      items: body.items.map((item) => ({
-        id: item.id,
-        title: item.title,
-        url: item.url,
-        source: item.source,
-        folder: item.folder,
-        publishedAt: item.published_at,
-        importance: item.importance,
-        summary: item.summary,
-      })),
+      items: body.items.map(itemFromJson),
       nextCursor: body.next_cursor,
     };
+  }
+
+  async item(itemId: number): Promise<InboxItem> {
+    const response = await this.sendWithSession(
+      "GET",
+      `api/items/${String(itemId)}`,
+    );
+    return itemFromJson((await response.json()) as ItemJson);
+  }
+
+  async readerView(itemId: number): Promise<ReaderView> {
+    const response = await this.sendWithSession(
+      "GET",
+      `api/items/${String(itemId)}/reader`,
+    );
+    return (await response.json()) as ReaderView;
   }
 
   async sources(): Promise<SourceInfo[]> {
@@ -239,7 +259,8 @@ export class HttpApiClient implements ApiClient {
       this.onSignedOut();
       throw new SignedOutError(`${method} ${path} needs a session`);
     }
-    if ([404, 409, 422].includes(response.status)) {
+    // 502 is Reader view failing to extract the original page.
+    if ([404, 409, 422, 502].includes(response.status)) {
       const body: unknown = await response.json().catch(() => null);
       const detail = detailIn(body);
       if (detail !== null) throw new RefusedError(detail);
@@ -263,19 +284,36 @@ export class HttpApiClient implements ApiClient {
   }
 }
 
-// The Inbox as the backend sends it, in snake_case.
+// An Item as the backend sends it, in snake_case.
+interface ItemJson {
+  id: number;
+  title: string;
+  url: string;
+  source: string;
+  folder: Folder;
+  published_at: string;
+  importance: number | null;
+  summary: string | null;
+  read: boolean;
+}
+
 interface InboxPageJson {
-  items: {
-    id: number;
-    title: string;
-    url: string;
-    source: string;
-    folder: Folder;
-    published_at: string;
-    importance: number | null;
-    summary: string | null;
-  }[];
+  items: ItemJson[];
   next_cursor: string | null;
+}
+
+function itemFromJson(item: ItemJson): InboxItem {
+  return {
+    id: item.id,
+    title: item.title,
+    url: item.url,
+    source: item.source,
+    folder: item.folder,
+    publishedAt: item.published_at,
+    importance: item.importance,
+    summary: item.summary,
+    read: item.read,
+  };
 }
 
 // A Source as the backend sends it, in snake_case.

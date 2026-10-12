@@ -26,6 +26,10 @@ _Avoid_: Priority, rank, relevance
 The list of all Items, newest first, which can be filtered by Folder.
 _Avoid_: Feed, timeline, stream
 
+**Reader view**:
+An Item's full article, fetched from the original page and cleaned of ads and clutter when the owner opens the Item. Nothing of it is kept.
+_Avoid_: Full text, article cache
+
 ### What gets written
 
 **Chat**:

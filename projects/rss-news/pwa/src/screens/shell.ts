@@ -1,9 +1,10 @@
 import { SignedOutError, type ApiClient } from "../api/client";
 import { renderInbox } from "./inbox";
+import { renderItem } from "./item";
 import { renderSources } from "./sources";
 
 // The app shell for a signed-in owner: the name, whether the backend is up, sign out, and
-// the Inbox or the Sources screen below.
+// the Inbox, an Item or the Sources screen below.
 export async function renderShell(
   root: HTMLElement,
   api: ApiClient,
@@ -31,15 +32,19 @@ export async function renderShell(
   const toSources = navButton("Sources");
   const nav = document.createElement("nav");
   nav.append(toInbox, toSources);
+  const showInbox = (): Promise<void> => renderInbox(page, api, showItem);
+  const showItem = (itemId: number): void => {
+    void renderItem(page, api, itemId, () => void showInbox());
+  };
   toInbox.addEventListener("click", () => {
-    void renderInbox(page, api);
+    void showInbox();
   });
   toSources.addEventListener("click", () => {
     void renderSources(page, api);
   });
   root.replaceChildren(heading, status, signOut, nav, page);
 
-  await Promise.all([showHealth(api, status), renderInbox(page, api)]);
+  await Promise.all([showHealth(api, status), showInbox()]);
 }
 
 async function showHealth(api: ApiClient, status: HTMLElement): Promise<void> {

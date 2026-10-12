@@ -1,5 +1,5 @@
 import { screen, waitFor } from "@testing-library/dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, type Folder, type InboxItem } from "../../src/api/client";
 import { renderInbox } from "../../src/screens/inbox";
@@ -23,6 +23,7 @@ function item(
     publishedAt: "2026-10-12T04:00:00+00:00",
     importance,
     summary: importance === null ? null : `Summary of ${title}`,
+    read: false,
   };
 }
 
@@ -50,11 +51,13 @@ function choose(select: HTMLSelectElement, label: string): void {
 describe("the Inbox", () => {
   let root: HTMLElement;
   let api: FakeApiClient;
+  let onOpen: (itemId: number) => void;
 
   beforeEach(() => {
     root = document.createElement("section");
     document.body.replaceChildren(root);
     api = new FakeApiClient();
+    onOpen = vi.fn();
     api.foldersAnswer = [AI, WORLD];
     api.items = [
       item(3, "Newest world story", WORLD, 2),
@@ -64,7 +67,7 @@ describe("the Inbox", () => {
   });
 
   it("shows each Item's Importance and one-line summary", async () => {
-    await renderInbox(root, api);
+    await renderInbox(root, api, onOpen);
 
     expect(screen.getByLabelText("Importance 5")).toBeTruthy();
     expect(screen.getByText("Summary of AI story")).toBeTruthy();
@@ -72,7 +75,7 @@ describe("the Inbox", () => {
   });
 
   it("filters by Importance, keeping the Folder filter", async () => {
-    await renderInbox(root, api);
+    await renderInbox(root, api, onOpen);
     choose(folderFilter(), "World");
     await waitFor(() => {
       expect(shownTitles()).toHaveLength(2);
@@ -98,7 +101,7 @@ describe("the Inbox", () => {
   });
 
   it("sorts by Importance on request", async () => {
-    await renderInbox(root, api);
+    await renderInbox(root, api, onOpen);
 
     choose(
       screen.getByRole("combobox", { name: "Sort" }),
@@ -115,23 +118,28 @@ describe("the Inbox", () => {
     expect(api.inboxQueries.at(-1)).toEqual({ sort: "importance" });
   });
 
-  it("lists every Item newest first, each linking to the original", async () => {
-    await renderInbox(root, api);
+  it("lists every Item newest first, each opening the Item view", async () => {
+    await renderInbox(root, api, onOpen);
 
     expect(shownTitles()).toEqual([
       "Newest world story",
       "AI story",
       "Older world story",
     ]);
-    const link = screen.getByRole("link", { name: "AI story" });
-    expect(link.getAttribute("href")).toBe("https://news.example/2");
-    expect(link.getAttribute("target")).toBe("_blank");
-    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    screen.getByRole("link", { name: "AI story" }).click();
+    expect(onOpen).toHaveBeenCalledWith(2);
     expect(screen.getByText(/AI source/)).toBeTruthy();
   });
 
+  it("marks unread Items only", async () => {
+    api.items[1] = { ...api.items[1], read: true } as InboxItem;
+    await renderInbox(root, api, onOpen);
+
+    expect(screen.getAllByLabelText("Unread")).toHaveLength(2);
+  });
+
   it("filters by Folder and back to all Folders", async () => {
-    await renderInbox(root, api);
+    await renderInbox(root, api, onOpen);
     const filter = folderFilter();
     expect(Array.from(filter.options).map((option) => option.text)).toEqual([
       "All folders",
@@ -157,7 +165,7 @@ describe("the Inbox", () => {
 
   it("loads the next page on request and keeps the Folder filter", async () => {
     api.pageSize = 1;
-    await renderInbox(root, api);
+    await renderInbox(root, api, onOpen);
     choose(folderFilter(), "World");
     await waitFor(() => {
       expect(shownTitles()).toEqual(["Newest world story"]);
@@ -181,7 +189,7 @@ describe("the Inbox", () => {
   it("says so when there are no Items yet", async () => {
     api.items = [];
 
-    await renderInbox(root, api);
+    await renderInbox(root, api, onOpen);
 
     expect(screen.getByRole("status", { name: "Inbox" }).textContent).toContain(
       "No Items yet",
@@ -191,7 +199,7 @@ describe("the Inbox", () => {
   it("still lists Items when the Folders can't load", async () => {
     api.foldersAnswer = new ApiError("GET /api/folders answered 500");
 
-    await renderInbox(root, api);
+    await renderInbox(root, api, onOpen);
 
     expect(shownTitles()).toHaveLength(3);
     expect(folderFilter().disabled).toBe(true);
@@ -203,7 +211,7 @@ describe("the Inbox", () => {
   it("says what went wrong when the Inbox can't load", async () => {
     api.inboxError = new ApiError("GET /api/inbox answered 500");
 
-    await renderInbox(root, api);
+    await renderInbox(root, api, onOpen);
 
     expect(screen.getByRole("status", { name: "Inbox" }).textContent).toBe(
       "Couldn't load the Inbox: GET /api/inbox answered 500",

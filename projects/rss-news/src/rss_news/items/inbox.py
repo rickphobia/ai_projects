@@ -44,6 +44,8 @@ class InboxItem:
     # Both None until the Item is scored.
     importance: int | None
     summary: str | None
+    # True once the owner has opened the Item.
+    read: bool = False
 
 
 @dataclass(frozen=True)
