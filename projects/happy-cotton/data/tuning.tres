@@ -75,5 +75,6 @@ electricity_per_lap = 0.5
 rent_per_shift = 6.0
 school_fees = 30.0
 school_fees_every_shifts = 3.0
+letter_every_shifts = 2.0
 generator_tiers = Array[ExtResource("2_generator_tier")]([SubResource("GeneratorTier_1"), SubResource("GeneratorTier_2"), SubResource("GeneratorTier_3")])
 tools_tiers = Array[ExtResource("3_tools_tier")]([SubResource("ToolsTier_1"), SubResource("ToolsTier_2"), SubResource("ToolsTier_3")])

@@ -52,6 +52,9 @@ func _seen(farm: Farm) -> Dictionary:
 	var messages := []
 	for message in farm.take_messages():
 		messages.append([message.key, message.values])
+	var family_events := []
+	for event in farm.take_family_events():
+		family_events.append([event.kind, event.id])
 	return {
 		"plots": plots,
 		"shift": [shift.number, shift.quota, shift.picked, shift.seconds_left],
@@ -63,6 +66,8 @@ func _seen(farm: Farm) -> Dictionary:
 		"rest": [farm.rest_hour().seconds_left, farm.rest_hour().taken_away],
 		"store": _store_seen(farm),
 		"messages": messages,
+		"letters": [farm.letters_received(), farm.letters_stopped()],
+		"family_events": family_events,
 	}
 
 

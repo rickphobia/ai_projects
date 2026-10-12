@@ -84,6 +84,27 @@ func flags(key: String, size: int) -> Array[bool]:
 	return read
 
 
+## A list of any length whose entries are each one of `allowed`, kept in order. Entries that
+## aren't are dropped and make one problem, however many there are.
+func ids(key: String, allowed: Array[StringName]) -> Array[StringName]:
+	var read: Array[StringName] = []
+	var value: Variant = _data.get(key)
+	if not value is Array:
+		_problem(key, "is missing or not a list")
+		return read
+	var list: Array = value
+	var all_good := true
+	for entry: Variant in list:
+		var text: String = entry if entry is String else ""
+		var known := StringName(text) in allowed
+		all_good = all_good and known
+		if known:
+			read.append(StringName(text))
+	if not all_good:
+		_problem(key, "holds something other than one of %s" % [allowed])
+	return read
+
+
 ## The dictionary under `key`, read with the same problem list when it is there.
 func section(key: String) -> SaveReader:
 	var value: Variant = _data.get(key)

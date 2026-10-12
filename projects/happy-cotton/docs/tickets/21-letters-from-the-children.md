@@ -4,20 +4,22 @@
 
 **Blocked by:** 20 (School fees)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** rules, config/tuning, content/family-text, content/sources, adapters/letters, adapters/save
 
 **Effort:** medium
 
-- [ ] The rules emit a "letter arrived" Family event (letter id) at the start of every Nth Shift (tuning), separate from App messages
-- [ ] The letter is chosen by how many letter Shifts have passed, so letters missed while stopped are skipped; when the list runs out, no new letters come
-- [ ] Letters stop while school fees are unpaid and start again when Debt reaches zero
-- [ ] A Family text table holds each letter: id, which Child, text, and source ids where a line makes a factual claim; the Children's names and ages are decided here
-- [ ] zenz-2019 is checked for what the change in tone draws on; lines it doesn't support are written as the Child's own experience, not as claims
-- [ ] A content test fails if a letter the rules can emit has no text or cites a source id not in the register
-- [ ] A letter opens as a handwritten page (CC0 font, credited) and the letters box lists received letters in order
-- [ ] Letters received, the letter Shift count and the stopped state are saved; a save without them restores with none
-- [ ] Letters stopping and starting are logged, never their text
-- [ ] GUT tests through Farm cover arrival, stopping, starting again and skipping
+**Owner steps:** on a phone held sideways (`scripts/try-pr.sh <PR>`), play to the start of Shift 2 (one 10-minute Shift; Skip time is offline time and doesn't move the Shift) and check the letter page and the Letters box read well and close. The session built the web export, but had no phone or working browser to check it on.
+
+- [x] The rules emit a "letter arrived" Family event (letter id) at the start of every Nth Shift (tuning), separate from App messages
+- [x] The letter is chosen by how many letter Shifts have passed, so letters missed while stopped are skipped; when the list runs out, no new letters come
+- [x] Letters stop while school fees are unpaid and start again when Debt reaches zero
+- [x] A Family text table holds each letter: id, which Child, text, and source ids where a line makes a factual claim; the Children's names and ages are decided here
+- [x] zenz-2019 is checked for what the change in tone draws on; lines it doesn't support are written as the Child's own experience, not as claims
+- [x] A content test fails if a letter the rules can emit has no text or cites a source id not in the register
+- [x] A letter opens as a handwritten page (CC0 font, credited) and the letters box lists received letters in order
+- [x] Letters received, the letter Shift count and the stopped state are saved; a save without them restores with none
+- [x] Letters stopping and starting are logged, never their text
+- [x] GUT tests through Farm cover arrival, stopping, starting again and skipping
 - [ ] Works in the web export on a phone-sized screen (record what was checked in the PR)
