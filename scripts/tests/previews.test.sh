@@ -66,6 +66,27 @@ check "writes the link through the REST API, which old gh versions can still edi
   "$(cat "$sent")"
 unset -f gh
 
+# A fake curl that answers from its third try on, counting tries in a file (curl runs in the
+# subshells the checks capture).
+tries=$(mktemp)
+trap 'rm -f "$sent" "$tries"' EXIT
+curl() {
+  local n
+  n=$(($(cat "$tries") + 1))
+  echo "$n" >"$tries"
+  ((n >= 3))
+}
+poll_seconds=0
+echo 0 >"$tries"
+check "waits for a just-started preview until it answers" \
+  "ready after 3 tries" \
+  "$(wait_for_preview 9088 60 && echo "ready after $(cat "$tries") tries")"
+echo -100 >"$tries"
+check "gives up once the wait is over, so the next sync tries again" \
+  "gave up" \
+  "$(wait_for_preview 9088 0 || echo "gave up")"
+unset -f curl
+
 if ((failures > 0)); then
   printf '%d failed\n' "$failures"
   exit 1

@@ -7,7 +7,7 @@
 # Each preview is a systemd user service, try-pr-<N>, running scripts/try-pr.sh. No Claude.
 #
 # Usage: scripts/previews.sh <command>
-#   install    copy the scripts to ~/.local/state/ai-slops-previews and run `sync` every 5 minutes
+#   install    copy the scripts to ~/.local/state/ai-slops-previews and run `sync` every minute
 #   uninstall  stop the timer and every preview
 #   sync       start, refresh and stop previews to match the open PRs (what the timer runs)
 #   list       open PRs with their ci-gate result and preview link
@@ -21,6 +21,10 @@ repo="${PREVIEWS_REPO:-$HOME/homelab/code/ai_slops}"
 state="$HOME/.local/state/ai-slops-previews"
 units="$HOME/.config/systemd/user"
 timer=ai-slops-previews
+# How long a sync waits for a preview it just started to answer before writing its link. A Godot
+# build takes about 15 seconds; a preview still building after this gets its link on a later sync.
+link_wait_seconds=120
+poll_seconds=2
 # Shells started outside a desktop session (ssh, cron) may not set it; systemctl --user needs it.
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
@@ -81,6 +85,15 @@ link_preview() { # link_preview <N> <url>
   fi
 }
 
+# Waits up to <seconds> for the preview on <port> to answer; fails if it doesn't.
+wait_for_preview() { # wait_for_preview <port> <seconds>
+  local deadline=$((SECONDS + $2))
+  until curl -s -o /dev/null --max-time 2 "http://localhost:$1/"; do
+    ((SECONDS < deadline)) || return 1
+    sleep "$poll_seconds"
+  done
+}
+
 stop_unit() {
   ctl stop "try-pr-$1.service" 2>/dev/null || true
   ctl reset-failed "try-pr-$1.service" 2>/dev/null || true
@@ -127,7 +140,7 @@ cmd_sync() {
   refresh_scripts
   local -a web
   mapfile -t web < <("$state/try-pr.sh" --projects)
-  local -A open=()
+  local -A open=() started=()
   local -a prs
   mapfile -t prs < <(open_prs)
   local n sha gate project title state_now row host
@@ -141,15 +154,18 @@ cmd_sync() {
       continue
     fi
     start_preview "$n" "$sha"
+    started[$n]=1
   done
 
-  # A preview built for the PR's latest push and answering gets its link into the PR body.
+  # A preview built for the PR's latest push and answering gets its link into the PR body. One
+  # started by this sync is waited for, so its link lands now rather than on the next sync.
   host=$(preview_host)
   if [[ -n $host ]]; then
     for row in "${prs[@]}"; do
       IFS=$'\t' read -r n sha gate project title <<<"$row"
       [[ $(unit_state "$n") == active && $(unit_sha "$n") == "$sha" ]] || continue
-      curl -s -o /dev/null --max-time 2 "http://localhost:$(port_of "$n")/" || continue
+      wait_for_preview "$(port_of "$n")" "$([[ -n ${started[$n]:-} ]] && echo "$link_wait_seconds" || echo 0)" ||
+        continue
       link_preview "$n" "https://$host:$(port_of "$n")/"
     done
   fi
@@ -189,7 +205,7 @@ cmd_list() {
         elif [[ $gate != SUCCESS ]]; then
           preview="starts once ci-gate passes"
         else
-          preview="starts within 5 minutes"
+          preview="starts within a minute"
         fi
         ;;
     esac
@@ -228,11 +244,13 @@ ExecStart=$state/previews.sh sync
 EOF
   cat >"$units/$timer.timer" <<EOF
 [Unit]
-Description=Sync ai_slops PR previews every 5 minutes
+Description=Sync ai_slops PR previews every minute
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=5min
+OnUnitActiveSec=1min
+# systemd otherwise delays a timer by up to a minute to batch wakeups.
+AccuracySec=5s
 
 [Install]
 WantedBy=timers.target
@@ -240,7 +258,7 @@ EOF
   ctl daemon-reload
   ctl enable --now "$timer.timer"
   ctl start "$timer.service"
-  echo "Installed. Previews sync every 5 minutes; see them with: scripts/previews.sh list"
+  echo "Installed. Previews sync every minute; see them with: scripts/previews.sh list"
 }
 
 cmd_uninstall() {
