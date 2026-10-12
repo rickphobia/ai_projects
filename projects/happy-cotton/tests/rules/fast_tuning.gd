@@ -237,3 +237,9 @@ static func with_land(tuning: Tuning, columns: int, rows: int) -> Tuning:
 static func with_bollworms(tuning: Tuning) -> Tuning:
 	tuning.bollworm_chance = 1.0
 	return tuning
+
+
+## A source of chance that never comes up under any chance short of 1, for tests on the shipped
+## table that must not meet random Bollworms, audits or drops.
+static func never() -> float:
+	return 0.999

@@ -18,6 +18,9 @@ const AUTOSAVE_SECONDS := 15.0
 var save_store := SaveStore.new()
 ## The player's settings file. Tests set their own before adding the scene.
 var settings_store := SettingsStore.new()
+## The Farm's source of chance (see Farm); unset, the Farm rolls at random. Tests set their own
+## before adding the scene, so random Bollworms, audits and drops can't upset them.
+var roll := Callable()
 
 var _tuning: Tuning
 var _farm: Farm
@@ -139,7 +142,7 @@ func _on_start_over_after_damaged_save() -> void:
 
 
 func _new_farm() -> Farm:
-	return Farm.new(_tuning)
+	return Farm.new(_tuning, roll)
 
 
 ## Builds the field from the Farm's land, wires the Farm to it and The App, and saves it at
