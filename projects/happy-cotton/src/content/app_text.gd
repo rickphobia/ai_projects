@@ -30,6 +30,14 @@ const PAY_SLIP_SCHOOL_FEES := "School fees: −{school_fees}. An investment in y
 const PAY_SLIP_LEFT := "Yours to keep: {points} Labour Points"
 const PAY_SLIP_DEBT := "Owed to the Farm: {debt} Labour Points. We will settle it together!"
 const PAY_SLIP_CLOSE := "Thank you!"
+## The Hand-in card: a title, the cotton in hand against the Quota, and the button that hands
+## it all in.
+const HAND_IN_TITLE := "Hand-in  ·  Shift {shift}"
+const HAND_IN_COTTON := "Cotton in hand: {in_hand}  ·  Quota: {quota}"
+const HAND_IN_BUTTON := "Hand in everything"
+## The crop counter beside the Labour Points, and what rises from a Plot at each counted pick.
+const CROP_COUNTER := "{picked} cotton"
+const CROP_COUNTED := "+1"
 const STUDY_SESSION_TIMER := "Study Session  ·  {time} left"
 const EXHAUSTION := "Exhaustion {level}%"
 const RESTING := "Resting  ·  {time} left"
@@ -78,6 +86,18 @@ static func lines() -> Dictionary[StringName, AppLine]:
 				+ " is a step on the road of Poverty Alleviation!"
 			),
 			["zenz-2020"]
+		),
+		# The state collects the cotton; Labour Points wait for it.
+		Farm.HAND_IN_OPENED:
+		AppLine.new(
+			(
+				"Shift {shift} is over! Please hand in your {in_hand} cotton. Every boll"
+				+ " belongs to the people's harvest!"
+			)
+		),
+		Farm.HANDED_IN:
+		AppLine.new(
+			"{handed_in} cotton received with thanks! {earned} Labour Points have been credited."
 		),
 		Farm.QUOTA_MET:
 		AppLine.new(
@@ -209,6 +229,8 @@ static func lines() -> Dictionary[StringName, AppLine]:
 ## values: price, points).
 static func store_refusals() -> Dictionary[StringName, AppLine]:
 	return {
+		Farm.HAND_IN_OPEN:
+		AppLine.new("The store is closed until your cotton is handed in. Harvest first!"),
 		Farm.IN_STUDY_SESSION:
 		AppLine.new("The store is closed during Study Sessions. Learning comes first!"),
 		Farm.PRIVILEGES_TAKEN_AWAY:

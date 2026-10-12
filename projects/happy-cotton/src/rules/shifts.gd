@@ -1,16 +1,19 @@
 class_name Shifts
 extends RefCounted
-## The Shift's clock and its end. Online play counts the Shift down; at its end the Quota is
-## checked, the Bills are charged, the Exhaustion floor rises and the next Shift starts at once
-## with a higher Quota. A missed Quota starts a Study Session, which doubles with each miss in a
-## row, and takes every Privilege away for the next Shift; the Shift's clock waits while a Study
-## Session runs. Negligence starts a Study Session of its own.
+## The Shift's clock and its end. Online play counts the Shift down; at its end the Hand-in
+## opens and the Shift's clock waits until the Worker hands in his cotton. Handing in checks the
+## Quota on what was handed in, charges the Bills, raises the Exhaustion floor and starts the
+## next Shift with a higher Quota. A missed Quota starts a Study Session, which doubles with each
+## miss in a row, and takes every Privilege away for the next Shift; the Shift's clock waits while
+## a Study Session runs. Negligence starts a Study Session of its own.
 ## What The App should say goes on the Farm's message queue, and the Children's side on its
 ## Family event queue, in the order it happens. Farm owns this and decides when time passes;
 ## tested through Farm, not on its own.
 
 ## App message keys (see Farm.MESSAGE_KEYS). A Shift began: values shift, quota.
 const SHIFT_STARTED := &"shift_started"
+## The Shift's time ran out and The App asks for the cotton: values shift, in_hand, quota.
+const HAND_IN_OPENED := &"hand_in_opened"
 ## The Quota was met (or beaten) at the end of a Shift: values shift, picked, quota.
 const QUOTA_MET := &"quota_met"
 ## The Quota was missed at the end of a Shift: values shift, picked, quota. The key grows
@@ -50,8 +53,11 @@ var _family_events: Array[FamilyEvent]
 var _number := 1
 ## Seconds of online play into the current Shift.
 var _elapsed := 0.0
-## Cotton picked this Shift. Starts from zero each Shift: a surplus carries no credit.
+## The crop counter: cotton picked this Shift and so in hand. Starts from zero each Shift: a
+## surplus carries no credit.
 var _picked := 0
+## Set from the moment the Shift's time runs out until the Worker hands in.
+var _hand_in_open := false
 ## The Quota rise of the Upgrades and Plots bought before this Shift began; later ones wait
 ## for the next.
 var _bought_rise := 0
@@ -96,27 +102,48 @@ func start() -> void:
 		_family_events.append(FamilyEvent.new(LETTER_ARRIVED, letter))
 
 
-## Seconds of online play until the Quota is checked.
+## Seconds of online play until the Hand-in opens; 0 while it is open.
 func seconds_left() -> float:
 	return _tuning.shift_seconds - _elapsed
 
 
-## Counts some seconds of online play; when they cover what is left, the Shift ends.
+## Counts some seconds of online play; when they cover what is left, the Hand-in opens. The
+## Farm stops counting while it is open.
 func run(seconds: float) -> void:
 	if seconds >= seconds_left():
-		_elapsed = 0.0
-		_end()
+		_elapsed = _tuning.shift_seconds
+		_hand_in_open = true
+		var values := {"shift": _number, "in_hand": _picked, "quota": _quota()}
+		_messages.append(AppMessage.new(HAND_IN_OPENED, values))
 	else:
 		_elapsed += seconds
 
 
-## A pick that kept its cotton: it counts towards the Quota.
+func hand_in_open() -> bool:
+	return _hand_in_open
+
+
+## A pick that kept its cotton: it is in hand, to be handed in at the Shift's end.
 func count_pick() -> void:
 	_picked += 1
 
 
+func cotton_in_hand() -> int:
+	return _picked
+
+
+## Closes the Hand-in with `handed_in` of the cotton in hand and runs the rest of the Shift
+## end. The Farm has already paid the Labour Points for it, so the pay slip shows them.
+func hand_in(handed_in: int) -> void:
+	_hand_in_open = false
+	_elapsed = 0.0
+	_end(handed_in)
+
+
 func view() -> ShiftView:
-	return ShiftView.new(_number, _quota(), _picked, seconds_left(), _ledger.next_fees_shift())
+	return ShiftView.new(
+		_number, _quota(), _picked, seconds_left(), _ledger.next_fees_shift(), _hand_in_open
+	)
 
 
 func privileges_taken_away() -> bool:
@@ -155,6 +182,7 @@ func to_save() -> Dictionary:
 		"shift_number": _number,
 		"shift_elapsed": _elapsed,
 		"picked": _picked,
+		"hand_in_open": _hand_in_open,
 		"study_left": _study_left,
 		"misses_in_a_row": _misses_in_a_row,
 		# Named before every Privilege was taken away, not only the rest hour; kept for old saves.
@@ -165,19 +193,21 @@ func to_save() -> Dictionary:
 
 ## Takes back what to_save() wrote, read by the Farm: it reads the whole save in one order, so
 ## a damaged save's problems are listed in it. The Shift's time is held to what the tuning
-## table allows now.
+## table allows now; an open Hand-in has used all of it.
 func restore(
 	shift_number: int,
 	elapsed: float,
 	picked: int,
+	hand_in_is_open: bool,
 	study_left: float,
 	misses_in_a_row: int,
 	privileges_taken_away: bool,
 	bought_rise: int
 ) -> void:
 	_number = shift_number
-	_elapsed = minf(elapsed, _tuning.shift_seconds)
+	_elapsed = _tuning.shift_seconds if hand_in_is_open else minf(elapsed, _tuning.shift_seconds)
 	_picked = picked
+	_hand_in_open = hand_in_is_open
 	_study_left = study_left
 	_misses_in_a_row = misses_in_a_row
 	_privileges_taken_away = privileges_taken_away
@@ -191,11 +221,11 @@ func _quota() -> int:
 	return roundi(_tuning.first_quota + rise) + _bought_rise
 
 
-## The Shift end, in order: the Quota check (and a Study Session if missed), the Bills, the
-## Exhaustion floor rise, then the next Shift.
-func _end() -> void:
-	var values := {"shift": _number, "picked": _picked, "quota": _quota()}
-	if _picked >= _quota():
+## The Shift end after the Hand-in, in order: the Quota check on what was handed in (and a
+## Study Session if missed), the Bills, the Exhaustion floor rise, then the next Shift.
+func _end(handed_in: int) -> void:
+	var values := {"shift": _number, "picked": handed_in, "quota": _quota()}
+	if handed_in >= _quota():
 		_misses_in_a_row = 0
 		_privileges_taken_away = false
 		_messages.append(AppMessage.new(QUOTA_MET, values))
@@ -223,12 +253,14 @@ func _charge_bills() -> void:
 		_family_events.append(FamilyEvent.new(LETTERS_STOPPED))
 
 
-## Doubles for each miss in a row, up to the cap.
+## Doubles for each miss in a row, up to the cap. A longer one already under way (Negligence
+## at the moment the Hand-in opened) runs on.
 func _start_missed_quota_study_session() -> void:
 	var doublings := _misses_in_a_row - 1
-	_begin_study_session(
-		minf(_tuning.study_session_seconds * pow(2.0, doublings), _tuning.study_session_cap_seconds)
+	var seconds := minf(
+		_tuning.study_session_seconds * pow(2.0, doublings), _tuning.study_session_cap_seconds
 	)
+	_begin_study_session(maxf(_study_left, seconds))
 
 
 ## Takes the Worker off the Generator. The Farm cuts any rest hour or call home short.

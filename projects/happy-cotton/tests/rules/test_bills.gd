@@ -25,18 +25,18 @@ func _earn(picks: int) -> void:
 	for pick in picks:
 		_farm.plant(0)
 		_farm.run_generator()
-		_farm.advance(FastTuning.GROW_SECONDS)
+		HandingIn.advance(_farm, FastTuning.GROW_SECONDS)
 		_farm.pick(0)
 
 
 func _end_shift() -> void:
-	_farm.advance(_farm.shift().seconds_left)
+	HandingIn.advance(_farm, _farm.shift().seconds_left)
 
 
 ## Ends a Shift with nothing picked, then serves the Study Session that follows.
 func _miss_shift() -> void:
 	_end_shift()
-	_farm.advance(_farm.study_session_seconds_left())
+	HandingIn.advance(_farm, _farm.study_session_seconds_left())
 
 
 func _messages(key: StringName, messages: Array[AppMessage]) -> Array[AppMessage]:
@@ -103,12 +103,12 @@ func test_bills_come_after_the_quota_check_and_before_the_next_shift() -> void:
 
 func test_electricity_counts_only_the_laps_run_this_shift() -> void:
 	_farm.run_generator()
-	_farm.advance(3 * FastTuning.LAP_SECONDS)
+	HandingIn.advance(_farm, 3 * FastTuning.LAP_SECONDS)
 	_farm.plant(0)
 	_end_shift()
-	_farm.advance(_farm.study_session_seconds_left())
+	HandingIn.advance(_farm, _farm.study_session_seconds_left())
 	_farm.run_generator()
-	_farm.advance(2 * FastTuning.LAP_SECONDS)
+	HandingIn.advance(_farm, 2 * FastTuning.LAP_SECONDS)
 	_farm.plant(1)
 	_farm.take_messages()
 
@@ -142,7 +142,7 @@ func test_a_shortfall_becomes_debt_and_the_app_says_so_once() -> void:
 	assert_eq(fell.size(), 1)
 	assert_eq(_whole(fell[0].values, "debt"), FastTuning.RENT_PER_SHIFT)
 
-	_farm.advance(_farm.study_session_seconds_left())
+	HandingIn.advance(_farm, _farm.study_session_seconds_left())
 	_end_shift()
 
 	assert_eq(_farm.debt(), 2 * FastTuning.RENT_PER_SHIFT, "the Debt grows")
@@ -150,21 +150,33 @@ func test_a_shortfall_becomes_debt_and_the_app_says_so_once() -> void:
 
 
 func test_earnings_pay_debt_down_first_and_the_app_says_when_it_is_cleared() -> void:
+	var tuning := FastTuning.billing_table()
+	tuning.electricity_per_lap = 0.0
+	tuning.school_fees = 0.0
+	# He never stops to breathe, so every crop ripens in one grow time.
+	tuning.laps_before_breath = 100
+	_farm = _new_farm(tuning)
 	_miss_shift()
 	_miss_shift()
 	_farm.take_messages()
 
 	_earn(1)
+	assert_eq(_farm.debt(), 2 * FastTuning.RENT_PER_SHIFT, "nothing is paid at a pick")
+	_miss_shift()
 
-	assert_eq(_farm.debt(), 2 * FastTuning.RENT_PER_SHIFT - FastTuning.LABOUR_POINTS_PER_PICK)
-	assert_eq(_farm.labour_points(), 0)
+	# The pick's Labour Points paid 5 of the 8 owed at the Hand-in, then the rent added 4.
+	assert_eq(_farm.debt(), 3 * FastTuning.RENT_PER_SHIFT - FastTuning.LABOUR_POINTS_PER_PICK)
 	assert_does_not_have(_keys(_farm.take_messages()), Farm.DEBT_CLEARED)
 
-	_earn(1)
+	_earn(3)
+	_end_shift()
 
 	assert_eq(_farm.debt(), 0)
-	assert_eq(_farm.labour_points(), 2 * FastTuning.LABOUR_POINTS_PER_PICK - 8)
-	assert_has(_keys(_farm.take_messages()), Farm.DEBT_CLEARED)
+	var left := 3 * FastTuning.LABOUR_POINTS_PER_PICK - 7 - FastTuning.RENT_PER_SHIFT
+	assert_eq(_farm.labour_points(), left)
+	var keys := _keys(_farm.take_messages())
+	assert_has(keys, Farm.DEBT_CLEARED)
+	assert_lt(keys.find(Farm.DEBT_CLEARED), keys.find(Farm.PAY_SLIP), "paid before the Bills")
 
 
 func test_debt_blocks_every_privilege_and_upgrade() -> void:
@@ -206,7 +218,7 @@ func test_negligence_never_creates_or_deepens_debt() -> void:
 	_farm.run_generator()
 	_farm.take_messages()
 
-	_farm.advance(FastTuning.GROW_SECONDS + FastTuning.WITHER_SECONDS)
+	HandingIn.advance(_farm, FastTuning.GROW_SECONDS + FastTuning.WITHER_SECONDS)
 
 	var logged := _messages(Farm.NEGLIGENCE_LOGGED, _farm.take_messages())
 	assert_eq(logged.size(), 1)
@@ -227,7 +239,7 @@ func test_a_fractional_electricity_price_bills_whole_labour_points() -> void:
 	tuning.electricity_per_lap = 0.5
 	_farm = _new_farm(tuning)
 	_farm.run_generator()
-	_farm.advance(3 * FastTuning.LAP_SECONDS)
+	HandingIn.advance(_farm, 3 * FastTuning.LAP_SECONDS)
 	_farm.plant(0)
 
 	_end_shift()

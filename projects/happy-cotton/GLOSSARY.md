@@ -157,7 +157,11 @@ A charge the state takes from the Worker's Labour Points, and from his hidden sa
 _Avoid_: tax, cost, expense, fee (alone)
 
 **Hand-in**:
-The end of a Shift, when The App asks the Worker to hand in his cotton. Only what he hands in counts towards the Quota and earns Labour Points.
+The end of a Shift, when The App asks the Worker to hand in his cotton. Only what he hands in counts towards the Quota and earns Labour Points. The Farm waits until he does.
+
+**Crop counter**:
+The number of crops the Worker has picked this Shift without dropping them, and so the cotton in hand for the Hand-in. It goes back to zero when the next Shift starts.
+_Avoid_: score, harvest count
 _Avoid_: delivery, submission, weigh-in
 
 **Keeping back**:

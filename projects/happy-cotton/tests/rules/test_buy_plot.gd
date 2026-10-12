@@ -142,7 +142,7 @@ func test_a_plot_is_refused_without_enough_labour_points() -> void:
 
 func test_a_plot_is_refused_in_a_study_session() -> void:
 	_farm.debug_add_labour_points(FastTuning.FIRST_PLOT_PRICE)
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 	assert_true(_farm.in_study_session(), "a missed Quota")
 
 	assert_eq(_farm.buy_plot().reason, Farm.IN_STUDY_SESSION)
@@ -154,7 +154,7 @@ func test_a_plot_is_refused_in_debt() -> void:
 	tuning.first_quota = 0
 	tuning.rent_per_shift = FastTuning.RENT_PER_SHIFT
 	_farm = _new_farm(tuning)
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 	assert_gt(_farm.debt(), 0)
 
 	assert_eq(_farm.buy_plot().reason, Farm.IN_DEBT)
@@ -203,7 +203,7 @@ func test_a_new_plots_quota_rise_starts_with_the_next_shift() -> void:
 
 	assert_eq(_farm.shift().quota, quota, "not mid-Shift")
 	_farm.debug_add_labour_points(1000)
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 	assert_eq(_farm.shift().quota, quota + FastTuning.QUOTA_RISE + 2 * FastTuning.PLOT_QUOTA_RISE)
 
 
@@ -213,7 +213,7 @@ func test_a_new_plot_works_like_the_first_ones() -> void:
 
 	assert_true(_farm.plant(plot).happened)
 	_farm.run_generator()
-	_farm.advance(FastTuning.GROW_SECONDS)
+	HandingIn.advance(_farm, FastTuning.GROW_SECONDS)
 	assert_eq(_farm.plot(plot).stage, PlotView.Stage.RIPE)
 	assert_true(_farm.pick(plot).happened)
 	assert_eq(_farm.shift().picked, 1)
@@ -224,7 +224,7 @@ func test_plots_bought_and_their_crops_survive_a_save() -> void:
 	_buy()
 	_farm.plant(PLOTS + 1)
 	_farm.run_generator()
-	_farm.advance(5.0)
+	HandingIn.advance(_farm, 5.0)
 	var save := _through_json(_farm.to_save())
 
 	var restored := _new_farm(FastTuning.table())
@@ -235,9 +235,9 @@ func test_plots_bought_and_their_crops_survive_a_save() -> void:
 	assert_eq(restored.plot(PLOTS + 1).stage, _farm.plot(PLOTS + 1).stage)
 	assert_eq(restored.store()[2].price, _land_item().price)
 	restored.debug_add_labour_points(1000)
-	restored.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(restored, FastTuning.SHIFT_SECONDS)
 	_farm.debug_add_labour_points(1000)
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 	assert_eq(restored.shift().quota, _farm.shift().quota, "the Quota rise comes with it")
 
 

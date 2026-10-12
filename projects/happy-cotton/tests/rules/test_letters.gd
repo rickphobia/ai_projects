@@ -27,19 +27,20 @@ func _new_farm(tuning: Tuning) -> Farm:
 	return farm
 
 
-## Grows and picks `picks` crops one at a time.
+## Grows and picks `picks` crops one at a time, then hands them in at the Shift's end.
 func _earn(picks: int) -> void:
 	for pick in picks:
 		_farm.plant(0)
 		_farm.run_generator()
 		_farm.advance(FastTuning.GROW_SECONDS)
 		_farm.pick(0)
+	_end_shift()
 
 
 ## Ends the Shift and serves any Study Session a missed Quota started, so the next Shift runs.
 func _end_shift() -> void:
-	_farm.advance(_farm.shift().seconds_left)
-	_farm.advance(_farm.study_session_seconds_left())
+	HandingIn.advance(_farm, _farm.shift().seconds_left)
+	HandingIn.advance(_farm, _farm.study_session_seconds_left())
 
 
 func _end_shifts(count: int) -> void:
@@ -161,10 +162,10 @@ func test_paying_only_part_of_the_debt_keeps_the_letters_stopped() -> void:
 func test_letters_missed_while_stopped_are_skipped_for_good() -> void:
 	_farm = _new_farm(_fees_table())
 	_end_shifts(4)
-	_earn(3)
 	_farm.take_family_events()
 
-	_end_shift()
+	# Handed in at Shift 5's end, they clear the Debt before Shift 6 begins.
+	_earn(3)
 
 	# Shift 4's letter was missed; Shift 6 brings the third letter, not the second.
 	assert_eq(_farm.shift().number, 6)

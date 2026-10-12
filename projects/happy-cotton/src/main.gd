@@ -4,7 +4,7 @@ extends Node
 ## Children's letters (see LettersView) and the wall clock, and adds the debug controls (Skip
 ## time, +100 Labour Points) in debug mode. It puts the player's settings into effect and opens
 ## the Settings screen from The App. It
-## autosaves after every command, at the end of each Shift, when the player leaves (see
+## autosaves after every command, when a Shift's Hand-in opens, when the player leaves (see
 ## LeavingWatch), and every AUTOSAVE_SECONDS of play.
 ## Kept thin: no game rules here.
 
@@ -145,6 +145,7 @@ func _begin(farm: Farm) -> void:
 	_app.upgrade_pressed.connect(_on_upgrade_pressed)
 	_app.privilege_pressed.connect(_on_privilege_pressed)
 	_app.land_pressed.connect(_on_land_pressed)
+	_app.hand_in_pressed.connect(_on_hand_in_pressed)
 	_save("start")
 	_show_farm()
 
@@ -163,13 +164,14 @@ func _process(delta: float) -> void:
 	var away := _clock.offline_seconds(delta)
 	if away != 0.0:
 		_resume_offline(away)
-	var shift_number := _farm.shift().number
+	var hand_in_was_open := _farm.hand_in_open()
 	for overseer_event in _farm.advance(delta):
 		GameLog.debug("overseer", {"event": overseer_event})
 		_field.show_overseer(overseer_event)
 	_since_autosave += delta
-	if _farm.shift().number != shift_number:
-		_save("shift_end")
+	if _farm.hand_in_open() and not hand_in_was_open:
+		# So closing the game at the Hand-in finds it still waiting.
+		_save("hand_in")
 	elif _since_autosave >= AUTOSAVE_SECONDS:
 		_save("timer")
 	_show_farm()
@@ -185,13 +187,16 @@ func _on_plot_tapped(index: int) -> void:
 	elif stage == PlotView.Stage.WITHERED:
 		_log_command("clear", index, _farm.clear(index))
 	else:
+		var picked := _farm.shift().picked
 		var result := _farm.pick(index)
 		_log_command("pick", index, result)
+		if _farm.shift().picked > picked:
+			_app.show_crop_counted(_field.plot_screen_position(index))
 		if result.reason == Farm.NOT_RIPE:
 			_field.show_time_left(index, _farm.plot(index).seconds_left)
 	_save("command")
-	_field.show_plots(_farm.plots())
-	_show_worker()
+	# The whole Farm, so the crop counter goes up with the "+1".
+	_show_farm()
 
 
 func _on_generator_tapped() -> void:
@@ -232,6 +237,15 @@ func _on_land_pressed() -> void:
 		GameLog.info("plot bought", bought)
 		_field.show_land(_farm.land())
 	_after_purchase(Farm.LAND, item, result)
+
+
+## Hands in the cotton; the rest of the Shift end follows, and the next Shift starts.
+func _on_hand_in_pressed() -> void:
+	var result := _farm.hand_in()
+	if not result.happened:
+		GameLog.debug("hand in refused", {"reason": result.reason})
+	_save("shift_end")
+	_show_farm()
 
 
 func _after_purchase(id: StringName, item: StoreItemView, result: CommandResult) -> void:
@@ -407,6 +421,10 @@ func _log_message(message: AppMessage) -> void:
 		GameLog.info("debt incurred", message.values)
 	elif message.key == Farm.DEBT_CLEARED:
 		GameLog.info("debt cleared", message.values)
+	elif message.key == Farm.HAND_IN_OPENED:
+		GameLog.info("hand-in opened", message.values)
+	elif message.key == Farm.HANDED_IN:
+		GameLog.info("handed in", message.values)
 
 
 ## One line per Bill in the order charged, with whether the balance covered it.

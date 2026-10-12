@@ -41,6 +41,13 @@ func _main() -> Node:
 	return main
 
 
+## Presses the Hand-in card's button, as the player would.
+func _hand_in(main: Node) -> void:
+	var app: AppOverlay = main.get_node("AppOverlay")
+	var button: Button = app.find_child("HandInButton", true, false)
+	button.pressed.emit()
+
+
 func test_the_entry_scene_logs_the_build_version_on_start() -> void:
 	add_child_autofree(_main())
 	await wait_process_frames(1)
@@ -95,7 +102,7 @@ func test_a_rest_hour_he_cannot_afford_is_refused_and_the_mascot_says_why() -> v
 	var refused := '[debug] purchase refused item=&"rest_hour" reason=&"not_enough_labour_points"'
 	assert_has(_lines, refused)
 	assert_string_contains(app.speech(), "You have 0")
-	assert_eq(app.store_button().text, "Store")
+	assert_eq((app.find_child("StoreButton", true, false) as Button).text, "Store")
 
 
 func test_the_mascot_announces_the_first_shift_on_start() -> void:
@@ -112,6 +119,7 @@ func test_the_end_of_a_shift_logs_the_quota_check_at_info_level() -> void:
 	var tuning: Tuning = main.call("tuning")
 
 	main.call("_process", tuning.shift_seconds)
+	_hand_in(main)
 
 	var quota := roundi(tuning.first_quota)
 	assert_has(_lines, "[info] quota checked shift=1 picked=0 quota=%d met=false" % quota)
@@ -125,6 +133,7 @@ func test_the_end_of_a_shift_logs_each_bill_shows_the_pay_slip_and_the_debt() ->
 	var rent := roundi(tuning.rent_per_shift)
 
 	main.call("_process", tuning.shift_seconds)
+	_hand_in(main)
 
 	var electricity := '[info] bill charged shift=1 bill="electricity" amount=0 laps=0 covered=true'
 	assert_has(_lines, electricity)
@@ -141,6 +150,7 @@ func test_the_mascot_says_the_quota_result_and_the_next_shift_together() -> void
 	var app: AppOverlay = main.get_node("AppOverlay")
 
 	main.call("_process", tuning.shift_seconds)
+	_hand_in(main)
 
 	assert_string_contains(app.speech(), "The Quota was not met")
 	assert_string_contains(app.speech(), "Shift 2 begins!")
@@ -153,6 +163,7 @@ func test_a_missed_quota_logs_the_study_session_and_shows_the_room() -> void:
 	var app: AppOverlay = main.get_node("AppOverlay")
 
 	main.call("_process", tuning.shift_seconds)
+	_hand_in(main)
 
 	var seconds := tuning.study_session_seconds
 	var started := (

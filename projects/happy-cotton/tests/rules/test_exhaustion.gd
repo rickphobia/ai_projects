@@ -31,7 +31,7 @@ func _plant_until(level: float) -> int:
 	var index := 0
 	while _farm.exhaustion() < level:
 		assert_true(_farm.plant(index).happened, "plant %d" % index)
-		_farm.advance(FastTuning.SLOW_ACTION_SECONDS)
+		HandingIn.advance(_farm, FastTuning.SLOW_ACTION_SECONDS)
 		index += 1
 	return index
 
@@ -39,7 +39,7 @@ func _plant_until(level: float) -> int:
 ## Grows every planted plot to ripe on the Generator, and brings the Worker back.
 func _ripen_all() -> void:
 	_farm.run_generator()
-	_farm.advance(FastTuning.GROW_SECONDS)
+	HandingIn.advance(_farm, FastTuning.GROW_SECONDS)
 
 
 func _keys() -> Array[StringName]:
@@ -60,7 +60,7 @@ func test_planting_and_picking_add_exhaustion() -> void:
 	assert_eq(_farm.exhaustion(), FastTuning.EXHAUSTION_PER_PLANT)
 
 	_farm.run_generator()
-	_farm.advance(FastTuning.GROW_SECONDS)
+	HandingIn.advance(_farm, FastTuning.GROW_SECONDS)
 	var after_running := _farm.exhaustion()
 	_farm.pick(0)
 
@@ -76,21 +76,21 @@ func test_a_refused_command_adds_no_exhaustion() -> void:
 func test_running_adds_exhaustion_lap_by_lap() -> void:
 	_farm.run_generator()
 
-	_farm.advance(FastTuning.LAP_SECONDS * 3)
+	HandingIn.advance(_farm, FastTuning.LAP_SECONDS * 3)
 
 	assert_almost_eq(_farm.exhaustion(), FastTuning.EXHAUSTION_PER_LAP * 3, 0.001)
 
 
 func test_breathing_and_standing_in_the_field_add_none() -> void:
 	_farm.run_generator()
-	_farm.advance(FastTuning.LAP_SECONDS * FastTuning.LAPS_BEFORE_BREATH)
+	HandingIn.advance(_farm, FastTuning.LAP_SECONDS * FastTuning.LAPS_BEFORE_BREATH)
 	var at_breath := _farm.exhaustion()
 
-	_farm.advance(FastTuning.BREATH_SECONDS / 2.0)
+	HandingIn.advance(_farm, FastTuning.BREATH_SECONDS / 2.0)
 	assert_eq(_farm.exhaustion(), at_breath)
 	_farm.plant(0)
 	var after_plant := _farm.exhaustion()
-	_farm.advance(30.0)
+	HandingIn.advance(_farm, 30.0)
 
 	assert_eq(_farm.exhaustion(), after_plant)
 
@@ -113,9 +113,9 @@ func test_above_the_slow_threshold_field_work_takes_longer() -> void:
 	_farm.plant(next)
 
 	var too_soon := _farm.plant(next + 1)
-	_farm.advance(FastTuning.SLOW_ACTION_SECONDS - 0.5)
+	HandingIn.advance(_farm, FastTuning.SLOW_ACTION_SECONDS - 0.5)
 	var still_too_soon := _farm.plant(next + 1)
-	_farm.advance(0.5)
+	HandingIn.advance(_farm, 0.5)
 	var in_time := _farm.plant(next + 1)
 
 	assert_eq(too_soon.reason, Farm.WORKER_BUSY)
@@ -154,8 +154,9 @@ func test_above_the_mistake_threshold_a_lucky_pick_still_counts() -> void:
 	_farm.pick(0)
 
 	assert_eq(_farm.shift().picked, 1)
-	assert_eq(_farm.labour_points(), FastTuning.LABOUR_POINTS_PER_PICK)
 	assert_does_not_have(_keys(), Farm.COTTON_DROPPED)
+	HandingIn.finish_shift(_farm)
+	assert_eq(_farm.labour_points(), FastTuning.LABOUR_POINTS_PER_PICK, "paid at the Hand-in")
 
 
 func test_below_the_mistake_threshold_no_cotton_is_dropped() -> void:
@@ -169,17 +170,17 @@ func test_below_the_mistake_threshold_no_cotton_is_dropped() -> void:
 
 
 func test_the_floor_rises_at_the_end_of_every_shift() -> void:
-	_farm.advance(SHIFT_SECONDS)
+	HandingIn.advance(_farm, SHIFT_SECONDS)
 	assert_eq(_farm.exhaustion_floor(), FastTuning.EXHAUSTION_FLOOR_RISE)
 
 	# The missed Quota's Study Session, then the second Shift.
-	_farm.advance(FastTuning.STUDY_SESSION_SECONDS + SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.STUDY_SESSION_SECONDS + SHIFT_SECONDS)
 
 	assert_eq(_farm.exhaustion_floor(), FastTuning.EXHAUSTION_FLOOR_RISE * 2)
 
 
 func test_the_floor_lifts_exhaustion_that_is_below_it() -> void:
-	_farm.advance(SHIFT_SECONDS)
+	HandingIn.advance(_farm, SHIFT_SECONDS)
 
 	assert_eq(_farm.exhaustion(), FastTuning.EXHAUSTION_FLOOR_RISE)
 
@@ -187,7 +188,7 @@ func test_the_floor_lifts_exhaustion_that_is_below_it() -> void:
 func test_the_floor_leaves_exhaustion_above_it_alone() -> void:
 	_farm.plant(0)
 
-	_farm.advance(SHIFT_SECONDS)
+	HandingIn.advance(_farm, SHIFT_SECONDS)
 
 	assert_eq(_farm.exhaustion(), FastTuning.EXHAUSTION_PER_PLANT)
 
@@ -196,18 +197,18 @@ func test_he_manages_fewer_laps_as_exhaustion_rises() -> void:
 	# 50 from planting, then a full first run of 10 laps adds 10: 60 when he stops to breathe.
 	_plant_until(50.0)
 	_farm.run_generator()
-	_farm.advance(FastTuning.LAP_SECONDS * FastTuning.LAPS_BEFORE_BREATH)
+	HandingIn.advance(_farm, FastTuning.LAP_SECONDS * FastTuning.LAPS_BEFORE_BREATH)
 	assert_eq(_farm.worker().activity, WorkerView.Activity.BREATHING)
 
 	# 10 laps at no Exhaustion, 2 at the most: 60 leaves 10 - 8 * 0.6 = 5.2, so 5.
 	assert_eq(_farm.worker().laps_left, 5)
-	_farm.advance(FastTuning.BREATH_SECONDS + FastTuning.LAP_SECONDS * 5)
+	HandingIn.advance(_farm, FastTuning.BREATH_SECONDS + FastTuning.LAP_SECONDS * 5)
 	assert_eq(_farm.worker().activity, WorkerView.Activity.BREATHING)
 
 
 func test_fully_exhausted_he_still_runs_the_fewest_laps() -> void:
 	_plant_until(Exhaustion.MOST)
 	_farm.run_generator()
-	_farm.advance(FastTuning.LAP_SECONDS * FastTuning.LAPS_BEFORE_BREATH)
+	HandingIn.advance(_farm, FastTuning.LAP_SECONDS * FastTuning.LAPS_BEFORE_BREATH)
 
 	assert_eq(_farm.worker().laps_left, FastTuning.FEWEST_LAPS_BEFORE_BREATH)

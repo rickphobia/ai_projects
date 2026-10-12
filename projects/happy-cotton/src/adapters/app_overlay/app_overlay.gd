@@ -1,15 +1,18 @@
 class_name AppOverlay
 extends CanvasLayer
 ## The App: the bright, state-issued overlay over the grim field. A top bar with the Quota bar, the
-## Shift's time left, the Worker's Exhaustion and Labour Points (or his Debt, in red); the Mascot
+## Shift's time left, the Worker's Exhaustion, the crop counter (with a "+1" rising from the Plot
+## at each counted pick) and Labour Points (or his Debt, in red); the Hand-in card from the end of
+## a Shift's time until he hands in (see HandInCard); the Mascot
 ## with a speech bubble at the bottom; the Store button at the bottom right, which opens the store
 ## over the field (see StorePanel) and shows the rest time left while he rests; the pay slip card at
 ## the end of each Shift until it is put away; and confetti for a met Quota or a purchase. The
 ## speech bubble closes by itself after SPEECH_SECONDS, or at the next tap or click anywhere, which
 ## still goes on to whatever was tapped. During a Study Session the plain room covers the field,
 ## under the bar and the Mascot. It shows what it is given and never decides anything. Only the
-## Store and Settings buttons, the pay slip card, and the store while open, catch taps, so the field
-## underneath still gets the rest. With reduced motion there is no confetti.
+## Store and Settings buttons, the pay slip and Hand-in cards, and the store while open, catch
+## taps, so the field underneath still gets the rest. With reduced motion there is no confetti
+## and the "+1" doesn't rise.
 ## The Generator powers The App: while the Worker isn't running it, the bar, the Mascot, the
 ## Store button and the store dim; the Study Session room is not The App and stays as it is.
 
@@ -17,6 +20,8 @@ extends CanvasLayer
 signal upgrade_pressed(id: StringName)
 signal privilege_pressed(id: StringName)
 signal land_pressed
+## The Hand-in card's button was pressed; the rules decide what handing in does.
+signal hand_in_pressed
 ## The Settings button was pressed.
 signal settings_pressed
 
@@ -39,11 +44,13 @@ var _root: Control
 var _quota_bar: ProgressBar
 var _quota_label: Label
 var _shift_label: Label
+var _crop_counter: Label
 var _balance: BalanceBadge
 var _exhaustion_label: Label
 var _store_button: Button
 var _store: StorePanel
 var _pay_slip: PaySlipCard
+var _hand_in: HandInCard
 var _text_scale := 1.0
 var _speech: Label
 var _bubble: PanelContainer
@@ -75,6 +82,11 @@ func _ready() -> void:
 	_pay_slip.name = "PaySlipCard"
 	_pay_slip.visible = false
 	_root.add_child(_pay_slip)
+	_hand_in = HandInCard.new()
+	_hand_in.name = "HandInCard"
+	_hand_in.visible = false
+	_hand_in.hand_in_pressed.connect(hand_in_pressed.emit)
+	_root.add_child(_hand_in)
 	_store = StorePanel.new()
 	_store.name = "StorePanel"
 	_store.visible = false
@@ -82,7 +94,7 @@ func _ready() -> void:
 	_store.privilege_pressed.connect(privilege_pressed.emit)
 	_store.land_pressed.connect(land_pressed.emit)
 	_root.add_child(_store)
-	_powered_parts = [top_bar, mascot_corner, _store_button, _pay_slip, _store]
+	_powered_parts = [top_bar, mascot_corner, _store_button, _pay_slip, _hand_in, _store]
 	_confetti = Confetti.new()
 	add_child(_confetti)
 
@@ -115,8 +127,9 @@ func is_powered() -> bool:
 	return _powered
 
 
-## Shows the Shift's Quota progress, time left and when the next school fees are due, and the
-## Worker's Labour Points, or his Debt in red in their place while he owes any.
+## Shows the Shift's Quota progress and crop counter (both the cotton in hand), time left and
+## when the next school fees are due, the Hand-in card while it is open, and the Worker's Labour
+## Points, or his Debt in red in their place while he owes any.
 func show_shift(shift: ShiftView, labour_points: int, debt := 0) -> void:
 	_quota_bar.max_value = shift.quota
 	_quota_bar.value = mini(shift.picked, shift.quota)
@@ -124,7 +137,16 @@ func show_shift(shift: ShiftView, labour_points: int, debt := 0) -> void:
 	var timer := {"shift": shift.number, "time": clock_text(shift.seconds_left)}
 	timer["school_fees_shift"] = shift.school_fees_shift
 	_shift_label.text = AppText.SHIFT_TIMER.format(timer)
+	_crop_counter.text = AppText.CROP_COUNTER.format({"picked": shift.picked})
+	_hand_in.show_shift(shift)
 	_balance.show_balance(labour_points, debt)
+
+
+## A "+1" rises from `at`, a point on the screen over the Plot just picked.
+func show_crop_counted(at: Vector2) -> void:
+	var rising := RisingCount.new(_reduced_motion)
+	rising.position = at
+	_root.add_child(rising)
 
 
 ## Brings up the pay slip card from a Farm.PAY_SLIP message's values.
@@ -164,10 +186,6 @@ func is_store_open() -> bool:
 
 func store_panel() -> StorePanel:
 	return _store
-
-
-func store_button() -> Button:
-	return _store_button
 
 
 ## Shows the Study Session room with the time left while there is any; hides it at 0.
@@ -261,6 +279,9 @@ func _build_top_bar() -> Control:
 	row.add_child(_shift_label)
 	_exhaustion_label = _label(TEXT_ON_BAR)
 	row.add_child(_exhaustion_label)
+	_crop_counter = _label(TEXT_ON_BAR)
+	_crop_counter.name = "CropCounter"
+	row.add_child(_crop_counter)
 	_balance = BalanceBadge.new()
 	_balance.name = "BalanceBadge"
 	row.add_child(_balance)

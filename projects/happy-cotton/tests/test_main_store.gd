@@ -89,7 +89,7 @@ func test_buying_a_rest_hour_logs_it_and_the_store_button_shows_the_rest() -> vo
 
 	var bought := '[info] privilege bought item=&"rest_hour" price=%d' % tuning.rest_hour_price
 	assert_has(_lines, bought)
-	assert_string_contains(app.store_button().text, "Resting")
+	assert_string_contains((app.find_child("StoreButton", true, false) as Button).text, "Resting")
 
 
 func test_buying_a_plot_logs_it_celebrates_and_grows_the_field() -> void:

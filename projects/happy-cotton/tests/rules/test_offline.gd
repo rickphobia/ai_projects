@@ -44,7 +44,7 @@ func test_a_crop_ripens_offline_after_the_grow_time_at_the_offline_rate() -> voi
 
 
 func test_the_shift_does_not_move_offline() -> void:
-	_farm.advance(30.0)
+	HandingIn.advance(_farm, 30.0)
 
 	_farm.resume_offline(500.0)
 
@@ -53,7 +53,7 @@ func test_the_shift_does_not_move_offline() -> void:
 
 
 func test_a_study_session_counts_down_offline() -> void:
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 
 	_farm.resume_offline(5.0)
 
@@ -61,7 +61,7 @@ func test_a_study_session_counts_down_offline() -> void:
 
 
 func test_a_study_session_can_end_while_away() -> void:
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 	_farm.take_messages()
 
 	var report := _farm.resume_offline(FastTuning.STUDY_SESSION_SECONDS + 60.0)
@@ -88,7 +88,7 @@ func test_coming_back_gives_an_away_summary_of_what_ripened() -> void:
 	_farm.plant(0)
 	_farm.plant(1)
 	_farm.run_generator()
-	_farm.advance(FastTuning.GROW_SECONDS)
+	HandingIn.advance(_farm, FastTuning.GROW_SECONDS)
 	_farm.plant(2)
 	_farm.take_messages()
 
@@ -111,7 +111,7 @@ func test_coming_back_gives_an_away_summary_of_what_ripened() -> void:
 
 
 func test_the_away_summary_lists_study_session_time_served() -> void:
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 	_farm.take_messages()
 
 	_farm.resume_offline(5.0)
@@ -124,7 +124,7 @@ func test_the_away_summary_lists_study_session_time_served() -> void:
 
 
 func test_the_away_summary_comes_after_a_study_session_that_ended_while_away() -> void:
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 	_farm.take_messages()
 
 	_farm.resume_offline(120.0)
@@ -148,7 +148,7 @@ func test_the_report_says_how_long_was_counted_and_what_ripened() -> void:
 
 func test_negative_offline_time_counts_as_zero() -> void:
 	_farm.plant(0)
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 	_farm.take_messages()
 	var study_left := _farm.study_session_seconds_left()
 
@@ -162,7 +162,7 @@ func test_negative_offline_time_counts_as_zero() -> void:
 
 
 func test_offline_time_is_capped_at_the_tuning_maximum() -> void:
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 	_farm.take_messages()
 
 	var report := _farm.resume_offline(FastTuning.OFFLINE_CAP_SECONDS * 50.0)
@@ -208,7 +208,7 @@ func test_exhaustion_recovers_offline_at_the_tuning_rate() -> void:
 func test_offline_recovery_never_goes_below_the_floor() -> void:
 	var farm := _tired_farm(1)
 	# The Shift's end raises the floor to 5; its missed Quota's Study Session is served away.
-	farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(farm, FastTuning.SHIFT_SECONDS)
 
 	var report := farm.resume_offline(1000.0)
 
@@ -231,9 +231,11 @@ func test_a_rest_waits_offline_like_the_shift() -> void:
 	farm.plant(0)
 	farm.plant(1)
 	farm.run_generator()
-	farm.advance(FastTuning.GROW_SECONDS)
+	HandingIn.advance(farm, FastTuning.GROW_SECONDS)
 	farm.pick(0)
 	farm.pick(1)
+	# Picks are paid only at the Hand-in, so this stands in for an earlier Shift's Labour Points.
+	farm.debug_add_labour_points(FastTuning.REST_HOUR_PRICE)
 	farm.buy_privilege(Farm.REST_HOUR)
 
 	farm.resume_offline(100.0)

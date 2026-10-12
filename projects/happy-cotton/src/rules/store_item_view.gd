@@ -83,6 +83,29 @@ static func upgrade(
 	return view
 
 
+## A view of an Upgrade from its `next` tier (a GeneratorTier or ToolsTier) and that tier's
+## effect. Fully upgraded (`next` null), it shows the owned tier's effect, no price and no Quota
+## rise.
+static func next_tier(
+	item_id: StringName,
+	tiers: Vector2i,
+	next: Resource,
+	next_effect: float,
+	current: float,
+	why_not: StringName
+) -> StoreItemView:
+	var item_price := 0
+	var effect := current
+	var rise := 0
+	if next != null:
+		var next_price: float = next.get("price")
+		var next_rise: float = next.get("quota_rise")
+		item_price = roundi(next_price)
+		effect = next_effect
+		rise = roundi(next_rise)
+	return upgrade(item_id, tiers, item_price, Vector2(effect, current), rise, why_not)
+
+
 ## A view of the land: the next Plot's price and Quota rise, or none when `fully_bought`.
 static func land(
 	item_id: StringName, item_price: int, rise: int, fully_bought: bool, why_not: StringName
