@@ -38,6 +38,13 @@ func count() -> int:
 	return _grown.size()
 
 
+## A new, empty plot after the last one.
+func add_plot() -> void:
+	_grown.append(EMPTY)
+	_ripe_for.append(0.0)
+	_withered.append(false)
+
+
 func exists(index: int) -> bool:
 	return index >= 0 and index < _grown.size()
 

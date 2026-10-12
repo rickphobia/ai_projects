@@ -237,6 +237,7 @@ func test_every_key_the_rules_emit_is_listed() -> void:
 		Farm.COTTON_DROPPED,
 		Farm.GENERATOR_UPGRADED,
 		Farm.TOOLS_UPGRADED,
+		Farm.PLOT_BOUGHT,
 		Farm.PAY_SLIP,
 		Farm.FELL_INTO_DEBT,
 		Farm.DEBT_CLEARED,

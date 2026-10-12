@@ -36,6 +36,8 @@ extends RefCounted
 ## letters until the Debt is cleared; letters that came due meanwhile are lost.
 ## Labour Points also buy a call home: it takes him off the Generator for its length, so crops
 ## halt, and sends a Family event whose call follows the latest letter received.
+## The store also sells land (see Land), a Plot at a time in a fixed order, each dearer than the
+## last; each Plot bought raises the Quota from the next Shift, by less than it should yield.
 ## to_save() gives the whole Farm as plain data and restore() takes it back, so a restored Farm
 ## plays on exactly as the saved one would have.
 
@@ -58,6 +60,10 @@ const IN_DEBT := &"in_debt"
 const NOT_ENOUGH_LABOUR_POINTS := &"not_enough_labour_points"
 ## The Upgrade has no tier left to buy.
 const FULLY_UPGRADED := &"fully_upgraded"
+## The land is at its largest: no Plot is left to buy.
+const FULLY_BOUGHT := &"fully_bought"
+## The land item in store(), which buy_plot() buys.
+const LAND := &"land"
 ## The Privileges buy_privilege() sells.
 const REST_HOUR := &"rest_hour"
 const CALL_HOME := &"call_home"
@@ -77,6 +83,7 @@ const STORE_REFUSALS: Array[StringName] = [
 	IN_DEBT,
 	NOT_ENOUGH_LABOUR_POINTS,
 	FULLY_UPGRADED,
+	FULLY_BOUGHT,
 ]
 
 ## The save format to_save() writes and restore() reads. Raise it when the format changes.
@@ -86,9 +93,9 @@ const STORE_REFUSALS: Array[StringName] = [
 ## fees; an older save restores with them paid up and due school_fees_every_shifts Shifts after
 ## its own. Version 6 added the letters; an older save restores with none received and no
 ## letter Shifts passed. Version 7 added the call home; an older save restores with none under
-## way.
-const SAVE_VERSION := 7
-const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, SAVE_VERSION]
+## way. Version 8 added land; an older save restores with the first land's Plots only.
+const SAVE_VERSION := 8
+const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, SAVE_VERSION]
 ## The lowest balance a save can hold: Debt can grow, but not without end.
 const LEAST_SAVED_BALANCE := -1000000000
 
@@ -128,6 +135,8 @@ const GENERATOR_UPGRADED := &"generator_upgraded"
 ## A tools tier was bought: values tier (from 1), price, share (of a slow pick's time and of the
 ## drop chance, against no Upgrade), quota_rise (from the next Shift).
 const TOOLS_UPGRADED := &"tools_upgraded"
+## A Plot was bought: values plot (its number, from 1), price, quota_rise (from the next Shift).
+const PLOT_BOUGHT := &"plot_bought"
 ## Earnings paid the last of the Debt: values points (Labour Points left over).
 const DEBT_CLEARED := &"debt_cleared"
 ## The App tells a new game that the Worker's two Children are at a state boarding school
@@ -150,6 +159,7 @@ const MESSAGE_KEYS: Array[StringName] = [
 	COTTON_DROPPED,
 	GENERATOR_UPGRADED,
 	TOOLS_UPGRADED,
+	PLOT_BOUGHT,
 	PAY_SLIP,
 	FELL_INTO_DEBT,
 	DEBT_CLEARED,
@@ -229,7 +239,7 @@ var _random: RandomNumberGenerator
 ## columns and rows.
 func _init(tuning: Tuning, roll: Callable = Callable()) -> void:
 	_tuning = tuning
-	_land = Land.new(int(tuning.first_land_columns), int(tuning.first_land_rows))
+	_land = _new_land()
 	_crops = Crops.new(tuning.grow_seconds, tuning.wither_seconds, _land.plot_count())
 	_exhaustion = Exhaustion.new(tuning)
 	_toil = Toil.new(tuning, _exhaustion)
@@ -241,7 +251,7 @@ func _init(tuning: Tuning, roll: Callable = Callable()) -> void:
 		_random.randomize()
 		_roll = _random.randf
 	_ledger = Ledger.new(0, 0, _fees_every())
-	_shifts = _new_shifts(_ledger, _exhaustion, _toil, _store, _letters)
+	_shifts = _new_shifts(_ledger, _exhaustion, _toil, _store, _land, _letters)
 	var children := {"school_fees_shift": _ledger.next_fees_shift(), "every": _fees_every()}
 	_messages.append(AppMessage.new(CHILDREN_AT_SCHOOL, children))
 	_shifts.start()
@@ -336,6 +346,21 @@ func buy_upgrade(upgrade: StringName) -> CommandResult:
 		var values := _upgraded_values(_store.tools_tier(), tier.price, tier.quota_rise)
 		values["share"] = tier.work_share
 		_messages.append(AppMessage.new(TOOLS_UPGRADED, values))
+	return CommandResult.done()
+
+
+## Buys the next Plot with Labour Points, in the land's fixed order. It can be planted at once;
+## its Quota rise counts from the next Shift.
+func buy_plot() -> CommandResult:
+	var refusal := _plot_refusal()
+	if refusal != &"":
+		return CommandResult.refused(refusal)
+	var price := _plot_price()
+	_ledger.spend(price)
+	var plot := _land.buy()
+	_crops.add_plot()
+	var values := {"plot": plot + 1, "price": price, "quota_rise": _plot_quota_rise()}
+	_messages.append(AppMessage.new(PLOT_BOUGHT, values))
 	return CommandResult.done()
 
 
@@ -493,6 +518,7 @@ func to_save() -> Dictionary:
 		"exhaustion": _exhaustion.to_save(),
 		"toil": _toil.to_save(),
 		"store": _store.to_save(),
+		"plots_bought": _land.plots_bought(),
 	}
 	save.merge(_shifts.to_save())
 	return save
@@ -503,13 +529,17 @@ func to_save() -> Dictionary:
 ## pending App messages are dropped: they described the Farm before the restore.
 ## Timers are held to what the tuning table allows now, in case it shortened them since the
 ## save was written; the save's other numbers are taken as they are. A version 1 save, from
-## before the store, restores with no Upgrades; a negative balance restores as Debt.
+## before the store, restores with no Upgrades; a negative balance restores as Debt. One from
+## before land (version 7 or older) restores with the first land's Plots only.
 func restore(save: Dictionary) -> Array[String]:
 	var reader := SaveReader.new(save)
 	var version := reader.whole("version")
 	if reader.problems().is_empty() and version not in SAVE_VERSIONS_READ:
 		return ["version %d is not a version this game reads (%s)" % [version, SAVE_VERSIONS_READ]]
-	var crops := Crops.new(_tuning.grow_seconds, _tuning.wither_seconds, _crops.count())
+	var land := _new_land()
+	if version >= 8:
+		_restore_land(land, reader)
+	var crops := Crops.new(_tuning.grow_seconds, _tuning.wither_seconds, land.plot_count())
 	crops.restore(reader.section("crops"))
 	var exhaustion := Exhaustion.new(_tuning)
 	exhaustion.restore(reader.section("exhaustion"))
@@ -549,7 +579,7 @@ func restore(save: Dictionary) -> Array[String]:
 		store.restore(reader.section("store"), version >= 3)
 		shift_upgrade_rise = reader.whole("shift_upgrade_quota_rise")
 	var ledger := Ledger.new(balance, shift_earned, fees_shift, fees_unpaid, fees_unpaid_in_a_row)
-	var shifts := _new_shifts(ledger, exhaustion, toil, store, letters)
+	var shifts := _new_shifts(ledger, exhaustion, toil, store, land, letters)
 	shifts.restore(
 		shift_number,
 		shift_elapsed,
@@ -561,6 +591,7 @@ func restore(save: Dictionary) -> Array[String]:
 	)
 	if not reader.problems().is_empty():
 		return reader.problems()
+	_land = land
 	_crops = crops
 	_exhaustion = exhaustion
 	_toil = toil
@@ -574,6 +605,18 @@ func restore(save: Dictionary) -> Array[String]:
 	_messages.clear()
 	_family_events.clear()
 	return []
+
+
+## Buys the save's Plots again on a fresh land, in the same fixed order, so they land in the
+## same cells.
+func _restore_land(land: Land, reader: SaveReader) -> void:
+	var bought := reader.whole("plots_bought")
+	if bought > land.plots_for_sale():
+		var problem := "plots_bought is %d, but the land holds only %d more Plots"
+		reader.problems().append(problem % [bought, land.plots_for_sale()])
+		return
+	for plot in bought:
+		land.buy()
 
 
 ## The plot at index; it must exist.
@@ -721,8 +764,37 @@ func _upgrade_refusal(upgrade: StringName) -> StringName:
 	return &""
 
 
-## Everything the store sells, Upgrades first, each with its price and why it can't be bought
-## right now.
+## The next Plot's price: the first Plot's, and a rise for every one bought since.
+func _plot_price() -> int:
+	return roundi(_tuning.first_plot_price + _land.plots_bought() * _tuning.plot_price_rise)
+
+
+func _plot_quota_rise() -> int:
+	return roundi(_tuning.plot_quota_rise)
+
+
+## Why the next Plot can't be bought right now, or &"" when it can.
+func _plot_refusal() -> StringName:
+	if _land.is_fully_bought():
+		return FULLY_BOUGHT
+	if in_study_session():
+		return IN_STUDY_SESSION
+	if _ledger.in_debt():
+		return IN_DEBT
+	if not _ledger.can_afford(_plot_price()):
+		return NOT_ENOUGH_LABOUR_POINTS
+	return &""
+
+
+## The store's view of the land: the next Plot, or nothing to sell when fully bought.
+func _land_view() -> StoreItemView:
+	if _land.is_fully_bought():
+		return StoreItemView.land(LAND, 0, 0, true, FULLY_BOUGHT)
+	return StoreItemView.land(LAND, _plot_price(), _plot_quota_rise(), false, _plot_refusal())
+
+
+## Everything the store sells, Upgrades first, then land, then Privileges, each with its price
+## and why it can't be bought right now.
 func store() -> Array[StoreItemView]:
 	var generator_next := _store.next_generator_tier()
 	var generator := _upgrade_view(
@@ -748,7 +820,7 @@ func store() -> Array[StoreItemView]:
 	var call_home := StoreItemView.new(
 		CALL_HOME, StoreItemView.Kind.PRIVILEGE, call_price, _privilege_refusal(call_price)
 	)
-	return [generator, tools, rest_hour, call_home]
+	return [generator, tools, _land_view(), rest_hour, call_home]
 
 
 ## The store's view of an Upgrade. Fully upgraded (`next` null), it shows the owned tier's
@@ -809,11 +881,21 @@ func _log_negligence(withered_plots: Array[int]) -> void:
 	_cut_short_for_study_session()
 
 
+## The land at the tuning's first size, able to grow to its largest.
+func _new_land() -> Land:
+	return Land.new(
+		Vector2i(roundi(_tuning.first_land_columns), roundi(_tuning.first_land_rows)),
+		Vector2i(roundi(_tuning.largest_land_columns), roundi(_tuning.largest_land_rows))
+	)
+
+
 ## The Shifts with the parts they work on, sharing the Farm's queues.
 func _new_shifts(
-	ledger: Ledger, exhaustion: Exhaustion, toil: Toil, store: Store, letters: Letters
+	ledger: Ledger, exhaustion: Exhaustion, toil: Toil, store: Store, land: Land, letters: Letters
 ) -> Shifts:
-	return Shifts.new(_tuning, ledger, exhaustion, toil, store, letters, _messages, _family_events)
+	return Shifts.new(
+		_tuning, ledger, exhaustion, toil, store, land, letters, _messages, _family_events
+	)
 
 
 ## A Study Session cuts any rest hour or call home short.

@@ -42,6 +42,7 @@ var _ledger: Ledger
 var _exhaustion: Exhaustion
 var _toil: Toil
 var _store: Store
+var _land: Land
 var _letters: Letters
 ## The Farm's queues, shared so messages keep the order things happened in.
 var _messages: Array[AppMessage]
@@ -51,7 +52,8 @@ var _number := 1
 var _elapsed := 0.0
 ## Cotton picked this Shift. Starts from zero each Shift: a surplus carries no credit.
 var _picked := 0
-## The Quota rise of the Upgrades bought before this Shift began; later ones wait for the next.
+## The Quota rise of the Upgrades and Plots bought before this Shift began; later ones wait
+## for the next.
 var _upgrade_rise := 0
 ## Seconds left in the current Study Session; 0 when the Worker is on the field.
 var _study_left := 0.0
@@ -67,6 +69,7 @@ func _init(
 	exhaustion: Exhaustion,
 	toil: Toil,
 	store: Store,
+	land: Land,
 	letters: Letters,
 	messages: Array[AppMessage],
 	family_events: Array[FamilyEvent]
@@ -76,6 +79,7 @@ func _init(
 	_exhaustion = exhaustion
 	_toil = toil
 	_store = store
+	_land = land
 	_letters = letters
 	_messages = messages
 	_family_events = family_events
@@ -84,7 +88,7 @@ func _init(
 ## Starts the current Shift: the first of a new game, or the next one at a Shift's end.
 func start() -> void:
 	_picked = 0
-	_upgrade_rise = _store.quota_rise()
+	_upgrade_rise = _store.quota_rise() + _land.plots_bought() * roundi(_tuning.plot_quota_rise)
 	_messages.append(AppMessage.new(SHIFT_STARTED, {"shift": _number, "quota": _quota()}))
 	var every := roundi(_tuning.letter_every_shifts)
 	var letter := _letters.start_shift(_number, every, _ledger.fees_unpaid())
@@ -181,7 +185,7 @@ func restore(
 
 
 ## The Quota only ever rises: a fixed step every Shift, met or missed, and the rise of every
-## Upgrade bought before this Shift began.
+## Upgrade and Plot bought before this Shift began.
 func _quota() -> int:
 	var rise := (_number - 1) * _tuning.quota_rise
 	return roundi(_tuning.first_quota + rise) + _upgrade_rise

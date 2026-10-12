@@ -27,6 +27,8 @@ extends RefCounted
 ## A letter from the Children arrives at the start of every second Shift (2, 4, 6...). A call
 ## home costs 5 Labour Points (one pick) and lasts 10 seconds.
 ## The Farm starts as 2 × 2 Plots (4) and can grow to 3 × 3; with_land() starts it at another size.
+## The first Plot bought costs 10 Labour Points and each one after costs 5 more; each raises the
+## Quota by 1 and should yield 2 picks a Shift.
 
 const GROW_SECONDS := 30.0
 const SHIFT_SECONDS := 100.0
@@ -78,6 +80,10 @@ const FIRST_LAND_ROWS := 2
 const FIRST_PLOTS := FIRST_LAND_COLUMNS * FIRST_LAND_ROWS
 const LARGEST_LAND_COLUMNS := 3
 const LARGEST_LAND_ROWS := 3
+const FIRST_PLOT_PRICE := 10
+const PLOT_PRICE_RISE := 5
+const PLOT_QUOTA_RISE := 1
+const PLOT_YIELD_PER_SHIFT := 2
 
 
 static func table() -> Tuning:
@@ -122,6 +128,10 @@ static func table() -> Tuning:
 	tuning.first_land_rows = FIRST_LAND_ROWS
 	tuning.largest_land_columns = LARGEST_LAND_COLUMNS
 	tuning.largest_land_rows = LARGEST_LAND_ROWS
+	tuning.first_plot_price = FIRST_PLOT_PRICE
+	tuning.plot_price_rise = PLOT_PRICE_RISE
+	tuning.plot_quota_rise = PLOT_QUOTA_RISE
+	tuning.plot_yield_per_shift = PLOT_YIELD_PER_SHIFT
 	var tiers: Array[GeneratorTier] = []
 	for index in GENERATOR_PRICES.size():
 		tiers.append(
