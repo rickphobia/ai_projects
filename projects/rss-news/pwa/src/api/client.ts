@@ -49,6 +49,8 @@ export interface InboxItem {
   summary: string | null;
   // True once the owner has opened the Item.
   read: boolean;
+  // An http(s) image link from the feed, or null when the feed gives none.
+  imageUrl: string | null;
 }
 
 // The article as the server extracted it just now; nothing is kept.
@@ -461,6 +463,7 @@ interface ItemJson {
   importance: number | null;
   summary: string | null;
   read: boolean;
+  image_url: string | null;
 }
 
 interface InboxPageJson {
@@ -479,6 +482,7 @@ function itemFromJson(item: ItemJson): InboxItem {
     importance: item.importance,
     summary: item.summary,
     read: item.read,
+    imageUrl: item.image_url,
   };
 }
 

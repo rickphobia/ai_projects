@@ -11,8 +11,8 @@ from rss_news.scoring.item_scoring import ItemScore, UnscoredItem
 
 _INBOX_SELECT = (
     "SELECT items.id, items.title, items.url, sources.name, folders.id, folders.name, "
-    "items.published_at, items.importance, items.summary, items.read_at IS NOT NULL "
-    "FROM items JOIN sources ON sources.id = items.source_id "
+    "items.published_at, items.importance, items.summary, items.read_at IS NOT NULL, "
+    "items.image_url FROM items JOIN sources ON sources.id = items.source_id "
     "JOIN folders ON folders.id = sources.folder_id"
 )
 
@@ -29,6 +29,7 @@ def _inbox_item(row: tuple[Any, ...]) -> InboxItem:
         importance=row[7],
         summary=row[8],
         read=bool(row[9]),
+        image_url=row[10],
     )
 
 
@@ -43,8 +44,8 @@ class SqliteItems:
             before = connection.total_changes
             connection.executemany(
                 "INSERT INTO items "
-                "(source_id, title, url, clean_url, excerpt, published_at, fetched_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (clean_url) DO NOTHING",
+                "(source_id, title, url, clean_url, excerpt, published_at, fetched_at, image_url) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (clean_url) DO NOTHING",
                 [
                     (
                         item.source_id,
@@ -54,6 +55,7 @@ class SqliteItems:
                         item.excerpt,
                         to_db_time(item.published_at),
                         fetched_at,
+                        item.image_url,
                     )
                     for item in items
                 ],

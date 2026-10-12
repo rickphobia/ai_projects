@@ -157,6 +157,9 @@ MIGRATIONS: tuple[str, ...] = (
     );
     CREATE INDEX chat_messages_chat ON chat_messages (chat_id, id);
     """,
+    """
+    ALTER TABLE items ADD COLUMN image_url TEXT;  -- thumbnail link from the feed; NULL if none
+    """,
 )
 
 

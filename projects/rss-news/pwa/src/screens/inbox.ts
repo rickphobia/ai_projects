@@ -244,8 +244,31 @@ function itemRow(
   details.className = "inbox-row-meta";
   details.append(`${item.source} · `, time);
   body.append(details);
-  row.append(pick, body, importanceMarker(item.importance));
+  row.append(pick, body);
+  if (item.imageUrl !== null) {
+    row.classList.add("has-thumbnail");
+    row.append(thumbnail(item.imageUrl, row));
+  }
+  row.append(importanceMarker(item.importance));
   return row;
+}
+
+// Decorative: the title already says what the Item is, so the image has empty alt text.
+// A broken image is dropped and the row falls back to the plain layout.
+function thumbnail(imageUrl: string, row: HTMLLIElement): HTMLImageElement {
+  const image = document.createElement("img");
+  image.className = "inbox-row-thumbnail";
+  image.src = imageUrl;
+  image.alt = "";
+  image.loading = "lazy";
+  image.decoding = "async";
+  // The feed's site sees no Referer for the owner's Inbox.
+  image.referrerPolicy = "no-referrer";
+  image.addEventListener("error", () => {
+    image.remove();
+    row.classList.remove("has-thumbnail");
+  });
+  return image;
 }
 
 function importanceMarker(importance: number | null): HTMLSpanElement {

@@ -36,6 +36,8 @@ class NewItem:
     clean_url: str
     excerpt: str
     published_at: datetime
+    # A thumbnail link from the feed; only the link is kept, the image is never fetched.
+    image_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -52,6 +54,7 @@ class InboxItem:
     summary: str | None
     # True once the owner has opened the Item.
     read: bool = False
+    image_url: str | None = None
 
 
 @dataclass(frozen=True)

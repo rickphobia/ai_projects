@@ -15,6 +15,7 @@ const STORY: InboxItem = {
   importance: 4,
   summary: "Malaysia's central bank kept its policy rate at 2.75%.",
   read: false,
+  imageUrl: null,
 };
 
 function readerView(): HTMLElement {

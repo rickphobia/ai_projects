@@ -427,6 +427,18 @@ form label {
   border-bottom: 1px solid var(--border);
 }
 
+.inbox-row.has-thumbnail {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.inbox-row-thumbnail {
+  width: 4.5rem;
+  height: 4.5rem;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--bg-hover);
+}
+
 .inbox-row:hover {
   background: var(--bg-hover);
 }
