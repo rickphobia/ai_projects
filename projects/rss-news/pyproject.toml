@@ -1,0 +1,41 @@
+[project]
+name = "rss-news"
+version = "0.1.0"
+description = "A personal news briefing: reads many Sources for one owner and writes a short Briefing on request."
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi==0.142.2",
+    "uvicorn==0.54.0",
+]
+
+[project.scripts]
+rss-news = "rss_news.cli:main"
+
+[dependency-groups]
+dev = [
+    "httpx==0.28.1",
+    "mypy==2.4.0",
+    "pytest==9.1.1",
+    "ruff==0.16.10",
+]
+
+[build-system]
+requires = ["uv_build==0.9.13"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+# The PWA has its own linters.
+extend-exclude = ["pwa"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
