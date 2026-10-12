@@ -1,11 +1,13 @@
 import { SignedOutError, type ApiClient } from "../api/client";
+import { renderBriefings } from "./briefings";
 import { renderHome } from "./home";
 import { renderInbox } from "./inbox";
 import { renderItem } from "./item";
 import { renderSources } from "./sources";
 
 // The app shell for a signed-in owner: the name, whether the backend is up, sign out, and
-// the home screen (the latest Briefing), the Inbox, an Item or the Sources screen below.
+// the home screen (the latest Briefing), the Inbox, an Item, the saved Briefings or the
+// Sources screen below.
 export async function renderShell(
   root: HTMLElement,
   api: ApiClient,
@@ -31,22 +33,52 @@ export async function renderShell(
   const page = document.createElement("section");
   const toHome = navButton("Home");
   const toInbox = navButton("Inbox");
+  const toBriefings = navButton("Briefings");
   const toSources = navButton("Sources");
   const nav = document.createElement("nav");
-  nav.append(toHome, toInbox, toSources);
-  const showHome = (): Promise<void> =>
-    renderHome(page, api, (itemId) => {
-      void renderItem(page, api, itemId, () => void showHome(), "Back to Home");
-    });
+  nav.append(toHome, toInbox, toBriefings, toSources);
+  const showHome = (pickedItemIds?: number[]): Promise<void> =>
+    renderHome(
+      page,
+      api,
+      (itemId) => {
+        void renderItem(
+          page,
+          api,
+          itemId,
+          () => void showHome(),
+          "Back to Home",
+        );
+      },
+      pickedItemIds,
+    );
   const showInbox = (): Promise<void> =>
-    renderInbox(page, api, (itemId) => {
-      void renderItem(page, api, itemId, () => void showInbox());
+    renderInbox(
+      page,
+      api,
+      (itemId) => {
+        void renderItem(page, api, itemId, () => void showInbox());
+      },
+      (itemIds) => void showHome(itemIds),
+    );
+  const showBriefings = (): Promise<void> =>
+    renderBriefings(page, api, (itemId) => {
+      void renderItem(
+        page,
+        api,
+        itemId,
+        () => void showBriefings(),
+        "Back to Briefings",
+      );
     });
   toHome.addEventListener("click", () => {
     void showHome();
   });
   toInbox.addEventListener("click", () => {
     void showInbox();
+  });
+  toBriefings.addEventListener("click", () => {
+    void showBriefings();
   });
   toSources.addEventListener("click", () => {
     void renderSources(page, api);

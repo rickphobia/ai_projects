@@ -3,11 +3,16 @@
 
 import {
   briefingFromJson,
+  estimateParams,
+  scopeBody,
+  summaryFromJson,
   estimateFromJson,
   type Briefing,
   type BriefingEstimate,
   type BriefingJson,
   type BriefingProgress,
+  type BriefingRequest,
+  type BriefingSummary,
   type EstimateJson,
   type WrittenBriefing,
 } from "./briefings";
@@ -118,11 +123,15 @@ export interface ApiClient {
   removeSource(sourceId: number): Promise<void>;
   // Null until the first Briefing is written.
   latestBriefing(): Promise<Briefing | null>;
-  // What Brief me would cost; the server works it out without calling the model.
-  briefingEstimate(): Promise<BriefingEstimate>;
-  // Brief me: all Sources over the last 24 hours. Gives back today's saved Briefing unless
+  // Every saved Briefing, newest first.
+  briefings(): Promise<BriefingSummary[]>;
+  briefing(briefingId: number): Promise<Briefing>;
+  // What briefing this scope would cost; the server works it out without calling the model.
+  briefingEstimate(request: BriefingRequest): Promise<BriefingEstimate>;
+  // Writes a Briefing of this scope. Gives back today's saved one of the same scope unless
   // `regenerate`. Rejects with RefusedError when there is nothing to brief or it failed.
   writeBriefing(
+    request: BriefingRequest,
     regenerate: boolean,
     onProgress: (progress: BriefingProgress) => void,
   ): Promise<WrittenBriefing>;
@@ -279,19 +288,38 @@ export class HttpApiClient implements ApiClient {
     return body.briefing === null ? null : briefingFromJson(body.briefing);
   }
 
-  async briefingEstimate(): Promise<BriefingEstimate> {
+  async briefings(): Promise<BriefingSummary[]> {
+    const response = await this.sendWithSession("GET", "api/briefings");
+    const body = (await response.json()) as {
+      briefings: Omit<BriefingJson, "sections">[];
+    };
+    return body.briefings.map(summaryFromJson);
+  }
+
+  async briefing(briefingId: number): Promise<Briefing> {
     const response = await this.sendWithSession(
       "GET",
-      "api/briefings/estimate",
+      `api/briefings/${String(briefingId)}`,
+    );
+    const body = (await response.json()) as { briefing: BriefingJson };
+    return briefingFromJson(body.briefing);
+  }
+
+  async briefingEstimate(request: BriefingRequest): Promise<BriefingEstimate> {
+    const response = await this.sendWithSession(
+      "GET",
+      `api/briefings/estimate?${estimateParams(request).toString()}`,
     );
     return estimateFromJson((await response.json()) as EstimateJson);
   }
 
   async writeBriefing(
+    request: BriefingRequest,
     regenerate: boolean,
     onProgress: (progress: BriefingProgress) => void,
   ): Promise<WrittenBriefing> {
     const response = await this.sendWithSession("POST", "api/briefings", {
+      ...scopeBody(request),
       regenerate,
     });
     if (response.body === null) {

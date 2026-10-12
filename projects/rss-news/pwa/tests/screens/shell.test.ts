@@ -48,6 +48,7 @@ describe("the app shell", () => {
     api.latestBriefingAnswer = {
       id: 1,
       scope: "all-24h",
+      title: "All Sources, last 24 hours",
       createdAt: "2026-10-12T00:30:00+00:00",
       itemCount: 1,
       costUsd: "0.20",

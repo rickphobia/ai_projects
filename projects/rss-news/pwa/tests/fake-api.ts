@@ -2,6 +2,8 @@ import type {
   Briefing,
   BriefingEstimate,
   BriefingProgress,
+  BriefingRequest,
+  BriefingSummary,
   WrittenBriefing,
 } from "../src/api/briefings";
 import type {
@@ -53,8 +55,14 @@ export class FakeApiClient implements ApiClient {
     progress: BriefingProgress[];
     result: WrittenBriefing | Error;
   }[] = [];
-  // The `regenerate` of each writeBriefing call.
+  // The `regenerate` of each writeBriefing call, and its scope.
   writeRequests: boolean[] = [];
+  writeScopes: BriefingRequest[] = [];
+  // The scope of each briefingEstimate call.
+  estimateRequests: BriefingRequest[] = [];
+  briefingsAnswer: BriefingSummary[] | Error = [];
+  // Saved Briefings by id; one that isn't here is refused as the server would.
+  savedBriefings = new Map<number, Briefing>();
   // While true, writeBriefing waits after its progress until the test calls releaseWrite.
   holdWrite = false;
   releaseWrite: (() => void) | null = null;
@@ -164,14 +172,28 @@ export class FakeApiClient implements ApiClient {
     return settle(this.latestBriefingAnswer);
   }
 
-  briefingEstimate(): Promise<BriefingEstimate> {
+  briefings(): Promise<BriefingSummary[]> {
+    return settle(this.briefingsAnswer);
+  }
+
+  briefing(briefingId: number): Promise<Briefing> {
+    return settle(
+      this.savedBriefings.get(briefingId) ??
+        new Error("That Briefing doesn't exist."),
+    );
+  }
+
+  briefingEstimate(request: BriefingRequest): Promise<BriefingEstimate> {
+    this.estimateRequests.push(request);
     return settle(this.estimateAnswer);
   }
 
   async writeBriefing(
+    request: BriefingRequest,
     regenerate: boolean,
     onProgress: (progress: BriefingProgress) => void,
   ): Promise<WrittenBriefing> {
+    this.writeScopes.push(request);
     this.writeRequests.push(regenerate);
     const answer = this.writeAnswers.shift();
     if (!answer) throw new Error("the test set no writeBriefing answer");

@@ -52,12 +52,14 @@ describe("the Inbox", () => {
   let root: HTMLElement;
   let api: FakeApiClient;
   let onOpen: (itemId: number) => void;
+  let onBriefThese: (itemIds: number[]) => void;
 
   beforeEach(() => {
     root = document.createElement("section");
     document.body.replaceChildren(root);
     api = new FakeApiClient();
     onOpen = vi.fn();
+    onBriefThese = vi.fn();
     api.foldersAnswer = [AI, WORLD];
     api.items = [
       item(3, "Newest world story", WORLD, 2),
@@ -67,7 +69,7 @@ describe("the Inbox", () => {
   });
 
   it("shows each Item's Importance and one-line summary", async () => {
-    await renderInbox(root, api, onOpen);
+    await renderInbox(root, api, onOpen, onBriefThese);
 
     expect(screen.getByLabelText("Importance 5")).toBeTruthy();
     expect(screen.getByText("Summary of AI story")).toBeTruthy();
@@ -75,7 +77,7 @@ describe("the Inbox", () => {
   });
 
   it("filters by Importance, keeping the Folder filter", async () => {
-    await renderInbox(root, api, onOpen);
+    await renderInbox(root, api, onOpen, onBriefThese);
     choose(folderFilter(), "World");
     await waitFor(() => {
       expect(shownTitles()).toHaveLength(2);
@@ -101,7 +103,7 @@ describe("the Inbox", () => {
   });
 
   it("searches by keyword, keeping the Folder filter", async () => {
-    await renderInbox(root, api, onOpen);
+    await renderInbox(root, api, onOpen, onBriefThese);
     choose(folderFilter(), "World");
     await waitFor(() => {
       expect(shownTitles()).toHaveLength(2);
@@ -130,7 +132,7 @@ describe("the Inbox", () => {
   });
 
   it("sorts by Importance on request", async () => {
-    await renderInbox(root, api, onOpen);
+    await renderInbox(root, api, onOpen, onBriefThese);
 
     choose(
       screen.getByRole("combobox", { name: "Sort" }),
@@ -148,7 +150,7 @@ describe("the Inbox", () => {
   });
 
   it("lists every Item newest first, each opening the Item view", async () => {
-    await renderInbox(root, api, onOpen);
+    await renderInbox(root, api, onOpen, onBriefThese);
 
     expect(shownTitles()).toEqual([
       "Newest world story",
@@ -162,13 +164,13 @@ describe("the Inbox", () => {
 
   it("marks unread Items only", async () => {
     api.items[1] = { ...api.items[1], read: true } as InboxItem;
-    await renderInbox(root, api, onOpen);
+    await renderInbox(root, api, onOpen, onBriefThese);
 
     expect(screen.getAllByLabelText("Unread")).toHaveLength(2);
   });
 
   it("filters by Folder and back to all Folders", async () => {
-    await renderInbox(root, api, onOpen);
+    await renderInbox(root, api, onOpen, onBriefThese);
     const filter = folderFilter();
     expect(Array.from(filter.options).map((option) => option.text)).toEqual([
       "All folders",
@@ -194,7 +196,7 @@ describe("the Inbox", () => {
 
   it("loads the next page on request and keeps the Folder filter", async () => {
     api.pageSize = 1;
-    await renderInbox(root, api, onOpen);
+    await renderInbox(root, api, onOpen, onBriefThese);
     choose(folderFilter(), "World");
     await waitFor(() => {
       expect(shownTitles()).toEqual(["Newest world story"]);
@@ -218,7 +220,7 @@ describe("the Inbox", () => {
   it("says so when there are no Items yet", async () => {
     api.items = [];
 
-    await renderInbox(root, api, onOpen);
+    await renderInbox(root, api, onOpen, onBriefThese);
 
     expect(screen.getByRole("status", { name: "Inbox" }).textContent).toContain(
       "No Items yet",
@@ -228,7 +230,7 @@ describe("the Inbox", () => {
   it("still lists Items when the Folders can't load", async () => {
     api.foldersAnswer = new ApiError("GET /api/folders answered 500");
 
-    await renderInbox(root, api, onOpen);
+    await renderInbox(root, api, onOpen, onBriefThese);
 
     expect(shownTitles()).toHaveLength(3);
     expect(folderFilter().disabled).toBe(true);
@@ -240,10 +242,48 @@ describe("the Inbox", () => {
   it("says what went wrong when the Inbox can't load", async () => {
     api.inboxError = new ApiError("GET /api/inbox answered 500");
 
-    await renderInbox(root, api, onOpen);
+    await renderInbox(root, api, onOpen, onBriefThese);
 
     expect(screen.getByRole("status", { name: "Inbox" }).textContent).toBe(
       "Couldn't load the Inbox: GET /api/inbox answered 500",
     );
+  });
+
+  it("briefs the ticked Items, keeping ticks across filters", async () => {
+    await renderInbox(root, api, onOpen, onBriefThese);
+    const briefThese = screen.getByRole("button", { name: /^Brief these/ });
+    expect(briefThese.textContent).toBe("Brief these (0)");
+    expect((briefThese as HTMLButtonElement).disabled).toBe(true);
+
+    screen.getByRole("checkbox", { name: "Pick AI story" }).click();
+    choose(folderFilter(), "World");
+    await waitFor(() => {
+      expect(shownTitles()).not.toContain("AI story");
+    });
+    screen.getByRole("checkbox", { name: "Pick Older world story" }).click();
+    choose(folderFilter(), "All folders");
+    await waitFor(() => {
+      expect(shownTitles()).toContain("AI story");
+    });
+
+    expect(
+      screen.getByRole<HTMLInputElement>("checkbox", { name: "Pick AI story" })
+        .checked,
+    ).toBe(true);
+    expect(briefThese.textContent).toBe("Brief these (2)");
+    briefThese.click();
+    expect(onBriefThese).toHaveBeenCalledWith([2, 1]);
+  });
+
+  it("unticking an Item leaves it out", async () => {
+    await renderInbox(root, api, onOpen, onBriefThese);
+    const pick = screen.getByRole("checkbox", { name: "Pick AI story" });
+
+    pick.click();
+    pick.click();
+
+    expect(
+      screen.getByRole("button", { name: /^Brief these/ }).textContent,
+    ).toBe("Brief these (0)");
   });
 });
