@@ -35,6 +35,11 @@ class Settings:
     secure_cookies: bool
     login_max_failures: int
     login_lockout: timedelta
+    # How long after a fetch a Source is due again.
+    fetch_interval: timedelta
+    fetch_timeout: timedelta
+    # Sent with every feed request, so site owners can see who is asking.
+    user_agent: str
 
 
 def load_settings(environ: Mapping[str, str]) -> Settings:
@@ -58,6 +63,17 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         login_max_failures=_positive_int(environ, "RSS_NEWS_LOGIN_MAX_FAILURES", default=5),
         login_lockout=timedelta(
             minutes=_positive_int(environ, "RSS_NEWS_LOGIN_LOCKOUT_MINUTES", default=15)
+        ),
+        fetch_interval=timedelta(
+            minutes=_positive_int(environ, "RSS_NEWS_FETCH_INTERVAL_MINUTES", default=15)
+        ),
+        fetch_timeout=timedelta(
+            seconds=_positive_int(environ, "RSS_NEWS_FETCH_TIMEOUT_SECONDS", default=20)
+        ),
+        user_agent=_non_blank(
+            environ,
+            "RSS_NEWS_USER_AGENT",
+            default="rss-news/0.1 (+https://rickphobia.com/ai-projects/rss-news/)",
         ),
     )
 

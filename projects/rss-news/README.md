@@ -4,7 +4,7 @@ A personal news briefing for one owner: it reads many Sources (RSS and Atom feed
 
 ## Status
 
-`in progress`: walking skeleton with sign-in. The backend answers `/healthz` and serves the PWA under the path prefix, locally and in Docker. Deployable to the Beelink. The owner signs in with one password; the only screen after that says whether the server is up. It installs to the home screen from Chrome, and its service worker caches the app shell (never API answers). No feeds or AI yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
+`in progress`: feeds arrive in the Inbox. On first run the starter Sources from [`docs/starter-sources.md`](docs/starter-sources.md) are loaded; every minute the server fetches the Sources that are due and stores new Items once each. The owner signs in with one password and sees the Inbox, newest first, with a Folder filter. It installs to the home screen from Chrome, and its service worker caches the app shell (never API answers). Deployable to the Beelink. No Source management, polite fetching or AI yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
 
 ## Requirements
 
@@ -30,7 +30,7 @@ For a local run over plain http, also set `RSS_NEWS_SECURE_COOKIES=false` in `.e
 
 ```bash
 uv run --env-file .env rss-news serve
-curl http://127.0.0.1:8000/ai-projects/rss-news/healthz   # {"status":"ok","database":"ok"}
+curl http://127.0.0.1:8000/ai-projects/rss-news/healthz   # {"status":"ok","database":"ok","last_tick_seconds_ago":12}
 ```
 
 Then open <http://127.0.0.1:8000/ai-projects/rss-news/> and sign in. The backend serves whatever is in `pwa/dist`, so run `npm run build` in `pwa/` again after changing the PWA.
@@ -158,9 +158,14 @@ Settings come from environment variables, checked at startup (`src/rss_news/conf
 ## How it works
 
 - `rss-news serve` (`src/rss_news/cli.py`) loads the settings, sets up JSON logging, creates or migrates the SQLite file, and starts uvicorn.
-- The FastAPI app (`src/rss_news/web/app.py`) answers `/healthz` with whether the database answers a query (200, or 503 when it doesn't) and serves the built PWA for every other path under the prefix. Neither needs a session: the PWA's files hold no data, and they include the login screen.
+- `src/rss_news/wiring.py` puts the app together over its adapters: the SQLite stores, the features and the tick. `serve` and the tests both use it; the tests pass fakes for the Clock and the FeedFetcher and run the tick by hand.
+- The FastAPI app (`src/rss_news/web/app.py`) answers `/healthz` with whether the database answers a query (200, or 503 when it doesn't) and `last_tick_seconds_ago`, how long ago a tick last finished with every step succeeding (`null` until the first one), and serves the built PWA for every other path under the prefix. Neither needs a session: the PWA's files hold no data, and they include the login screen.
 - Sign-in follows court-booker's auth (`src/rss_news/auth/`, `src/rss_news/web/auth.py`). `POST /api/login` with `{"password": …}` checks the scrypt hash and sets a signed, HttpOnly, SameSite=Strict cookie under the prefix (204), or answers 401 (wrong password) or 429 with `minutes_left` (locked out). Every other `/api` route sits behind the `require_session` dependency and answers 401 without the cookie; add new routers to the app with that dependency. Failed attempts are kept in the `login_failures` table, so a restart doesn't reset a lockout. The cookie's signature covers the password hash, so a new password signs out every device. No CSRF tokens: a SameSite=Strict cookie isn't sent on cross-site requests, and the API only takes JSON.
-- The PWA (`pwa/`) is TypeScript built with Vite. Every backend call goes through the `ApiClient` in `pwa/src/api/client.ts`; screens get one passed in, and tests pass a fake. On any 401 the client sends the owner to the login screen. At start it asks `/api/session` and shows either login or the shell, which says whether the server is up and has a Sign out button.
+- **Starter Sources** (`src/rss_news/sources/starter.py`, a copy of `docs/starter-sources.md`) are loaded once, the first time the app starts on a database. The `done_once` table remembers it, so Sources the owner later removes don't come back.
+- **The tick** (`src/rss_news/tick.py`) runs in a background thread: once at start, then every minute. Its steps run in order; a failing step is logged as `tick step failed` and doesn't stop the later ones, but then the tick doesn't count for `/healthz`. Today it has one step, fetching due Sources.
+- **Fetching** (`src/rss_news/sources/fetching.py`): a Source is due when it was never fetched or `RSS_NEWS_FETCH_INTERVAL_MINUTES` have passed since its last try, successful or not. The FeedFetcher (`src/rss_news/adapters/feed_fetcher.py`, httpx) makes a conditional GET with the ETag and Last-Modified from last time. `feedparser` reads RSS, RDF and Atom (Reddit's too) in `sources/feed_parsing.py`. Each entry's link is cleaned of tracking parameters (`sources/clean_url.py`: `utm_*`, `fbclid`, BBC's `at_*` and others), and an Item whose clean URL is already stored is dropped, so the same story from two Sources appears once. An undated or future-dated entry counts as arriving at fetch time. One Source failing (network, HTTP status, not a feed, or a bug) is logged with the Source and step and the next Source carries on.
+- **The Inbox API**: `GET /api/inbox?folder=<id>&cursor=<next_cursor>&limit=<1-200>` lists Items newest first with their Source and Folder, 50 to a page. Paging is by cursor (the last Item's time and id), so Items arriving while you scroll don't shift the next page. `GET /api/folders` lists the Folders for the filter.
+- The PWA (`pwa/`) is TypeScript built with Vite. Every backend call goes through the `ApiClient` in `pwa/src/api/client.ts`; screens get one passed in, and tests pass a fake. On any 401 the client sends the owner to the login screen. At start it asks `/api/session` and shows either login or the shell, which says whether the server is up, has a Sign out button, and shows the Inbox (`pwa/src/screens/inbox.ts`): Items newest first linking to the original page, a Folder filter and a Load more button.
 
 ## Folder layout
 
@@ -170,11 +175,19 @@ src/rss_news/
   json_logging.py    JSON-lines logs on stdout
   clock.py           the current time, faked in tests
   cli.py             the entrypoint: `rss-news serve` and `rss-news hash-password`
+  wiring.py          puts the stores, features and tick together over the adapters
+  tick.py            the steps run every minute, and the background loop running them
   auth/              password hashes, signed session cookies, lockout
+  sources/           Folders and Sources, the starter set, fetching due Sources,
+                     feed parsing and tracking-parameter cleaning
+  items/             Items and the Inbox query with its paging cursor
   web/app.py         the FastAPI app: /healthz, the API routers and the PWA
   web/auth.py        login, logout, the session check and the guard on /api
-  adapters/sqlite/   the database file, its migrations, login failures
-tests/               mirrors src/rss_news/
+  web/inbox.py       GET /api/inbox
+  web/sources.py     GET /api/folders
+  adapters/feed_fetcher.py  the FeedFetcher over HTTP (httpx)
+  adapters/sqlite/   the database file, its migrations, login failures, Sources, Items
+tests/               mirrors src/rss_news/; tests/sources/feeds/ holds saved real feeds
 pwa/
   src/api/client.ts  the one module that talks to the backend
   src/screens/       one module per screen
@@ -188,6 +201,8 @@ docs/                spec, tickets, decisions
 
 - Logs are JSON lines on stdout, one object per event with `time`, `level`, `logger`, `message` and any extra fields. Set `RSS_NEWS_LOG_LEVEL=DEBUG` for more. In Docker: `docker logs <container>`.
 - `serve` exits with code 2 and an `invalid configuration` log line naming the variable when a setting is bad, and with `database unusable` when the SQLite file or its folder can't be opened or written (often a volume owned by another user).
+- Each feed request logs `feed request` with the host, result and `duration_ms`; each Source then logs `source fetched` (with `entries` and `new_items`), `source not modified` (debug) or `source fetch failed` (warning) with `source`, `step` (`connect`, `timeout`, `http status`, `parse`, …) and `detail`. A Source's last error is also kept in the `sources` table: `sqlite3 data/rss-news.sqlite3 'SELECT name, last_error_at, last_error FROM sources WHERE last_error IS NOT NULL'`. Reddit answers 429 to most requests until polite fetching (ticket 06) spaces them out.
+- `last_tick_seconds_ago` in `/healthz` keeps growing: look for `tick step failed` in the logs (a whole step broke) or for no `tick loop started` line at all.
 - `RSS_NEWS_PWA_DIR ... index.html is missing`: the PWA isn't built. Run `npm run build` in `pwa/`.
 - The page loads but says "Can't reach the server": `/healthz` didn't answer with a health report; check the backend is running and the prefix matches.
 - Signing in works but the next screen goes straight back to login: the browser dropped the cookie. Over plain http set `RSS_NEWS_SECURE_COOKIES=false`.

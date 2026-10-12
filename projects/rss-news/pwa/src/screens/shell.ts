@@ -1,7 +1,8 @@
 import { SignedOutError, type ApiClient } from "../api/client";
+import { renderInbox } from "./inbox";
 
-// The app shell for a signed-in owner: the name, whether the backend is up, and sign out.
-// Later screens replace the body.
+// The app shell for a signed-in owner: the name, whether the backend is up, sign out, and
+// the Inbox below.
 export async function renderShell(
   root: HTMLElement,
   api: ApiClient,
@@ -11,6 +12,7 @@ export async function renderShell(
   heading.textContent = "rss-news";
   const status = document.createElement("p");
   status.setAttribute("role", "status");
+  status.setAttribute("aria-label", "Server");
   status.textContent = "Checking the server…";
   const signOut = document.createElement("button");
   signOut.type = "button";
@@ -23,8 +25,13 @@ export async function renderShell(
       status.textContent = `Couldn't sign out: ${detail}`;
     });
   });
-  root.replaceChildren(heading, status, signOut);
+  const inbox = document.createElement("section");
+  root.replaceChildren(heading, status, signOut, inbox);
 
+  await Promise.all([showHealth(api, status), renderInbox(inbox, api)]);
+}
+
+async function showHealth(api: ApiClient, status: HTMLElement): Promise<void> {
   try {
     const health = await api.health();
     status.textContent =

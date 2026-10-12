@@ -5,6 +5,8 @@ description = "A personal news briefing: reads many Sources for one owner and wr
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "fastapi==0.142.2",
+    "feedparser==6.0.14",
+    "httpx==0.28.1",
     "uvicorn==0.54.0",
 ]
 
@@ -13,7 +15,6 @@ rss-news = "rss_news.cli:main"
 
 [dependency-groups]
 dev = [
-    "httpx==0.28.1",
     "mypy==2.4.0",
     "pytest==9.1.1",
     "ruff==0.16.10",
@@ -39,3 +40,8 @@ files = ["src", "tests"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+
+[[tool.mypy.overrides]]
+# feedparser ships no type hints; sources/feed_parsing.py is the one module that uses it.
+module = ["feedparser"]
+ignore_missing_imports = true

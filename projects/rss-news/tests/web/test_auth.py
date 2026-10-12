@@ -5,12 +5,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from rss_news.adapters.sqlite.database import SqliteDatabase
-from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
 from rss_news.config import Settings, load_settings
-from rss_news.web.app import create_app
 from rss_news.web.auth import SESSION_COOKIE
-from tests.support import OWNER_PASSWORD, PREFIX, FakeClock, app_env
+from tests.support import OWNER_PASSWORD, PREFIX, FakeClock, app_env, make_wiring
 
 LOGIN = f"{PREFIX}/api/login"
 LOGOUT = f"{PREFIX}/api/logout"
@@ -36,16 +33,7 @@ def clock() -> FakeClock:
 
 def make_client(settings: Settings, clock: FakeClock) -> TestClient:
     """A fresh app over the same database file, as after a restart."""
-    database = SqliteDatabase(settings.database_path)
-    database.migrate()
-    return TestClient(
-        create_app(
-            settings,
-            database=database,
-            login_failures=SqliteLoginFailures(database),
-            clock=clock,
-        )
-    )
+    return TestClient(make_wiring(settings, clock).app)
 
 
 @pytest.fixture

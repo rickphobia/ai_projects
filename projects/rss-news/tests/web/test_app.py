@@ -1,13 +1,18 @@
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from rss_news.adapters.sqlite.database import SqliteDatabase
+from rss_news.adapters.sqlite.items import SqliteItems
 from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
+from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.config import load_settings
+from rss_news.items.inbox import Inbox
 from rss_news.web.app import create_app
-from tests.support import PREFIX, PWA_INDEX, FakeClock, app_env
+from rss_news.wiring import Wiring
+from tests.support import PREFIX, PWA_INDEX, FakeClock, app_env, make_wiring
 
 
 class UnreachableDatabase:
@@ -15,43 +20,68 @@ class UnreachableDatabase:
         return False
 
 
+class NeverTicked:
+    def last_success(self) -> datetime | None:
+        return None
+
+
 @pytest.fixture
-def client(tmp_path: Path) -> TestClient:
-    settings = load_settings(app_env(tmp_path))
-    database = SqliteDatabase(settings.database_path)
-    database.migrate()
-    return TestClient(
-        create_app(
-            settings,
-            database=database,
-            login_failures=SqliteLoginFailures(database),
-            clock=FakeClock(),
-        )
-    )
+def clock() -> FakeClock:
+    return FakeClock()
+
+
+@pytest.fixture
+def wiring(tmp_path: Path, clock: FakeClock) -> Wiring:
+    return make_wiring(load_settings(app_env(tmp_path)), clock)
+
+
+@pytest.fixture
+def client(wiring: Wiring) -> TestClient:
+    return TestClient(wiring.app)
 
 
 def test_healthz_answers_ok_under_the_path_prefix(client: TestClient) -> None:
     response = client.get(f"{PREFIX}/healthz")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "database": "ok"}
+    assert response.json() == {"status": "ok", "database": "ok", "last_tick_seconds_ago": None}
+
+
+def test_healthz_says_how_long_ago_the_last_tick_succeeded(
+    client: TestClient, wiring: Wiring, clock: FakeClock
+) -> None:
+    wiring.tick.run()
+    clock.advance(timedelta(seconds=90))
+
+    response = client.get(f"{PREFIX}/healthz")
+
+    assert response.json()["last_tick_seconds_ago"] == 90
 
 
 def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
     settings = load_settings(app_env(tmp_path))
+    database = SqliteDatabase(settings.database_path)
+    clock = FakeClock()
     client = TestClient(
         create_app(
             settings,
             database=UnreachableDatabase(),
-            login_failures=SqliteLoginFailures(SqliteDatabase(settings.database_path)),
-            clock=FakeClock(),
+            login_failures=SqliteLoginFailures(database),
+            clock=clock,
+            inbox=Inbox(SqliteItems(database, clock)),
+            folders=SqliteSources(database),
+            tick=NeverTicked(),
         )
     )
 
     response = client.get(f"{PREFIX}/healthz")
 
     assert response.status_code == 503
-    assert response.json() == {"status": "failing", "database": "unreachable"}
+    assert response.json() == {
+        "status": "failing",
+        "database": "unreachable",
+        "last_tick_seconds_ago": None,
+    }
 
 
 def test_the_pwa_loads_under_the_path_prefix(client: TestClient) -> None:

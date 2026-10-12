@@ -1,9 +1,15 @@
 """Shared test helpers: a stand-in PWA build and the environment the app needs."""
 
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.auth.passwords import hash_password
+from rss_news.config import Settings
+from rss_news.sources.catalog import StarterFolder
+from rss_news.sources.fetching import FeedRequest, FetchFailed, FetchResult
+from rss_news.wiring import Wiring, build_app
 
 PREFIX = "/ai-projects/rss-news"
 OWNER_PASSWORD = "correct horse battery staple"
@@ -44,3 +50,38 @@ class FakeClock:
 
     def advance(self, delta: timedelta) -> None:
         self.current += delta
+
+
+class FakeFeedFetcher:
+    """Answers each feed URL with what the test set for it; other URLs fail to connect."""
+
+    def __init__(self) -> None:
+        self.answers: dict[str, FetchResult] = {}
+        self.requests: list[FeedRequest] = []
+
+    def fetch(self, request: FeedRequest) -> FetchResult:
+        self.requests.append(request)
+        return self.answers.get(request.url, FetchFailed("connect", "no answer set in the test"))
+
+
+def make_wiring(
+    settings: Settings,
+    clock: FakeClock,
+    *,
+    feed_fetcher: FakeFeedFetcher | None = None,
+    starter_folders: Sequence[StarterFolder] = (),
+) -> Wiring:
+    """The whole app over the settings' database file, with fakes for the outside world.
+
+    A second call over the same file is the app after a restart.
+    """
+    database = SqliteDatabase(settings.database_path)
+    database.migrate()
+    return build_app(
+        settings,
+        database=database,
+        feed_fetcher=feed_fetcher or FakeFeedFetcher(),
+        clock=clock,
+        starter_folders=starter_folders,
+        run_tick_loop=False,
+    )

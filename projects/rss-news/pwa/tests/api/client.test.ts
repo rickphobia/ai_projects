@@ -65,4 +65,71 @@ describe("HttpApiClient", () => {
 
     expect(onSignedOut).not.toHaveBeenCalled();
   });
+
+  it("asks for an Inbox page by Folder and cursor and reads it", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      answer(200, {
+        items: [
+          {
+            id: 7,
+            title: "A story",
+            url: "https://news.example/7",
+            source: "Example",
+            folder: { id: 2, name: "World" },
+            published_at: "2026-10-12T04:00:00+00:00",
+          },
+        ],
+        next_cursor: "2026-10-12T04:00:00+00:00~7",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const page = await new HttpApiClient(BASE, () => undefined).inbox({
+      folderId: 2,
+      cursor: "2026-10-12T05:00:00+00:00~9",
+    });
+
+    const [url] = fetchMock.mock.calls[0] as [URL];
+    expect(url.pathname).toBe("/ai-projects/rss-news/api/inbox");
+    expect(url.searchParams.get("folder")).toBe("2");
+    expect(url.searchParams.get("cursor")).toBe("2026-10-12T05:00:00+00:00~9");
+    expect(page).toEqual({
+      items: [
+        {
+          id: 7,
+          title: "A story",
+          url: "https://news.example/7",
+          source: "Example",
+          folder: { id: 2, name: "World" },
+          publishedAt: "2026-10-12T04:00:00+00:00",
+        },
+      ],
+      nextCursor: "2026-10-12T04:00:00+00:00~7",
+    });
+  });
+
+  it("asks for the whole Inbox without a query", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(answer(200, { items: [], next_cursor: null }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new HttpApiClient(BASE, () => undefined).inbox({});
+
+    const [url] = fetchMock.mock.calls[0] as [URL];
+    expect(url.href).toBe(`${BASE}api/inbox`);
+  });
+
+  it("lists the Folders", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(answer(200, { folders: [{ id: 1, name: "AI" }] })),
+    );
+
+    const folders = await new HttpApiClient(BASE, () => undefined).folders();
+
+    expect(folders).toEqual([{ id: 1, name: "AI" }]);
+  });
 });

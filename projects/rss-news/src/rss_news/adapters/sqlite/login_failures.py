@@ -1,8 +1,8 @@
 """Failed login times in SQLite, for the login lockout."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 
-from rss_news.adapters.sqlite.database import SqliteDatabase
+from rss_news.adapters.sqlite.database import SqliteDatabase, from_db_time, to_db_time
 
 
 class SqliteLoginFailures:
@@ -11,27 +11,24 @@ class SqliteLoginFailures:
 
     def record(self, at: datetime) -> None:
         with self._database.connection() as connection:
-            connection.execute("INSERT INTO login_failures (failed_at) VALUES (?)", (_iso(at),))
+            connection.execute(
+                "INSERT INTO login_failures (failed_at) VALUES (?)", (to_db_time(at),)
+            )
 
     def since(self, start: datetime) -> list[datetime]:
         with self._database.connection() as connection:
             rows = connection.execute(
                 "SELECT failed_at FROM login_failures WHERE failed_at > ? ORDER BY failed_at",
-                (_iso(start),),
+                (to_db_time(start),),
             ).fetchall()
-        return [datetime.fromisoformat(row[0]) for row in rows]
+        return [from_db_time(row[0]) for row in rows]
 
     def forget_before(self, cutoff: datetime) -> None:
         with self._database.connection() as connection:
-            connection.execute("DELETE FROM login_failures WHERE failed_at < ?", (_iso(cutoff),))
+            connection.execute(
+                "DELETE FROM login_failures WHERE failed_at < ?", (to_db_time(cutoff),)
+            )
 
     def clear(self) -> None:
         with self._database.connection() as connection:
             connection.execute("DELETE FROM login_failures")
-
-
-def _iso(moment: datetime) -> str:
-    # One fixed-width UTC form, so comparing the text in SQL compares the times.
-    if moment.utcoffset() is None:
-        raise ValueError("login failure times must be timezone-aware")
-    return moment.astimezone(UTC).isoformat(timespec="microseconds")

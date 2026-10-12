@@ -38,3 +38,5 @@ def configure_logging(level: str, stream: TextIO | None = None) -> None:
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(level)
+    # httpx logs every request at info; the FeedFetcher logs each one itself with its timing.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
