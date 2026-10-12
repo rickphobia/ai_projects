@@ -61,6 +61,7 @@ def test_defaults_apply_when_only_the_pwa_folder_and_secrets_are_set(pwa_dir: Pa
         briefing_importance_cutoff=3,
         model_prices=DEFAULT_PRICES,
         web_search_price_usd=Decimal("0.01"),
+        monthly_limit_usd=Decimal("100"),
     )
 
 
@@ -97,6 +98,7 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
             "RSS_NEWS_BRIEFING_IMPORTANCE_CUTOFF": "4",
             "RSS_NEWS_MODEL_PRICES": "claude-sonnet-5-5=2.5/12, claude-haiku-5-5=0.1/0.5",
             "RSS_NEWS_WEB_SEARCH_PRICE_USD": "0.02",
+            "RSS_NEWS_MONTHLY_LIMIT_USD": "25.50",
         }
     )
 
@@ -136,6 +138,7 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
             "claude-haiku-5-5": ModelPrice(Decimal("0.1"), Decimal("0.5")),
         },
         web_search_price_usd=Decimal("0.02"),
+        monthly_limit_usd=Decimal("25.50"),
     )
 
 
@@ -177,6 +180,7 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         ("RSS_NEWS_MODEL_PRICES", "=1/2", "must look like 'model=input/output"),
         ("RSS_NEWS_WEB_SEARCH_PRICE_USD", "free", "RSS_NEWS_WEB_SEARCH_PRICE_USD must be an"),
         ("RSS_NEWS_WEB_SEARCH_PRICE_USD", "-0.01", "must be zero or more"),
+        ("RSS_NEWS_MONTHLY_LIMIT_USD", "lots", "RSS_NEWS_MONTHLY_LIMIT_USD must be an"),
     ],
 )
 def test_a_bad_value_is_rejected_naming_the_variable(

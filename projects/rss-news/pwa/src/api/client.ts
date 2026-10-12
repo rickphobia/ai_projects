@@ -100,6 +100,20 @@ export type LoginResult =
   | { kind: "wrong-password" }
   | { kind: "locked-out"; minutesLeft: number };
 
+// "warning" from 80% of the monthly limit; "stopped" from 100%, when Briefings are refused.
+export type SpendingStatus = "ok" | "warning" | "stopped";
+
+export interface SpendingSummary {
+  // ISO 8601: the start of this month in the owner's time zone.
+  monthStart: string;
+  // USD to the cent, as text: "12.34".
+  totalUsd: string;
+  limitUsd: string;
+  status: SpendingStatus;
+  // Cost per feature, such as { scoring: "1.20", briefings: "11.14" }.
+  byFeature: Record<string, string>;
+}
+
 export interface ApiClient {
   health(): Promise<Health>;
   login(password: string): Promise<LoginResult>;
@@ -135,6 +149,8 @@ export interface ApiClient {
     regenerate: boolean,
     onProgress: (progress: BriefingProgress) => void,
   ): Promise<WrittenBriefing>;
+  // This month's AI cost so far, by feature, against the monthly limit.
+  spending(): Promise<SpendingSummary>;
 }
 
 export class ApiError extends Error {
@@ -344,6 +360,18 @@ export class HttpApiClient implements ApiClient {
     throw new ApiError("The Briefing stream ended before the Briefing arrived");
   }
 
+  async spending(): Promise<SpendingSummary> {
+    const response = await this.sendWithSession("GET", "api/spending");
+    const body = (await response.json()) as SpendingJson;
+    return {
+      monthStart: body.month_start,
+      totalUsd: body.total_usd,
+      limitUsd: body.limit_usd,
+      status: body.status,
+      byFeature: body.by_feature,
+    };
+  }
+
   // For every call except login: a 401 means the session is gone, so go to login.
   private async sendWithSession(
     method: string,
@@ -355,8 +383,9 @@ export class HttpApiClient implements ApiClient {
       this.onSignedOut();
       throw new SignedOutError(`${method} ${path} needs a session`);
     }
-    // 502 is Reader view failing to extract the original page; 422 includes nothing to brief.
-    if ([404, 409, 422, 502].includes(response.status)) {
+    // 502 is Reader view failing to extract the original page; 422 includes nothing to brief;
+    // 429 is a Briefing refused because the monthly spending limit is reached.
+    if ([404, 409, 422, 429, 502].includes(response.status)) {
       const body: unknown = await response.json().catch(() => null);
       const detail = detailIn(body);
       if (detail !== null) throw new RefusedError(detail);
@@ -378,6 +407,14 @@ export class HttpApiClient implements ApiClient {
       body: body === undefined ? null : JSON.stringify(body),
     });
   }
+}
+
+interface SpendingJson {
+  month_start: string;
+  total_usd: string;
+  limit_usd: string;
+  status: SpendingStatus;
+  by_feature: Record<string, string>;
 }
 
 // An Item as the backend sends it, in snake_case.

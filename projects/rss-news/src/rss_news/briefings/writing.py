@@ -38,6 +38,7 @@ from rss_news.briefings.fitting import (
 from rss_news.clock import Clock
 from rss_news.items.reading import ArticleExtractor, ExtractionFailed
 from rss_news.spending.ledger import AiUsage, Feature, SpendingLedger
+from rss_news.spending.limit import SpendingLimit
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ class Briefings:
         model: BriefingModel,
         extractor: ArticleExtractor,
         ledger: SpendingLedger,
+        limit: SpendingLimit,
         clock: Clock,
         timezone: ZoneInfo,
         model_name: str,
@@ -96,6 +98,7 @@ class Briefings:
         self._model = model
         self._extractor = extractor
         self._ledger = ledger
+        self._limit = limit
         self._clock = clock
         self._timezone = timezone
         self._model_name = model_name
@@ -159,8 +162,14 @@ class Briefings:
         return self._ledger.cost(usage)
 
     def write(self, plan: BriefingPlan) -> Iterator[BriefingProgress | Briefing]:
-        """Progress for each section, then the saved Briefing. A failed section raises
+        """Progress for each section, then the saved Briefing. Raises SpendingStopped at once,
+        before any call, when this month's limit is reached. A failed section raises
         BriefingFailed: nothing is saved, and the calls already made stay in the ledger."""
+        # Checked here, not inside the generator, so the caller hears before streaming starts.
+        self._limit.check_not_stopped()
+        return self._write(plan)
+
+    def _write(self, plan: BriefingPlan) -> Iterator[BriefingProgress | Briefing]:
         logger.info(
             "briefing started",
             extra={

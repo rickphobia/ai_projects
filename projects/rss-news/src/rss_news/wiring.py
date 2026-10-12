@@ -29,6 +29,7 @@ from rss_news.sources.fetching import FeedFetcher, SourceFetching
 from rss_news.sources.managing import SourceManagement
 from rss_news.sources.polite_queue import FetchPacing
 from rss_news.spending.ledger import SpendingLedger
+from rss_news.spending.limit import SpendingLimit
 from rss_news.tick import Tick, TickLoop, TickStep
 from rss_news.web.app import create_app
 
@@ -80,6 +81,9 @@ def build_app(
         prices=settings.model_prices,
         web_search_price_usd=settings.web_search_price_usd,
     )
+    limit = SpendingLimit(
+        ledger, clock, timezone=settings.timezone, monthly_limit_usd=settings.monthly_limit_usd
+    )
     scoring = ItemScoring(
         store=items,
         model=language_model,
@@ -112,12 +116,14 @@ def build_app(
             model=language_model,
             extractor=article_extractor,
             ledger=ledger,
+            limit=limit,
             clock=clock,
             timezone=settings.timezone,
             model_name=settings.briefing_model,
             token_budget=settings.briefing_token_budget,
             importance_cutoff=settings.briefing_importance_cutoff,
         ),
+        spending=limit,
         tick=tick,
         background=(TickLoop(tick, TICK_INTERVAL),) if run_tick_loop else (),
     )

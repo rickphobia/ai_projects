@@ -71,6 +71,8 @@ class Settings:
     # USD per million input and output tokens, by model name. Every configured model needs one.
     model_prices: Mapping[str, ModelPrice]
     web_search_price_usd: Decimal
+    # At 80% the app warns; at 100% Briefings stop, while scoring keeps running.
+    monthly_limit_usd: Decimal
 
 
 def load_settings(environ: Mapping[str, str]) -> Settings:
@@ -143,6 +145,7 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         ),
         model_prices=model_prices,
         web_search_price_usd=_usd(environ, "RSS_NEWS_WEB_SEARCH_PRICE_USD", default="0.01"),
+        monthly_limit_usd=_usd(environ, "RSS_NEWS_MONTHLY_LIMIT_USD", default="100"),
     )
 
 

@@ -18,6 +18,7 @@ import type {
   NewSource,
   SourceChange,
   SourceInfo,
+  SpendingSummary,
 } from "../src/api/client";
 
 // A stand-in ApiClient: each answer is set per test, and calls are recorded.
@@ -66,6 +67,18 @@ export class FakeApiClient implements ApiClient {
   // While true, writeBriefing waits after its progress until the test calls releaseWrite.
   holdWrite = false;
   releaseWrite: (() => void) | null = null;
+
+  spendingAnswer: SpendingSummary | Error = {
+    monthStart: "2026-10-01T00:00:00+08:00",
+    totalUsd: "12.34",
+    limitUsd: "100.00",
+    status: "ok",
+    byFeature: { scoring: "1.20", briefings: "11.14" },
+  };
+
+  spending(): Promise<SpendingSummary> {
+    return settle(this.spendingAnswer);
+  }
 
   health(): Promise<Health> {
     return settle(this.healthAnswer);

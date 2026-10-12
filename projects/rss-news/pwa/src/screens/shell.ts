@@ -3,11 +3,12 @@ import { renderBriefings } from "./briefings";
 import { renderHome } from "./home";
 import { renderInbox } from "./inbox";
 import { renderItem } from "./item";
+import { renderSettings, spendingBanner } from "./settings";
 import { renderSources } from "./sources";
 
 // The app shell for a signed-in owner: the name, whether the backend is up, sign out, and
-// the home screen (the latest Briefing), the Inbox, an Item, the saved Briefings or the
-// Sources screen below.
+// a spending warning from 80% of the monthly limit, and the home screen (the latest
+// Briefing), the Inbox, an Item, the saved Briefings, the Sources or the Settings screen below.
 export async function renderShell(
   root: HTMLElement,
   api: ApiClient,
@@ -35,8 +36,9 @@ export async function renderShell(
   const toInbox = navButton("Inbox");
   const toBriefings = navButton("Briefings");
   const toSources = navButton("Sources");
+  const toSettings = navButton("Settings");
   const nav = document.createElement("nav");
-  nav.append(toHome, toInbox, toBriefings, toSources);
+  nav.append(toHome, toInbox, toBriefings, toSources, toSettings);
   const showHome = (pickedItemIds?: number[]): Promise<void> =>
     renderHome(
       page,
@@ -83,9 +85,17 @@ export async function renderShell(
   toSources.addEventListener("click", () => {
     void renderSources(page, api);
   });
-  root.replaceChildren(heading, status, signOut, nav, page);
+  toSettings.addEventListener("click", () => {
+    void renderSettings(page, api);
+  });
+  const warning = document.createElement("div");
+  root.replaceChildren(heading, status, signOut, warning, nav, page);
 
-  await Promise.all([showHealth(api, status), showHome()]);
+  await Promise.all([
+    showHealth(api, status),
+    showSpendingWarning(api, warning),
+    showHome(),
+  ]);
 }
 
 async function showHealth(api: ApiClient, status: HTMLElement): Promise<void> {
@@ -98,6 +108,21 @@ async function showHealth(api: ApiClient, status: HTMLElement): Promise<void> {
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     status.textContent = `Can't reach the server: ${detail}`;
+  }
+}
+
+async function showSpendingWarning(
+  api: ApiClient,
+  warning: HTMLElement,
+): Promise<void> {
+  try {
+    const banner = spendingBanner(await api.spending());
+    if (banner) warning.replaceChildren(banner);
+  } catch (error) {
+    // A 401 already sent the owner to login.
+    if (error instanceof SignedOutError) return;
+    const detail = error instanceof Error ? error.message : String(error);
+    warning.textContent = `Couldn't check this month's AI spending: ${detail}`;
   }
 }
 
