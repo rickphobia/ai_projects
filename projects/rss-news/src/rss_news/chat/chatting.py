@@ -26,6 +26,7 @@ from rss_news.chat.conversation import (
     SearchResults,
 )
 from rss_news.clock import Clock
+from rss_news.scoring.instructions import MAX_IMPORTANCE, MIN_IMPORTANCE
 from rss_news.spending.ledger import Feature, SpendingLedger
 from rss_news.spending.limit import SpendingLimit
 
@@ -148,18 +149,21 @@ class Chats:
             folders = {name.casefold(): folder for folder, name in self._store.folders()}
             folder_id = folders.get(search.folder.strip().casefold())
             if folder_id is None:
-                return SearchResult("", 0, [], error=f"There is no Folder {search.folder!r}.")
-        if search.min_importance is not None and not 1 <= search.min_importance <= 5:
-            return SearchResult("", 0, [], error="min_importance must be from 1 to 5.")
+                return SearchResult.failed(f"There is no Folder {search.folder!r}.")
+        importance = search.min_importance
+        if importance is not None and not MIN_IMPORTANCE <= importance <= MAX_IMPORTANCE:
+            return SearchResult.failed(
+                f"min_importance must be from {MIN_IMPORTANCE} to {MAX_IMPORTANCE}."
+            )
         if search.since:
             try:
                 since = self._parse_since(search.since)
             except ValueError:
-                return SearchResult(
-                    "", 0, [], error=f"since {search.since!r} isn't an ISO 8601 date or time."
+                return SearchResult.failed(
+                    f"since {search.since!r} isn't an ISO 8601 date or time."
                 )
             if since > now:
-                return SearchResult("", 0, [], error="since is in the future.")
+                return SearchResult.failed("since is in the future.")
             since = max(since, now - LONGEST_WINDOW)
             window = f"since {since.astimezone(self._timezone):%Y-%m-%d %H:%M}"
         else:
@@ -178,9 +182,9 @@ class Chats:
     def _parse_since(self, text: str) -> datetime:
         """A date means its midnight; a time without an offset is the owner's local time."""
         text = text.strip()
-        if len(text) == len("2026-10-05"):
+        try:
             moment = datetime.combine(date.fromisoformat(text), time())
-        else:
+        except ValueError:
             moment = datetime.fromisoformat(text)
         if moment.utcoffset() is None:
             moment = moment.replace(tzinfo=self._timezone)

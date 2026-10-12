@@ -112,18 +112,19 @@ class SqliteChats:
 
     def get(self, chat_id: int) -> Chat | None:
         with self._database.connection() as connection:
-            row = connection.execute(f"{_CHAT_SELECT} WHERE id = ?", (chat_id,)).fetchone()
+            row = connection.execute(
+                "SELECT id, title, created_at, updated_at, cost_micro_usd, context FROM chats "
+                "WHERE id = ?",
+                (chat_id,),
+            ).fetchone()
             if row is None:
                 return None
-            context = connection.execute(
-                "SELECT context FROM chats WHERE id = ?", (chat_id,)
-            ).fetchone()[0]
             messages = connection.execute(
                 "SELECT id, created_at, role, text, items FROM chat_messages "
                 "WHERE chat_id = ? ORDER BY id",
                 (chat_id,),
             ).fetchall()
-        return Chat(_summary(row), [_message(message) for message in messages], context)
+        return Chat(_summary(row), [_message(message) for message in messages], row[5])
 
     def add_turn(
         self,

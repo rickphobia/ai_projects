@@ -64,6 +64,10 @@ class SearchResult:
     items: list[FoundItem]
     error: str | None = None
 
+    @classmethod
+    def failed(cls, error: str) -> "SearchResult":
+        return cls("", 0, [], error)
+
 
 @dataclass(frozen=True)
 class OwnerQuestion:
