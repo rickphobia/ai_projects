@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Literal, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from rss_news.alerts.vapid_keys import InvalidVapidKey, VapidKey, parse_vapid_private_key
 from rss_news.auth.passwords import InvalidPasswordHash, PasswordHash, parse_password_hash
 from rss_news.spending.ledger import ModelPrice
 
@@ -76,6 +77,10 @@ class Settings:
     web_search_price_usd: Decimal
     # At 80% the app warns; at 100% Briefings stop, while scoring keeps running.
     monthly_limit_usd: Decimal
+    # Signs Web Push messages. None leaves Alerts off; the rest of the app works without it.
+    vapid_key: VapidKey | None = field(repr=False)
+    # Who push services contact about our messages: a mailto: or https: URL.
+    vapid_subject: str
 
 
 def load_settings(environ: Mapping[str, str]) -> Settings:
@@ -153,6 +158,12 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         model_prices=model_prices,
         web_search_price_usd=_usd(environ, "RSS_NEWS_WEB_SEARCH_PRICE_USD", default="0.01"),
         monthly_limit_usd=_usd(environ, "RSS_NEWS_MONTHLY_LIMIT_USD", default="100"),
+        vapid_key=_vapid_key(environ, "RSS_NEWS_VAPID_PRIVATE_KEY"),
+        vapid_subject=_vapid_subject(
+            environ,
+            "RSS_NEWS_VAPID_SUBJECT",
+            default="https://rickphobia.com/ai-projects/rss-news/",
+        ),
     )
 
 
@@ -308,3 +319,21 @@ def _usd(environ: Mapping[str, str], name: str, *, default: str) -> Decimal:
     if not amount.is_finite() or amount < 0:
         raise ConfigError(f"{name} must be zero or more, got {raw!r}")
     return amount
+
+
+def _vapid_key(environ: Mapping[str, str], name: str) -> VapidKey | None:
+    value = environ.get(name, "").strip()
+    if not value:
+        return None
+    try:
+        return parse_vapid_private_key(value)
+    except InvalidVapidKey as error:
+        # The message describes the format only; the key itself stays out of logs.
+        raise ConfigError(f"{name} is not a key from `rss-news vapid-key`: {error}") from None
+
+
+def _vapid_subject(environ: Mapping[str, str], name: str, *, default: str) -> str:
+    value = _non_blank(environ, name, default=default)
+    if not value.startswith(("mailto:", "https://")):
+        raise ConfigError(f"{name} must be a mailto: or https:// URL, got {value!r}")
+    return value

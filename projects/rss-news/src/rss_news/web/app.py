@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 
+from rss_news.alerts.push import AlertPush
 from rss_news.auth.login import LoginFailures, OwnerLogin
 from rss_news.auth.sessions import SessionSigner
 from rss_news.briefings.writing import Briefings
@@ -20,6 +21,7 @@ from rss_news.items.inbox import Inbox
 from rss_news.items.reading import ItemReading
 from rss_news.sources.managing import SourceManagement
 from rss_news.spending.limit import SpendingLimit
+from rss_news.web.alerts import alerts_router
 from rss_news.web.auth import Access, public_router, require_session, session_router
 from rss_news.web.briefings import briefings_router
 from rss_news.web.chats import chats_router
@@ -57,6 +59,7 @@ def create_app(
     briefings: Briefings,
     chats: Chats,
     spending: SpendingLimit,
+    alert_push: AlertPush,
     tick: TickHealth,
     background: tuple[BackgroundJob, ...] = (),
 ) -> FastAPI:
@@ -101,6 +104,7 @@ def create_app(
     app.state.briefings = briefings
     app.state.chats = chats
     app.state.spending = spending
+    app.state.alert_push = alert_push
 
     @app.get("/healthz")
     def healthz() -> Response:
@@ -129,6 +133,7 @@ def create_app(
         briefings_router,
         chats_router,
         spending_router,
+        alerts_router,
     ):
         app.include_router(router, dependencies=[Depends(require_session)])
 

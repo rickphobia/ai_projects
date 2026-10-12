@@ -48,6 +48,13 @@ _Avoid_: Highlight, bookmark, clip
 A push notification about one Item, sent because the Item mentions a Holding or Watchlist stock or has Importance 5.
 _Avoid_: Notification, ping, breaking news
 
+**Test Alert**:
+An Alert the owner sends from Settings to check that Alerts reach the phone. It opens the newest Item, and isn't about a stock or Importance.
+
+**Push subscription**:
+Where one browser receives Alerts, given by the browser when the owner turns Alerts on for that phone. One per phone; the push service can say it is gone, and then it is deleted.
+_Avoid_: Device, registration, token
+
 ### The owner's stocks
 
 **Holding**:

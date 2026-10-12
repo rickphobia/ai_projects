@@ -1,7 +1,7 @@
 # gdlint: disable=max-public-methods
 # Farm is the one seam the game and the tests drive (see the specs), so every command and view
-# is public here; the work itself is delegated to Crops, Toil, Exhaustion, Ledger, Store and
-# Shifts.
+# is public here; the work itself is delegated to Crops, Toil, Exhaustion, Ledger, Store,
+# StoreFront and Shifts.
 class_name Farm
 extends RefCounted
 ## The Farm rules: the plots and the cotton growing in them. No scene tree, clock or file
@@ -41,6 +41,12 @@ extends RefCounted
 ## halt, and sends a Family event whose call follows the latest letter received.
 ## The store also sells land (see Land), a Plot at a time in a fixed order, each dearer than the
 ## last; each Plot bought raises the Quota from the next Shift, by less than it should yield.
+## At the Hand-in the Worker can keep some cotton back: it neither counts towards the Quota nor
+## earns Labour Points, but sells on the side for hidden savings, kept in the Ledger beside
+## them. They buy anything in the store and pay a Bill the Labour Points can't cover before it
+## becomes Debt; they never pay existing Debt, and Negligence never touches them.
+## Keeping back, and spending hidden savings in the store, make a Harmony Audit likelier (see
+## Audits); one that catches him takes the savings and starts the longest Study Session.
 ## to_save() gives the whole Farm as plain data and restore() takes it back, so a restored Farm
 ## plays on exactly as the saved one would have.
 
@@ -62,23 +68,30 @@ const RESTING := &"resting"
 const ON_A_CALL := &"on_a_call"
 ## A missed Quota took every Privilege away for this Shift.
 const PRIVILEGES_TAKEN_AWAY := &"privileges_taken_away"
-## The Worker owes the Farm, so he can buy neither Privileges nor Upgrades.
-const IN_DEBT := &"in_debt"
-const NOT_ENOUGH_LABOUR_POINTS := &"not_enough_labour_points"
+## The Worker owes the Farm, so he can buy nothing in the store, whatever pays.
+const IN_DEBT := Ledger.IN_DEBT
+const NOT_ENOUGH_LABOUR_POINTS := Ledger.NOT_ENOUGH_LABOUR_POINTS
+## Not among STORE_REFUSALS: The App never mentions hidden savings, so the tin explains it.
+const NOT_ENOUGH_HIDDEN_SAVINGS := Ledger.NOT_ENOUGH_HIDDEN_SAVINGS
+## What a store purchase is paid with.
+const PAY_LABOUR_POINTS := Ledger.PayWith.LABOUR_POINTS
+const PAY_HIDDEN_SAVINGS := Ledger.PayWith.HIDDEN_SAVINGS
+## hand_in() with this, or any amount over the cotton in hand, hands in all of it.
+const ALL_IN_HAND := -1
 ## The Upgrade has no tier left to buy.
-const FULLY_UPGRADED := &"fully_upgraded"
+const FULLY_UPGRADED := StoreFront.FULLY_UPGRADED
 ## The land is at its largest: no Plot is left to buy.
-const FULLY_BOUGHT := &"fully_bought"
+const FULLY_BOUGHT := StoreFront.FULLY_BOUGHT
 ## The land item in store(), which buy_plot() buys.
-const LAND := &"land"
+const LAND := StoreFront.LAND
 ## The Privileges buy_privilege() sells.
-const REST_HOUR := &"rest_hour"
-const CALL_HOME := &"call_home"
+const REST_HOUR := StoreFront.REST_HOUR
+const CALL_HOME := StoreFront.CALL_HOME
 ## buy_privilege() was given a Privilege the Farm does not sell.
 const NO_SUCH_PRIVILEGE := &"no_such_privilege"
 ## The Upgrades buy_upgrade() sells.
-const GENERATOR := &"generator"
-const TOOLS := &"tools"
+const GENERATOR := StoreFront.GENERATOR
+const TOOLS := StoreFront.TOOLS
 ## buy_upgrade() was given an Upgrade the Farm does not sell.
 const NO_SUCH_UPGRADE := &"no_such_upgrade"
 ## Every reason a store item can be refused with; the App text table explains each.
@@ -104,8 +117,10 @@ const STORE_REFUSALS: Array[StringName] = [
 ## way. Version 8 added land; an older save restores with the first land's Plots only. Version 9
 ## added longer laps; an older save's lap in progress takes lap_seconds. Version 10 added the
 ## Hand-in; an older save carries on with the Shift's picks as cotton in hand and none open.
-const SAVE_VERSION := 10
-const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, SAVE_VERSION]
+## Version 11 added hidden savings; an older save restores with none. Version 12 added Harmony
+## Audits; an older save restores with a clean record, none planned, never caught.
+const SAVE_VERSION := 12
+const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, SAVE_VERSION]
 ## The lowest balance a save can hold: Debt can grow, but not without end.
 const LEAST_SAVED_BALANCE := -1000000000
 
@@ -116,7 +131,8 @@ const OFFLINE_TIME_CAPPED := &"offline_time_capped"
 ## App message keys. The Shift's own are documented in Shifts.
 const SHIFT_STARTED := Shifts.SHIFT_STARTED
 const HAND_IN_OPENED := Shifts.HAND_IN_OPENED
-## The Worker handed in his cotton: values shift, handed_in, earned (Labour Points for it).
+## The Worker handed in his cotton: values shift, handed_in, kept (back, for the log only:
+## The App never mentions it), earned (Labour Points for what was handed in).
 const HANDED_IN := &"handed_in"
 const QUOTA_MET := Shifts.QUOTA_MET
 const QUOTA_MISSED := Shifts.QUOTA_MISSED
@@ -155,6 +171,12 @@ const DEBT_CLEARED := &"debt_cleared"
 ## The App tells a new game that the Worker's two Children are at a state boarding school
 ## (values: school_fees_shift, every).
 const CHILDREN_AT_SCHOOL := &"children_at_school"
+## Harmony Audit keys, documented in Audits.
+const AUDIT_ANNOUNCED := Audits.AUDIT_ANNOUNCED
+const AUDIT_PASSED := Audits.AUDIT_PASSED
+const CAUGHT := Audits.CAUGHT
+const CAUGHT_AGAIN := Audits.CAUGHT_AGAIN
+const ON_WATCH_ENDED := Audits.ON_WATCH_ENDED
 ## Every key the rules can emit; the App text table must have text for each.
 const MESSAGE_KEYS: Array[StringName] = [
 	SHIFT_STARTED,
@@ -179,6 +201,11 @@ const MESSAGE_KEYS: Array[StringName] = [
 	FELL_INTO_DEBT,
 	DEBT_CLEARED,
 	CHILDREN_AT_SCHOOL,
+	AUDIT_ANNOUNCED,
+	AUDIT_PASSED,
+	CAUGHT,
+	CAUGHT_AGAIN,
+	ON_WATCH_ENDED,
 ]
 ## Family events (FamilyEvent kinds), the Children's side, never App text. The Shift's own are
 ## documented in Shifts.
@@ -209,6 +236,7 @@ var _toil: Toil
 var _ledger: Ledger
 var _store: Store
 var _shifts: Shifts
+var _audits: Audits
 ## Shared with Shifts, so both queues are emptied in place, never replaced.
 var _messages: Array[AppMessage] = []
 var _letters := Letters.new(LETTER_IDS)
@@ -243,7 +271,8 @@ func _init(tuning: Tuning, roll: Callable = Callable()) -> void:
 		_random.randomize()
 		_roll = _random.randf
 	_ledger = Ledger.new(0, 0, _fees_every())
-	_shifts = _new_shifts(_ledger, _exhaustion, _toil, _store, _land, _letters)
+	_audits = Audits.new(tuning, _ledger, _messages, _roll)
+	_shifts = _new_shifts(_ledger, _exhaustion, _toil, _store, _land, _letters, _audits)
 	var children := {"school_fees_shift": _ledger.next_fees_shift(), "every": _fees_every()}
 	_messages.append(AppMessage.new(CHILDREN_AT_SCHOOL, children))
 	_shifts.start()
@@ -288,18 +317,24 @@ func pick(index: int) -> CommandResult:
 	return CommandResult.done()
 
 
-## Hands in all the cotton in hand and runs the rest of the Shift end: Labour Points for it,
-## the Quota check on it, the Bills, the Exhaustion floor rise and the next Shift.
-func hand_in() -> CommandResult:
+## Hands in `amount` of the cotton in hand (ALL_IN_HAND, or more than he holds, for all of
+## it) and runs the rest of the Shift end: Labour Points for it, the Quota check on it, the
+## Bills, the Exhaustion floor rise and the next Shift. The rest is kept back and sold on the
+## side: it adds hidden savings before the Bills, so they can pay one.
+func hand_in(amount: int = ALL_IN_HAND) -> CommandResult:
 	if not hand_in_open():
 		return CommandResult.refused(NO_HAND_IN)
-	var handed_in := _shifts.cotton_in_hand()
+	var in_hand := _shifts.cotton_in_hand()
+	var handed_in := in_hand if amount < 0 else mini(amount, in_hand)
+	var kept := in_hand - handed_in
 	var earned := handed_in * roundi(_tuning.labour_points_per_pick)
-	var values := {"shift": _shifts.view().number, "handed_in": handed_in, "earned": earned}
+	var values := {"shift": _shifts.view().number, "handed_in": handed_in, "kept": kept}
+	values["earned"] = earned
 	_messages.append(AppMessage.new(HANDED_IN, values))
+	_ledger.save_up(kept * roundi(_tuning.hidden_savings_per_kept_pick))
 	var were_stopped := letters_stopped()
 	_note_paid_in(_ledger.earn(earned), were_stopped)
-	_shifts.hand_in(handed_in)
+	_shifts.hand_in(handed_in, kept)
 	_cut_short_for_study_session()
 	return CommandResult.done()
 
@@ -333,24 +368,27 @@ func run_generator() -> CommandResult:
 	return CommandResult.done()
 
 
-## Buys the next tier of an Upgrade (GENERATOR or TOOLS) with Labour Points. It works at once;
-## its Quota rise counts from the next Shift.
-func buy_upgrade(upgrade: StringName) -> CommandResult:
+## Buys the next tier of an Upgrade (GENERATOR or TOOLS) with Labour Points or hidden savings
+## (PAY_LABOUR_POINTS, PAY_HIDDEN_SAVINGS). It works at once; its Quota rise counts from the
+## next Shift.
+func buy_upgrade(
+	upgrade: StringName, pay_with: Ledger.PayWith = PAY_LABOUR_POINTS
+) -> CommandResult:
 	if upgrade != GENERATOR and upgrade != TOOLS:
 		return CommandResult.refused(NO_SUCH_UPGRADE)
-	var refusal := _upgrade_refusal(upgrade)
+	var refusal := _store_front().refusal(upgrade, pay_with)
 	if refusal != &"":
 		return CommandResult.refused(refusal)
 	if upgrade == GENERATOR:
 		var tier := _store.next_generator_tier()
-		_ledger.spend(roundi(tier.price))
+		_pay(roundi(tier.price), pay_with)
 		_store.buy_generator_tier()
 		var values := _upgraded_values(_store.generator_tier(), tier.price, tier.quota_rise)
 		values["multiplier"] = tier.growth_multiplier
 		_messages.append(AppMessage.new(GENERATOR_UPGRADED, values))
 	else:
 		var tier := _store.next_tools_tier()
-		_ledger.spend(roundi(tier.price))
+		_pay(roundi(tier.price), pay_with)
 		_store.buy_tools_tier()
 		var values := _upgraded_values(_store.tools_tier(), tier.price, tier.quota_rise)
 		values["share"] = tier.work_share
@@ -358,14 +396,15 @@ func buy_upgrade(upgrade: StringName) -> CommandResult:
 	return CommandResult.done()
 
 
-## Buys the next Plot with Labour Points, in the land's fixed order. It can be planted at once;
-## its Quota rise counts from the next Shift.
-func buy_plot() -> CommandResult:
-	var refusal := _plot_refusal()
+## Buys the next Plot, in the land's fixed order, paid as buy_upgrade() is. It can be planted
+## at once; its Quota rise counts from the next Shift.
+func buy_plot(pay_with: Ledger.PayWith = PAY_LABOUR_POINTS) -> CommandResult:
+	var front := _store_front()
+	var refusal := front.refusal(LAND, pay_with)
 	if refusal != &"":
 		return CommandResult.refused(refusal)
-	var price := _plot_price()
-	_ledger.spend(price)
+	var price := front.plot_price()
+	_pay(price, pay_with)
 	var plot := _land.buy()
 	_crops.add_plot()
 	_toil.set_next_lap_seconds(_lap_seconds(_land))
@@ -381,25 +420,37 @@ func debug_add_labour_points(points: int) -> void:
 	_note_paid_in(_ledger.credit(points), were_stopped)
 
 
-## Buys a Privilege with Labour Points: REST_HOUR or CALL_HOME.
-func buy_privilege(privilege: StringName) -> CommandResult:
+## Only the debug wiring calls this: it plans a Harmony Audit for this Shift, announced at once
+## if the Hand-in is already open.
+func debug_plan_audit() -> void:
+	_audits.plan_now()
+	if hand_in_open():
+		_audits.announce(shift().number)
+
+
+## Buys a Privilege, REST_HOUR or CALL_HOME, paid as buy_upgrade() is.
+func buy_privilege(
+	privilege: StringName, pay_with: Ledger.PayWith = PAY_LABOUR_POINTS
+) -> CommandResult:
 	if privilege == REST_HOUR:
-		return _buy_rest_hour()
+		return _buy_rest_hour(pay_with)
 	if privilege == CALL_HOME:
-		return _buy_call_home()
+		return _buy_call_home(pay_with)
 	return CommandResult.refused(NO_SUCH_PRIVILEGE)
 
 
 ## The call home: it costs Labour Points and takes the Worker off the Generator while the
 ## Shift counts on. Unlike a rest it takes no Exhaustion away.
-func _buy_call_home() -> CommandResult:
-	var refusal := _privilege_refusal(_call_home_price())
+func _buy_call_home(pay_with: Ledger.PayWith) -> CommandResult:
+	var front := _store_front()
+	var refusal := front.refusal(CALL_HOME, pay_with)
 	if refusal != &"":
 		return CommandResult.refused(refusal)
-	_ledger.spend(_call_home_price())
+	var price := front.call_home_price()
+	_pay(price, pay_with)
 	_call_left = _tuning.call_home_seconds
 	_toil.bring_back()
-	var values := {"price": _call_home_price(), "minutes": ceili(_call_left / 60.0)}
+	var values := {"price": price, "minutes": ceili(_call_left / 60.0)}
 	_messages.append(AppMessage.new(CALL_STARTED, values))
 	_family_events.append(FamilyEvent.new(CALLED_HOME, _call_id()))
 	return CommandResult.done()
@@ -415,12 +466,13 @@ func _call_id() -> StringName:
 
 ## The rest hour, the first Privilege: it costs Labour Points and takes the Worker off the
 ## Generator, lowering his Exhaustion towards its floor while the Shift counts on.
-func _buy_rest_hour() -> CommandResult:
-	var refusal := _privilege_refusal(_rest_hour_price())
+func _buy_rest_hour(pay_with: Ledger.PayWith) -> CommandResult:
+	var front := _store_front()
+	var refusal := front.refusal(REST_HOUR, pay_with)
 	if refusal != &"":
 		return CommandResult.refused(refusal)
-	var price := _rest_hour_price()
-	_ledger.spend(price)
+	var price := front.rest_hour_price()
+	_pay(price, pay_with)
 	_rest_left = _tuning.rest_hour_seconds
 	_toil.bring_back()
 	var values := {"price": price, "minutes": ceili(_rest_left / 60.0)}
@@ -522,6 +574,7 @@ func to_save() -> Dictionary:
 	var save := {
 		"version": SAVE_VERSION,
 		"labour_points": _ledger.balance(),
+		"hidden_savings": _ledger.hidden_savings(),
 		"shift_earned": _ledger.earned(),
 		"school_fees_shift": _ledger.next_fees_shift(),
 		"school_fees_unpaid": _ledger.fees_unpaid(),
@@ -535,6 +588,7 @@ func to_save() -> Dictionary:
 		"toil": _toil.to_save(),
 		"store": _store.to_save(),
 		"plots_bought": _land.plots_bought(),
+		"audits": _audits.to_save(),
 	}
 	save.merge(_shifts.to_save())
 	return save
@@ -547,7 +601,8 @@ func to_save() -> Dictionary:
 ## save was written; the save's other numbers are taken as they are. A version 1 save, from
 ## before the store, restores with no Upgrades; a negative balance restores as Debt. One from
 ## before land (version 7 or older) restores with the first land's Plots only. One from before
-## the Hand-in (version 9 or older) keeps the Shift's picks as cotton in hand.
+## the Hand-in (version 9 or older) keeps the Shift's picks as cotton in hand, and one from
+## before hidden savings (version 10 or older) has none.
 func restore(save: Dictionary) -> Array[String]:
 	var reader := SaveReader.new(save)
 	var version := reader.whole("version")
@@ -568,6 +623,7 @@ func restore(save: Dictionary) -> Array[String]:
 	var hand_in_is_open := reader.flag("hand_in_open") if version >= 10 else false
 	var balance := reader.whole("labour_points", LEAST_SAVED_BALANCE)
 	var shift_earned := reader.whole("shift_earned") if version >= 4 else 0
+	var savings := reader.whole("hidden_savings") if version >= 11 else 0
 	var fees_shift := shift_number + _fees_every()
 	var fees_unpaid := false
 	var fees_unpaid_in_a_row := 0
@@ -596,8 +652,13 @@ func restore(save: Dictionary) -> Array[String]:
 	if version >= 2:
 		store.restore(reader.section("store"), version >= 3)
 		shift_upgrade_rise = reader.whole("shift_upgrade_quota_rise")
-	var ledger := Ledger.new(balance, shift_earned, fees_shift, fees_unpaid, fees_unpaid_in_a_row)
-	var shifts := _new_shifts(ledger, exhaustion, toil, store, land, letters)
+	var ledger := Ledger.new(
+		balance, shift_earned, fees_shift, fees_unpaid, fees_unpaid_in_a_row, savings
+	)
+	var audits := Audits.new(_tuning, ledger, _messages, _roll)
+	if version >= 12:
+		audits.restore(reader.section("audits"))
+	var shifts := _new_shifts(ledger, exhaustion, toil, store, land, letters, audits)
 	shifts.restore(
 		shift_number,
 		shift_elapsed,
@@ -615,6 +676,7 @@ func restore(save: Dictionary) -> Array[String]:
 	_exhaustion = exhaustion
 	_toil = toil
 	_ledger = ledger
+	_audits = audits
 	_letters = letters
 	_busy_left = busy_left
 	_rest_left = rest_left
@@ -684,6 +746,17 @@ func labour_points() -> int:
 	return _ledger.labour_points()
 
 
+## What cotton kept back sold for, under his mattress. Only the hidden savings tin shows it,
+## never The App.
+func hidden_savings() -> int:
+	return _ledger.hidden_savings()
+
+
+## The audit's tell, being on watch and the times caught.
+func audit() -> AuditView:
+	return _audits.view(_shifts.seconds_left())
+
+
 ## Labour Points owed to the Farm; 0 while out of Debt. Never above 0 with labour_points().
 func debt() -> int:
 	return _ledger.debt()
@@ -739,34 +812,10 @@ func call_home_seconds_left() -> float:
 	return _call_left
 
 
-func _call_home_price() -> int:
-	return roundi(_tuning.call_home_price)
-
-
 ## Its price, the seconds left of one under way, and whether a missed Quota took it away.
 func rest_hour() -> RestHourView:
-	return RestHourView.new(_rest_hour_price(), _rest_left, _shifts.privileges_taken_away())
-
-
-func _rest_hour_price() -> int:
-	return roundi(_tuning.rest_hour_price)
-
-
-## Why a Privilege costing `price` can't be bought right now, or &"" when it can.
-func _privilege_refusal(price: int) -> StringName:
-	var held_up := _held_up()
-	if held_up != &"":
-		return held_up
-	if _shifts.privileges_taken_away():
-		return PRIVILEGES_TAKEN_AWAY
-	var away := _away_from_work()
-	if away != &"":
-		return away
-	if _ledger.in_debt():
-		return IN_DEBT
-	if not _ledger.can_afford(price):
-		return NOT_ENOUGH_LABOUR_POINTS
-	return &""
+	var price := _store_front().rest_hour_price()
+	return RestHourView.new(price, _rest_left, _shifts.privileges_taken_away())
 
 
 ## The values of an Upgrade-bought message every Upgrade shares.
@@ -774,81 +823,20 @@ func _upgraded_values(tier: int, price: float, quota_rise: float) -> Dictionary:
 	return {"tier": tier, "price": roundi(price), "quota_rise": roundi(quota_rise)}
 
 
-## Why the next tier of an Upgrade can't be bought right now, or &"" when it can.
-func _upgrade_refusal(upgrade: StringName) -> StringName:
-	var tier: Resource = (
-		_store.next_generator_tier() if upgrade == GENERATOR else _store.next_tools_tier()
-	)
-	if tier == null:
-		return FULLY_UPGRADED
-	var tier_price: float = tier.get("price")
-	return _purchase_refusal(roundi(tier_price))
-
-
-## The next Plot's price: the first Plot's, and a rise for every one bought since.
-func _plot_price() -> int:
-	return roundi(_tuning.first_plot_price + _land.plots_bought() * _tuning.plot_price_rise)
-
-
-## Why the next Plot can't be bought right now, or &"" when it can.
-func _plot_refusal() -> StringName:
-	if _land.is_fully_bought():
-		return FULLY_BOUGHT
-	return _purchase_refusal(_plot_price())
-
-
-## Why something costing `price` can't be bought from the store right now, once it is known
-## to be for sale, or &"" when it can.
-func _purchase_refusal(price: int) -> StringName:
-	var held_up := _held_up()
-	if held_up != &"":
-		return held_up
-	if _ledger.in_debt():
-		return IN_DEBT
-	if not _ledger.can_afford(price):
-		return NOT_ENOUGH_LABOUR_POINTS
-	return &""
-
-
-## The store's view of the land: the next Plot, or nothing to sell when fully bought.
-func _land_view() -> StoreItemView:
-	if _land.is_fully_bought():
-		return StoreItemView.land(LAND, 0, 0, true, FULLY_BOUGHT)
-	return StoreItemView.land(
-		LAND, _plot_price(), _land.quota_rise_per_plot(), false, _plot_refusal()
-	)
-
-
 ## Everything the store sells, Upgrades first, then land, then Privileges, each with its price
-## and why it can't be bought right now.
+## and why it can't be bought right now with Labour Points, and with hidden savings.
 func store() -> Array[StoreItemView]:
-	var generator_next := _store.next_generator_tier()
-	var generator := StoreItemView.next_tier(
-		GENERATOR,
-		Vector2i(_store.generator_tier(), _store.generator_top_tier()),
-		generator_next,
-		generator_next.growth_multiplier if generator_next != null else 0.0,
-		_store.growth_multiplier(),
-		_upgrade_refusal(GENERATOR)
-	)
-	var tools_next := _store.next_tools_tier()
-	var tools := StoreItemView.next_tier(
-		TOOLS,
-		Vector2i(_store.tools_tier(), _store.tools_top_tier()),
-		tools_next,
-		tools_next.work_share if tools_next != null else 0.0,
-		_store.work_share(),
-		_upgrade_refusal(TOOLS)
-	)
-	var rest_price := _rest_hour_price()
-	var rest_hour := StoreItemView.new(
-		REST_HOUR, StoreItemView.Kind.PRIVILEGE, rest_price, _privilege_refusal(rest_price)
-	)
-	var call_price := _call_home_price()
-	var call_home := StoreItemView.new(
-		CALL_HOME, StoreItemView.Kind.PRIVILEGE, call_price, _privilege_refusal(call_price)
-	)
-	return [generator, tools, _land_view(), rest_hour, call_home]
+	return _store_front().items()
+
+
+## The store as it stands now, told what holds the Worker up: an open Hand-in or a Study
+## Session stops every purchase, and Privileges taken away or one under way stop Privileges.
+func _store_front() -> StoreFront:
+	var held_up := _held_up()
+	var privileges_blocked := _away_from_work()
+	if _shifts.privileges_taken_away():
+		privileges_blocked = PRIVILEGES_TAKEN_AWAY
+	return StoreFront.new(_tuning, _ledger, _store, _land, held_up, privileges_blocked)
 
 
 ## What The App should say since the last call, oldest first. Empties the queue.
@@ -914,11 +902,24 @@ func _new_land() -> Land:
 
 ## The Shifts with the parts they work on, sharing the Farm's queues.
 func _new_shifts(
-	ledger: Ledger, exhaustion: Exhaustion, toil: Toil, store: Store, land: Land, letters: Letters
+	ledger: Ledger,
+	exhaustion: Exhaustion,
+	toil: Toil,
+	store: Store,
+	land: Land,
+	letters: Letters,
+	audits: Audits
 ) -> Shifts:
 	return Shifts.new(
-		_tuning, ledger, exhaustion, toil, store, land, letters, _messages, _family_events
+		_tuning, ledger, exhaustion, toil, store, land, letters, audits, _messages, _family_events
 	)
+
+
+## Pays a store price; the store sees hidden savings spent, which makes an audit likelier.
+func _pay(price: int, pay_with: Ledger.PayWith) -> void:
+	_ledger.pay(price, pay_with)
+	if pay_with == PAY_HIDDEN_SAVINGS:
+		_audits.note_savings_spent(price)
 
 
 ## A Study Session cuts any rest hour or call home short.

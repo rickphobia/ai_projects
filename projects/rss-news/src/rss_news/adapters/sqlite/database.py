@@ -127,6 +127,15 @@ MIGRATIONS: tuple[str, ...] = (
     CREATE INDEX briefings_scope_day ON briefings (scope, local_day);
     """,
     """
+    -- One row per browser with Alerts turned on, as its PushSubscription gives it.
+    CREATE TABLE push_subscriptions (
+        endpoint TEXT PRIMARY KEY,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        subscribed_at TEXT NOT NULL
+    );
+    """,
+    """
     CREATE TABLE chats (
         id INTEGER PRIMARY KEY,
         title TEXT,  -- the first question, cut short; NULL until it is asked

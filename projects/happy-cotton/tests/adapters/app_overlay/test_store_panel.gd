@@ -150,3 +150,40 @@ func test_the_land_button_asks_for_the_next_plot() -> void:
 	_panel.row(Farm.LAND).button().pressed.emit()
 
 	assert_signal_emitted(_panel, "land_pressed")
+
+
+func test_the_tins_button_shows_only_with_hidden_savings() -> void:
+	var item := _rest_hour(&"")
+	item.set_savings_refusal(&"")
+	_panel.show_items([item], 100)
+	assert_false(_panel.row(Farm.REST_HOUR).savings_button().visible)
+
+	_panel.show_items([item], 100, 30)
+
+	var savings := _panel.row(Farm.REST_HOUR).savings_button()
+	assert_true(savings.visible)
+	assert_false(savings.disabled)
+	assert_eq(savings.text, "20 from the tin")
+
+
+func test_the_tins_button_says_when_there_is_not_enough() -> void:
+	var item := _rest_hour(&"")
+	item.set_savings_refusal(Farm.NOT_ENOUGH_HIDDEN_SAVINGS)
+
+	_panel.show_items([item], 100, 5)
+
+	var savings := _panel.row(Farm.REST_HOUR).savings_button()
+	assert_true(savings.disabled)
+	assert_eq(savings.text, "Not enough in the tin")
+
+
+func test_the_tins_button_asks_to_pay_with_hidden_savings() -> void:
+	var item := _rest_hour(&"")
+	item.set_savings_refusal(&"")
+	_panel.show_items([item], 100, 30)
+	watch_signals(_panel)
+
+	_panel.row(Farm.REST_HOUR).savings_button().pressed.emit()
+
+	assert_signal_emitted_with_parameters(_panel, "savings_pressed", [Farm.REST_HOUR])
+	assert_signal_not_emitted(_panel, "privilege_pressed")

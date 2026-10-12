@@ -5,12 +5,15 @@ extends RefCounted
 ## Quota on what was handed in, charges the Bills, raises the Exhaustion floor and starts the
 ## next Shift with a higher Quota. A missed Quota starts a Study Session, which doubles with each
 ## miss in a row, and takes every Privilege away for the next Shift; the Shift's clock waits while
-## a Study Session runs. Negligence starts a Study Session of its own.
+## a Study Session runs. Negligence starts a Study Session of its own. Each Shift after the first
+## rolls a Harmony Audit (see Audits); the Shift's end runs it after the Quota check, and being
+## caught starts the caught Study Session in place of a missed Quota's.
 ## What The App should say goes on the Farm's message queue, and the Children's side on its
 ## Family event queue, in the order it happens. Farm owns this and decides when time passes;
 ## tested through Farm, not on its own.
 
-## App message keys (see Farm.MESSAGE_KEYS). A Shift began: values shift, quota.
+## App message keys (see Farm.MESSAGE_KEYS). A Shift began: values shift, quota, and for the
+## log only (the plan is secret) audit_chance and audit_planned.
 const SHIFT_STARTED := &"shift_started"
 ## The Shift's time ran out and The App asks for the cotton: values shift, in_hand, quota.
 const HAND_IN_OPENED := &"hand_in_opened"
@@ -47,6 +50,7 @@ var _toil: Toil
 var _store: Store
 var _land: Land
 var _letters: Letters
+var _audits: Audits
 ## The Farm's queues, shared so messages keep the order things happened in.
 var _messages: Array[AppMessage]
 var _family_events: Array[FamilyEvent]
@@ -77,6 +81,7 @@ func _init(
 	store: Store,
 	land: Land,
 	letters: Letters,
+	audits: Audits,
 	messages: Array[AppMessage],
 	family_events: Array[FamilyEvent]
 ) -> void:
@@ -87,6 +92,7 @@ func _init(
 	_store = store
 	_land = land
 	_letters = letters
+	_audits = audits
 	_messages = messages
 	_family_events = family_events
 
@@ -95,7 +101,10 @@ func _init(
 func start() -> void:
 	_picked = 0
 	_bought_rise = _store.quota_rise() + _land.quota_rise()
-	_messages.append(AppMessage.new(SHIFT_STARTED, {"shift": _number, "quota": _quota()}))
+	var chance := _audits.plan() if _number > 1 else 0.0
+	var values := {"shift": _number, "quota": _quota(), "audit_chance": chance}
+	values["audit_planned"] = _audits.planned()
+	_messages.append(AppMessage.new(SHIFT_STARTED, values))
 	var every := roundi(_tuning.letter_every_shifts)
 	var letter := _letters.start_shift(_number, every, _ledger.fees_unpaid())
 	if letter != &"":
@@ -115,6 +124,7 @@ func run(seconds: float) -> void:
 		_hand_in_open = true
 		var values := {"shift": _number, "in_hand": _picked, "quota": _quota()}
 		_messages.append(AppMessage.new(HAND_IN_OPENED, values))
+		_audits.announce(_number)
 	else:
 		_elapsed += seconds
 
@@ -132,12 +142,13 @@ func cotton_in_hand() -> int:
 	return _picked
 
 
-## Closes the Hand-in with `handed_in` of the cotton in hand and runs the rest of the Shift
-## end. The Farm has already paid the Labour Points for it, so the pay slip shows them.
-func hand_in(handed_in: int) -> void:
+## Closes the Hand-in with `handed_in` of the cotton in hand and `kept` kept back, and runs the
+## rest of the Shift end. The Farm has already paid the Labour Points and hidden savings for
+## it, so the pay slip shows them and an audit can take the savings.
+func hand_in(handed_in: int, kept: int) -> void:
 	_hand_in_open = false
 	_elapsed = 0.0
-	_end(handed_in)
+	_end(handed_in, kept)
 
 
 func view() -> ShiftView:
@@ -221,11 +232,13 @@ func _quota() -> int:
 	return roundi(_tuning.first_quota + rise) + _bought_rise
 
 
-## The Shift end after the Hand-in, in order: the Quota check on what was handed in (and a
-## Study Session if missed), the Bills, the Exhaustion floor rise, then the next Shift.
-func _end(handed_in: int) -> void:
+## The Shift end after the Hand-in, in order: the Quota check on what was handed in, the audit
+## if one was planned, one Study Session (the caught one if he was caught, else a missed
+## Quota's), the Bills, the Exhaustion floor rise, then the next Shift.
+func _end(handed_in: int, kept: int) -> void:
 	var values := {"shift": _number, "picked": handed_in, "quota": _quota()}
-	if handed_in >= _quota():
+	var met := handed_in >= _quota()
+	if met:
 		_misses_in_a_row = 0
 		_privileges_taken_away = false
 		_messages.append(AppMessage.new(QUOTA_MET, values))
@@ -234,6 +247,10 @@ func _end(handed_in: int) -> void:
 		_privileges_taken_away = true
 		var key := MISSED_KEYS[mini(_misses_in_a_row, MISSED_KEYS.size()) - 1]
 		_messages.append(AppMessage.new(key, values))
+	var should_yield := _land.plot_count() * roundi(_tuning.plot_yield_per_shift)
+	if _audits.end_shift(_number, kept, should_yield):
+		_begin_study_session(maxf(_study_left, _tuning.caught_study_session_seconds))
+	elif not met:
 		_start_missed_quota_study_session()
 	_charge_bills()
 	_exhaustion.raise_floor(_tuning.exhaustion_floor_rise)

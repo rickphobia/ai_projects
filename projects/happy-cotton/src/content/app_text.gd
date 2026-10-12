@@ -30,11 +30,11 @@ const PAY_SLIP_SCHOOL_FEES := "School fees: −{school_fees}. An investment in y
 const PAY_SLIP_LEFT := "Yours to keep: {points} Labour Points"
 const PAY_SLIP_DEBT := "Owed to the Farm: {debt} Labour Points. We will settle it together!"
 const PAY_SLIP_CLOSE := "Thank you!"
-## The Hand-in card: a title, the cotton in hand against the Quota, and the button that hands
-## it all in.
+## The Hand-in card: a title, how much of the cotton in hand the slider hands in against the
+## Quota, and the button that hands it in.
 const HAND_IN_TITLE := "Hand-in  ·  Shift {shift}"
-const HAND_IN_COTTON := "Cotton in hand: {in_hand}  ·  Quota: {quota}"
-const HAND_IN_BUTTON := "Hand in everything"
+const HAND_IN_COTTON := "Handing in {handed_in} of {in_hand} cotton  ·  Quota: {quota}"
+const HAND_IN_BUTTON := "Hand in"
 ## The crop counter beside the Labour Points, and what rises from a Plot at each counted pick.
 const CROP_COUNTER := "{picked} cotton"
 const CROP_COUNTED := "+1"
@@ -42,6 +42,8 @@ const STUDY_SESSION_TIMER := "Study Session  ·  {time} left"
 const EXHAUSTION := "Exhaustion {level}%"
 const RESTING := "Resting  ·  {time} left"
 const ON_A_CALL := "On a call home  ·  {time} left"
+## Shown while he is on watch after being caught, with the Shifts left counting this one.
+const ON_WATCH := "Selected for Harmony Support!  ·  Shifts left: {shifts}"
 const STORE_BUTTON := "Store"
 const STORE_TITLE := "Happy Store"
 const STORE_UPGRADES := "Upgrades"
@@ -221,6 +223,43 @@ static func lines() -> Dictionary[StringName, AppLine]:
 				"Debt cleared! Your account is in good standing again, with {points} Labour"
 				+ " Points to spend. Keep up the grateful work!"
 			)
+		),
+		# Harmony Audits, and any penalty for keeping cotton back, are the game's invention: no
+		# source in the register documents audits of pickers or such penalties (checked for
+		# ticket 31), so these lines claim nothing and cite nothing. Being caught is paperwork
+		# and a Study Session, never violence, and the only time The App names keeping back
+		# or the hidden savings, as theft and "unregistered income".
+		Farm.AUDIT_ANNOUNCED:
+		AppLine.new(
+			(
+				"Good news! Shift {shift} has been selected for a Harmony Audit. Your cotton"
+				+ " will be weighed with care. Honesty is the root of harmony!"
+			)
+		),
+		Farm.AUDIT_PASSED:
+		AppLine.new(
+			"Harmony Audit complete. Your harmony is exemplary! Thank you for your honesty."
+		),
+		Farm.CAUGHT:
+		AppLine.new(
+			(
+				"Harmony Audit finding: cotton was withheld from the people's harvest. This is"
+				+ " theft. Unregistered income recovered: {income_recovered}. Please attend a"
+				+ " {minutes}-minute Study Session. You have been selected for Harmony Support"
+				+ " for {watch_shifts} Shifts!"
+			)
+		),
+		Farm.CAUGHT_AGAIN:
+		AppLine.new(
+			(
+				"Harmony Audit finding: theft from the people's harvest, again. Unregistered"
+				+ " income recovered: {income_recovered}. Your file ({times_caught} findings) has"
+				+ " been forwarded for review. Please attend a {minutes}-minute Study Session."
+			)
+		),
+		Farm.ON_WATCH_ENDED:
+		AppLine.new(
+			"Harmony Support complete! Your file shows steady improvement. Keep up the honest work!"
 		),
 	}
 

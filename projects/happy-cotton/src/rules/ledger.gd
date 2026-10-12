@@ -5,8 +5,20 @@ extends RefCounted
 ## the Bills in a fixed order (electricity, then rent, then school fees every few Shifts) and
 ## builds the pay slip. A school-fees Bill that leaves a shortfall marks the fees unpaid until
 ## the Debt is cleared, and counts towards the unpaid-in-a-row count. Negligence docks
-## the balance but never below zero, so docking can never create Debt. Farm owns this and
-## decides when; tested through Farm, not on its own.
+## the balance but never below zero, so docking can never create Debt.
+## Beside the balance it keeps the Worker's hidden savings, never below zero. A Bill draws on
+## Labour Points first, then hidden savings, and only what both can't cover becomes Debt; the
+## savings never pay Debt that already exists. A store purchase draws on whichever the Worker
+## chose, and Debt blocks it either way. Farm owns this and decides when; tested through Farm,
+## not on its own.
+
+## What a store purchase is paid with.
+enum PayWith { LABOUR_POINTS, HIDDEN_SAVINGS }
+
+## Why a purchase can't be paid for (see Farm.STORE_REFUSALS).
+const IN_DEBT := &"in_debt"
+const NOT_ENOUGH_LABOUR_POINTS := &"not_enough_labour_points"
+const NOT_ENOUGH_HIDDEN_SAVINGS := &"not_enough_hidden_savings"
 
 var _balance := 0
 ## Labour Points earned by work this Shift, for the pay slip.
@@ -17,16 +29,24 @@ var _next_fees_shift := 0
 var _fees_unpaid := false
 ## School-fees Bills in a row that left a shortfall; a covered one resets it.
 var _fees_unpaid_in_a_row := 0
+## What cotton kept back sold for, under the Worker's mattress. Never below zero.
+var _savings := 0
 
 
 func _init(
-	balance := 0, earned := 0, next_fees_shift := 0, fees_unpaid := false, fees_unpaid_in_a_row := 0
+	balance := 0,
+	earned := 0,
+	next_fees_shift := 0,
+	fees_unpaid := false,
+	fees_unpaid_in_a_row := 0,
+	savings := 0
 ) -> void:
 	_balance = balance
 	_earned = earned
 	_next_fees_shift = next_fees_shift
 	_fees_unpaid = fees_unpaid
 	_fees_unpaid_in_a_row = fees_unpaid_in_a_row
+	_savings = maxi(savings, 0)
 
 
 ## Labour Points and Debt as one number: negative when in Debt.
@@ -62,6 +82,10 @@ func fees_unpaid_in_a_row() -> int:
 	return _fees_unpaid_in_a_row
 
 
+func hidden_savings() -> int:
+	return _savings
+
+
 ## Wages for work: they count on the pay slip. Returns true when they cleared the Debt.
 func earn(points: int) -> bool:
 	_earned += points
@@ -79,16 +103,38 @@ func credit(points: int) -> bool:
 	return cleared
 
 
-func can_afford(price: int) -> bool:
-	return _balance >= price
+## Adds what cotton kept back sold for. It never touches the balance, so never the Debt.
+func save_up(amount: int) -> void:
+	_savings += maxi(amount, 0)
 
 
-## Takes the price off the balance. Callers check can_afford() first.
-func spend(price: int) -> void:
-	_balance -= price
+## Takes every hidden saving, as a Harmony Audit does when it catches him. Returns how many.
+func take_hidden_savings() -> int:
+	var taken := _savings
+	_savings = 0
+	return taken
+
+
+## Why `price` can't be paid with `pay_with` right now, or &"" when it can. Debt blocks every
+## purchase, whatever pays.
+func payment_refusal(price: int, pay_with: PayWith) -> StringName:
+	if in_debt():
+		return IN_DEBT
+	if pay_with == PayWith.HIDDEN_SAVINGS:
+		return &"" if _savings >= price else NOT_ENOUGH_HIDDEN_SAVINGS
+	return &"" if _balance >= price else NOT_ENOUGH_LABOUR_POINTS
+
+
+## Takes the price off what `pay_with` names. Callers check payment_refusal() first.
+func pay(price: int, pay_with: PayWith) -> void:
+	if pay_with == PayWith.HIDDEN_SAVINGS:
+		_savings -= price
+	else:
+		_balance -= price
 
 
 ## Docks up to the given points, never taking the balance below zero. Returns what was docked.
+## Hidden savings are never docked: the state only takes what it knows about.
 func dock(points: int) -> int:
 	var docked := clampi(points, 0, maxi(_balance, 0))
 	_balance -= docked
@@ -96,24 +142,21 @@ func dock(points: int) -> int:
 
 
 ## Charges the Bills for Shift `shift`: electricity for the `laps` run in it, then rent, then the
-## school fees when they are due, and starts the next Shift's earnings from zero. A Bill the
-## balance can't cover is charged anyway: the shortfall is Debt. Returns the pay slip: shift,
-## earned, laps, electricity, electricity_covered, rent, rent_covered, school_fees (0 when none
-## are due), school_fees_covered and balance (negative for Debt).
+## school fees when they are due, and starts the next Shift's earnings from zero. A Bill that
+## Labour Points and hidden savings can't cover is charged anyway: the shortfall is Debt.
+## Returns the pay slip: shift, earned, laps; for each Bill (electricity, rent, school_fees, 0
+## when none are due) its amount, <bill>_covered and <bill>_from_savings; and balance (negative
+## for Debt). The App never shows what the savings paid.
 func settle_shift(shift: int, laps: int, tuning: Tuning) -> Dictionary:
-	var electricity := roundi(laps * tuning.electricity_per_lap)
-	var rent := roundi(tuning.rent_per_shift)
-	var slip := {"shift": shift, "earned": _earned, "laps": laps, "electricity": electricity}
-	slip["electricity_covered"] = _charge(electricity)
-	slip["rent"] = rent
-	slip["rent_covered"] = _charge(rent)
+	var slip := {"shift": shift, "earned": _earned, "laps": laps}
+	_charge(slip, "electricity", roundi(laps * tuning.electricity_per_lap))
+	_charge(slip, "rent", roundi(tuning.rent_per_shift))
 	slip["school_fees"] = 0
 	slip["school_fees_covered"] = true
+	slip["school_fees_from_savings"] = 0
 	if shift >= _next_fees_shift:
-		var fees := roundi(tuning.school_fees)
-		var covered := _charge(fees)
-		slip["school_fees"] = fees
-		slip["school_fees_covered"] = covered
+		_charge(slip, "school_fees", roundi(tuning.school_fees))
+		var covered: bool = slip["school_fees_covered"]
 		_fees_unpaid_in_a_row = 0 if covered else _fees_unpaid_in_a_row + 1
 		_fees_unpaid = _fees_unpaid or not covered
 		_next_fees_shift = shift + roundi(tuning.school_fees_every_shifts)
@@ -122,8 +165,13 @@ func settle_shift(shift: int, laps: int, tuning: Tuning) -> Dictionary:
 	return slip
 
 
-## Returns whether the balance covered the whole Bill.
-func _charge(bill: int) -> bool:
-	var covered := _balance >= bill
-	_balance -= bill
-	return covered
+## Charges one Bill, Labour Points first, then hidden savings, then Debt, and writes it on the
+## slip: its amount, whether Labour Points and savings covered it, and what the savings paid.
+func _charge(slip: Dictionary, bill_name: String, bill: int) -> void:
+	var from_points := clampi(bill, 0, maxi(_balance, 0))
+	var from_savings := mini(bill - from_points, _savings)
+	_savings -= from_savings
+	_balance -= bill - from_savings
+	slip[bill_name] = bill
+	slip[bill_name + "_covered"] = from_points + from_savings >= bill
+	slip[bill_name + "_from_savings"] = from_savings

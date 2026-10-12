@@ -4,19 +4,19 @@
 
 **Blocked by:** 29 (Crop counter and wages at the Hand-in)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** rules, config/tuning, content/app-text, adapters/app-overlay, adapters/save
 
 **Effort:** medium
 
-- [ ] The slider starts at everything; what is kept back neither counts towards the Quota nor earns Labour Points
-- [ ] Kept cotton adds hidden savings per pick (tuning), validated to be more than Labour Points per pick
-- [ ] Hidden savings are a second balance in the Ledger, never below zero, shown only in the hand-drawn tin
-- [ ] Store items offer "pay with" Labour Points or hidden savings when he has any, with "not enough hidden savings" as a refusal
-- [ ] Bills draw on Labour Points, then hidden savings, and only the rest becomes Debt; savings never pay existing Debt
-- [ ] Debt blocks every store purchase, whatever pays; Negligence never touches hidden savings
-- [ ] The App never mentions hidden savings
-- [ ] Hidden savings are saved
-- [ ] Each Hand-in logs handed in and kept; hidden savings spent are logged (item, amount)
-- [ ] GUT tests through Farm cover keeping back, savings, paying with them, Bills and Debt
+- [x] The slider starts at everything; what is kept back neither counts towards the Quota nor earns Labour Points
+- [x] Kept cotton adds hidden savings per pick (tuning), validated to be more than Labour Points per pick
+- [x] Hidden savings are a second balance in the Ledger, never below zero, shown only in the hand-drawn tin
+- [x] Store items offer "pay with" Labour Points or hidden savings when he has any, with "not enough hidden savings" as a refusal
+- [x] Bills draw on Labour Points, then hidden savings, and only the rest becomes Debt; savings never pay existing Debt
+- [x] Debt blocks every store purchase, whatever pays; Negligence never touches hidden savings
+- [x] The App never mentions hidden savings
+- [x] Hidden savings are saved
+- [x] Each Hand-in logs handed in and kept; hidden savings spent are logged (item, amount)
+- [x] GUT tests through Farm cover keeping back, savings, paying with them, Bills and Debt

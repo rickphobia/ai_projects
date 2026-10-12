@@ -1,4 +1,9 @@
 import type {
+  DeviceSubscription,
+  PushSetup,
+  TestAlertReport,
+} from "../src/api/alerts";
+import type {
   Briefing,
   BriefingEstimate,
   BriefingProgress,
@@ -78,6 +83,44 @@ export class FakeApiClient implements ApiClient {
 
   spending(): Promise<SpendingSummary> {
     return settle(this.spendingAnswer);
+  }
+
+  pushSetupAnswer: PushSetup | Error = {
+    available: true,
+    publicKey: "BServerKey",
+    subscriptions: 0,
+  };
+  // The endpoints the server holds; subscribe and unsubscribe change it like the backend.
+  pushEndpoints = new Set<string>();
+  // When set, the next subscribePush is refused with it.
+  subscribeError: Error | null = null;
+  testAlertAnswer: TestAlertReport | Error = {
+    delivered: 1,
+    removed: 0,
+    failed: 0,
+  };
+  testAlertsSent = 0;
+
+  pushSetup(): Promise<PushSetup> {
+    return settle(this.pushSetupAnswer);
+  }
+
+  subscribePush(subscription: DeviceSubscription): Promise<void> {
+    const error = this.subscribeError;
+    this.subscribeError = null;
+    if (error) return Promise.reject(error);
+    this.pushEndpoints.add(subscription.endpoint);
+    return Promise.resolve();
+  }
+
+  unsubscribePush(endpoint: string): Promise<void> {
+    this.pushEndpoints.delete(endpoint);
+    return Promise.resolve();
+  }
+
+  sendTestAlert(): Promise<TestAlertReport> {
+    this.testAlertsSent += 1;
+    return settle(this.testAlertAnswer);
   }
 
   health(): Promise<Health> {

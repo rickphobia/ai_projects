@@ -178,7 +178,7 @@ The title screen carries a plain content note and a Sources page. Every factual 
 
 ### Content rules (the five ground rules)
 
-- Every factual claim and every piece of state vocabulary links to an entry in the sources register. The Generator and the whip are the game's own invention, not documented practice; the game never presents them as fact and the Sources page doesn't cite them.
+- Every factual claim and every piece of state vocabulary links to an entry in the sources register. The Generator and the whip are the game's own invention, not documented practice, and so are Harmony Audits and any penalty for keeping cotton back (ticket 31 found no source documenting audits of pickers or such penalties); the game never presents them as fact and the Sources page doesn't cite them.
 - The Worker and anyone else shown are people with dignity: no caricature in looks or speech, ever.
 - Nothing graphic: no blood, wounds or gore. Punishment is shown as absence, time and loss, with one exception the owner chose on 2026-10-07: the Overseer whips the Worker at the Generator, shown as a whip crack, a flinch and a stagger.
 - The title screen states: "Happy Cotton depicts the forced labour of Uyghurs in Xinjiang and the separation of their families, based on documented reporting. Sources are listed in the game." No age gate.

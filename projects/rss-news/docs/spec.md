@@ -228,7 +228,7 @@ One config module validates every setting at startup and fails with a clear mess
 - the Anthropic API key
 - the Gmail address and app password
 - the IBKR Flex token and query ID
-- the VAPID key pair for Web Push
+- the VAPID private key for Web Push (the public key is worked out from it). It is optional: without it Alerts are off and say so, and the rest of the app runs (decision 0005)
 - the session secret
 - the password hash
 
@@ -270,7 +270,7 @@ The monthly limit defaults to 100 USD.
 | Chats | list, create, send message (streamed), show |
 | Dictionary | look up |
 | Notes | list, create, update, delete, export as Markdown |
-| Push | subscribe, unsubscribe, send test Alert |
+| Push | set-up (whether Alerts are available, and the public key), subscribe, unsubscribe, send test Alert |
 | Spending | this month's summary |
 | Health | `/healthz` (no login) |
 
