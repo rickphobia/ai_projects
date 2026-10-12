@@ -35,6 +35,9 @@ def test_defaults_apply_when_only_the_pwa_folder_and_secrets_are_set(pwa_dir: Pa
         login_max_failures=5,
         login_lockout=timedelta(minutes=15),
         fetch_interval=timedelta(minutes=15),
+        reddit_gap=timedelta(seconds=10),
+        reddit_interval=timedelta(minutes=60),
+        fetch_max_backoff=timedelta(hours=24),
         fetch_timeout=timedelta(seconds=20),
         user_agent="rss-news/0.1 (+https://rickphobia.com/ai-projects/rss-news/)",
     )
@@ -56,6 +59,9 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
             "RSS_NEWS_LOGIN_MAX_FAILURES": "3",
             "RSS_NEWS_LOGIN_LOCKOUT_MINUTES": "60",
             "RSS_NEWS_FETCH_INTERVAL_MINUTES": "30",
+            "RSS_NEWS_REDDIT_GAP_SECONDS": "20",
+            "RSS_NEWS_REDDIT_INTERVAL_MINUTES": "120",
+            "RSS_NEWS_FETCH_MAX_BACKOFF_HOURS": "6",
             "RSS_NEWS_FETCH_TIMEOUT_SECONDS": "5",
             "RSS_NEWS_USER_AGENT": "my-reader/1.0",
         }
@@ -76,6 +82,9 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         login_max_failures=3,
         login_lockout=timedelta(minutes=60),
         fetch_interval=timedelta(minutes=30),
+        reddit_gap=timedelta(seconds=20),
+        reddit_interval=timedelta(minutes=120),
+        fetch_max_backoff=timedelta(hours=6),
         fetch_timeout=timedelta(seconds=5),
         user_agent="my-reader/1.0",
     )
@@ -100,6 +109,12 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         ("RSS_NEWS_LOGIN_MAX_FAILURES", "x", "RSS_NEWS_LOGIN_MAX_FAILURES must be a whole"),
         ("RSS_NEWS_FETCH_INTERVAL_MINUTES", "0", "RSS_NEWS_FETCH_INTERVAL_MINUTES must be at"),
         ("RSS_NEWS_FETCH_TIMEOUT_SECONDS", "x", "RSS_NEWS_FETCH_TIMEOUT_SECONDS must be a whole"),
+        ("RSS_NEWS_REDDIT_GAP_SECONDS", "0", "RSS_NEWS_REDDIT_GAP_SECONDS must be at least 1"),
+        (
+            "RSS_NEWS_FETCH_MAX_BACKOFF_HOURS",
+            "x",
+            "RSS_NEWS_FETCH_MAX_BACKOFF_HOURS must be a whole",
+        ),
         ("RSS_NEWS_USER_AGENT", " ", "RSS_NEWS_USER_AGENT must not be blank"),
     ],
 )

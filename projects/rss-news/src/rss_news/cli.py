@@ -28,12 +28,15 @@ def serve(settings: Settings) -> int:
     except DatabaseError as error:
         logger.error("database unusable: %s", error)
         return 2
-    feed_fetcher = HttpFeedFetcher(user_agent=settings.user_agent, timeout=settings.fetch_timeout)
+    clock = SystemClock()
+    feed_fetcher = HttpFeedFetcher(
+        user_agent=settings.user_agent, timeout=settings.fetch_timeout, clock=clock
+    )
     wiring = build_app(
         settings,
         database=database,
         feed_fetcher=feed_fetcher,
-        clock=SystemClock(),
+        clock=clock,
         starter_folders=STARTER_FOLDERS,
         run_tick_loop=True,
     )
