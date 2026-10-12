@@ -32,6 +32,7 @@ import java.time.ZoneId
  * thread, because each one is a database query.
  */
 @Composable
+@Suppress("LongMethod") // one branch per screen; keeping the navigation in one place reads better than splitting it
 fun DuitLogApp(
     ledger: Ledger,
     versionName: String,
@@ -43,6 +44,7 @@ fun DuitLogApp(
 ) {
     var month by rememberSaveable { mutableStateOf(ledger.currentMonth()) }
     var adding by rememberSaveable { mutableStateOf(false) }
+    var inCategories by rememberSaveable { mutableStateOf(false) }
     // The id of the Transaction whose details are open, if any.
     var openId by rememberSaveable { mutableStateOf<Long?>(null) }
     // Bumped after a save, so the Month is read again.
@@ -51,7 +53,12 @@ fun DuitLogApp(
     val monthState by produceMonth(ledger, month, saves)
 
     val editing = openId
-    if (editing != null) {
+    if (inCategories) {
+        CategoriesShown(ledger, onBack = {
+            saves++
+            inCategories = false
+        })
+    } else if (editing != null) {
         BackHandler { openId = null }
         OpenTransaction(
             ledger = ledger,
@@ -86,15 +93,27 @@ fun DuitLogApp(
             onMonthChange = { month = it },
             onAdd = { adding = true },
             onOpen = { openId = it.id },
-            menu = { AppMenu(versionName, buildNumber, onOpenRecorder, onOpenGuide, onShareLog) },
-            banner = {
-                if (!access.granted) {
-                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        AccessMissingBanner(onFix = access.onFix)
-                    }
-                }
+            menu = {
+                AppMenu(
+                    versionName,
+                    buildNumber,
+                    { inCategories = true },
+                    onOpenRecorder,
+                    onOpenGuide,
+                    onShareLog,
+                )
             },
+            banner = { AccessMissing(access) },
         )
+    }
+}
+
+@Composable
+private fun AccessMissing(access: AccessBanner) {
+    if (!access.granted) {
+        Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            AccessMissingBanner(onFix = access.onFix)
+        }
     }
 }
 
@@ -146,11 +165,50 @@ private fun produceMonth(
         }
 }
 
+/**
+ * The Categories screen, reading both lists again after every change. [onBack] should read the
+ * Month again, as a rename or a moved Transaction changes what it shows.
+ */
 @Composable
-private fun produceCategories(ledger: Ledger) =
-    produceState(emptyMap<Kind, List<Category>>()) {
-        value = withContext(Dispatchers.IO) { Kind.entries.associateWith(ledger::categories) }
+private fun CategoriesShown(
+    ledger: Ledger,
+    onBack: () -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    var changes by remember { mutableIntStateOf(0) }
+    val categories by produceCategories(ledger, changes)
+
+    // Runs a change off the main thread, logs [done] (ids only, never names), then reads the lists again.
+    suspend fun change(
+        done: String,
+        change: () -> Unit,
+    ) {
+        withContext(Dispatchers.IO) { change() }
+        AppLog.i(done)
+        changes++
     }
+    val actions =
+        CategoryActions(
+            add = { kind, name -> change("added a $kind Category") { ledger.categoryLists.add(kind, name) } },
+            rename = { id, name -> change("renamed Category $id") { ledger.categoryLists.rename(id, name) } },
+            transactionCount = { id -> withContext(Dispatchers.IO) { ledger.categoryLists.transactionCount(id) } },
+            delete = { id, moveTo ->
+                change(
+                    "deleted Category $id, moving its Transactions to $moveTo",
+                ) { ledger.categoryLists.delete(id, moveTo) }
+            },
+        )
+    CategoriesScreen(categories, actions, onBack)
+}
+
+/** Both Category lists, read off the main thread; [changes] changing reads them again. */
+@Composable
+private fun produceCategories(
+    ledger: Ledger,
+    changes: Int = 0,
+) = produceState(emptyMap<Kind, List<Category>>(), changes) {
+    value = withContext(Dispatchers.IO) { Kind.entries.associateWith(ledger::categories) }
+}
 
 /** Whether notification access is on, and how to fix it when it isn't. */
 data class AccessBanner(

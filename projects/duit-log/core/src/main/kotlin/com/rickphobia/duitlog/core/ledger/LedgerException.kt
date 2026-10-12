@@ -25,4 +25,18 @@ sealed class LedgerException(
     class UnknownTransaction(
         transactionId: Long,
     ) : LedgerException("no Transaction with id $transactionId")
+
+    class CategoryNameMissing : LedgerException("a Category needs a name")
+
+    /** Names are compared ignoring case, so "f&b" can't sit next to "F&B". */
+    class CategoryNameTaken(
+        kind: Kind,
+    ) : LedgerException("the $kind list already has a Category with that name")
+
+    class OtherIsFixed : LedgerException("Other can't be renamed or deleted")
+
+    /** Transactions can only move to a different Category in the same list. */
+    class BadMoveTarget(
+        categoryId: Long,
+    ) : LedgerException("Transactions can't move to Category $categoryId")
 }

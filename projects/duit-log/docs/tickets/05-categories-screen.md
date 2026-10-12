@@ -4,13 +4,15 @@
 
 **Blocked by:** 04 (Edit, delete and Exclude)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core/categories, app/screens
 
 **Effort:** low
 
-- [ ] Ledger Category operations: list, add, rename, delete with a move target; project errors for a duplicate name and for touching Other
-- [ ] Tests: deleting a Category moves its Transactions to the chosen one and the Month's per-Category totals follow; Other refuses delete and rename
-- [ ] Categories screen with both lists, reachable from the home screen
-- [ ] On-phone check: rename F&B, add a Category, delete one that has Transactions and move them
+- [x] Ledger Category operations: list, add, rename, delete with a move target; project errors for a duplicate name and for touching Other
+- [x] Tests: deleting a Category moves its Transactions to the chosen one and the Month's per-Category totals follow; Other refuses delete and rename
+- [x] Categories screen with both lists, reachable from the home screen
+- [ ] On-phone check (owner, on the Preview APK): rename F&B, add a Category, delete one that has Transactions and move them
+
+**Owner steps:** the on-phone check above.
