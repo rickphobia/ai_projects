@@ -3,9 +3,10 @@ extends RefCounted
 ## A read-only snapshot of one item in the store, for The App to show. Changing the Farm never
 ## changes a view already handed out; ask the Farm for a new one.
 
-enum Kind { UPGRADE, PRIVILEGE }
+enum Kind { UPGRADE, LAND, PRIVILEGE }
 
-## Which item: an Upgrade (Farm.GENERATOR, Farm.TOOLS) or a Privilege (Farm.REST_HOUR).
+## Which item: an Upgrade (Farm.GENERATOR, Farm.TOOLS), land (Farm.LAND) or a Privilege
+## (Farm.REST_HOUR, Farm.CALL_HOME).
 var id: StringName:
 	get:
 		return _id
@@ -20,7 +21,8 @@ var tier: int:
 var top_tier: int:
 	get:
 		return _top_tier
-## Labour Points the next tier (or the Privilege) costs; 0 when fully upgraded.
+## Labour Points the next tier (or Plot, or the Privilege) costs; 0 when fully upgraded or
+## fully bought.
 var price: int:
 	get:
 		return _price
@@ -33,8 +35,8 @@ var effect: float:
 var current_effect: float:
 	get:
 		return _current_effect
-## How many more picks the Quota demands from the next Shift if the next tier is bought; 0 when
-## fully upgraded and for a Privilege.
+## How many more picks the Quota demands from the next Shift if the next tier or Plot is
+## bought; 0 when fully upgraded or fully bought, and for a Privilege.
 var quota_rise: int:
 	get:
 		return _quota_rise
@@ -52,6 +54,7 @@ var _effect := 0.0
 var _current_effect := 0.0
 var _quota_rise := 0
 var _refusal: StringName
+var _fully_bought := false
 
 
 func _init(item_id: StringName, item_kind: Kind, item_price: int, why_not: StringName) -> void:
@@ -80,5 +83,20 @@ static func upgrade(
 	return view
 
 
+## A view of the land: the next Plot's price and Quota rise, or none when `fully_bought`.
+static func land(
+	item_id: StringName, item_price: int, rise: int, fully_bought: bool, why_not: StringName
+) -> StoreItemView:
+	var view := StoreItemView.new(item_id, Kind.LAND, item_price, why_not)
+	view._quota_rise = rise
+	view._fully_bought = fully_bought
+	return view
+
+
 func is_fully_upgraded() -> bool:
 	return _kind == Kind.UPGRADE and _tier >= _top_tier
+
+
+## The land is at its largest: no Plot is left to buy.
+func is_fully_bought() -> bool:
+	return _kind == Kind.LAND and _fully_bought

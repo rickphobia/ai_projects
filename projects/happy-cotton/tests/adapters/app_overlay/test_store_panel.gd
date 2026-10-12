@@ -1,5 +1,5 @@
 extends GutTest
-## The store panel shows what the store sells: Upgrades and Privileges in their own sections,
+## The store panel shows what the store sells: Upgrades, land and Privileges in their own sections,
 ## each with its price, an Upgrade's tier, effect and Quota rise, the reason an item can't be
 ## bought, and a fully upgraded item marked as such. Its buttons only ask.
 
@@ -112,3 +112,41 @@ func test_close_hides_the_store() -> void:
 	(_panel.find_child("CloseButton", true, false) as Button).pressed.emit()
 
 	assert_false(_panel.visible)
+
+
+func _land(fully_bought: bool, refusal: StringName) -> StoreItemView:
+	if fully_bought:
+		return StoreItemView.land(Farm.LAND, 0, 0, true, Farm.FULLY_BOUGHT)
+	return StoreItemView.land(Farm.LAND, 50, 1, false, refusal)
+
+
+func test_land_shows_the_next_plots_price_and_quota_rise_in_its_own_section() -> void:
+	_show([_generator(0, &""), _land(false, &""), _rest_hour(&"")])
+
+	var row := _panel.row(Farm.LAND)
+	var texts := _texts(row)
+	assert_has(texts, "Plot of land")
+	assert_true(texts.any(func(text: String) -> bool: return text.contains("Quota +1")), "rise")
+	assert_eq(row.button().text, "50 Labour Points")
+	assert_false(row.button().disabled)
+	assert_ne(row.get_parent(), _panel.row(Farm.GENERATOR).get_parent())
+	assert_ne(row.get_parent(), _panel.row(Farm.REST_HOUR).get_parent())
+
+
+func test_fully_bought_land_says_so_on_its_button_only() -> void:
+	_show([_land(true, Farm.FULLY_BOUGHT)])
+
+	var row := _panel.row(Farm.LAND)
+	assert_eq(row.button().text, AppText.STORE_FULLY_BOUGHT)
+	assert_true(row.button().disabled)
+	assert_eq(row.refusal_text(), "")
+	assert_false(_texts(row).any(func(text: String) -> bool: return text.contains("Quota +")))
+
+
+func test_the_land_button_asks_for_the_next_plot() -> void:
+	_show([_land(false, &"")])
+	watch_signals(_panel)
+
+	_panel.row(Farm.LAND).button().pressed.emit()
+
+	assert_signal_emitted(_panel, "land_pressed")

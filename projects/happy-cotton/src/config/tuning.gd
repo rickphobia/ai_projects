@@ -47,6 +47,10 @@ const LIMITS: Dictionary = {
 	"first_land_rows": [1.0, 20.0],
 	"largest_land_columns": [1.0, 20.0],
 	"largest_land_rows": [1.0, 20.0],
+	"first_plot_price": [1.0, 1000000.0],
+	"plot_price_rise": [1.0, 1000000.0],
+	"plot_quota_rise": [1.0, 10000.0],
+	"plot_yield_per_shift": [1.0, 10000.0],
 }
 ## Fields that count things (picks, points), so they must be whole numbers.
 const WHOLE_NUMBERS: Array[String] = [
@@ -66,6 +70,10 @@ const WHOLE_NUMBERS: Array[String] = [
 	"first_land_rows",
 	"largest_land_columns",
 	"largest_land_rows",
+	"first_plot_price",
+	"plot_price_rise",
+	"plot_quota_rise",
+	"plot_yield_per_shift",
 ]
 ## What a Generator tier's growth multiplier is measured against: no Upgrade at all.
 const NO_UPGRADE_GROWTH := 1.0
@@ -177,6 +185,15 @@ const MOST_TIER_QUOTA_RISE := 10000.0
 ## The most land the Farm can grow to, in columns and rows. At least the first land.
 @export var largest_land_columns: float = NAN
 @export var largest_land_rows: float = NAN
+## Labour Points the first Plot bought costs; each one after costs plot_price_rise more.
+@export var first_plot_price: float = NAN
+@export var plot_price_rise: float = NAN
+## How many more picks the Quota demands for each Plot bought, from the Shift after it was
+## bought. Less than plot_yield_per_shift, so land always leaves a margin.
+@export var plot_quota_rise: float = NAN
+## The cotton a Plot should yield in a Shift, in picks. The state's own reckoning of what the
+## land is worth; every Plot bought must yield more than it adds to the Quota.
+@export var plot_yield_per_shift: float = NAN
 ## The Generator Upgrade's tiers, bought in order: each one's price, growth per second of
 ## running, and Quota rise. At least one tier.
 @export var generator_tiers: Array[GeneratorTier] = []
@@ -233,11 +250,15 @@ func problems() -> Array[String]:
 	return found
 
 
-## The largest Farm must take in the first one, in both columns and rows.
+## The largest Farm must take in the first one, in both columns and rows, and a Plot must yield
+## more in a Shift than it adds to the Quota.
 func _land_problems() -> Array[String]:
 	var found: Array[String] = []
 	found.append_array(_largest_land_problems("columns", largest_land_columns, first_land_columns))
 	found.append_array(_largest_land_problems("rows", largest_land_rows, first_land_rows))
+	if plot_yield_per_shift <= plot_quota_rise:
+		var margin_problem := "plot_yield_per_shift is %d, but it must be more than plot_quota_rise (%d)"
+		found.append(margin_problem % [plot_yield_per_shift, plot_quota_rise])
 	return found
 
 

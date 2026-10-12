@@ -58,3 +58,22 @@ func test_an_unworked_cell_hits_no_plot() -> void:
 	var bigger := PlotGrid.new(FieldLand.grown(1, 1), FRONT_LEFT, 2.0, 1.6)
 
 	assert_eq(bigger.index_at(Vector3(5.0, 0.0, -4.0)), -1, "the back-right cell has no plot")
+
+
+func test_the_first_land_has_no_unworked_ground() -> void:
+	assert_eq(_grid.unworked_centres(), [] as Array[Vector3])
+
+
+func test_the_cells_of_a_bought_strip_without_a_plot_are_unworked_ground() -> void:
+	var bigger := PlotGrid.new(FieldLand.grown(1, 1), FRONT_LEFT, 2.0, 1.6)
+
+	# The new column's cells behind its front Plot, and the new row's cells right of its left one.
+	var expected: Array[Vector3] = [
+		Vector3(5.0, 0.0, 0.0),
+		Vector3(5.0, 0.0, -2.0),
+		Vector3(-1.0, 0.0, -4.0),
+		Vector3(1.0, 0.0, -4.0),
+		Vector3(3.0, 0.0, -4.0),
+		Vector3(5.0, 0.0, -4.0),
+	]
+	assert_eq(bigger.unworked_centres(), expected)

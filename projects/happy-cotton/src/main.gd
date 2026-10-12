@@ -144,6 +144,7 @@ func _begin(farm: Farm) -> void:
 	_field.generator_tapped.connect(_on_generator_tapped)
 	_app.upgrade_pressed.connect(_on_upgrade_pressed)
 	_app.privilege_pressed.connect(_on_privilege_pressed)
+	_app.land_pressed.connect(_on_land_pressed)
 	_save("start")
 	_show_farm()
 
@@ -220,6 +221,17 @@ func _on_privilege_pressed(id: StringName) -> void:
 	if result.happened:
 		GameLog.info("privilege bought", {"item": id, "price": item.price})
 	_after_purchase(id, item, result)
+
+
+## The rules decide whether he gets the next Plot; a new one grows the field round it.
+func _on_land_pressed() -> void:
+	var item := _store_item(Farm.LAND)
+	var result := _farm.buy_plot()
+	if result.happened:
+		var bought := {"plot": _farm.land().plot_count(), "price": item.price}
+		GameLog.info("plot bought", bought)
+		_field.show_land(_farm.land())
+	_after_purchase(Farm.LAND, item, result)
 
 
 func _after_purchase(id: StringName, item: StoreItemView, result: CommandResult) -> void:
@@ -342,7 +354,13 @@ func _show_app() -> void:
 		_log_message(message)
 		if (
 			message.key
-			in [Farm.QUOTA_MET, Farm.GENERATOR_UPGRADED, Farm.TOOLS_UPGRADED, Farm.REST_STARTED]
+			in [
+				Farm.QUOTA_MET,
+				Farm.GENERATOR_UPGRADED,
+				Farm.TOOLS_UPGRADED,
+				Farm.PLOT_BOUGHT,
+				Farm.REST_STARTED,
+			]
 		):
 			_app.celebrate()
 		if message.key == Farm.PAY_SLIP:

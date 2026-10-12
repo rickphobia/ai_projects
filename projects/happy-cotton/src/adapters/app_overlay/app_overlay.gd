@@ -16,6 +16,7 @@ extends CanvasLayer
 ## A store item's buy button was pressed; the rules decide whether he gets it.
 signal upgrade_pressed(id: StringName)
 signal privilege_pressed(id: StringName)
+signal land_pressed
 ## The Settings button was pressed.
 signal settings_pressed
 
@@ -79,6 +80,7 @@ func _ready() -> void:
 	_store.visible = false
 	_store.upgrade_pressed.connect(upgrade_pressed.emit)
 	_store.privilege_pressed.connect(privilege_pressed.emit)
+	_store.land_pressed.connect(land_pressed.emit)
 	_root.add_child(_store)
 	_powered_parts = [top_bar, mascot_corner, _store_button, _pay_slip, _store]
 	_confetti = Confetti.new()

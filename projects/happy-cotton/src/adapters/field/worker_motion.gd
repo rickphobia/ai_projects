@@ -109,6 +109,15 @@ func _init(body: Node3D, player: AnimationPlayer, track: TrackPath, gate: Vector
 	_play(STANDING)
 
 
+## The track grew with the Farm. He keeps his share of the lap on the new one, so he stays in
+## step with the lap clock; the lap line, and so the way to it, never moves.
+func follow_track(track: TrackPath) -> void:
+	_track_distance *= track.length() / _track.length()
+	_track = track
+	if _on_track:
+		_body.position = _track.point_at(_track_distance)
+
+
 ## Takes the rules' latest view of the Worker; update() moves him to match it.
 func show(view: WorkerView) -> void:
 	_slump(view.exhaustion / Exhaustion.MOST)

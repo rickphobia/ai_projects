@@ -37,17 +37,20 @@ const ON_A_CALL := "On a call home  ·  {time} left"
 const STORE_BUTTON := "Store"
 const STORE_TITLE := "Happy Store"
 const STORE_UPGRADES := "Upgrades"
+const STORE_LAND := "Land"
 const STORE_PRIVILEGES := "Privileges"
 const STORE_CLOSE := "Close"
 const STORE_PRICE := "{price} Labour Points"
 const STORE_TIER := "Tier {tier} of {top_tier}"
 const STORE_FULLY_UPGRADED := "Fully upgraded!"
+const STORE_FULLY_BOUGHT := "Fully bought!"
 ## The store is honest about the Quota rise: the player sees the trade and takes it anyway.
 const STORE_QUOTA_RISE := "Quota +{quota_rise} from next Shift. More to give, more to be proud of!"
 ## What each item is called in the store, and The App's pitch for it (values: effect, current).
 const STORE_NAMES: Dictionary[StringName, String] = {
 	Farm.GENERATOR: "Generator",
 	Farm.TOOLS: "Tools",
+	Farm.LAND: "Plot of land",
 	Farm.REST_HOUR: "Rest hour",
 	Farm.CALL_HOME: "Call home",
 }
@@ -59,6 +62,7 @@ const STORE_BLURBS: Dictionary[StringName, String] = {
 		"Sharper tools for faster hands! Tired picks take ×{effect} the time and drop"
 		+ " ×{effect} as much cotton (now ×{current})."
 	),
+	Farm.LAND: "More land for the Farm, one Plot at a time! Every Plot is the state's gain.",
 	Farm.REST_HOUR: "A short rest, kindly granted. The Shift goes on while you recover.",
 	Farm.CALL_HOME: "Hear your Children's voices! The Shift goes on while you talk.",
 }
@@ -159,6 +163,15 @@ static func lines() -> Dictionary[StringName, AppLine]:
 				+ " rises by {quota_rise} from next Shift. Better tools, bigger dreams!"
 			)
 		),
+		# The Worker's own Labour Points buy land that is plainly the state's, not his.
+		Farm.PLOT_BOUGHT:
+		AppLine.new(
+			(
+				"Glorious news! Plot {plot} joins the people's Farm, bought with your {price}"
+				+ " Labour Points. The state grows richer by your hand! Your Quota rises by"
+				+ " {quota_rise} from next Shift: more land, more to give!"
+			)
+		),
 		Farm.PAY_SLIP:
 		AppLine.new(
 			"Pay day! Your Shift {shift} pay slip is here. Thank you for your contribution!"
@@ -207,6 +220,8 @@ static func store_refusals() -> Dictionary[StringName, AppLine]:
 		Farm.NOT_ENOUGH_LABOUR_POINTS:
 		AppLine.new("This costs {price} Labour Points. You have {points}. Keep picking!"),
 		Farm.FULLY_UPGRADED: AppLine.new("Fully upgraded! The very best the Farm can give you."),
+		Farm.FULLY_BOUGHT:
+		AppLine.new("The Farm is complete! Every Plot is already working for the people."),
 	}
 
 
