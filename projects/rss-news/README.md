@@ -4,7 +4,7 @@ A personal news briefing for one owner: it reads many Sources (RSS and Atom feed
 
 ## Status
 
-`in progress`: feeds arrive in the Inbox and get scored. On first run the starter Sources from [`docs/starter-sources.md`](docs/starter-sources.md) are loaded; every minute the server fetches the Sources that are due, stores new Items once each, and has Claude Haiku give each new Item an Importance from 1 to 5 and a one-line English summary. Every AI call is recorded in a spending ledger. The owner signs in with one password and sees the Inbox, newest or most important first, filtered by Folder and Importance, and manages Sources and Folders: add a feed URL or a subreddit, create, rename and delete Folders, move, pause or remove a Source, and see each Source's last success and last error. It installs to the home screen from Chrome, and its service worker caches the app shell (never API answers). Deployable to the Beelink. Fetching is polite: Reddit requests are spaced out, retry delays are honoured and failing Sources back off. The home screen shows the latest Briefing and a Brief me button with its estimated cost: it writes a Briefing of all Sources or one Folder over the last 24 hours, 7 days or 30 days (the longer windows only read Items of Importance 3 or higher), a section per Folder with each point linking to its Items, and shows the saved one with a Regenerate button when pressed again the same day. Items ticked in the Inbox can be briefed with Brief these, and the Briefings screen lists every saved Briefing. The Settings screen shows this month's AI cost by feature; the app warns at 80% of the monthly limit, and at 100% Briefings stop while scoring keeps running. No Chat yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
+`in progress`: feeds arrive in the Inbox and get scored. On first run the starter Sources from [`docs/starter-sources.md`](docs/starter-sources.md) are loaded; every minute the server fetches the Sources that are due, stores new Items once each, and has Claude Haiku give each new Item an Importance from 1 to 5 and a one-line English summary. Every AI call is recorded in a spending ledger. The owner signs in with one password and sees the Inbox, newest or most important first, filtered by Folder and Importance, and manages Sources and Folders: add a feed URL or a subreddit, create, rename and delete Folders, move, pause or remove a Source, and see each Source's last success and last error. It installs to the home screen from Chrome, and its service worker caches the app shell (never API answers). Deployable to the Beelink. Fetching is polite: Reddit requests are spaced out, retry delays are honoured and failing Sources back off. The home screen shows the latest Briefing and a Brief me button with its estimated cost: it writes a Briefing of all Sources or one Folder over the last 24 hours, 7 days or 30 days (the longer windows only read Items of Importance 3 or higher), a section per Folder with each point linking to its Items, and shows the saved one with a Regenerate button when pressed again the same day. Items ticked in the Inbox can be briefed with Brief these, and the Briefings screen lists every saved Briefing. The Settings screen shows this month's AI cost by feature; the app warns at 80% of the monthly limit, and at 100% Briefings stop while scoring keeps running. Settings also turns Alerts on for the phone and sends a test Alert, which opens its Item when tapped; the Alert rules (Holdings, Watchlist, Importance 5) come next. No Chat yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
 
 ## Requirements
 
@@ -23,6 +23,7 @@ cp .env.example .env
 uv run rss-news hash-password    # asks for the password twice; paste the output into RSS_NEWS_PASSWORD_HASH
 openssl rand -hex 32             # paste into RSS_NEWS_SESSION_SECRET
 # and put your Anthropic API key in RSS_NEWS_ANTHROPIC_API_KEY
+uv run rss-news vapid-key        # optional, for Alerts: paste the line it prints into .env
 ```
 
 For a local run over plain http, also set `RSS_NEWS_SECURE_COOKIES=false` in `.env`, or the browser won't send the session cookie back. Every other value is a working default.
@@ -71,7 +72,7 @@ The app runs as a Docker container on the Beelink, on the shared `homelab_defaul
 
 Needs `git`, `docker` (your user can run it without sudo) and `flock` (already on Ubuntu).
 
-1. **Env file** (the secrets file), outside the repo: `mkdir -p ~/homelab/env && cp projects/rss-news/.env.example ~/homelab/env/rss-news.env && chmod 600 ~/homelab/env/rss-news.env`. The deploy forces `RSS_NEWS_HOST`, `RSS_NEWS_DATABASE_PATH` and `RSS_NEWS_PWA_DIR` to the container's values, so leave the rest as is, except the two sign-in secrets: set `RSS_NEWS_PASSWORD_HASH` to the output of `docker run --rm -it rss-news:<commit> rss-news hash-password` (or `uv run rss-news hash-password` in a checkout), `RSS_NEWS_SESSION_SECRET` to `openssl rand -hex 32` and `RSS_NEWS_ANTHROPIC_API_KEY` to your Anthropic API key. Without them the container won't start. Later tickets add more secrets (such as push keys) to the Configuration table below; put them in this file and never commit them.
+1. **Env file** (the secrets file), outside the repo: `mkdir -p ~/homelab/env && cp projects/rss-news/.env.example ~/homelab/env/rss-news.env && chmod 600 ~/homelab/env/rss-news.env`. The deploy forces `RSS_NEWS_HOST`, `RSS_NEWS_DATABASE_PATH` and `RSS_NEWS_PWA_DIR` to the container's values, so leave the rest as is, except the two sign-in secrets: set `RSS_NEWS_PASSWORD_HASH` to the output of `docker run --rm -it rss-news:<commit> rss-news hash-password` (or `uv run rss-news hash-password` in a checkout), `RSS_NEWS_SESSION_SECRET` to `openssl rand -hex 32` and `RSS_NEWS_ANTHROPIC_API_KEY` to your Anthropic API key. Without them the container won't start. For Alerts, also add the line `docker run --rm rss-news:<commit> rss-news vapid-key` (or `uv run rss-news vapid-key`) prints; without it everything else works and Settings says Alerts aren't set up. Keep the key: a new one turns Alerts off on every phone until they're turned on again. Later tickets add more secrets to the Configuration table below; put them in this file and never commit them.
 2. **Data folder** (the SQLite file, kept across deploys and rollbacks): `mkdir -p ~/homelab/data/rss-news`. The container runs as your user, so it can write there.
 3. **nginx.** Save this as `~/homelab/nginx/projects/rss-news.conf` (included inside the existing server block), then check and reload: `docker exec portfolio-nginx nginx -t && docker exec portfolio-nginx nginx -s reload`.
 
@@ -138,6 +139,27 @@ Logs: `docker logs rss-news-<tag>-<n>`, or Dozzle.
 
 `scripts/try-pr.sh <PR number>` (at the repo root) checks the PR out in its own worktree, builds the PWA and runs the backend on `localhost:8000` with a throwaway database. The Beelink preview timer (`scripts/previews.sh`) does this for every open rss-news PR and links it in the PR body. The app answers both at `/` and under `/ai-projects/rss-news/`. A preview signs in with the password `preview` (set `TRY_PR_RSS_NEWS_PASSWORD` to change it), not the real site's.
 
+## Alerts on the phone
+
+Alerts are push notifications about one Item. The server needs `RSS_NEWS_VAPID_PRIVATE_KEY` (see Setup); the phone needs the app installed from Chrome (Chrome's menu → Add to home screen → Install).
+
+1. Open the installed app, sign in, and go to **Settings**.
+2. Tick **Alerts on this phone** and allow notifications when Android asks.
+3. Press **Send a test Alert**. It should arrive within seconds; tapping it opens the newest Item (or the app, before any Items arrive).
+
+If Settings says notifications are blocked, allow them in Android's Settings → Apps → rss-news (or Chrome) → Notifications, then tick the box again.
+
+### The Honor battery setting
+
+MagicOS stops apps it thinks are idle, which holds Alerts back until the phone is next unlocked. Push messages reach the app through Chrome, so let Chrome run in the background. The names below are from MagicOS 8 and 9 and vary a little between versions:
+
+1. Settings → Battery → **App launch** (also under Settings → Apps → App launch).
+2. Find **Chrome**, switch off **Manage automatically**, and in the box that opens leave **Auto-launch**, **Secondary launch** and **Run in background** all on. Do the same for **rss-news** if it is listed.
+3. Settings → Battery → More battery settings → turn on **Stay connected when device is asleep**, if your version has it.
+4. Leave Power saving mode off; it holds back notifications as well.
+
+Then send a test Alert with the screen locked to check. The server asks for high urgency on every Alert, which lets Android wake the phone from Doze for it, but MagicOS's own app launch control comes first.
+
 ## Configuration
 
 Settings come from environment variables, checked at startup (`src/rss_news/config.py`). A bad or missing value stops `serve` with an error naming the variable. `.env.example` lists them all with their defaults.
@@ -177,6 +199,8 @@ Settings come from environment variables, checked at startup (`src/rss_news/conf
 | `RSS_NEWS_MODEL_PRICES` | no (Haiku, Sonnet and Opus 5.5 list prices) | `model=input/output,...` in USD per million tokens, for the spending ledger |
 | `RSS_NEWS_WEB_SEARCH_PRICE_USD` | no (`0.01`) | USD per web search, for the spending ledger |
 | `RSS_NEWS_MONTHLY_LIMIT_USD` | no (`100`) | Monthly AI budget in USD: a warning from 80%, Briefings refused from 100%; scoring never stops |
+| `RSS_NEWS_VAPID_PRIVATE_KEY` | no (Alerts off) | Signs Web Push messages, from `rss-news vapid-key`. The public key is worked out from it. Changing it turns Alerts off on every phone until they're turned on again |
+| `RSS_NEWS_VAPID_SUBJECT` | no (`https://rickphobia.com/ai-projects/rss-news/`) | A `mailto:` or `https://` URL push services can contact about our messages |
 
 ## How it works
 
@@ -196,6 +220,7 @@ Settings come from environment variables, checked at startup (`src/rss_news/conf
 - **Managing Sources and Folders** (`sources/managing.py`, API in `web/sources.py`): `POST/PATCH/DELETE /api/folders[/<id>]` and `GET/POST/PATCH/DELETE /api/sources[/<id>]`. `GET /api/sources` includes each Source's `paused`, `last_success_at`, `last_error_at` and `last_error`. A new feed URL (`{"folder_id", "url", "name"?}`) is fetched once and refused with 422 if it doesn't answer with a feed; a subreddit (`{"folder_id", "subreddit"}`, `r/` optional) becomes `https://www.reddit.com/r/<name>/top/.rss?t=day` without a check, since Reddit often answers a lone request with 429. Deleting a Folder that still has Sources, or adding a URL twice, answers 409; an unknown id 404. Each refusal's `detail` is shown to the owner as is. Paused Sources are skipped by the tick; removing a Source deletes its Items.
 - The PWA (`pwa/`) is TypeScript built with Vite. Every backend call goes through the `ApiClient` in `pwa/src/api/client.ts`; screens get one passed in, and tests pass a fake. On any 401 the client sends the owner to the login screen. At start it asks `/api/session` and shows either login or the shell: a header saying whether the server is up, and a sidebar with Home, Inbox, Briefings, Sources, Settings, every Folder (each opens the Inbox filtered to it) and Sign out. The shell starts on the home screen (`pwa/src/screens/home.ts`): the latest Briefing, each point with links that open its Items in the Item view, and Brief me with a Folder (or All Sources) and a window, its estimated cost fetched again whenever they change, progress while it is written (read from the event stream by `pwa/src/api/event-stream.ts`), and Regenerate when today's saved one comes back. The Inbox button shows the Inbox (`pwa/src/screens/inbox.ts`): Items linking to the original page, each with its Importance (a dash until scored) and one-line summary, a search box (Enter or the Search button; clearing it shows everything again), filters for Folder and Importance, a Newest / Most important sort, and a Load more button. Each Item has a tick box; Brief these (with the count) opens the home screen offering a Briefing of exactly the ticked Items, and ticks stay while the filters change. The Briefings button lists every saved Briefing (`pwa/src/screens/briefings.ts`); choosing one shows it (`pwa/src/screens/briefing-view.ts`, shared with home). Unread Items carry a dot (labelled Unread); a title opens the Item view (`pwa/src/screens/item.ts`). The Sources button opens `pwa/src/screens/sources.ts`, and the Settings button opens `pwa/src/screens/settings.ts`: this month's AI cost, in total and by feature, against the monthly limit. From 80% of the limit the shell shows a spending banner above every screen.
 - **The look** (`pwa/src/styles.css`, modelled on oksskolten): one stylesheet holds every colour, spacing and type size as a CSS variable, with a light and a dark set picked by the device's `prefers-color-scheme`; no UI framework. On a wide screen (900px and up) the light grey sidebar sits on the left; on a phone it is a drawer opened from the ☰ Menu button and closed by the backdrop, Escape or choosing a screen. The current screen is highlighted. Every screen sits in one centred column about 42rem wide. Inbox rows, split by thin lines, show the title (bold while unread, with a dot), the summary cut to two lines, the Source, a short age (`now`, `5m`, `3h`, `6d`, then the date; the full time on hover) and the Importance, coloured from 3 up. The Item view, Reader view and Briefings use a larger font and taller lines. The browser bar (`theme-color` in `index.html`) is white in the light theme and near-black in the dark one. Screens only add class names; change the look in `styles.css`.
+- **Alerts** (`src/rss_news/alerts/push.py`, API in `web/alerts.py`, table `push_subscriptions`): `GET /api/push` gives `available` (false without a VAPID key), the `public_key` a browser subscribes with, and how many `subscriptions` are stored. `POST /api/push/subscriptions` takes the browser's `PushSubscription.toJSON()` (`endpoint` and `keys.p256dh`, `keys.auth`; the endpoint must be https) and stores it once per endpoint (204); `POST /api/push/unsubscribe` with `{"endpoint"}` forgets it. `POST /api/push/test` sends a test Alert to every stored subscription and answers `delivered`, `removed` and `failed`; 409 with a `detail` when Alerts aren't set up or no phone has them on. The PushSender (`adapters/push_sender.py`, pywebpush) encrypts the Alert's `{"title", "body", "item_id"}`, signs it with the VAPID key (RFC 8292), and sends it with high urgency and a 6-hour time to live. A push service answering 404 or 410 means the subscription is gone (the app was uninstalled or notifications were turned off), so it is deleted; any other failure keeps it. In the PWA, Settings ticks the box when this browser has a subscription and sends it to the server again each time it opens, so the two agree. The service worker (`pwa/src/pwa/service-worker.ts`) shows each push as a notification and, when it is tapped, opens `./?item=<id>` (reusing an open window); the app opens that Item with a Back to Home button and drops `?item` from the address. `sw.js` must not import a module the app imports: Vite would split it into a chunk a classic service worker can't load, so `vite.config.ts` fails the build if `sw.js` has any import.
 - **The Item view and Reader view** (`items/reading.py`, API in `web/items.py`): `GET /api/items/<id>` returns the Item as the Inbox lists it and marks it read (`read_at`, the first open's time; the Inbox's `read` field). The PWA shows the summary, Source, time and Importance with an Open the original page link at once, then asks `GET /api/items/<id>/reader` straight away and shows Loading the article… until it answers. The ArticleExtractor (`adapters/article_extractor.py`) fetches the page with `RSS_NEWS_USER_AGENT` and `RSS_NEWS_FETCH_TIMEOUT_SECONDS`, refuses bodies over 10 MB, and keeps only the article text (trafilatura). Nothing is stored: each open fetches again. When it fails the API answers 502 with a `detail` such as `Reader view isn't available: the page answered HTTP 403.`, which the PWA shows with the original link again.
 
 ## Folder layout
@@ -205,7 +230,7 @@ src/rss_news/
   config.py          settings from the environment, validated at startup
   json_logging.py    JSON-lines logs on stdout
   clock.py           the current time, faked in tests
-  cli.py             the entrypoint: `rss-news serve` and `rss-news hash-password`
+  cli.py             the entrypoint: `rss-news serve`, `rss-news hash-password` and `rss-news vapid-key`
   wiring.py          puts the stores, features and tick together over the adapters
   tick.py            the steps run every minute, and the background loop running them
   auth/              password hashes, signed session cookies, lockout
@@ -218,22 +243,27 @@ src/rss_news/
   briefings/         choosing the Items, fitting each Folder into the token budget, the estimate,
                      writing a section per Folder, and reusing today's Briefing
   spending/          the ledger of AI calls and what they cost, and the monthly limit
+  alerts/            push subscriptions, sending Alerts and the test Alert, the VAPID key
   web/app.py         the FastAPI app: /healthz, the API routers and the PWA
   web/auth.py        login, logout, the session check and the guard on /api
   web/inbox.py       GET /api/inbox
   web/sources.py     /api/folders and /api/sources
   web/briefings.py   /api/briefings: list, show, latest, estimate, and writing one as server-sent events
   web/spending.py    /api/spending: this month's cost by feature and the limit status
+  web/alerts.py      /api/push: Alert set-up, subscribe, unsubscribe and the test Alert
   adapters/feed_fetcher.py  the FeedFetcher over HTTP (httpx)
   adapters/article_extractor.py  the ArticleExtractor: fetches a page (httpx), cleans it (trafilatura)
   adapters/language_model.py  the LanguageModel over the Anthropic Messages API
+  adapters/push_sender.py  the PushSender over Web Push (pywebpush)
   adapters/sqlite/   the database file, its migrations, login failures, Sources, Items, spending,
-                     Briefings
+                     Briefings, push subscriptions
 tests/               mirrors src/rss_news/; tests/sources/feeds/ holds saved real feeds,
                      tests/adapters/anthropic/ saved scoring and Briefing-section answers
 pwa/
   src/api/client.ts  the one module that talks to the backend
   src/screens/       one module per screen
+  src/pwa/           the service worker (shell cache, showing Alerts) and the phone's push
+                     subscription
   src/styles.css     the one stylesheet: theme tokens and every screen's look
   tests/             Vitest + Testing Library, against a fake ApiClient
 scripts/docker-smoke-test.sh
@@ -249,6 +279,7 @@ docs/                spec, tickets, decisions
 - Reader view: each page logs `article extraction` with the `host`, `result` (`ok` or the reason shown to the owner) and `duration_ms`. Many failures for one host usually mean it blocks bots or needs JavaScript; the owner still gets the original link.
 - Scoring: each AI call logs `ai call` with `feature`, `model`, tokens, `cost_usd` and `duration_ms`; `ai call retried` (warning) names the attempt, wait and error; `ai call failed` (error) has the HTTP status and Anthropic request id. `scoring failed` (warning) lists the `item_ids` of a failed batch, which are retried later; `scoring paused until the next tick: the model is unavailable` (error) every minute usually means a wrong `RSS_NEWS_ANTHROPIC_API_KEY` (HTTP 401) or no credit. Items still waiting: `sqlite3 data/rss-news.sqlite3 'SELECT id, title, score_failures, score_retry_at FROM items WHERE scored_at IS NULL ORDER BY score_failures DESC LIMIT 20'`. This month's spend: `sqlite3 data/rss-news.sqlite3 "SELECT feature, count(*), sum(cost_micro_usd) / 1e6 FROM ai_calls WHERE called_at >= strftime('%Y-%m-01') GROUP BY feature"`.
 - Briefings: `briefing started` (with `items` and `sections`), one `ai call` with `feature` `briefings` per section, then `briefing written` with its `briefing_id` and `cost_usd`, or `briefing failed` (error) naming the `folder` and the `detail`. `briefing section cut to fit` says how many of a Folder's Items made the budget; `briefing article unavailable` (warning) names an Item whose full text couldn't be fetched. `briefing points named items they weren't given; links dropped` (warning) lists ids the model made up; `briefing failed unexpectedly` (error, with a traceback) is a bug or database error, shown to the owner as a failed Briefing. `briefing reused` means today's was given back for free. Saved ones: `sqlite3 data/rss-news.sqlite3 'SELECT id, scope, created_at, item_count, cost_micro_usd / 1e6 FROM briefings ORDER BY id DESC LIMIT 5'`. If progress never shows on the phone but the Briefing arrives at the end, a proxy is buffering the stream; the API sends `X-Accel-Buffering: no` for nginx.
+- Alerts: `alerts are off: RSS_NEWS_VAPID_PRIVATE_KEY is not set` (warning) at start means Settings will say Alerts aren't set up. Each push logs `push message` with the push service `host` (never the endpoint, which works like a password for the phone), `result` (`delivered`, `gone` or the failure) and `duration_ms`; `gone push subscription removed` and `alert not delivered` (warning) follow. A test Alert logs `test alert sent` with the counts. A test that says delivered but never shows on the phone is the phone holding it back: see the Honor battery setting above. Stored phones: `sqlite3 data/rss-news.sqlite3 'SELECT substr(endpoint, 1, 40), subscribed_at FROM push_subscriptions'`.
 - `last_tick_seconds_ago` in `/healthz` keeps growing: look for `tick step failed` in the logs (a whole step broke) or for no `tick loop started` line at all.
 - `RSS_NEWS_PWA_DIR ... index.html is missing`: the PWA isn't built. Run `npm run build` in `pwa/`.
 - The page loads but says "Can't reach the server": `/healthz` didn't answer with a health report; check the backend is running and the prefix matches.
