@@ -1,27 +1,38 @@
 class_name Disasters
 extends RefCounted
-## The Shift's Disaster. At the start of every Shift after the first a Sandstorm is rolled, and
-## if one comes, when in the Shift it strikes: never so early that the warning can't come
-## first, nor so late that it can't pass before the Shift ends. The App warns of it
-## disaster_warning_seconds before; it then lasts disaster_seconds, and while it does a
-## Sandstorm multiplies growth per second of running by sandstorm_growth_factor. At most one a
+## The Shift's Disaster. At the start of every Shift after the first a Sandstorm is rolled, then (if
+## none) a Heatwave, each on its own chance, and if one comes, when in the Shift it strikes: never
+## so early that the warning can't come first, nor so late that it can't pass before the Shift ends.
+## The App warns of it disaster_warning_seconds before; it then lasts disaster_seconds, and while it
+## does a Sandstorm multiplies growth per second of running by sandstorm_growth_factor, and a
+## Heatwave multiplies Exhaustion per second of running by heatwave_exhaustion_factor. At most one a
 ## Shift. Its clock is the Shift's online time, so it waits with the Shift (in a Study Session,
 ## offline, at an open Hand-in). Nothing of it is saved: a restored Shift has none, so closing
 ## the game ends it. The Quota never changes for it. Shifts plans it and counts its time; Farm
-## reads its growth factor. Tested through Farm, not on its own.
+## reads its growth and Exhaustion factors. Tested through Farm, not on its own.
 
 ## The Disaster kinds.
 const SANDSTORM := &"sandstorm"
+const HEATWAVE := &"heatwave"
 ## App message keys (see Farm.MESSAGE_KEYS). The App warns of a Sandstorm: values kind, seconds
 ## (until it strikes).
 const SANDSTORM_WARNED := &"sandstorm_warned"
 ## A Sandstorm struck: values kind, seconds (how long it lasts).
 const SANDSTORM_STRUCK := &"sandstorm_struck"
+## The same for a Heatwave.
+const HEATWAVE_WARNED := &"heatwave_warned"
+const HEATWAVE_STRUCK := &"heatwave_struck"
 ## The Disaster passed: values kind, seconds (how long it lasted).
 const DISASTER_PASSED := &"disaster_passed"
 ## Each kind's warning and strike keys.
-const WARNED_KEYS: Dictionary[StringName, StringName] = {SANDSTORM: SANDSTORM_WARNED}
-const STRUCK_KEYS: Dictionary[StringName, StringName] = {SANDSTORM: SANDSTORM_STRUCK}
+const WARNED_KEYS: Dictionary[StringName, StringName] = {
+	SANDSTORM: SANDSTORM_WARNED,
+	HEATWAVE: HEATWAVE_WARNED,
+}
+const STRUCK_KEYS: Dictionary[StringName, StringName] = {
+	SANDSTORM: SANDSTORM_STRUCK,
+	HEATWAVE: HEATWAVE_STRUCK,
+}
 
 var _tuning: Tuning
 var _roll: Callable
@@ -52,14 +63,17 @@ func plan(shift_number: int) -> Dictionary:
 	_kind = &""
 	_warned = false
 	_left = 0.0
-	var chance := _tuning.sandstorm_chance if shift_number > 1 else 0.0
-	var roll: float = _roll.call() if chance > 0.0 else 1.0
-	if roll >= chance:
+	if shift_number <= 1:
+		return {"kind": _kind, "strikes_at": 0.0, "seconds": 0.0}
+	var kind := SANDSTORM if _comes(_tuning.sandstorm_chance) else &""
+	if kind == &"" and _comes(_tuning.heatwave_chance):
+		kind = HEATWAVE
+	if kind == &"":
 		return {"kind": _kind, "strikes_at": 0.0, "seconds": 0.0}
 	var earliest := _tuning.disaster_warning_seconds
 	var latest := _tuning.shift_seconds - _tuning.disaster_seconds
 	var when: float = _roll.call()
-	_kind = SANDSTORM
+	_kind = kind
 	_length = _tuning.disaster_seconds
 	_until_strike = lerpf(earliest, latest, when)
 	if _until_strike <= _tuning.disaster_warning_seconds:
@@ -87,6 +101,12 @@ func is_striking() -> bool:
 ## What growth per second of running is multiplied by now: below 1 while a Sandstorm strikes.
 func growth_factor() -> float:
 	return _tuning.sandstorm_growth_factor if is_striking() and _kind == SANDSTORM else 1.0
+
+
+## What Exhaustion per second of running is multiplied by now: above 1 while a Heatwave
+## strikes.
+func exhaustion_factor() -> float:
+	return _tuning.heatwave_exhaustion_factor if is_striking() and _kind == HEATWAVE else 1.0
 
 
 ## Seconds of Shift time until it is warned of, strikes or passes; INF with none.
@@ -129,6 +149,11 @@ func view() -> DisasterView:
 	if _until_strike > 0.0:
 		return DisasterView.new(DisasterView.Phase.WARNED, _kind, _until_strike)
 	return DisasterView.new(DisasterView.Phase.STRIKING, _kind, _left)
+
+
+## Whether a roll comes up under `chance`; nothing is rolled at a chance of 0.
+func _comes(chance: float) -> bool:
+	return chance > 0.0 and _roll.call() < chance
 
 
 func _warn() -> void:

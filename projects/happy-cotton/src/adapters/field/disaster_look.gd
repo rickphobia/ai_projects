@@ -2,9 +2,10 @@ class_name DisasterLook
 extends Node3D
 ## The weather a Disaster brings to the field. A Sandstorm turns the sky orange, closes the haze
 ## in round the field, dims and reddens the sun and blows dust across the field; it fades in as
-## it strikes and out as it passes. With reduced motion nothing moves: no dust blows and the
-## change comes and goes at once, a still orange tint. It shows the Disaster it is given and
-## knows nothing of the rules.
+## it strikes and out as it passes. A Heatwave bleaches the sky, brightens and whitens the sun
+## and sets the air above the field shimmering. With reduced motion nothing moves: no dust blows,
+## nothing shimmers and the change comes and goes at once, a still tint. It shows the Disaster
+## it is given and knows nothing of the rules.
 
 ## The sky and haze in a Sandstorm, and the sun through it.
 const SANDSTORM_SKY := Color(0.84, 0.5, 0.22)
@@ -15,6 +16,25 @@ const SANDSTORM_SUN_ENERGY := 0.8
 ## the far side of the track.
 const SANDSTORM_FOG_BEGIN := 3.0
 const SANDSTORM_FOG_END := 18.0
+## The bleached sky and harsh sun of a Heatwave.
+const HEATWAVE_SKY := Color(0.93, 0.88, 0.7)
+const HEATWAVE_AMBIENT := Color(0.95, 0.85, 0.65)
+const HEATWAVE_SUN := Color(1.0, 0.97, 0.86)
+const HEATWAVE_SUN_ENERGY := 1.8
+## The shimmer: a sheet over the field that wobbles what is seen through it.
+const SHIMMER_SIZE := Vector2(16.0, 12.0)
+const SHIMMER_CENTRE := Vector3(-4.0, 0.6, 0.0)
+const SHIMMER_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_disabled, shadows_disabled;
+uniform sampler2D screen : hint_screen_texture, filter_linear;
+uniform float strength = 0.0;
+void fragment() {
+	vec2 wobble = vec2(sin(SCREEN_UV.y * 90.0 + TIME * 6.0), cos(SCREEN_UV.x * 70.0 + TIME * 5.0));
+	ALBEDO = texture(screen, SCREEN_UV + wobble * 0.003 * strength).rgb;
+	ALPHA = strength;
+}
+"""
 ## How long the weather takes to come in and to clear, in seconds.
 const FADE_SECONDS := 3.0
 ## The blowing dust: grains from a box over the field and the track, blown along x.
@@ -40,13 +60,19 @@ var _calm_sun_energy: float
 ## How far the Sandstorm's look is in, from 0 (calm) to 1, and where it is heading.
 var _strength := 0.0
 var _target := 0.0
+## The same for the Heatwave's.
+var _heat_strength := 0.0
+var _heat_target := 0.0
 var _dust: CPUParticles3D
+var _shimmer: MeshInstance3D
 var _reduced_motion := false
 
 
 func _ready() -> void:
 	_dust = _build_dust()
 	add_child(_dust)
+	_shimmer = _build_shimmer()
+	add_child(_shimmer)
 
 
 ## The field's environment and sun, whose calm look is kept to come back to.
@@ -63,26 +89,27 @@ func setup(environment: Environment, sun: DirectionalLight3D) -> void:
 
 
 func show_disaster(disaster: DisasterView) -> void:
-	var sandstorm := (
-		disaster.phase == DisasterView.Phase.STRIKING and disaster.kind == Farm.SANDSTORM
-	)
-	_target = 1.0 if sandstorm else 0.0
-	_update_dust()
+	var striking := disaster.phase == DisasterView.Phase.STRIKING
+	_target = 1.0 if striking and disaster.kind == Farm.SANDSTORM else 0.0
+	_heat_target = 1.0 if striking and disaster.kind == Farm.HEATWAVE else 0.0
+	_update_motion()
 	if _reduced_motion:
-		_strength = _target
-		_apply()
+		_settle()
 
 
 func set_reduced_motion(on: bool) -> void:
 	_reduced_motion = on
-	_update_dust()
+	_update_motion()
 	if on:
-		_strength = _target
-		_apply()
+		_settle()
 
 
 func is_blowing_dust() -> bool:
 	return _dust.emitting
+
+
+func is_shimmering() -> bool:
+	return _shimmer.visible
 
 
 ## From 0 (calm) to 1 (the full Sandstorm look).
@@ -90,27 +117,72 @@ func strength() -> float:
 	return _strength
 
 
+## From 0 (calm) to 1 (the full Heatwave look).
+func heat_strength() -> float:
+	return _heat_strength
+
+
 func _process(delta: float) -> void:
-	if is_equal_approx(_strength, _target):
+	if is_equal_approx(_strength, _target) and is_equal_approx(_heat_strength, _heat_target):
 		return
 	_strength = move_toward(_strength, _target, delta / FADE_SECONDS)
+	_heat_strength = move_toward(_heat_strength, _heat_target, delta / FADE_SECONDS)
 	_apply()
 
 
-func _update_dust() -> void:
+func _settle() -> void:
+	_strength = _target
+	_heat_strength = _heat_target
+	_apply()
+
+
+func _update_motion() -> void:
 	_dust.emitting = _target > 0.0 and not _reduced_motion
+	# Shown while fading out too, so the shimmer dies away with the light.
+	_shimmer.visible = (_heat_target > 0.0 or _heat_strength > 0.0) and not _reduced_motion
 
 
 func _apply() -> void:
 	if _environment == null:
 		return
-	_environment.background_color = _calm_sky.lerp(SANDSTORM_SKY, _strength)
-	_environment.fog_light_color = _calm_fog.lerp(SANDSTORM_SKY, _strength)
-	_environment.ambient_light_color = _calm_ambient.lerp(SANDSTORM_AMBIENT, _strength)
+	# At most one Disaster strikes at a time, so the two looks never truly mix.
+	var sky := _calm_sky.lerp(SANDSTORM_SKY, _strength).lerp(HEATWAVE_SKY, _heat_strength)
+	_environment.background_color = sky
+	_environment.fog_light_color = (_calm_fog.lerp(SANDSTORM_SKY, _strength).lerp(
+		HEATWAVE_SKY, _heat_strength
+	))
+	_environment.ambient_light_color = (_calm_ambient.lerp(SANDSTORM_AMBIENT, _strength).lerp(
+		HEATWAVE_AMBIENT, _heat_strength
+	))
 	_environment.fog_depth_begin = lerpf(_calm_fog_begin, SANDSTORM_FOG_BEGIN, _strength)
 	_environment.fog_depth_end = lerpf(_calm_fog_end, SANDSTORM_FOG_END, _strength)
-	_sun.light_color = _calm_sun.lerp(SANDSTORM_SUN, _strength)
-	_sun.light_energy = lerpf(_calm_sun_energy, SANDSTORM_SUN_ENERGY, _strength)
+	_sun.light_color = _calm_sun.lerp(SANDSTORM_SUN, _strength).lerp(HEATWAVE_SUN, _heat_strength)
+	_sun.light_energy = lerpf(
+		lerpf(_calm_sun_energy, SANDSTORM_SUN_ENERGY, _strength),
+		HEATWAVE_SUN_ENERGY,
+		_heat_strength
+	)
+	var material := _shimmer.material_override as ShaderMaterial
+	material.set_shader_parameter("strength", _heat_strength)
+	if is_zero_approx(_heat_strength) and is_zero_approx(_heat_target):
+		_shimmer.visible = false
+
+
+func _build_shimmer() -> MeshInstance3D:
+	var sheet := MeshInstance3D.new()
+	sheet.name = "Shimmer"
+	sheet.visible = false
+	sheet.position = SHIMMER_CENTRE
+	sheet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var plane := PlaneMesh.new()
+	plane.size = SHIMMER_SIZE
+	sheet.mesh = plane
+	var shader := Shader.new()
+	shader.code = SHIMMER_SHADER
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	sheet.material_override = material
+	return sheet
 
 
 func _build_dust() -> CPUParticles3D:

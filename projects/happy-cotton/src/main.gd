@@ -2,8 +2,8 @@ extends Node
 ## Entry scene: logs which build is running, loads and checks the tuning table, continues the
 ## saved Farm (or starts a new one) and wires it to the field, The App and its store, the
 ## Children's letters (see LettersView), the hidden savings tin (see SavingsTin) and the wall
-## clock, and adds the debug controls (Skip time, +100 Labour Points, Audit this Shift,
-## Bollworms now, Sandstorm now) in debug mode. It puts the player's settings into effect and
+## clock, and adds the debug controls (Skip time, +100 Labour Points, Audit this Shift, Bollworms
+## now, Sandstorm now, Heatwave now) in debug mode. It puts the player's settings into effect and
 ## opens the Settings screen from The App. It autosaves after every command, when a Shift's Hand-in
 ## opens, when the player leaves (see LeavingWatch), and every AUTOSAVE_SECONDS of play.
 ## Kept thin: no game rules here.
@@ -17,6 +17,8 @@ const AUTOSAVE_SECONDS := 15.0
 const DISASTER_LOG_EVENTS: Dictionary[StringName, String] = {
 	Farm.SANDSTORM_WARNED: "disaster warned",
 	Farm.SANDSTORM_STRUCK: "disaster struck",
+	Farm.HEATWAVE_WARNED: "disaster warned",
+	Farm.HEATWAVE_STRUCK: "disaster struck",
 	Farm.DISASTER_PASSED: "disaster passed",
 }
 
@@ -76,7 +78,8 @@ func _ready() -> void:
 		debug_panel.labour_points_requested.connect(_on_labour_points_requested)
 		debug_panel.audit_requested.connect(_on_audit_requested)
 		debug_panel.bollworms_requested.connect(_on_bollworms_requested)
-		debug_panel.sandstorm_requested.connect(_on_sandstorm_requested)
+		debug_panel.sandstorm_requested.connect(_on_disaster_requested.bind(Farm.SANDSTORM))
+		debug_panel.heatwave_requested.connect(_on_disaster_requested.bind(Farm.HEATWAVE))
 		add_child(debug_panel)
 
 
@@ -383,12 +386,12 @@ func _on_bollworms_requested() -> void:
 	_show_farm()
 
 
-## Debug mode only: a Sandstorm strikes at once, to see it without waiting.
-func _on_sandstorm_requested() -> void:
+## Debug mode only: a Disaster of `kind` strikes at once, to see it without waiting.
+func _on_disaster_requested(kind: StringName) -> void:
 	if _farm == null:
 		return
-	GameLog.info("debug sandstorm now", {"shift": _farm.shift().number})
-	_farm.debug_disaster_now(Farm.SANDSTORM)
+	GameLog.info("debug disaster now", {"shift": _farm.shift().number, "kind": kind})
+	_farm.debug_disaster_now(kind)
 	_save("command")
 	_show_farm()
 

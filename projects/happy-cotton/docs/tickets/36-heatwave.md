@@ -4,14 +4,14 @@
 
 **Blocked by:** 35 (Sandstorm)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** rules, config/tuning, content/app-text, adapters/field, adapters/debug
 
 **Effort:** low
 
-- [ ] If no Sandstorm was rolled, a Heatwave is rolled with its own chance per Shift
-- [ ] While it lasts, Exhaustion from running is multiplied by a factor between 1 and 2
-- [ ] Heat shimmer and a harsher light; with reduced motion, a still tint instead
-- [ ] Debug mode adds "Heatwave now"
-- [ ] GUT tests through Farm cover the roll and the Exhaustion factor
+- [x] If no Sandstorm was rolled, a Heatwave is rolled with its own chance per Shift
+- [x] While it lasts, Exhaustion from running is multiplied by a factor between 1 and 2
+- [x] Heat shimmer and a harsher light; with reduced motion, a still tint instead
+- [x] Debug mode adds "Heatwave now"
+- [x] GUT tests through Farm cover the roll and the Exhaustion factor
