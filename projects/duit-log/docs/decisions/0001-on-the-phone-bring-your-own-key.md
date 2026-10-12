@@ -1,0 +1,5 @@
+# On the phone only, each user brings their own AI key
+
+duit-log is a native Android app (Kotlin, Jetpack Compose) with no server: Transactions live only on the phone, and each user pastes in their own AI key, stored encrypted on the device. Every other project here that needs a backend runs on the Beelink, but this one is meant to be installed by strangers from GitHub, and holding other people's spending history on a home server is a privacy and support burden nobody asked for. Native Android is required anyway, because only an installed app can read other apps' payment notifications. The AI sits behind two adapters, Anthropic and OpenAI-compatible (base URL, key, model), which together cover DeepSeek, GLM, OpenAI, Gemini, OpenRouter and a local Ollama. The AI is optional: without a key, the app still works on the Category Prompt and Merchant Rules alone.
+
+**Trade-offs:** no sync between devices and no web view; losing the phone loses the data unless Google backup or a CSV export saved it. Each user pays their own AI costs.
