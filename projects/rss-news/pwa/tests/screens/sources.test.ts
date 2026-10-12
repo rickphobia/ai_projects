@@ -178,4 +178,19 @@ describe("the Sources screen", () => {
       ]);
     });
   });
+
+  it("says when something changed, so the sidebar's Folders can follow", async () => {
+    const onChanged = vi.fn();
+    await renderSources(root, api, onChanged);
+    expect(onChanged).not.toHaveBeenCalled();
+
+    fireEvent.input(screen.getByRole("textbox", { name: "New Folder" }), {
+      target: { value: "Macro" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Add a Folder" }));
+
+    await waitFor(() => {
+      expect(onChanged).toHaveBeenCalledOnce();
+    });
+  });
 });

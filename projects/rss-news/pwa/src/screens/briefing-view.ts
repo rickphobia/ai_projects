@@ -11,6 +11,7 @@ export function showBriefing(
   const title = document.createElement("h2");
   title.textContent = `Briefing of ${shownTime.format(new Date(briefing.createdAt))}`;
   const details = document.createElement("p");
+  details.className = "item-meta";
   details.textContent = `${briefing.title} · ${String(briefing.itemCount)} Items · cost $${briefing.costUsd}`;
   shown.replaceChildren(title, details);
   for (const section of briefing.sections) {

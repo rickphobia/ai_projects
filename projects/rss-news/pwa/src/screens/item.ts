@@ -18,7 +18,10 @@ export async function renderItem(
   status.setAttribute("role", "status");
   status.setAttribute("aria-label", "Item");
   status.textContent = "Loading the Item…";
-  root.replaceChildren(back, status);
+  const column = document.createElement("article");
+  column.className = "reading";
+  column.append(back, status);
+  root.replaceChildren(column);
 
   let item: InboxItem;
   try {
@@ -31,9 +34,10 @@ export async function renderItem(
   status.remove();
   const reader = document.createElement("section");
   reader.setAttribute("aria-label", "Reader view");
+  reader.className = "prose";
   reader.setAttribute("aria-busy", "true");
   reader.textContent = "Loading the article…";
-  root.append(itemHeader(item), reader);
+  column.append(itemHeader(item), reader);
   await loadReaderView(reader, api, item);
 }
 
@@ -42,6 +46,7 @@ function itemHeader(item: InboxItem): HTMLElement {
   const title = document.createElement("h2");
   title.textContent = item.title;
   const details = document.createElement("p");
+  details.className = "item-meta";
   const importance =
     item.importance === null
       ? "Not scored yet"
@@ -50,6 +55,7 @@ function itemHeader(item: InboxItem): HTMLElement {
   header.append(title, details);
   if (item.summary !== null) {
     const summary = document.createElement("p");
+    summary.className = "item-summary";
     summary.textContent = item.summary;
     header.append(summary);
   }

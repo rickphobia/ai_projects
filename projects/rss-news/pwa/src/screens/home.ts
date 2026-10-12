@@ -35,11 +35,13 @@ export async function renderHome(
     windowSelect.append(new Option(capitalised(text), value));
   }
   const controls = document.createElement("div");
+  controls.className = "toolbar";
   controls.hidden = picked;
   controls.append(
     labelled("Brief", scopeSelect),
     labelled("Over", windowSelect),
   );
+  briefMe.className = "primary";
   const regenerate = button("Regenerate");
   regenerate.hidden = true;
   const progress = document.createElement("p");
@@ -49,7 +51,14 @@ export async function renderHome(
   failure.setAttribute("role", "alert");
   const shown = document.createElement("section");
   shown.setAttribute("aria-label", "Briefing");
-  root.replaceChildren(controls, briefMe, regenerate, progress, failure, shown);
+  shown.className = "briefing";
+  const actions = document.createElement("div");
+  actions.className = "toolbar";
+  actions.append(briefMe, regenerate);
+  const column = document.createElement("div");
+  column.className = "reading";
+  column.append(controls, actions, progress, failure, shown);
+  root.replaceChildren(column);
 
   const request = (): BriefingRequest =>
     picked

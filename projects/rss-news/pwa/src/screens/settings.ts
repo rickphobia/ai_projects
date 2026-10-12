@@ -18,7 +18,10 @@ export async function renderSettings(
 ): Promise<void> {
   const heading = document.createElement("h2");
   heading.textContent = "Spending this month";
-  root.replaceChildren(heading);
+  const column = document.createElement("div");
+  column.className = "reading";
+  column.append(heading);
+  root.replaceChildren(column);
   let summary: SpendingSummary;
   try {
     summary = await api.spending();
@@ -28,20 +31,21 @@ export async function renderSettings(
     problem.setAttribute("role", "alert");
     const detail = error instanceof Error ? error.message : String(error);
     problem.textContent = `Couldn't load spending: ${detail}`;
-    root.append(problem);
+    column.append(problem);
     return;
   }
   const total = document.createElement("p");
   total.textContent = `$${summary.totalUsd} of the $${summary.limitUsd} monthly limit`;
   const features = document.createElement("ul");
   features.setAttribute("aria-label", "Cost by feature");
+  features.className = "rows";
   for (const [feature, cost] of Object.entries(summary.byFeature)) {
     const line = document.createElement("li");
     line.textContent = `${featureNames[feature] ?? feature}: $${cost}`;
     features.append(line);
   }
   const banner = spendingBanner(summary);
-  root.append(...(banner ? [banner] : []), total, features);
+  column.append(...(banner ? [banner] : []), total, features);
 }
 
 // A warning from 80% of the monthly limit, and a stronger one once Briefings have stopped;

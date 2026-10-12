@@ -12,10 +12,14 @@ export async function renderBriefings(
 ): Promise<void> {
   const list = document.createElement("ul");
   list.setAttribute("aria-label", "Saved Briefings");
+  list.className = "rows";
   const status = document.createElement("p");
   status.setAttribute("role", "status");
   status.setAttribute("aria-label", "Briefings");
-  root.replaceChildren(list, status);
+  const column = document.createElement("div");
+  column.className = "reading";
+  column.append(list, status);
+  root.replaceChildren(column);
   try {
     const briefings = await api.briefings();
     list.replaceChildren(
@@ -40,8 +44,12 @@ export async function renderBriefings(
     });
     const shown = document.createElement("section");
     shown.setAttribute("aria-label", "Briefing");
+    shown.className = "briefing";
     shown.textContent = "Loading the Briefing…";
-    root.replaceChildren(back, shown);
+    const column = document.createElement("article");
+    column.className = "reading";
+    column.append(back, shown);
+    root.replaceChildren(column);
     try {
       showBriefing(shown, await api.briefing(briefingId), onOpenItem);
     } catch (error) {

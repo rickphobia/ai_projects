@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/dom";
+import { screen, waitFor, within } from "@testing-library/dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../../src/api/client";
@@ -143,6 +143,66 @@ describe("the app shell", () => {
       expect(screen.queryByLabelText("Unread")).toBeNull();
     });
     expect(screen.getByRole("link", { name: "A story" })).toBeTruthy();
+  });
+
+  it("opens the sidebar drawer from Menu and closes it again", async () => {
+    await renderShell(root, api, () => undefined);
+    const menu = screen.getByRole("button", { name: "Menu" });
+    expect(menu.getAttribute("aria-expanded")).toBe("false");
+    expect(root.dataset.drawer).toBe("closed");
+
+    menu.click();
+    expect(menu.getAttribute("aria-expanded")).toBe("true");
+    expect(root.dataset.drawer).toBe("open");
+    screen.getByRole("button", { name: "Close menu" }).click();
+    expect(root.dataset.drawer).toBe("closed");
+    expect(screen.queryByRole("button", { name: "Close menu" })).toBeNull();
+
+    menu.click();
+    screen
+      .getByRole("button", { name: "Inbox" })
+      .dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    expect(root.dataset.drawer).toBe("closed");
+    expect(document.activeElement).toBe(menu);
+
+    menu.click();
+    screen.getByRole("button", { name: "Briefings" }).click();
+    expect(root.dataset.drawer).toBe("closed");
+  });
+
+  it("marks the screen being shown in the sidebar", async () => {
+    await renderShell(root, api, () => undefined);
+    const current = (): string[] =>
+      [...root.querySelectorAll("[aria-current=page]")].map(
+        (entry) => entry.textContent,
+      );
+    expect(current()).toEqual(["Home"]);
+
+    screen.getByRole("button", { name: "Settings" }).click();
+
+    expect(current()).toEqual(["Settings"]);
+  });
+
+  it("opens the Inbox of a Folder chosen in the sidebar", async () => {
+    api.foldersAnswer = [
+      { id: 1, name: "AI" },
+      { id: 2, name: "World" },
+    ];
+    await renderShell(root, api, () => undefined);
+    const folders = screen.getByRole("list", { name: "Folders" });
+
+    within(folders).getByRole("button", { name: "World" }).click();
+
+    await waitFor(() => {
+      expect(api.inboxQueries.at(-1)).toEqual({ folderId: 2 });
+    });
+    expect(
+      within(folders)
+        .getByRole("button", { name: "World" })
+        .getAttribute("aria-current"),
+    ).toBe("page");
   });
 
   it("signs out and goes back to login", async () => {
