@@ -12,7 +12,7 @@
 
 - [x] The Notification Reader's first step in `core`: a notification whose posting app isn't a Wallet app is "Not a Wallet"; tests show a WhatsApp and a bank notification are dropped whatever their text says
 - [x] The notification listener drops "Not a Wallet" notifications before anything else: nothing saved, nothing logged, not even a count
-- [ ] The Wallet apps' package names confirmed on the owner's phone (the recorder screen lists installed apps it would accept) and recorded in the README (the README's "Wallet apps" table lists them as "not yet" confirmed; owner step)
+- [ ] The Wallet apps' package names confirmed (TNG done 2026-10-13; Grab and Shopee still to check) on the owner's phone (the recorder screen lists installed apps it would accept) and recorded in the README (the README's "Wallet apps" table lists them as "not yet" confirmed; owner step)
 - [x] Recorder screen lists recorded Wallet notifications (app, time, title, text, expanded text); "Share" sends them as a text file through the share menu; "Clear" deletes them after a confirm
 - [x] First-run notification access guide, plus the permission to post notifications on Android 13+
 - [x] A banner on the home screen when notification access is missing, with a button to the right settings page
