@@ -233,6 +233,7 @@ func test_every_key_the_rules_emit_is_listed() -> void:
 		Farm.AWAY_SUMMARY,
 		Farm.REST_STARTED,
 		Farm.REST_ENDED,
+		Farm.CALL_STARTED,
 		Farm.COTTON_DROPPED,
 		Farm.GENERATOR_UPGRADED,
 		Farm.TOOLS_UPGRADED,

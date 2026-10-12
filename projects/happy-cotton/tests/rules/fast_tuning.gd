@@ -24,7 +24,8 @@ extends RefCounted
 ## The tools have two tiers: the first costs 10, halves a slow pick's time and the drop chance
 ## (a 1-second pick, a 1-in-4 drop) and raises the Quota by 1; the second costs 20, leaves a
 ## quarter of each and raises the Quota by 2 more.
-## A letter from the Children arrives at the start of every second Shift (2, 4, 6...).
+## A letter from the Children arrives at the start of every second Shift (2, 4, 6...). A call
+## home costs 5 Labour Points (one pick) and lasts 10 seconds.
 
 const GROW_SECONDS := 30.0
 const SHIFT_SECONDS := 100.0
@@ -69,6 +70,8 @@ const RENT_PER_SHIFT := 4
 const SCHOOL_FEES := 20
 const SCHOOL_FEES_EVERY_SHIFTS := 3
 const LETTER_EVERY_SHIFTS := 2
+const CALL_HOME_PRICE := 5
+const CALL_HOME_SECONDS := 10.0
 
 
 static func table() -> Tuning:
@@ -107,6 +110,8 @@ static func table() -> Tuning:
 	tuning.school_fees = 0.0
 	tuning.school_fees_every_shifts = SCHOOL_FEES_EVERY_SHIFTS
 	tuning.letter_every_shifts = LETTER_EVERY_SHIFTS
+	tuning.call_home_price = CALL_HOME_PRICE
+	tuning.call_home_seconds = CALL_HOME_SECONDS
 	var tiers: Array[GeneratorTier] = []
 	for index in GENERATOR_PRICES.size():
 		tiers.append(

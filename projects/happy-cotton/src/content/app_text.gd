@@ -33,6 +33,7 @@ const PAY_SLIP_CLOSE := "Thank you!"
 const STUDY_SESSION_TIMER := "Study Session  ·  {time} left"
 const EXHAUSTION := "Exhaustion {level}%"
 const RESTING := "Resting  ·  {time} left"
+const ON_A_CALL := "On a call home  ·  {time} left"
 const STORE_BUTTON := "Store"
 const STORE_TITLE := "Happy Store"
 const STORE_UPGRADES := "Upgrades"
@@ -48,6 +49,7 @@ const STORE_NAMES: Dictionary[StringName, String] = {
 	Farm.GENERATOR: "Generator",
 	Farm.TOOLS: "Tools",
 	Farm.REST_HOUR: "Rest hour",
+	Farm.CALL_HOME: "Call home",
 }
 const STORE_BLURBS: Dictionary[StringName, String] = {
 	Farm.GENERATOR:
@@ -58,6 +60,7 @@ const STORE_BLURBS: Dictionary[StringName, String] = {
 		+ " ×{effect} as much cotton (now ×{current})."
 	),
 	Farm.REST_HOUR: "A short rest, kindly granted. The Shift goes on while you recover.",
+	Farm.CALL_HOME: "Hear your Children's voices! The Shift goes on while you talk.",
 }
 
 
@@ -128,7 +131,16 @@ static func lines() -> Dictionary[StringName, AppLine]:
 			)
 		),
 		Farm.REST_ENDED:
+		# No source in the register documents how the Worker's calls home are handled, so the
 		AppLine.new("Rest hour over. Refreshed workers make a stronger Farm. Back to work!"),
+		# line praises "family harmony" as a slogan and claims nothing about listening in.
+		Farm.CALL_STARTED:
+		AppLine.new(
+			(
+				"Call home approved! {price} Labour Points well spent. Calls support family"
+				+ " harmony! Keep it short: the Quota is still waiting!"
+			)
+		),
 		Farm.COTTON_DROPPED:
 		AppLine.new("Cotton dropped! Careless hands waste the people's harvest. Focus!"),
 		Farm.GENERATOR_UPGRADED:
@@ -189,6 +201,7 @@ static func store_refusals() -> Dictionary[StringName, AppLine]:
 		Farm.PRIVILEGES_TAKEN_AWAY:
 		AppLine.new("Privileges are suspended this Shift. Meet your Quota to earn them back!"),
 		Farm.RESTING: AppLine.new("You are already resting. Enjoy your Privilege!"),
+		Farm.ON_A_CALL: AppLine.new("You are already on a call home. Enjoy your Privilege!"),
 		Farm.IN_DEBT:
 		AppLine.new("Not while you are in Debt. Every Labour Point you earn settles it first!"),
 		Farm.NOT_ENOUGH_LABOUR_POINTS:
