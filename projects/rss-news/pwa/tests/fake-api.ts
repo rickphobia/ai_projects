@@ -19,6 +19,7 @@ import type {
   ChatSummary,
 } from "../src/api/chats";
 import type { Definition } from "../src/api/dictionary";
+import type { NewNote, Note } from "../src/api/notes";
 import type {
   ApiClient,
   Folder,
@@ -339,6 +340,57 @@ export class FakeApiClient implements ApiClient {
       );
     }
     return settle(answer.result);
+  }
+
+  // The saved Notes, newest first; the calls below change it like the backend.
+  savedNotes: Note[] = [];
+  notesError: Error | null = null;
+  // When set, the next saveNote is refused with it.
+  saveNoteError: Error | null = null;
+  notesSaved: NewNote[] = [];
+
+  notes(): Promise<Note[]> {
+    return settle(this.notesError ?? [...this.savedNotes]);
+  }
+
+  saveNote(note: NewNote): Promise<Note> {
+    this.notesSaved.push(note);
+    const error = this.saveNoteError;
+    this.saveNoteError = null;
+    if (error) return Promise.reject(error);
+    const saved: Note = {
+      id: this.notesSaved.length,
+      createdAt: "2026-10-12T20:00:00+08:00",
+      text: note.text,
+      comment: note.comment,
+      source: { ...note.source, exists: true },
+    };
+    this.savedNotes.unshift(saved);
+    return Promise.resolve(saved);
+  }
+
+  changeNoteComment(noteId: number, comment: string): Promise<Note> {
+    const index = this.savedNotes.findIndex((note) => note.id === noteId);
+    const note = this.savedNotes[index];
+    if (note === undefined) return Promise.reject(new Error("no such Note"));
+    const changed = { ...note, comment };
+    if (this.changeError === null) this.savedNotes[index] = changed;
+    return this.change(["changeNoteComment", noteId, comment], changed);
+  }
+
+  deleteNote(noteId: number): Promise<void> {
+    if (this.changeError === null) {
+      this.savedNotes = this.savedNotes.filter((note) => note.id !== noteId);
+    }
+    return this.change(["deleteNote", noteId], undefined);
+  }
+
+  exportNotes(): Promise<string> {
+    return Promise.resolve(
+      ["# Notes", ...this.savedNotes.map((note) => `> ${note.text}`)].join(
+        "\n\n",
+      ),
+    );
   }
 
   defineWord(term: string, context: string): Promise<Definition> {

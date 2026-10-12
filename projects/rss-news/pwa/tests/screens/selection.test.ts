@@ -49,7 +49,10 @@ describe("the selection popup", () => {
     Range.prototype.getBoundingClientRect = () => new DOMRect(40, 100, 80, 20);
     app = document.createElement("div");
     const article = document.createElement("article");
-    offerSelection(article, "Item: BNM holds rates (The Star)");
+    offerSelection(article, "Item: BNM holds rates (The Star)", {
+      kind: "item",
+      id: 7,
+    });
     paragraph = document.createElement("p");
     paragraph.textContent = "Bank Negara kept the OPR at 2.75% on Thursday.";
     article.append(paragraph);
@@ -166,6 +169,59 @@ describe("the selection popup", () => {
       within(popup()).getByRole<HTMLButtonElement>("button", {
         name: "Dictionary",
       }).disabled,
+    ).toBe(true);
+  });
+
+  it("Note saves the selection with a comment and a link back", async () => {
+    select(paragraph, "kept the OPR at 2.75%");
+
+    within(popup()).getByRole("button", { name: "Note" }).click();
+    within(popup()).getByRole<HTMLTextAreaElement>("textbox", {
+      name: "Comment (optional)",
+    }).value = "  check next month ";
+    within(popup()).getByRole("button", { name: "Save Note" }).click();
+    await vi.runAllTimersAsync();
+
+    expect(api.notesSaved).toEqual([
+      {
+        text: "kept the OPR at 2.75%",
+        comment: "check next month",
+        source: {
+          kind: "item",
+          id: 7,
+          title: "Item: BNM holds rates (The Star)",
+        },
+      },
+    ]);
+    expect(
+      within(popup()).getByRole("status", { name: "Note" }).textContent,
+    ).toBe("Saved to Notes.");
+  });
+
+  it("Note says why when the Note can't be saved", async () => {
+    api.saveNoteError = new RefusedError("Select some text first.");
+    select(paragraph, "OPR");
+
+    within(popup()).getByRole("button", { name: "Note" }).click();
+    within(popup()).getByRole("button", { name: "Save Note" }).click();
+    await vi.runAllTimersAsync();
+
+    expect(
+      within(popup()).getByRole("status", { name: "Note" }).textContent,
+    ).toBe("Couldn't save the Note: Select some text first.");
+  });
+
+  it("Note is off for text with nothing to link back to", () => {
+    const answer = document.createElement("p");
+    answer.textContent = "A Chat answer before the Chat is saved.";
+    offerSelection(answer, "a Chat answer");
+    app.append(answer);
+
+    select(answer, "Chat answer");
+
+    expect(
+      within(popup()).getByRole<HTMLButtonElement>("button", { name: "Note" })
+        .disabled,
     ).toBe(true);
   });
 });

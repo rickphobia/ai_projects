@@ -10,6 +10,7 @@ from rss_news.adapters.sqlite.chat import SqliteChats
 from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.adapters.sqlite.items import SqliteItems
 from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
+from rss_news.adapters.sqlite.notes import SqliteNotes
 from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.adapters.sqlite.spending import SqliteSpending
 from rss_news.alerts.push import AlertPush
@@ -19,6 +20,7 @@ from rss_news.config import load_settings
 from rss_news.dictionary.lookup import Dictionary
 from rss_news.items.inbox import Inbox
 from rss_news.items.reading import ItemReading
+from rss_news.notes.notes import Notes
 from rss_news.sources.managing import SourceManagement
 from rss_news.spending.ledger import SpendingLedger
 from rss_news.spending.limit import SpendingLimit
@@ -126,6 +128,7 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
                 timezone=settings.timezone,
             ),
             dictionary=Dictionary(model=FakeLanguageModel(), ledger=ledger, limit=limit),
+            notes=Notes(SqliteNotes(database), clock),
             spending=limit,
             alert_push=AlertPush(
                 store=SqlitePushSubscriptions(database),

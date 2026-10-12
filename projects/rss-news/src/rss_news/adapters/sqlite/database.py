@@ -160,6 +160,18 @@ MIGRATIONS: tuple[str, ...] = (
     """
     ALTER TABLE items ADD COLUMN image_url TEXT;  -- thumbnail link from the feed; NULL if none
     """,
+    """
+    CREATE TABLE notes (
+        id INTEGER PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        text TEXT NOT NULL,
+        comment TEXT NOT NULL DEFAULT '',
+        -- The link back, without a foreign key: a Note outlives its Briefing, Item or Chat.
+        source_kind TEXT NOT NULL,  -- briefing, item or chat
+        source_id INTEGER NOT NULL,
+        source_title TEXT NOT NULL
+    );
+    """,
 )
 
 

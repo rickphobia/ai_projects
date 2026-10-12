@@ -114,7 +114,7 @@ export async function renderChatPanel(
   const messageRow = (message: ChatMessage): HTMLLIElement =>
     message.role === "owner"
       ? questionRow(message.text)
-      : answerRow(message, onOpenItem, onBriefThese);
+      : answerRow(message, chat?.id ?? null, onOpenItem, onBriefThese);
 
   const show = (shown: Chat | null): void => {
     chat = shown;
@@ -257,12 +257,17 @@ function questionRow(text: string): HTMLLIElement {
 
 function answerRow(
   message: ChatMessage,
+  chatId: number | null,
   onOpenItem: (itemId: number) => void,
   onBriefThese: (itemIds: number[]) => void,
 ): HTMLLIElement {
   const row = document.createElement("li");
   row.className = "chat-answer";
-  offerSelection(row, "a Chat answer");
+  offerSelection(
+    row,
+    "a Chat answer",
+    chatId === null ? undefined : { kind: "chat", id: chatId },
+  );
   const intro = document.createElement("p");
   intro.textContent = message.text;
   row.append(intro);

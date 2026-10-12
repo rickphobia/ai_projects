@@ -4,14 +4,14 @@
 
 **Blocked by:** 15 (Selection popup: Ask AI and Dictionary)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** notes, adapters/sqlite/notes, web/notes, pwa/notes, pwa/selection, pwa/shell
 
 **Effort:** low
 
-- [ ] Notes API: list, create, update, delete, export as Markdown
-- [ ] A Note's link back still works after its Item is deleted by cleanup, showing the saved text and saying the Item is gone
-- [ ] Note action in the selection popup, with an optional comment
-- [ ] PWA Notes screen
-- [ ] API tests cover each action and the export; Vitest tests cover saving from the popup
+- [x] Notes API: list, create, update, delete, export as Markdown
+- [x] A Note's link back still works after its Item is deleted by cleanup, showing the saved text and saying the Item is gone
+- [x] Note action in the selection popup, with an optional comment
+- [x] PWA Notes screen
+- [x] API tests cover each action and the export; Vitest tests cover saving from the popup

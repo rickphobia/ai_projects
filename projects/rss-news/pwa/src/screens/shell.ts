@@ -5,6 +5,7 @@ import { renderBriefings } from "./briefings";
 import { renderHome } from "./home";
 import { renderInbox } from "./inbox";
 import { renderItem } from "./item";
+import { renderNoteBriefing, renderNotes } from "./notes";
 import { installSelectionPopup } from "./selection";
 import { renderSettings, spendingBanner } from "./settings";
 import { renderSources } from "./sources";
@@ -20,7 +21,7 @@ export interface ShellOptions {
 // a sidebar with the screens and the Folders (a drawer opened from the header's Menu button on
 // a phone), a spending warning from 80% of the monthly limit, and the page: the home screen
 // (the latest Briefing), the Inbox (all of it or one Folder), an Item, the saved Briefings,
-// the Sources or the Settings screen.
+// the Notes, the Sources or the Settings screen.
 export async function renderShell(
   root: HTMLElement,
   api: ApiClient,
@@ -47,6 +48,7 @@ export async function renderShell(
   const toHome = navButton("Home");
   const toInbox = navButton("Inbox");
   const toBriefings = navButton("Briefings");
+  const toNotes = navButton("Notes");
   const toSources = navButton("Sources");
   const toSettings = navButton("Settings");
   const folderHeading = document.createElement("p");
@@ -61,6 +63,7 @@ export async function renderShell(
     toHome,
     toInbox,
     toBriefings,
+    toNotes,
     toSources,
     toSettings,
     folderHeading,
@@ -146,6 +149,35 @@ export async function renderShell(
       );
     });
   };
+  // A Note links back to the Item, Briefing or Chat it was saved from.
+  const showNotes = (): Promise<void> => {
+    showing(toNotes);
+    const openItem = (itemId: number): void => {
+      void renderItem(
+        page,
+        api,
+        itemId,
+        () => void showNotes(),
+        "Back to Notes",
+      );
+    };
+    return renderNotes(page, api, (link) => {
+      if (link.kind === "item") {
+        openItem(link.id);
+      } else if (link.kind === "briefing") {
+        void renderNoteBriefing(
+          page,
+          api,
+          link.id,
+          openItem,
+          () => void showNotes(),
+        );
+      } else {
+        openChatId = link.id;
+        void showInbox();
+      }
+    });
+  };
   const listFolders = (): Promise<void> =>
     showFolders(api, folderList, (entry, folderId) =>
       showInbox(entry, folderId),
@@ -158,6 +190,9 @@ export async function renderShell(
   });
   toBriefings.addEventListener("click", () => {
     void showBriefings();
+  });
+  toNotes.addEventListener("click", () => {
+    void showNotes();
   });
   toSources.addEventListener("click", () => {
     showing(toSources);
