@@ -21,6 +21,13 @@ export interface ChatMessage {
   items: ChatAnswerItem[];
 }
 
+// Text the owner selected and chose Ask AI for, sent with their question.
+export interface ChatQuote {
+  text: string;
+  // Where it was selected, such as "Item: Ringgit rises (Reuters)".
+  origin: string;
+}
+
 // A saved Chat in the list, without its messages.
 export interface ChatSummary {
   id: number;

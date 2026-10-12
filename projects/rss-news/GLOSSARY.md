@@ -40,6 +40,14 @@ _Avoid_: Ask AI, assistant, bot
 A short written overview the owner asks for, covering all Sources or one Folder over the last 24 hours, 7 days or 30 days, or a set of Items picked by hand. Each point links to the Items it came from.
 _Avoid_: Digest, summary, recap, newsletter
 
+**Dictionary**:
+A short definition of a selected word or phrase, fitted to the text around it, including jargon, stock tickers and Malay words.
+_Avoid_: Glossary, lookup, explain
+
+**Selection popup**:
+The buttons that appear under text the owner selects in a Briefing, an Item or a Chat answer: Ask AI (opens the Chat with the selection and where it came from), Note and Dictionary.
+_Avoid_: Context menu, toolbar
+
 **Note**:
 Text the owner selected and saved, with an optional comment and a link back to where it came from.
 _Avoid_: Highlight, bookmark, clip

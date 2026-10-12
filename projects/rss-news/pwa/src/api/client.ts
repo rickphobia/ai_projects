@@ -30,10 +30,16 @@ import {
   type Chat,
   type ChatJson,
   type ChatMessage,
+  type ChatQuote,
   type ChatSearch,
   type ChatSummary,
   type ChatSummaryJson,
 } from "./chats";
+import {
+  definitionFromJson,
+  type Definition,
+  type DefinitionJson,
+} from "./dictionary";
 import { readEvents } from "./event-stream";
 
 export interface Health {
@@ -189,7 +195,11 @@ export interface ApiClient {
     chatId: number,
     question: string,
     onSearched: (search: ChatSearch) => void,
+    quote?: ChatQuote,
   ): Promise<ChatMessage>;
+  // A short definition of `term` as `context` uses it. Rejects with RefusedError, saying why,
+  // when the model gave none or this month's spending limit is reached.
+  defineWord(term: string, context: string): Promise<Definition>;
 }
 
 export class ApiError extends Error {
@@ -454,10 +464,12 @@ export class HttpApiClient implements ApiClient {
     chatId: number,
     question: string,
     onSearched: (search: ChatSearch) => void,
+    quote?: ChatQuote,
   ): Promise<ChatMessage> {
     const path = `api/chats/${String(chatId)}/messages`;
     const response = await this.sendWithSession("POST", path, {
       text: question,
+      ...(quote ? { quote } : {}),
     });
     if (response.body === null) {
       throw new ApiError(`POST ${path} answered without a body`);
@@ -475,6 +487,14 @@ export class HttpApiClient implements ApiClient {
     throw new ApiError("The Chat stream ended before the answer arrived");
   }
 
+  async defineWord(term: string, context: string): Promise<Definition> {
+    const response = await this.sendWithSession("POST", "api/dictionary", {
+      term,
+      context,
+    });
+    return definitionFromJson((await response.json()) as DefinitionJson);
+  }
+
   // For every call except login: a 401 means the session is gone, so go to login.
   private async sendWithSession(
     method: string,
@@ -486,8 +506,8 @@ export class HttpApiClient implements ApiClient {
       this.onSignedOut();
       throw new SignedOutError(`${method} ${path} needs a session`);
     }
-    // 502 is Reader view failing to extract the original page; 422 includes nothing to brief;
-    // 429 is a Briefing or a Chat refused because the monthly spending limit is reached; 409 includes
+    // 502 is Reader view failing to extract the original page or the Dictionary failing; 422 includes nothing to brief;
+    // 429 is a Briefing, a Chat or a Dictionary look-up refused because the monthly spending limit is reached; 409 includes
     // Alerts not set up on the server.
     if ([404, 409, 422, 429, 502].includes(response.status)) {
       const body: unknown = await response.json().catch(() => null);

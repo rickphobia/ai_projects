@@ -55,6 +55,7 @@ def model(answer: Answer, *, max_attempts: int = 3) -> tuple[AnthropicLanguageMo
         chat_model="claude-opus-5-5",
         chat_effort="low",
         chat_compaction_tokens=70_000,
+        dictionary_model="claude-haiku-5-5",
         timeout=timedelta(seconds=5),
         max_attempts=max_attempts,
         http_client=anthropic.DefaultHttpxClient(transport=httpx2.MockTransport(answer)),

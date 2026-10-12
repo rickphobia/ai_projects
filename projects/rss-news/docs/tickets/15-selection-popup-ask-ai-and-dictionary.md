@@ -4,14 +4,14 @@
 
 **Blocked by:** 14 (Chat web search and compaction), 26 (Chat panel in the Inbox)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** dictionary, chat, adapters/language_model, web/dictionary, pwa/selection, pwa/chat
 
 **Effort:** low
 
-- [ ] Selection popup on Briefings, Items and Chat answers, working with touch selection on Android
-- [ ] Ask AI attaches the selection to the Chat as quoted context with its origin
-- [ ] LanguageModel gains a define-word operation; the Dictionary model defaults to `claude-haiku-5-5`; it checks the spending status and records its calls
-- [ ] Dictionary look-up API
-- [ ] Adapter test against a saved definition response; API tests cover the look-up and the limit; Vitest tests cover the popup, Ask AI and Dictionary
+- [x] Selection popup on Briefings, Items and Chat answers, working with touch selection on Android
+- [x] Ask AI attaches the selection to the Chat as quoted context with its origin
+- [x] LanguageModel gains a define-word operation; the Dictionary model defaults to `claude-haiku-5-5`; it checks the spending status and records its calls
+- [x] Dictionary look-up API
+- [x] Adapter test against a saved definition response; API tests cover the look-up and the limit; Vitest tests cover the popup, Ask AI and Dictionary

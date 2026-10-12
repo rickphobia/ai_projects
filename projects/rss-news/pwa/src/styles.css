@@ -611,6 +611,42 @@ form label {
   border-radius: var(--radius);
   background: var(--bg-selected);
   overflow-wrap: break-word;
+  /* A question asked with Ask AI carries its quote on lines of its own. */
+  white-space: pre-wrap;
+}
+
+.chat-quote {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.chat-quote blockquote {
+  margin: 0;
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--border);
+  color: var(--text-muted);
+  max-height: 6rem;
+  overflow: auto;
+}
+
+.chat-quote figcaption {
+  color: var(--text-muted);
+}
+
+/* Above the Chat sheet and the drawer, so it can be reached wherever the selection is. */
+.selection-popup {
+  position: absolute;
+  z-index: 40;
+  max-width: min(22rem, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+}
+
+.selection-popup [role="status"]:empty {
+  display: none;
 }
 
 .chat-answer {

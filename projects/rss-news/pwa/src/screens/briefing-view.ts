@@ -1,4 +1,5 @@
 import type { Briefing } from "../api/briefings";
+import { offerSelection } from "./selection";
 import { shownTime } from "./shown-time";
 
 // One Briefing grouped by Folder, each point linking the Items it came from. Home and the
@@ -10,6 +11,7 @@ export function showBriefing(
 ): void {
   const title = document.createElement("h2");
   title.textContent = `Briefing of ${shownTime.format(new Date(briefing.createdAt))}`;
+  offerSelection(shown, `${title.textContent} (${briefing.title})`);
   const details = document.createElement("p");
   details.className = "item-meta";
   details.textContent = `${briefing.title} · ${String(briefing.itemCount)} Items · cost $${briefing.costUsd}`;

@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from rss_news.chat.chatting import Chats, ChatSearched
+from rss_news.chat.chatting import LONGEST_QUOTE, Chats, ChatSearched, Quote
 from rss_news.chat.conversation import ChatFailed, ChatMessage, ChatSummary, NoSuchChat
 from rss_news.spending.limit import SpendingStopped
 
@@ -19,12 +19,21 @@ logger = logging.getLogger(__name__)
 
 chats_router = APIRouter(prefix="/api/chats")
 _CENT_FRACTION = Decimal("0.01")
-# A question, not a document; longer text arrives with selections in a later ticket.
+# A question, not a document; a selection asked about comes separately, as its quote.
 _LONGEST_QUESTION = 4_000
+_LONGEST_ORIGIN = 300
+
+
+class QuotedSelection(BaseModel):
+    text: str = Field(min_length=1, max_length=LONGEST_QUOTE)
+    # Where it was selected, such as "Item: Fed cuts rates (Reuters)".
+    origin: str = Field(min_length=1, max_length=_LONGEST_ORIGIN)
 
 
 class Question(BaseModel):
     text: str = Field(min_length=1, max_length=_LONGEST_QUESTION)
+    # Text the owner selected and chose Ask AI for.
+    quote: QuotedSelection | None = None
 
 
 def chats_of(request: Request) -> Chats:
@@ -65,7 +74,8 @@ def ask(request: Request, chat_id: int, body: Question) -> StreamingResponse:
     if not question:
         raise HTTPException(status_code=422, detail="Ask a question first.")
     try:
-        steps = chats_of(request).ask(chat_id, question)
+        quote = None if body.quote is None else Quote(body.quote.text, body.quote.origin)
+        steps = chats_of(request).ask(chat_id, question, quote)
     except NoSuchChat:
         raise HTTPException(status_code=404, detail="That Chat doesn't exist.") from None
     except SpendingStopped as error:

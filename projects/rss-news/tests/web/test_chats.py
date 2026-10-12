@@ -356,7 +356,7 @@ def test_chat_is_refused_at_the_spending_limit_without_calling_the_model(
     response = client.post(f"{CHATS}/{chat_id}/messages", json={"text": "news?"})
 
     assert response.status_code == 429
-    assert "Briefings and Chat are off until next month" in response.json()["detail"]
+    assert "Briefings, Chat and Dictionary are off until next month" in response.json()["detail"]
     assert model.chat_calls == []
 
 
@@ -369,6 +369,47 @@ def test_an_empty_question_is_refused(client: TestClient) -> None:
     chat_id = new_chat(client)
 
     assert client.post(f"{CHATS}/{chat_id}/messages", json={"text": "   "}).status_code == 422
+
+
+def test_ask_ai_sends_the_selection_and_its_origin_after_the_question(
+    client: TestClient, model: FakeLanguageModel
+) -> None:
+    model.chat_script = [answer("It means the rate held.")]
+    chat_id = new_chat(client)
+
+    response = client.post(
+        f"{CHATS}/{chat_id}/messages",
+        json={
+            "text": "What does this mean?",
+            "quote": {
+                "text": "BNM kept the OPR at 2.75%.\nInflation stays moderate.",
+                "origin": "Item: BNM holds rates (The Star)",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    question = model.chat_calls[0][1]
+    assert isinstance(question, OwnerQuestion)
+    expected = (
+        "What does this mean?\n\nAbout this, from Item: BNM holds rates (The Star):\n"
+        "> BNM kept the OPR at 2.75%.\n> Inflation stays moderate."
+    )
+    assert question.text == expected
+    chat = client.get(f"{CHATS}/{chat_id}").json()["chat"]
+    assert chat["messages"][0]["text"] == expected
+    # The title starts with the question, not the quote.
+    assert chat["title"].startswith("What does this mean? About this")
+
+
+def test_a_quote_without_an_origin_is_refused(client: TestClient) -> None:
+    chat_id = new_chat(client)
+
+    response = client.post(
+        f"{CHATS}/{chat_id}/messages", json={"text": "why?", "quote": {"text": "x", "origin": ""}}
+    )
+
+    assert response.status_code == 422
 
 
 def test_web_search_is_not_offered_while_the_items_answer(

@@ -16,6 +16,7 @@ from rss_news.alerts.push import AlertPush
 from rss_news.briefings.writing import Briefings
 from rss_news.chat.chatting import Chats
 from rss_news.config import load_settings
+from rss_news.dictionary.lookup import Dictionary
 from rss_news.items.inbox import Inbox
 from rss_news.items.reading import ItemReading
 from rss_news.sources.managing import SourceManagement
@@ -124,6 +125,7 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
                 clock=clock,
                 timezone=settings.timezone,
             ),
+            dictionary=Dictionary(model=FakeLanguageModel(), ledger=ledger, limit=limit),
             spending=limit,
             alert_push=AlertPush(
                 store=SqlitePushSubscriptions(database),

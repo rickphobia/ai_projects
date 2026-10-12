@@ -74,6 +74,8 @@ class Settings:
     chat_effort: Effort
     # Past this many prompt tokens the API summarises a Chat's older turns (compaction).
     chat_compaction_tokens: int
+    # Defines selected words; a cheap model is plenty for a sentence or two.
+    dictionary_model: str
     # USD per million input and output tokens, by model name. Every configured model needs one.
     model_prices: Mapping[str, ModelPrice]
     web_search_price_usd: Decimal
@@ -159,6 +161,9 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         chat_effort=_effort(environ, "RSS_NEWS_CHAT_EFFORT", default="low"),
         chat_compaction_tokens=_positive_int(
             environ, "RSS_NEWS_CHAT_COMPACTION_TOKENS", default=70_000
+        ),
+        dictionary_model=_priced_model(
+            environ, "RSS_NEWS_DICTIONARY_MODEL", default="claude-haiku-5-5", prices=model_prices
         ),
         model_prices=model_prices,
         web_search_price_usd=_usd(environ, "RSS_NEWS_WEB_SEARCH_PRICE_USD", default="0.01"),
