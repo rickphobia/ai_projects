@@ -2,7 +2,11 @@ import {
   createScreenOutput,
   type ScreenOutput,
 } from "./adapters/screen/screen-output";
-import { createViewRenderer } from "./adapters/view/view-renderer";
+import {
+  createViewRenderer,
+  type ViewRenderer,
+  ViewStartError,
+} from "./adapters/view/view-renderer";
 import { loadConfig } from "./config";
 import { chooseLogLevel, createConsoleLogger, type Logger } from "./logger";
 import { drawCockpitScreen } from "./screen/cockpit-screen";
@@ -43,7 +47,7 @@ try {
 /** Nothing moves yet, so one frame from the start of the Runway is the whole game. */
 function showWorldFromRunway(logger: Logger): void {
   const world = createWorld(WORLD_LAYOUT);
-  let view;
+  let view: ViewRenderer;
   try {
     view = createViewRenderer(
       world,
@@ -51,6 +55,8 @@ function showWorldFromRunway(logger: Logger): void {
       logger,
     );
   } catch (error) {
+    // Anything else is a bug, not a missing WebGL; let the general start-up failure report it.
+    if (!(error instanceof ViewStartError)) throw error;
     logger.error("3D view could not start", { webgl: false, error });
     showStartFailure(
       "ASCII SKY needs WebGL to draw the World, and this browser could not start it.",

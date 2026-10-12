@@ -14,10 +14,10 @@ export class CockpitScreenError extends Error {
 
 /** The window pillars: this many columns of this character at each side of the view. */
 const PILLAR = "|";
-const PILLAR_WIDTH = 2;
+export const PILLAR_WIDTH = 2;
 /** Half the cowling's width in columns, and how many rows it rises into the view at its centre. */
 const COWLING_HALF_WIDTH = 34;
-const COWLING_HEIGHT = 4.5;
+export const COWLING_HEIGHT = 4.5;
 /** Where the cowling outline is steeper than this many rows per column, draw a slope, not a dash. */
 const STEEP = 0.7;
 

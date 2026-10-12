@@ -1,8 +1,5 @@
 import { expect, type Page } from "@playwright/test";
 
-export const SCREEN_COLUMNS = 120;
-export const SCREEN_ROWS = 45;
-
 /** The Screen's lines, once the page has drawn something into it. */
 export async function readScreen(page: Page): Promise<string[]> {
   const screen = page.locator("#screen");

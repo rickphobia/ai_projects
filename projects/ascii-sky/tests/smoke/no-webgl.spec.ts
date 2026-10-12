@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { collectErrors, readScreen, SCREEN_ROWS } from "./read-screen";
+import { SCREEN_ROWS } from "../../src/screen/screen-size";
+import { collectErrors, readScreen } from "./read-screen";
 
 // Replaces the config's launch flags: this browser has no WebGL at all.
 test.use({
