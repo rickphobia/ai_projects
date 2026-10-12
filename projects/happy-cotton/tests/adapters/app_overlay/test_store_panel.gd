@@ -1,7 +1,8 @@
 extends GutTest
-## The store panel shows what the store sells: Upgrades, land and Privileges in their own sections,
-## each with its price, an Upgrade's tier, effect and Quota rise, the reason an item can't be
-## bought, and a fully upgraded item marked as such. Its buttons only ask.
+## The store panel shows what the store sells: Upgrades, land, supplies and Privileges in their
+## own sections, each with its price, an Upgrade's tier, effect and Quota rise, a supply's stock
+## and tomorrow's price, the reason an item can't be bought, and a fully upgraded item marked as
+## such. Its buttons only ask.
 
 var _panel: StorePanel
 
@@ -187,3 +188,37 @@ func test_the_tins_button_asks_to_pay_with_hidden_savings() -> void:
 
 	assert_signal_emitted_with_parameters(_panel, "savings_pressed", [Farm.REST_HOUR])
 	assert_signal_not_emitted(_panel, "privilege_pressed")
+
+
+func _fertiliser(held: int, refusal: StringName) -> StoreItemView:
+	return StoreItemView.supply(Farm.FERTILISER, Vector2i(3, 4), Vector2i(held, 5), refusal)
+
+
+func test_a_supply_shows_what_is_held_and_tomorrows_price_in_its_own_section() -> void:
+	_show([_land(false, &""), _fertiliser(2, &""), _rest_hour(&"")])
+
+	var row := _panel.row(Farm.FERTILISER)
+	var texts := _texts(row)
+	assert_has(texts, "Fertiliser  ·  Held 2 of 5")
+	assert_true(texts.any(func(text: String) -> bool: return text.contains("Tomorrow: 4")), "next")
+	assert_false(texts.any(func(text: String) -> bool: return text.contains("Quota +")))
+	assert_eq(row.button().text, "3 Labour Points")
+	assert_ne(row.get_parent(), _panel.row(Farm.LAND).get_parent())
+	assert_ne(row.get_parent(), _panel.row(Farm.REST_HOUR).get_parent())
+
+
+func test_a_full_stock_says_so_and_its_button_is_off() -> void:
+	_show([_fertiliser(5, Farm.STOCK_FULL)])
+
+	var row := _panel.row(Farm.FERTILISER)
+	assert_true(row.button().disabled)
+	assert_eq(row.refusal_text(), AppText.render_store_refusal(Farm.STOCK_FULL, {}))
+
+
+func test_a_supply_button_asks_for_its_supply() -> void:
+	_show([_fertiliser(0, &"")])
+	watch_signals(_panel)
+
+	_panel.row(Farm.FERTILISER).button().pressed.emit()
+
+	assert_signal_emitted_with_parameters(_panel, "supply_pressed", [Farm.FERTILISER])

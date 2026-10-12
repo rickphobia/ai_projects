@@ -47,6 +47,8 @@ extends RefCounted
 ## becomes Debt; they never pay existing Debt, and Negligence never touches them.
 ## Keeping back, and spending hidden savings in the store, make a Harmony Audit likelier (see
 ## Audits); one that catches him takes the savings and starts the longest Study Session.
+## The store also sells supplies (see Supplies) into a small stock. Fertiliser, dearer every
+## Shift, is spread on a Seedling so that crop grows faster until it leaves the Plot.
 ## to_save() gives the whole Farm as plain data and restore() takes it back, so a restored Farm
 ## plays on exactly as the saved one would have.
 
@@ -63,9 +65,9 @@ const WORKER_BUSY := &"worker_busy"
 const HAND_IN_OPEN := &"hand_in_open"
 ## hand_in() was called with no Hand-in open.
 const NO_HAND_IN := &"no_hand_in"
-const RESTING := &"resting"
+const RESTING := Privileges.RESTING
 ## He is on a call home: no field work, no Generator, no other Privilege until it ends.
-const ON_A_CALL := &"on_a_call"
+const ON_A_CALL := Privileges.ON_A_CALL
 ## A missed Quota took every Privilege away for this Shift.
 const PRIVILEGES_TAKEN_AWAY := &"privileges_taken_away"
 ## The Worker owes the Farm, so he can buy nothing in the store, whatever pays.
@@ -94,6 +96,17 @@ const GENERATOR := StoreFront.GENERATOR
 const TOOLS := StoreFront.TOOLS
 ## buy_upgrade() was given an Upgrade the Farm does not sell.
 const NO_SUCH_UPGRADE := &"no_such_upgrade"
+## Supplies, their message key and their refusals, documented in Supplies.
+const FERTILISER := Supplies.FERTILISER
+const SUPPLIES := Supplies.KINDS
+const SUPPLY_BOUGHT := Supplies.SUPPLY_BOUGHT
+const STOCK_FULL := Supplies.STOCK_FULL
+const NO_SUCH_SUPPLY := Supplies.NO_SUCH_SUPPLY
+const NONE_HELD := Supplies.NONE_HELD
+const WRONG_STAGE := Supplies.WRONG_STAGE
+const ALREADY_FERTILISED := Supplies.ALREADY_FERTILISED
+## The reasons fertilise() refuses that The App explains; the others it shares with planting.
+const FERTILISE_REFUSALS: Array[StringName] = [NONE_HELD, WRONG_STAGE, ALREADY_FERTILISED]
 ## Every reason a store item can be refused with; the App text table explains each.
 const STORE_REFUSALS: Array[StringName] = [
 	HAND_IN_OPEN,
@@ -105,6 +118,7 @@ const STORE_REFUSALS: Array[StringName] = [
 	NOT_ENOUGH_LABOUR_POINTS,
 	FULLY_UPGRADED,
 	FULLY_BOUGHT,
+	STOCK_FULL,
 ]
 
 ## The save format to_save() writes and restore() reads. Raise it when the format changes.
@@ -118,11 +132,10 @@ const STORE_REFUSALS: Array[StringName] = [
 ## added longer laps; an older save's lap in progress takes lap_seconds. Version 10 added the
 ## Hand-in; an older save carries on with the Shift's picks as cotton in hand and none open.
 ## Version 11 added hidden savings; an older save restores with none. Version 12 added Harmony
-## Audits; an older save restores with a clean record, none planned, never caught.
-const SAVE_VERSION := 12
-const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, SAVE_VERSION]
-## The lowest balance a save can hold: Debt can grow, but not without end.
-const LEAST_SAVED_BALANCE := -1000000000
+## Audits; an older save restores with a clean record, none planned, never caught. Version 13
+## added supplies; an older save restores with none held and nothing fertilised.
+const SAVE_VERSION := 13
+const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, SAVE_VERSION]
 
 ## Why resume_offline() didn't use the clock's time as given (AwayReport.clock_problem).
 const NEGATIVE_OFFLINE_TIME := &"negative_offline_time"
@@ -153,7 +166,7 @@ const AWAY_SUMMARY := &"away_summary"
 ## A rest hour was bought: values price, minutes (rounded up).
 const REST_STARTED := &"rest_started"
 ## A rest hour ran its course. A Study Session cuts one short without this.
-const REST_ENDED := &"rest_ended"
+const REST_ENDED := Privileges.REST_ENDED
 ## A call home was bought: values price, minutes (rounded up).
 const CALL_STARTED := &"call_started"
 ## An exhausted pick dropped its cotton: nothing counted, nothing earned.
@@ -206,6 +219,7 @@ const MESSAGE_KEYS: Array[StringName] = [
 	CAUGHT,
 	CAUGHT_AGAIN,
 	ON_WATCH_ENDED,
+	SUPPLY_BOUGHT,
 ]
 ## Family events (FamilyEvent kinds), the Children's side, never App text. The Shift's own are
 ## documented in Shifts.
@@ -237,16 +251,14 @@ var _ledger: Ledger
 var _store: Store
 var _shifts: Shifts
 var _audits: Audits
+var _supplies: Supplies
 ## Shared with Shifts, so both queues are emptied in place, never replaced.
 var _messages: Array[AppMessage] = []
 var _letters := Letters.new(LETTER_IDS)
 var _family_events: Array[FamilyEvent] = []
 ## Seconds left of a slow field action; he can do no other field work until it is 0.
 var _busy_left := 0.0
-## Seconds left of a rest hour; 0 when he isn't resting.
-var _rest_left := 0.0
-## Seconds left of a call home; 0 when he isn't on one.
-var _call_left := 0.0
+var _privileges: Privileges
 ## Returns a number from 0 to 1 each call; a pick drops its cotton when it comes up under the
 ## tuning's chance.
 var _roll: Callable
@@ -260,9 +272,11 @@ var _random: RandomNumberGenerator
 func _init(tuning: Tuning, roll: Callable = Callable()) -> void:
 	_tuning = tuning
 	_land = _new_land()
-	_crops = Crops.new(tuning.grow_seconds, tuning.wither_seconds, _land.plot_count())
+	_crops = _new_crops(_land)
+	_supplies = Supplies.new(tuning)
 	_exhaustion = Exhaustion.new(tuning)
 	_toil = Toil.new(tuning, _exhaustion, _lap_seconds(_land))
+	_privileges = Privileges.new(tuning, _exhaustion, _toil, _messages)
 	_store = Store.new(tuning.generator_tiers, tuning.tools_tiers)
 	if roll.is_valid():
 		_roll = roll
@@ -361,7 +375,7 @@ func run_generator() -> CommandResult:
 	var held_up := _held_up()
 	if held_up != &"":
 		return CommandResult.refused(held_up)
-	var unable := _away_from_work()
+	var unable := _privileges.away_reason()
 	if unable != &"":
 		return CommandResult.refused(unable)
 	_toil.send()
@@ -413,6 +427,42 @@ func buy_plot(pay_with: Ledger.PayWith = PAY_LABOUR_POINTS) -> CommandResult:
 	return CommandResult.done()
 
 
+## Buys one of a supply (FERTILISER) into his stock, paid as buy_upgrade() is.
+func buy_supply(supply: StringName, pay_with: Ledger.PayWith = PAY_LABOUR_POINTS) -> CommandResult:
+	if supply not in SUPPLIES:
+		return CommandResult.refused(NO_SUCH_SUPPLY)
+	var front := _store_front()
+	var refusal := front.refusal(supply, pay_with)
+	if refusal != &"":
+		return CommandResult.refused(refusal)
+	var price := front.fertiliser_price()
+	_pay(price, pay_with)
+	_supplies.add(supply)
+	var values := {"kind": supply, "price": price, "held": _supplies.held(supply)}
+	values["next_price"] = _supplies.fertiliser_price(shift().number + 1)
+	_messages.append(AppMessage.new(SUPPLY_BOUGHT, values))
+	return CommandResult.done()
+
+
+## Spreads one Fertiliser from his stock on plot `index`'s Seedling: that crop grows faster for
+## the rest of its growth. Like planting, it is field work.
+func fertilise(index: int) -> CommandResult:
+	var refusal := _held_up()
+	if refusal == &"" and not _crops.exists(index):
+		refusal = NO_SUCH_PLOT
+	if refusal == &"":
+		var stage := _crops.view(index).stage
+		refusal = _supplies.fertiliser_refusal(stage, _crops.is_fertilised(index))
+	if refusal == &"":
+		refusal = _unable_to_work()
+	if refusal != &"":
+		return CommandResult.refused(refusal)
+	_start_field_work(0.0)
+	_supplies.use(FERTILISER)
+	_crops.fertilise(index)
+	return CommandResult.done()
+
+
 ## Only the debug wiring calls this, so players can never use it: it adds Labour Points
 ## without work, to reach the store's dearer items quickly.
 func debug_add_labour_points(points: int) -> void:
@@ -428,31 +478,25 @@ func debug_plan_audit() -> void:
 		_audits.announce(shift().number)
 
 
-## Buys a Privilege, REST_HOUR or CALL_HOME, paid as buy_upgrade() is.
+## Buys a Privilege, REST_HOUR or CALL_HOME, paid as buy_upgrade() is. Each takes the Worker
+## off the Generator while the Shift counts on (see Privileges). A call home also sends a
+## Family event whose call follows the latest letter received.
 func buy_privilege(
 	privilege: StringName, pay_with: Ledger.PayWith = PAY_LABOUR_POINTS
 ) -> CommandResult:
-	if privilege == REST_HOUR:
-		return _buy_rest_hour(pay_with)
-	if privilege == CALL_HOME:
-		return _buy_call_home(pay_with)
-	return CommandResult.refused(NO_SUCH_PRIVILEGE)
-
-
-## The call home: it costs Labour Points and takes the Worker off the Generator while the
-## Shift counts on. Unlike a rest it takes no Exhaustion away.
-func _buy_call_home(pay_with: Ledger.PayWith) -> CommandResult:
+	if privilege != REST_HOUR and privilege != CALL_HOME:
+		return CommandResult.refused(NO_SUCH_PRIVILEGE)
 	var front := _store_front()
-	var refusal := front.refusal(CALL_HOME, pay_with)
+	var refusal := front.refusal(privilege, pay_with)
 	if refusal != &"":
 		return CommandResult.refused(refusal)
-	var price := front.call_home_price()
+	var rest := privilege == REST_HOUR
+	var price := front.rest_hour_price() if rest else front.call_home_price()
 	_pay(price, pay_with)
-	_call_left = _tuning.call_home_seconds
-	_toil.bring_back()
-	var values := {"price": price, "minutes": ceili(_call_left / 60.0)}
-	_messages.append(AppMessage.new(CALL_STARTED, values))
-	_family_events.append(FamilyEvent.new(CALLED_HOME, _call_id()))
+	var values := {"price": price, "minutes": ceili(_privileges.start(rest) / 60.0)}
+	_messages.append(AppMessage.new(REST_STARTED if rest else CALL_STARTED, values))
+	if not rest:
+		_family_events.append(FamilyEvent.new(CALLED_HOME, _call_id()))
 	return CommandResult.done()
 
 
@@ -462,22 +506,6 @@ func _call_id() -> StringName:
 	if received.is_empty():
 		return CALL_IDS[0]
 	return LETTER_CALLS.get(received.back(), CALL_IDS[0])
-
-
-## The rest hour, the first Privilege: it costs Labour Points and takes the Worker off the
-## Generator, lowering his Exhaustion towards its floor while the Shift counts on.
-func _buy_rest_hour(pay_with: Ledger.PayWith) -> CommandResult:
-	var front := _store_front()
-	var refusal := front.refusal(REST_HOUR, pay_with)
-	if refusal != &"":
-		return CommandResult.refused(refusal)
-	var price := front.rest_hour_price()
-	_pay(price, pay_with)
-	_rest_left = _tuning.rest_hour_seconds
-	_toil.bring_back()
-	var values := {"price": price, "minutes": ceili(_rest_left / 60.0)}
-	_messages.append(AppMessage.new(REST_STARTED, values))
-	return CommandResult.done()
 
 
 ## Moves the Farm on by some seconds of online play. Time never runs backwards, so a
@@ -501,13 +529,11 @@ func advance(seconds: float) -> Array[StringName]:
 			var growth_rate := _store.growth_multiplier() if _toil.is_running() else 0.0
 			var worked := minf(minf(remaining, shift_left), _toil.seconds_until_turn())
 			worked = minf(worked, _crops.seconds_until_wither(growth_rate))
-			worked = minf(worked, _rest_left if _resting() else INF)
-			worked = minf(worked, _call_left if _on_a_call() else INF)
+			worked = minf(worked, _privileges.seconds_until_end())
 			var overseer_event := _toil.pass_time(worked)
 			if overseer_event != Toil.NO_EVENT:
 				overseer_events.append(overseer_event)
-			_rest(worked)
-			_call_left = maxf(0.0, _call_left - worked)
+			_privileges.pass_time(worked)
 			var withered := _crops.tend(worked, growth_rate)
 			remaining -= worked
 			_shifts.run(worked)
@@ -573,24 +599,19 @@ func resume_offline(seconds: float) -> AwayReport:
 func to_save() -> Dictionary:
 	var save := {
 		"version": SAVE_VERSION,
-		"labour_points": _ledger.balance(),
-		"hidden_savings": _ledger.hidden_savings(),
-		"shift_earned": _ledger.earned(),
-		"school_fees_shift": _ledger.next_fees_shift(),
-		"school_fees_unpaid": _ledger.fees_unpaid(),
-		"school_fees_unpaid_in_a_row": _ledger.fees_unpaid_in_a_row(),
-		"letters": {"letter_shifts": _letters.letter_shifts(), "received": _letters.received()},
+		"letters": _letters.to_save(),
 		"busy_left": _busy_left,
-		"rest_left": _rest_left,
-		"call_left": _call_left,
 		"crops": _crops.to_save(),
 		"exhaustion": _exhaustion.to_save(),
 		"toil": _toil.to_save(),
 		"store": _store.to_save(),
 		"plots_bought": _land.plots_bought(),
 		"audits": _audits.to_save(),
+		"supplies": _supplies.to_save(),
 	}
+	save.merge(_ledger.to_save())
 	save.merge(_shifts.to_save())
+	save.merge(_privileges.to_save())
 	return save
 
 
@@ -602,7 +623,8 @@ func to_save() -> Dictionary:
 ## before the store, restores with no Upgrades; a negative balance restores as Debt. One from
 ## before land (version 7 or older) restores with the first land's Plots only. One from before
 ## the Hand-in (version 9 or older) keeps the Shift's picks as cotton in hand, and one from
-## before hidden savings (version 10 or older) has none.
+## before hidden savings (version 10 or older) has none, and one from before supplies (version 12
+## or older) holds none and has nothing fertilised.
 func restore(save: Dictionary) -> Array[String]:
 	var reader := SaveReader.new(save)
 	var version := reader.whole("version")
@@ -611,8 +633,11 @@ func restore(save: Dictionary) -> Array[String]:
 	var land := _new_land()
 	if version >= 8:
 		_restore_land(land, reader)
-	var crops := Crops.new(_tuning.grow_seconds, _tuning.wither_seconds, land.plot_count())
-	crops.restore(reader.section("crops"))
+	var crops := _new_crops(land)
+	crops.restore(reader.section("crops"), version >= 13)
+	var supplies := Supplies.new(_tuning)
+	if version >= 13:
+		supplies.restore(reader.section("supplies"))
 	var exhaustion := Exhaustion.new(_tuning)
 	exhaustion.restore(reader.section("exhaustion"))
 	var toil := Toil.new(_tuning, exhaustion, _lap_seconds(land))
@@ -621,40 +646,19 @@ func restore(save: Dictionary) -> Array[String]:
 	var shift_elapsed := reader.number("shift_elapsed")
 	var picked := reader.whole("picked")
 	var hand_in_is_open := reader.flag("hand_in_open") if version >= 10 else false
-	var balance := reader.whole("labour_points", LEAST_SAVED_BALANCE)
-	var shift_earned := reader.whole("shift_earned") if version >= 4 else 0
-	var savings := reader.whole("hidden_savings") if version >= 11 else 0
-	var fees_shift := shift_number + _fees_every()
-	var fees_unpaid := false
-	var fees_unpaid_in_a_row := 0
-	if version >= 5:
-		fees_shift = reader.whole("school_fees_shift", 1)
-		fees_unpaid = reader.flag("school_fees_unpaid")
-		fees_unpaid_in_a_row = reader.whole("school_fees_unpaid_in_a_row")
-	var letters := Letters.new(LETTER_IDS)
-	if version >= 6:
-		var letters_section := reader.section("letters")
-		letters = Letters.new(
-			LETTER_IDS,
-			letters_section.whole("letter_shifts"),
-			letters_section.ids("received", LETTER_IDS)
-		)
+	var ledger := Ledger.restored(reader, version, shift_number + _fees_every())
+	var letters := Letters.restored(reader, version >= 6)
 	var study_left := reader.number("study_left")
 	var misses_in_a_row := reader.whole("misses_in_a_row")
 	var busy_left := minf(reader.number("busy_left"), _tuning.slow_action_seconds)
-	var rest_left := minf(reader.number("rest_left"), _tuning.rest_hour_seconds)
-	var call_left := 0.0
-	if version >= 7:
-		call_left = minf(reader.number("call_left"), _tuning.call_home_seconds)
+	var privileges := Privileges.new(_tuning, exhaustion, toil, _messages)
+	privileges.restore(reader, version >= 7)
 	var privileges_taken_away := reader.flag("rest_taken_away")
 	var store := Store.new(_tuning.generator_tiers, _tuning.tools_tiers)
 	var shift_upgrade_rise := 0
 	if version >= 2:
 		store.restore(reader.section("store"), version >= 3)
 		shift_upgrade_rise = reader.whole("shift_upgrade_quota_rise")
-	var ledger := Ledger.new(
-		balance, shift_earned, fees_shift, fees_unpaid, fees_unpaid_in_a_row, savings
-	)
 	var audits := Audits.new(_tuning, ledger, _messages, _roll)
 	if version >= 12:
 		audits.restore(reader.section("audits"))
@@ -677,10 +681,10 @@ func restore(save: Dictionary) -> Array[String]:
 	_toil = toil
 	_ledger = ledger
 	_audits = audits
+	_supplies = supplies
 	_letters = letters
 	_busy_left = busy_left
-	_rest_left = rest_left
-	_call_left = call_left
+	_privileges = privileges
 	_store = store
 	_shifts = shifts
 	_messages.clear()
@@ -778,7 +782,7 @@ func study_session_seconds_left() -> float:
 
 func worker() -> WorkerView:
 	var activity := WorkerView.Activity.IN_FIELD
-	if _resting():
+	if _privileges.is_resting():
 		activity = WorkerView.Activity.RESTING
 	elif _toil.is_breathing():
 		activity = WorkerView.Activity.BREATHING
@@ -799,23 +803,15 @@ func exhaustion_floor() -> float:
 	return _exhaustion.floor_level()
 
 
-func _resting() -> bool:
-	return _rest_left > 0.0
-
-
-func _on_a_call() -> bool:
-	return _call_left > 0.0
-
-
 ## Seconds left of a call home under way; 0 when he isn't on one.
 func call_home_seconds_left() -> float:
-	return _call_left
+	return _privileges.call_left()
 
 
 ## Its price, the seconds left of one under way, and whether a missed Quota took it away.
 func rest_hour() -> RestHourView:
 	var price := _store_front().rest_hour_price()
-	return RestHourView.new(price, _rest_left, _shifts.privileges_taken_away())
+	return RestHourView.new(price, _privileges.rest_left(), _shifts.privileges_taken_away())
 
 
 ## The values of an Upgrade-bought message every Upgrade shares.
@@ -833,10 +829,12 @@ func store() -> Array[StoreItemView]:
 ## Session stops every purchase, and Privileges taken away or one under way stop Privileges.
 func _store_front() -> StoreFront:
 	var held_up := _held_up()
-	var privileges_blocked := _away_from_work()
+	var privileges_blocked := _privileges.away_reason()
 	if _shifts.privileges_taken_away():
 		privileges_blocked = PRIVILEGES_TAKEN_AWAY
-	return StoreFront.new(_tuning, _ledger, _store, _land, held_up, privileges_blocked)
+	return StoreFront.new(
+		_tuning, _ledger, _store, _land, _supplies, shift().number, held_up, privileges_blocked
+	)
 
 
 ## What The App should say since the last call, oldest first. Empties the queue.
@@ -878,7 +876,6 @@ func _log_negligence(withered_plots: Array[int]) -> void:
 	_cut_short_for_study_session()
 
 
-## The land at the tuning's first size, able to grow to its largest.
 ## How long a lap of the track round this land takes: each column or row beyond the first
 ## land's lengthens it by lap_seconds_per_strip.
 func _lap_seconds(land: Land) -> float:
@@ -892,6 +889,16 @@ func _lap_seconds(land: Land) -> float:
 	return _tuning.lap_seconds + strips * _tuning.lap_seconds_per_strip
 
 
+func _new_crops(land: Land) -> Crops:
+	return Crops.new(
+		_tuning.grow_seconds,
+		_tuning.wither_seconds,
+		land.plot_count(),
+		_tuning.fertiliser_growth_factor
+	)
+
+
+## The land at the tuning's first size, able to grow to its largest.
 func _new_land() -> Land:
 	return Land.new(
 		Vector2i(roundi(_tuning.first_land_columns), roundi(_tuning.first_land_rows)),
@@ -925,8 +932,7 @@ func _pay(price: int, pay_with: Ledger.PayWith) -> void:
 ## A Study Session cuts any rest hour or call home short.
 func _cut_short_for_study_session() -> void:
 	if in_study_session():
-		_rest_left = 0.0
-		_call_left = 0.0
+		_privileges.cut_short()
 
 
 ## Why plot `index` can't be picked right now, or &"" when it can.
@@ -957,20 +963,11 @@ func _held_up() -> StringName:
 
 ## Why the Worker can't do field work right now, or &"" when he can.
 func _unable_to_work() -> StringName:
-	var away := _away_from_work()
+	var away := _privileges.away_reason()
 	if away != &"":
 		return away
 	if _busy_left > 0.0:
 		return WORKER_BUSY
-	return &""
-
-
-## Why a Privilege under way keeps him from work, or &"" when none does.
-func _away_from_work() -> StringName:
-	if _resting():
-		return RESTING
-	if _on_a_call():
-		return ON_A_CALL
 	return &""
 
 
@@ -982,16 +979,3 @@ func _start_field_work(exhaustion_added: float, slow_share: float = 1.0) -> void
 	if _exhaustion.slows_work():
 		_busy_left = _tuning.slow_action_seconds * slow_share
 	_exhaustion.add(exhaustion_added)
-
-
-## Some seconds of a rest hour, never past its end: Exhaustion falls a little at a time.
-func _rest(seconds: float) -> void:
-	if not _resting():
-		return
-	_exhaustion.recover(_tuning.rest_hour_recovery * seconds / _tuning.rest_hour_seconds)
-	if seconds >= _rest_left:
-		_rest_left = 0.0
-		_toil.rested()
-		_messages.append(AppMessage.new(REST_ENDED, {}))
-	else:
-		_rest_left -= seconds

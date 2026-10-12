@@ -1,13 +1,13 @@
 class_name Field
 extends Node3D
-## The field the Worker works: a fenced grid of plots seen from a fixed, angled camera, with
-## the Worker beside it, a track around the fence paved with power tiles (see PowerTiles) and
-## the Generator at the track's corner, outside the fence's gate. Shows each plot's growth
-## stage as a cotton plant (see CropLooks), shows the time left on a growing plot, shows the
-## Worker walking out to the track and running laps of it (see WorkerMotion), lights the tile
-## under each of his steps, shows the Overseer beside the Generator whistling and whipping
-## when the rules say so (see OverseerLook), shows the Worker's tools on a rack by the
-## Generator at their Upgrade tier (see ToolRack), plays the field's sounds (see FieldSounds), and
+## The field the Worker works: a fenced grid of plots seen from a fixed, angled camera, with the
+## Worker beside it, a track around the fence paved with power tiles (see PowerTiles) and the
+## Generator at the track's corner, outside the fence's gate. Shows each plot's growth stage as a
+## cotton plant (see CropLooks) and marks the fertilised ones, shows the time left on a growing
+## plot, shows the Worker walking out to the track and running laps of it (see WorkerMotion), lights
+## the tile under each of his steps, shows the Overseer beside the Generator whistling and whipping
+## when the rules say so (see OverseerLook), shows the Worker's tools on a rack by the Generator at
+## their Upgrade tier (see ToolRack), plays the field's sounds (see FieldSounds), and
 ## reports which plot, or the Generator, was tapped. Knows nothing of the rules beyond the
 ## views and events it is shown. Nothing of the Farm is built until show_land() gives it the
 ## land: the plots, unworked ground, fence and track follow the land's cells and edges, and
@@ -76,6 +76,7 @@ var _grid: PlotGrid
 var _crop_looks := CropLooks.new()
 var _crops: Array[Node3D] = []
 var _shown_stages: Array[PlotView.Stage] = []
+var _fertiliser_marks: Array[Node3D] = []
 var _labelled_plot := -1
 var _label_seconds_remaining := 0.0
 var _gesture := PointerGesture.new(TAP_SLOP)
@@ -179,6 +180,12 @@ func _add_plots() -> void:
 		plot.add_child(crop)
 		_crops.append(crop)
 		_shown_stages.append(PlotView.Stage.EMPTY)
+		var mark := _crop_looks.fertiliser_mark()
+		mark.name = "Fertilised"
+		mark.position.y = SOIL_HEIGHT / 2.0
+		mark.visible = false
+		plot.add_child(mark)
+		_fertiliser_marks.append(mark)
 		add_child(plot)
 
 
@@ -205,6 +212,7 @@ func track() -> TrackPath:
 ## Redraws every plot from the rules' views, and keeps the time-left label current.
 func show_plots(views: Array[PlotView]) -> void:
 	for index in views.size():
+		_fertiliser_marks[index].visible = views[index].fertilised
 		var stage := views[index].stage
 		if stage == _shown_stages[index]:
 			continue

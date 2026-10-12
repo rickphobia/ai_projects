@@ -1,7 +1,8 @@
 class_name StoreRow
 extends HBoxContainer
-## One item in the store: its name (and tier for an Upgrade), The App's pitch, the Quota rise
-## an Upgrade or a Plot brings, why it can't be bought right now, and a button with its price.
+## One item in the store: its name (and tier for an Upgrade, or how many are held for a supply),
+## The App's pitch, the Quota rise an Upgrade or a Plot brings (or a supply's price tomorrow),
+## why it can't be bought right now, and a button with its price.
 ## The button is off while the item can't be bought; a fully upgraded Upgrade, or fully bought
 ## land, says so on it. While the Worker has hidden savings a second button, drawn by hand like
 ## his tin and not The App's, pays from them; it says when there isn't enough.
@@ -69,14 +70,21 @@ func show_item(item: StoreItemView, labour_points: int, hidden_savings := 0) -> 
 	if item.kind == StoreItemView.Kind.UPGRADE:
 		var tier := {"tier": item.tier, "top_tier": item.top_tier}
 		title += "  ·  " + AppText.fill(AppText.STORE_TIER, tier)
+	elif item.kind == StoreItemView.Kind.SUPPLY:
+		var stock := {"held": item.held, "most_held": item.most_held}
+		title += "  ·  " + AppText.fill(AppText.STORE_HELD, stock)
 	_title.text = title
 	var effects := {"effect": item.effect, "current": item.current_effect}
 	var blurb: String = AppText.STORE_BLURBS.get(item.id, "")
 	_blurb.text = AppText.fill(blurb, effects)
 	_quota_rise.text = ""
 	var sold_out := item.is_fully_upgraded() or item.is_fully_bought()
-	if item.kind != StoreItemView.Kind.PRIVILEGE and not sold_out:
+	var raises_quota := item.kind in [StoreItemView.Kind.UPGRADE, StoreItemView.Kind.LAND]
+	if raises_quota and not sold_out:
 		_quota_rise.text = AppText.fill(AppText.STORE_QUOTA_RISE, {"quota_rise": item.quota_rise})
+	elif item.kind == StoreItemView.Kind.SUPPLY:
+		var tomorrow := {"next_price": item.next_price}
+		_quota_rise.text = AppText.fill(AppText.STORE_NEXT_PRICE, tomorrow)
 	_quota_rise.visible = not _quota_rise.text.is_empty()
 	var values := {"price": item.price, "points": labour_points}
 	var reason := item.refusal

@@ -110,6 +110,10 @@ _Avoid_: heat, hot spell
 The real cotton pest that appears on growing Plots. Left too long, Bollworms eat the crop, and The App logs it as Negligence.
 _Avoid_: worm (alone), bug, pest
 
+**Supplies**:
+The small stock of Fertiliser and Pesticide the Worker holds, at most a few of each, bought in The App's store and used from the supplies bar in the field.
+_Avoid_: inventory, items, consumables
+
 **Fertiliser**:
 A supply bought in The App's store and spread on a Seedling so the crop grows faster. It is used up, and its price rises every Shift.
 _Avoid_: boost, plant food, booster

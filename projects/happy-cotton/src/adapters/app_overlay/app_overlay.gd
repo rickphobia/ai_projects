@@ -1,3 +1,6 @@
+# gdlint: disable=max-public-methods
+# The App is the one overlay main drives, so each part it shows (bar, store, supplies bar, cards,
+# Mascot, Study Session room) needs its own public call.
 class_name AppOverlay
 extends CanvasLayer
 ## The App: the bright, state-issued overlay over the grim field. A top bar with the Quota bar, the
@@ -5,12 +8,14 @@ extends CanvasLayer
 ## at each counted pick) and Labour Points (or his Debt, in red); the Hand-in card from the end of
 ## a Shift's time until he hands in (see HandInCard); the Mascot
 ## with a speech bubble at the bottom; the Store button at the bottom right, which opens the store
-## over the field (see StorePanel) and shows the rest time left while he rests; the pay slip card at
+## over the field (see StorePanel) and shows the rest time left while he rests; the supplies bar
+## above it (see SuppliesBar); the pay slip card at
 ## the end of each Shift until it is put away; and confetti for a met Quota or a purchase. The
 ## speech bubble closes by itself after SPEECH_SECONDS, or at the next tap or click anywhere, which
 ## still goes on to whatever was tapped. During a Study Session the plain room covers the field,
 ## under the bar and the Mascot. It shows what it is given and never decides anything. Only the
-## Store and Settings buttons, the pay slip and Hand-in cards, and the store while open, catch
+## Store and Settings buttons, the supplies bar's buttons, the pay slip and Hand-in cards, and
+## the store while open, catch
 ## taps, so the field underneath still gets the rest. With reduced motion there is no confetti
 ## and the "+1" doesn't rise.
 ## The Generator powers The App: while the Worker isn't running it, the bar, the Mascot, the
@@ -19,6 +24,7 @@ extends CanvasLayer
 ## A store item's buy button was pressed; the rules decide whether he gets it.
 signal upgrade_pressed(id: StringName)
 signal privilege_pressed(id: StringName)
+signal supply_pressed(id: StringName)
 signal land_pressed
 ## A store item's tin button was pressed, to pay with hidden savings; the rules decide.
 signal savings_pressed(id: StringName)
@@ -40,6 +46,8 @@ const FONT_SIZE := 28
 const MARGIN := 16
 ## The player's own button, not one of The App's lines, so it isn't in AppText.
 const SETTINGS_BUTTON_TEXT := "Settings"
+## How far above the screen's bottom edge the supplies bar sits, clear of the Store button.
+const SUPPLIES_BAR_LIFT := 80
 ## How long the Mascot's words stay up when nobody taps them away.
 const SPEECH_SECONDS := 5.0
 
@@ -52,6 +60,7 @@ var _balance: BalanceBadge
 var _exhaustion_label: Label
 var _on_watch_label: Label
 var _store_button: Button
+var _supplies_bar: SuppliesBar
 var _store: StorePanel
 var _pay_slip: PaySlipCard
 var _hand_in: HandInCard
@@ -82,6 +91,8 @@ func _ready() -> void:
 	_root.add_child(mascot_corner)
 	_store_button = _build_store_button()
 	_root.add_child(_store_button)
+	_supplies_bar = _build_supplies_bar()
+	_root.add_child(_supplies_bar)
 	_pay_slip = PaySlipCard.new()
 	_pay_slip.name = "PaySlipCard"
 	_pay_slip.visible = false
@@ -97,9 +108,12 @@ func _ready() -> void:
 	_store.upgrade_pressed.connect(upgrade_pressed.emit)
 	_store.privilege_pressed.connect(privilege_pressed.emit)
 	_store.land_pressed.connect(land_pressed.emit)
+	_store.supply_pressed.connect(supply_pressed.emit)
 	_store.savings_pressed.connect(savings_pressed.emit)
 	_root.add_child(_store)
-	_powered_parts = [top_bar, mascot_corner, _store_button, _pay_slip, _hand_in, _store]
+	_powered_parts = [
+		top_bar, mascot_corner, _store_button, _supplies_bar, _pay_slip, _hand_in, _store
+	]
 	_confetti = Confetti.new()
 	add_child(_confetti)
 
@@ -178,11 +192,14 @@ func show_resting(rest_seconds_left: float, call_seconds_left := 0.0) -> void:
 		_store_button.text = AppText.STORE_BUTTON
 
 
-## Shows what the store sells now, whether it is open or not, so it is ready when opened.
-## `hidden_savings` only decides whether the tin's buttons show: The App never shows the amount.
+## Shows what the store sells now, whether it is open or not, so it is ready when opened, and
+## the supplies held on the supplies bar. `hidden_savings` only decides whether the tin's buttons
+## show: The App never shows the amount.
 func show_store(items: Array[StoreItemView], labour_points: int, hidden_savings := 0) -> void:
 	if _store.show_items(items, labour_points, hidden_savings):
 		SettingsEffects.scale_text(_store, _text_scale)
+	if _supplies_bar.show_supplies(items):
+		SettingsEffects.scale_text(_supplies_bar, _text_scale)
 
 
 func open_store() -> void:
@@ -195,6 +212,10 @@ func is_store_open() -> bool:
 
 func store_panel() -> StorePanel:
 	return _store
+
+
+func supplies_bar() -> SuppliesBar:
+	return _supplies_bar
 
 
 ## Shows the Study Session room with the time left while there is any; hides it at 0.
@@ -322,6 +343,17 @@ func _build_store_button() -> Button:
 	button.offset_bottom = -MARGIN
 	button.pressed.connect(open_store)
 	return button
+
+
+## Above the Store button, at the bottom right.
+func _build_supplies_bar() -> SuppliesBar:
+	var bar := SuppliesBar.new()
+	bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)
+	bar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	bar.offset_right = -MARGIN
+	bar.offset_bottom = -MARGIN - SUPPLIES_BAR_LIFT
+	return bar
 
 
 func _build_mascot_corner() -> Control:

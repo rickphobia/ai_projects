@@ -60,6 +60,19 @@ func start_shift(shift: int, every: int, stopped: bool) -> StringName:
 	return _ids[index]
 
 
+## The letters from a Farm save. One from before the letters (`has_letters` false) has none
+## received and no letter Shifts passed.
+static func restored(reader: SaveReader, has_letters: bool) -> Letters:
+	if not has_letters:
+		return Letters.new(IDS)
+	var section := reader.section("letters")
+	return Letters.new(IDS, section.whole("letter_shifts"), section.ids("received", IDS))
+
+
+func to_save() -> Dictionary:
+	return {"letter_shifts": _letter_shifts, "received": received()}
+
+
 func letter_shifts() -> int:
 	return _letter_shifts
 

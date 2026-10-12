@@ -1,8 +1,9 @@
 class_name Crops
 extends RefCounted
 ## The plots and the cotton in them: how far each crop has grown, how long it has sat ripe,
-## and whether it has Withered. Farm owns this and decides when time passes and at what
-## growth rate; this only keeps the plots' arithmetic, so Farm stays about the Worker, the
+## whether it has Withered, and whether it is fertilised: a fertilised crop grows faster by the
+## Fertiliser factor until it leaves the Plot. Farm owns this and decides when time passes and at
+## what growth rate; this only keeps the plots' arithmetic, so Farm stays about the Worker, the
 ## Shift and the punishments. Tested through Farm, not on its own.
 
 ## Marks a plot with nothing planted in _grown.
@@ -21,17 +22,24 @@ var _grown: Array[float] = []
 ## Seconds each ripe plot has sat unpicked outside Study Sessions; 0 until it is ripe.
 var _ripe_for: Array[float] = []
 var _withered: Array[bool] = []
+var _fertilised: Array[bool] = []
+var _fertiliser_factor: float
 
 
-func _init(grow_seconds: float, wither_seconds: float, plot_count: int) -> void:
+func _init(
+	grow_seconds: float, wither_seconds: float, plot_count: int, fertiliser_factor: float
+) -> void:
 	_grow_seconds = grow_seconds
 	_wither_seconds = wither_seconds
+	_fertiliser_factor = fertiliser_factor
 	_grown.resize(plot_count)
 	_grown.fill(EMPTY)
 	_ripe_for.resize(plot_count)
 	_ripe_for.fill(0.0)
 	_withered.resize(plot_count)
 	_withered.fill(false)
+	_fertilised.resize(plot_count)
+	_fertilised.fill(false)
 
 
 func count() -> int:
@@ -43,6 +51,7 @@ func add_plot() -> void:
 	_grown.append(EMPTY)
 	_ripe_for.append(0.0)
 	_withered.append(false)
+	_fertilised.append(false)
 
 
 func exists(index: int) -> bool:
@@ -61,17 +70,29 @@ func is_withered(index: int) -> bool:
 	return _withered[index]
 
 
+func is_fertilised(index: int) -> bool:
+	return _fertilised[index]
+
+
 func plant(index: int) -> void:
 	_grown[index] = 0.0
 	_ripe_for[index] = 0.0
 	_withered[index] = false
+	_fertilised[index] = false
 
 
-## Empties a plot, whether its cotton was picked or it had Withered and is cleared.
+## Empties a plot, whether its cotton was picked or it had Withered and is cleared. Its
+## Fertiliser goes with the crop.
 func empty(index: int) -> void:
 	_grown[index] = EMPTY
 	_ripe_for[index] = 0.0
 	_withered[index] = false
+	_fertilised[index] = false
+
+
+## The crop in plot `index` grows faster from now until it leaves the Plot.
+func fertilise(index: int) -> void:
+	_fertilised[index] = true
 
 
 ## Seconds until the next crop Withers if time passes at this growth rate outside a Study
@@ -121,35 +142,46 @@ func to_save() -> Dictionary:
 	return {
 		"grown": _grown.duplicate(),
 		"ripe_for": _ripe_for.duplicate(),
-		"withered": _withered.duplicate()
+		"withered": _withered.duplicate(),
+		"fertilised": _fertilised.duplicate(),
 	}
 
 
 ## Takes the plots from a save. Ripe cotton is held to the wither time, in case the tuning
-## table shortened it since the save was written.
-func restore(reader: SaveReader) -> void:
+## table shortened it since the save was written. A save from before Fertiliser
+## (`has_fertiliser` false) restores with nothing fertilised.
+func restore(reader: SaveReader, has_fertiliser: bool) -> void:
 	var plots := count()
 	_grown = reader.numbers("grown", plots, EMPTY)
 	_ripe_for = reader.numbers("ripe_for", plots)
 	_withered = reader.flags("withered", plots)
+	if has_fertiliser:
+		_fertilised = reader.flags("fertilised", plots)
 	for index in plots:
 		if _grown[index] < 0.0 and _grown[index] != EMPTY:
 			_grown[index] = EMPTY
 			reader.problems().append("crops.grown has a negative growth that isn't empty")
 		_ripe_for[index] = minf(_ripe_for[index], _wither_seconds)
+	for index in plots:
+		if _fertilised[index] and _grown[index] == EMPTY:
+			reader.problems().append("crops.fertilised marks a Plot with no crop growing")
+			break
 
 
-## The time left it shows is in seconds of growth at `growth_rate`.
+## The time left it shows is in seconds of growth at `growth_rate` (and the Fertiliser's
+## factor, if the crop has it).
 func view(index: int, growth_rate := 1.0) -> PlotView:
 	var grown := _grown[index]
+	var fertilised := _fertilised[index]
 	if grown == EMPTY:
 		return PlotView.new(PlotView.Stage.EMPTY, 0.0)
 	if _withered[index]:
-		return PlotView.new(PlotView.Stage.WITHERED, 0.0)
+		return PlotView.new(PlotView.Stage.WITHERED, 0.0, fertilised)
 	if grown >= _grow_seconds:
-		return PlotView.new(PlotView.Stage.RIPE, 0.0)
+		return PlotView.new(PlotView.Stage.RIPE, 0.0, fertilised)
 	var stage_index := floori(grown * GROWING.size() / _grow_seconds)
-	return PlotView.new(GROWING[stage_index], (_grow_seconds - grown) / growth_rate)
+	var seconds_left := (_grow_seconds - grown) / _rate_of(index, growth_rate)
+	return PlotView.new(GROWING[stage_index], seconds_left, fertilised)
 
 
 ## Plots with a crop that hasn't Withered.
@@ -166,7 +198,7 @@ func _living() -> Array[int]:
 func _grow_plot(index: int, seconds: float, growth_rate: float) -> float:
 	var until_ripe := _seconds_until_ripe(index, growth_rate)
 	if seconds < until_ripe:
-		_grown[index] += seconds * growth_rate
+		_grown[index] += seconds * _rate_of(index, growth_rate)
 	else:
 		_grown[index] = _grow_seconds
 	return until_ripe
@@ -179,4 +211,9 @@ func _seconds_until_ripe(index: int, growth_rate: float) -> float:
 		return 0.0
 	if growth_rate <= 0.0:
 		return INF
-	return left / growth_rate
+	return left / _rate_of(index, growth_rate)
+
+
+## How fast plot `index` grows when crops grow at `growth_rate`.
+func _rate_of(index: int, growth_rate: float) -> float:
+	return growth_rate * _fertiliser_factor if _fertilised[index] else growth_rate

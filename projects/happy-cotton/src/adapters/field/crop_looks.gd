@@ -7,6 +7,9 @@ extends RefCounted
 ## matches the field. Flowers and bolls are small low-poly spheres added on top. A Withered
 ## plant is the bush gone dry, dead tan and slumped, its few bolls shrivelled grey: plain to see
 ## from across the field, and nothing like ripe cotton.
+## A fertilised Plot gets a mark on its soil (see fertiliser_mark()): a dark, damp ring round the
+## plant strewn with pale blue granules, the chemical fertiliser's colour, so it reads apart
+## from bare soil whatever the crop's stage.
 
 const LEAF_COLOUR := Color(0.36, 0.4, 0.27)
 const FLOWER_COLOUR := Color(0.85, 0.8, 0.62)
@@ -14,6 +17,13 @@ const GREEN_BOLL_COLOUR := Color(0.42, 0.44, 0.28)
 const COTTON_COLOUR := Color(0.9, 0.88, 0.82)
 const WITHERED_COLOUR := Color(0.62, 0.52, 0.36)
 const SHRIVELLED_BOLL_COLOUR := Color(0.5, 0.46, 0.4)
+const DAMP_SOIL_COLOUR := Color(0.2, 0.15, 0.11)
+const GRANULE_COLOUR := Color(0.72, 0.84, 0.95)
+## The fertiliser mark's ring, in metres: inside a 2 m Plot, around the plant's stem.
+const DAMP_RING_RADIUS := 0.8
+const GRANULE_RADIUS := 0.04
+## How many granules lie on the ring, evenly round it.
+const GRANULE_COUNT := 12
 ## How a Withered bush slumps: squashed to this share of its height and leaning over.
 const WITHERED_SLUMP := 0.65
 const WITHERED_LEAN_DEGREES := 18.0
@@ -36,6 +46,7 @@ const BUD_SPOTS: Array[Vector3] = [
 ## Public so tests can find the open bolls on a ripe plant and tell a Withered one apart.
 var cotton := _material(COTTON_COLOUR)
 var withered := _material(WITHERED_COLOUR)
+var granule := _material(GRANULE_COLOUR)
 
 var _leaf := _material(LEAF_COLOUR)
 var _flower := _material(FLOWER_COLOUR)
@@ -57,6 +68,36 @@ func build(stage: PlotView.Stage) -> Node3D:
 		PlotView.Stage.WITHERED:
 			return _withered_plant()
 	return Node3D.new()
+
+
+## A new node marking a fertilised Plot's soil, standing on y = 0.
+func fertiliser_mark() -> Node3D:
+	var mark := Node3D.new()
+	var damp := CylinderMesh.new()
+	damp.top_radius = DAMP_RING_RADIUS
+	damp.bottom_radius = DAMP_RING_RADIUS
+	damp.height = 0.01
+	damp.radial_segments = 24
+	damp.material = _material(DAMP_SOIL_COLOUR)
+	var damp_instance := MeshInstance3D.new()
+	damp_instance.mesh = damp
+	damp_instance.position.y = 0.005
+	mark.add_child(damp_instance)
+	var pellet := SphereMesh.new()
+	pellet.radius = GRANULE_RADIUS
+	pellet.height = GRANULE_RADIUS * 2.0
+	pellet.radial_segments = 6
+	pellet.rings = 3
+	pellet.material = granule
+	for index in GRANULE_COUNT:
+		var angle := TAU * index / GRANULE_COUNT
+		# Alternately nearer and farther out, so the granules look strewn rather than drawn.
+		var reach := DAMP_RING_RADIUS * (0.55 if index % 2 == 0 else 0.85)
+		var instance := MeshInstance3D.new()
+		instance.mesh = pellet
+		instance.position = Vector3(cos(angle) * reach, 0.02, sin(angle) * reach)
+		mark.add_child(instance)
+	return mark
 
 
 func _plant(model: PackedScene, scale: float, material: Material = _leaf) -> Node3D:
