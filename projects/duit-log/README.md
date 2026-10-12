@@ -69,9 +69,21 @@ Download the newest `duit-log-v*` release's APK from the repo's Releases page on
 
 **With Obtainium**, which installs and updates apps from GitHub Releases ([Obtainium](https://github.com/ImranR98/Obtainium)): **Add app** with App source URL `https://github.com/rickphobia/ai_slops`, set **Filter release titles by regular expression** to `^duit-log-v[0-9.]+$`, leave **Include prereleases** off and **Fallback to older releases** on (the newest release in the repo may be another project's), then **Add** and **Install**. The tag `duit-log-v0.1.0` and the installed version name `0.1.0` match, so Obtainium's version detection works.
 
+### Play Protect blocks the install
+
+In some countries, Malaysia among them since April 2026, Google Play Protect's enhanced fraud protection blocks installing an app that asks for notification access (or SMS or accessibility) when its APK comes from a browser, a messaging app or a file manager. duit-log asks for notification access from 0.2.0 on, so the install fails with an "App blocked to protect your device" message, often with no way past it on that screen. ([Google's guidance](https://developers.google.com/android/play-protect/warning-dev-guidance); whether Obtainium counts as such a source isn't documented and hasn't been tried yet.)
+
+Get past it one of these ways:
+
+- **"Install anyway":** if the message offers it (sometimes under "More details"), tap it.
+- **Pause Play Protect:** open the Play Store, tap your profile picture, **Play Protect**, the gear, and turn off **Scan apps with Play Protect**. Install the APK, then turn the setting back on.
+- **Over USB with adb:** Play Protect doesn't check adb installs. Download the release APK on a computer, turn on Developer options and USB debugging on the phone, then `adb install -r duit-log-<version>.apk`.
+
+The block applies only while installing: the installed app keeps working with Play Protect turned back on. Each update and each Preview is a new install, so it needs the same steps again. Why duit-log stays off the Play Store: [decision 0005](docs/decisions/0005-ship-on-github-releases-past-play-protect.md).
+
 ### duit-log Preview, from a pull request
 
-Open the "▶ Try this version" link in the PR on the phone; it downloads the APK. Open it and allow the browser to install apps. It installs as "duit-log Preview" beside duit-log, with its own data. A newer Preview installs over an older one; a build with a lower number (an older PR's rerun) won't, so uninstall the Preview first.
+Open the "▶ Try this version" link in the PR on the phone; it downloads the APK. Open it and allow the browser to install apps. It installs as "duit-log Preview" beside duit-log, with its own data. A newer Preview installs over an older one; a build with a lower number (an older PR's rerun) won't, so uninstall the Preview first. If Play Protect blocks it, see [Play Protect blocks the install](#play-protect-blocks-the-install).
 
 ### A local build, by hand
 
