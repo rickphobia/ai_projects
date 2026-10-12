@@ -1,42 +1,31 @@
-import { screen } from "@testing-library/dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { screen, waitFor } from "@testing-library/dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, type ApiClient, type Health } from "../../src/api/client";
+import { ApiError } from "../../src/api/client";
 import { renderShell } from "../../src/screens/shell";
-
-class FakeApiClient implements ApiClient {
-  constructor(private readonly answer: Health | ApiError) {}
-
-  health(): Promise<Health> {
-    return this.answer instanceof ApiError
-      ? Promise.reject(this.answer)
-      : Promise.resolve(this.answer);
-  }
-}
+import { FakeApiClient } from "../fake-api";
 
 describe("the app shell", () => {
   let root: HTMLElement;
+  let api: FakeApiClient;
 
   beforeEach(() => {
     root = document.createElement("main");
     document.body.replaceChildren(root);
+    api = new FakeApiClient();
   });
 
   it("names the app and says the server is up", async () => {
-    await renderShell(
-      root,
-      new FakeApiClient({ status: "ok", database: "ok" }),
-    );
+    await renderShell(root, api, () => undefined);
 
     expect(screen.getByRole("heading", { name: "rss-news" })).toBeTruthy();
     expect(screen.getByRole("status").textContent).toBe("The server is up.");
   });
 
   it("says when the database is unreachable", async () => {
-    await renderShell(
-      root,
-      new FakeApiClient({ status: "failing", database: "unreachable" }),
-    );
+    api.healthAnswer = { status: "failing", database: "unreachable" };
+
+    await renderShell(root, api, () => undefined);
 
     expect(screen.getByRole("status").textContent).toContain(
       "database is unreachable",
@@ -44,13 +33,24 @@ describe("the app shell", () => {
   });
 
   it("says when the server can't be reached", async () => {
-    await renderShell(
-      root,
-      new FakeApiClient(new ApiError("GET /healthz answered 502")),
-    );
+    api.healthAnswer = new ApiError("GET /healthz answered 502");
+
+    await renderShell(root, api, () => undefined);
 
     expect(screen.getByRole("status").textContent).toBe(
       "Can't reach the server: GET /healthz answered 502",
     );
+  });
+
+  it("signs out and goes back to login", async () => {
+    const onSignedOut = vi.fn();
+    await renderShell(root, api, onSignedOut);
+
+    screen.getByRole("button", { name: "Sign out" }).click();
+
+    await waitFor(() => {
+      expect(onSignedOut).toHaveBeenCalledOnce();
+    });
+    expect(api.logouts).toBe(1);
   });
 });

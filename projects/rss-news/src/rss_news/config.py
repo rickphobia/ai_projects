@@ -1,11 +1,15 @@
 """Every setting rss-news reads, loaded from the environment and validated once at startup."""
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from rss_news.auth.passwords import InvalidPasswordHash, PasswordHash, parse_password_hash
+
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR")
+_MIN_SESSION_SECRET_LENGTH = 32
 
 
 class ConfigError(Exception):
@@ -24,6 +28,13 @@ class Settings:
     pwa_dir: Path
     # The owner's time zone: windows like "last 24 hours" and shown times use it.
     timezone: ZoneInfo
+    password_hash: PasswordHash = field(repr=False)
+    session_secret: bytes = field(repr=False)
+    session_lifetime: timedelta
+    # Off only for local runs over plain http; the public site is https.
+    secure_cookies: bool
+    login_max_failures: int
+    login_lockout: timedelta
 
 
 def load_settings(environ: Mapping[str, str]) -> Settings:
@@ -38,7 +49,24 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         ),
         pwa_dir=_pwa_dir(environ, "RSS_NEWS_PWA_DIR", default="pwa/dist"),
         timezone=_timezone(environ, "RSS_NEWS_TIMEZONE", default="Asia/Kuala_Lumpur"),
+        password_hash=_password_hash(environ, "RSS_NEWS_PASSWORD_HASH"),
+        session_secret=_session_secret(environ, "RSS_NEWS_SESSION_SECRET"),
+        session_lifetime=timedelta(
+            days=_positive_int(environ, "RSS_NEWS_SESSION_DAYS", default=60)
+        ),
+        secure_cookies=_boolean(environ, "RSS_NEWS_SECURE_COOKIES", default=True),
+        login_max_failures=_positive_int(environ, "RSS_NEWS_LOGIN_MAX_FAILURES", default=5),
+        login_lockout=timedelta(
+            minutes=_positive_int(environ, "RSS_NEWS_LOGIN_LOCKOUT_MINUTES", default=15)
+        ),
     )
+
+
+def _required(environ: Mapping[str, str], name: str) -> str:
+    value = environ.get(name, "").strip()
+    if not value:
+        raise ConfigError(f"{name} is required (see .env.example)")
+    return value
 
 
 def _log_level(environ: Mapping[str, str], name: str, *, default: str) -> str:
@@ -53,6 +81,42 @@ def _non_blank(environ: Mapping[str, str], name: str, *, default: str) -> str:
     if not value:
         raise ConfigError(f"{name} must not be blank")
     return value
+
+
+def _positive_int(environ: Mapping[str, str], name: str, *, default: int) -> int:
+    raw = environ.get(name, str(default)).strip()
+    try:
+        number = int(raw)
+    except ValueError:
+        raise ConfigError(f"{name} must be a whole number, got {raw!r}") from None
+    if number < 1:
+        raise ConfigError(f"{name} must be at least 1, got {number}")
+    return number
+
+
+def _boolean(environ: Mapping[str, str], name: str, *, default: bool) -> bool:
+    raw = environ.get(name, "true" if default else "false").strip().lower()
+    if raw not in ("true", "false"):
+        raise ConfigError(f"{name} must be true or false, got {raw!r}")
+    return raw == "true"
+
+
+def _password_hash(environ: Mapping[str, str], name: str) -> PasswordHash:
+    try:
+        return parse_password_hash(_required(environ, name))
+    except InvalidPasswordHash as error:
+        # The message describes the format only; the value itself stays out of logs.
+        raise ConfigError(f"{name} is not a hash from `rss-news hash-password`: {error}") from None
+
+
+def _session_secret(environ: Mapping[str, str], name: str) -> bytes:
+    value = _required(environ, name)
+    if len(value) < _MIN_SESSION_SECRET_LENGTH:
+        raise ConfigError(
+            f"{name} must be at least {_MIN_SESSION_SECRET_LENGTH} characters "
+            "(make one with `openssl rand -hex 32`)"
+        )
+    return value.encode()
 
 
 def _port(environ: Mapping[str, str], name: str, *, default: int) -> int:

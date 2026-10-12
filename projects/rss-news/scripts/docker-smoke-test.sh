@@ -12,6 +12,8 @@ base="http://127.0.0.1:$port/ai-projects/rss-news"
 data_mount=/app/data
 # The spec's budget for the whole container on the Beelink.
 memory_limit_mb=300
+# Dummy sign-in settings: the hash of "smoke-test-password" at a cheap scrypt cost.
+password_hash='scrypt:1024:8:1:Z9WoarkUVoyaavJVR0X6dA:4irJ3FUPtkdh7tXovAesrXBpg9esvbpvgNV23aSyAhU'
 
 docker build --tag "$image" .
 data_dir=$(mktemp -d)
@@ -22,6 +24,9 @@ docker run --detach --name "$container" --publish "127.0.0.1:$port:8000" \
   --volume "$data_dir:$data_mount" \
   --env RSS_NEWS_LOG_LEVEL=DEBUG \
   --env RSS_NEWS_TIMEZONE=Asia/Kuala_Lumpur \
+  --env RSS_NEWS_PASSWORD_HASH="$password_hash" \
+  --env RSS_NEWS_SESSION_SECRET=smoke-test-session-secret-not-for-real-use \
+  --env RSS_NEWS_SECURE_COOKIES=false \
   "$image" >/dev/null
 
 fail() {
@@ -48,6 +53,14 @@ echo "OK: the PWA and $script load under the prefix"
 
 [ -f "$data_dir/rss-news.sqlite3" ] || fail "the database isn't in the data folder mounted at $data_mount"
 echo "OK: the database is in the data folder"
+
+status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$base/api/session")
+[ "$status" = 401 ] || fail "$base/api/session answered $status without a session, not 401"
+status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' --data '{"password":"smoke-test-password"}' \
+  "$base/api/login")
+[ "$status" = 204 ] || fail "signing in with the smoke-test password answered $status, not 204"
+echo "OK: the API needs a session and the password signs in"
 
 # The container's own cgroup (v2) counts every process in it, in bytes.
 memory_bytes=$(docker exec "$container" cat /sys/fs/cgroup/memory.current) \
