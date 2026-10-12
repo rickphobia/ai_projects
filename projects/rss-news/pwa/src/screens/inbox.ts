@@ -6,6 +6,7 @@ import {
 } from "../api/client";
 
 const ALL_FOLDERS = "";
+const ANY_IMPORTANCE = "";
 
 const shownTime = new Intl.DateTimeFormat(undefined, {
   day: "numeric",
@@ -14,16 +15,33 @@ const shownTime = new Intl.DateTimeFormat(undefined, {
   minute: "2-digit",
 });
 
-// The Inbox: every Item newest first, a Folder filter, and a button for the next page.
+// The Inbox: every Item newest first or most important first, filters by Folder and
+// Importance, and a button for the next page.
 export async function renderInbox(
   root: HTMLElement,
   api: ApiClient,
 ): Promise<void> {
-  const label = document.createElement("label");
-  label.textContent = "Folder";
   const filter = document.createElement("select");
   filter.append(new Option("All folders", ALL_FOLDERS));
-  label.append(filter);
+  const importanceFilter = document.createElement("select");
+  importanceFilter.append(
+    new Option("Any importance", ANY_IMPORTANCE),
+    ...[2, 3, 4].map(
+      (level) => new Option(`${String(level)} and up`, String(level)),
+    ),
+    new Option("5 only", "5"),
+  );
+  const order = document.createElement("select");
+  order.append(
+    new Option("Newest first", "newest"),
+    new Option("Most important first", "importance"),
+  );
+  const filters = document.createElement("div");
+  filters.append(
+    labelled("Folder", filter),
+    labelled("Importance", importanceFilter),
+    labelled("Sort", order),
+  );
   const list = document.createElement("ul");
   const folderError = document.createElement("p");
   folderError.setAttribute("role", "alert");
@@ -34,7 +52,7 @@ export async function renderInbox(
   loadMore.type = "button";
   loadMore.textContent = "Load more";
   loadMore.hidden = true;
-  root.replaceChildren(label, folderError, list, status, loadMore);
+  root.replaceChildren(filters, folderError, list, status, loadMore);
 
   let query: InboxQuery = {};
   let nextCursor: string | null = null;
@@ -57,9 +75,7 @@ export async function renderInbox(
       nextCursor = page.nextCursor;
       loadMore.hidden = nextCursor === null;
       status.textContent =
-        list.childElementCount === 0
-          ? "No Items yet. Sources are checked every few minutes."
-          : "";
+        list.childElementCount === 0 ? emptyMessage(query) : "";
     } catch (error) {
       if (thisLoad !== latestLoad || error instanceof SignedOutError) return;
       const detail = error instanceof Error ? error.message : String(error);
@@ -69,11 +85,19 @@ export async function renderInbox(
     }
   }
 
-  filter.addEventListener("change", () => {
-    query =
-      filter.value === ALL_FOLDERS ? {} : { folderId: Number(filter.value) };
+  function applyFilters(): void {
+    query = {};
+    if (filter.value !== ALL_FOLDERS) query.folderId = Number(filter.value);
+    if (importanceFilter.value !== ANY_IMPORTANCE) {
+      query.minImportance = Number(importanceFilter.value);
+    }
+    if (order.value === "importance") query.sort = "importance";
     void load(false);
-  });
+  }
+
+  for (const select of [filter, importanceFilter, order]) {
+    select.addEventListener("change", applyFilters);
+  }
   loadMore.addEventListener("click", () => {
     void load(true);
   });
@@ -100,8 +124,31 @@ async function fillFolders(
   }
 }
 
+function labelled(text: string, select: HTMLSelectElement): HTMLLabelElement {
+  const label = document.createElement("label");
+  label.textContent = text;
+  label.append(select);
+  return label;
+}
+
+function emptyMessage(query: InboxQuery): string {
+  return query.folderId === undefined && query.minImportance === undefined
+    ? "No Items yet. Sources are checked every few minutes."
+    : "No Items match these filters.";
+}
+
 function itemRow(item: InboxItem): HTMLLIElement {
   const row = document.createElement("li");
+  const importance = document.createElement("span");
+  // Unscored Items wait for the next scoring run; they show a dash until then.
+  importance.textContent =
+    item.importance === null ? "–" : String(item.importance);
+  importance.setAttribute(
+    "aria-label",
+    item.importance === null
+      ? "Not scored yet"
+      : `Importance ${String(item.importance)}`,
+  );
   const link = document.createElement("a");
   link.href = item.url;
   link.target = "_blank";
@@ -109,6 +156,11 @@ function itemRow(item: InboxItem): HTMLLIElement {
   link.textContent = item.title;
   const details = document.createElement("small");
   details.textContent = ` ${item.source} · ${shownTime.format(new Date(item.publishedAt))}`;
-  row.append(link, details);
+  row.append(importance, " ", link, details);
+  if (item.summary !== null) {
+    const summary = document.createElement("p");
+    summary.textContent = item.summary;
+    row.append(summary);
+  }
   return row;
 }

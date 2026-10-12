@@ -53,6 +53,8 @@ describe("the app shell", () => {
         source: "Example",
         folder: { id: 1, name: "AI" },
         publishedAt: "2026-10-12T04:00:00+00:00",
+        importance: null,
+        summary: null,
       },
     ];
 

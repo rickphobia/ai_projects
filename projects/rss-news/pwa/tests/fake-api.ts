@@ -53,8 +53,14 @@ export class FakeApiClient implements ApiClient {
     if (this.inboxError) return Promise.reject(this.inboxError);
     const matching = this.items.filter(
       (item) =>
-        query.folderId === undefined || item.folder.id === query.folderId,
+        (query.folderId === undefined || item.folder.id === query.folderId) &&
+        (query.minImportance === undefined ||
+          (item.importance ?? 0) >= query.minImportance),
     );
+    if (query.sort === "importance") {
+      // A stable sort keeps newest first within one Importance.
+      matching.sort((a, b) => (b.importance ?? 0) - (a.importance ?? 0));
+    }
     const start = query.cursor === undefined ? 0 : Number(query.cursor);
     const end = start + this.pageSize;
     return Promise.resolve({

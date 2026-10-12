@@ -20,11 +20,20 @@ export interface InboxItem {
   folder: Folder;
   // ISO 8601 with a time zone.
   publishedAt: string;
+  // 1 to 5, and one line in English; both null until the Item is scored.
+  importance: number | null;
+  summary: string | null;
 }
+
+export type InboxOrder = "newest" | "importance";
 
 export interface InboxQuery {
   // Only this Folder's Items; all Folders when left out.
   folderId?: number;
+  // Only Items scored at least this; unscored Items are left out.
+  minImportance?: number;
+  // Newest first when left out.
+  sort?: InboxOrder;
   // The last page's nextCursor, for the page after it.
   cursor?: string;
 }
@@ -110,6 +119,10 @@ export class HttpApiClient implements ApiClient {
     if (query.folderId !== undefined) {
       params.set("folder", String(query.folderId));
     }
+    if (query.minImportance !== undefined) {
+      params.set("min_importance", String(query.minImportance));
+    }
+    if (query.sort !== undefined) params.set("sort", query.sort);
     if (query.cursor !== undefined) params.set("cursor", query.cursor);
     const path =
       params.size > 0 ? `api/inbox?${params.toString()}` : "api/inbox";
@@ -123,6 +136,8 @@ export class HttpApiClient implements ApiClient {
         source: item.source,
         folder: item.folder,
         publishedAt: item.published_at,
+        importance: item.importance,
+        summary: item.summary,
       })),
       nextCursor: body.next_cursor,
     };
@@ -167,6 +182,8 @@ interface InboxPageJson {
     source: string;
     folder: Folder;
     published_at: string;
+    importance: number | null;
+    summary: string | null;
   }[];
   next_cursor: string | null;
 }

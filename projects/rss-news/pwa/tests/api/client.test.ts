@@ -77,6 +77,8 @@ describe("HttpApiClient", () => {
             source: "Example",
             folder: { id: 2, name: "World" },
             published_at: "2026-10-12T04:00:00+00:00",
+            importance: 4,
+            summary: "Something happened.",
           },
         ],
         next_cursor: "2026-10-12T04:00:00+00:00~7",
@@ -86,12 +88,16 @@ describe("HttpApiClient", () => {
 
     const page = await new HttpApiClient(BASE, () => undefined).inbox({
       folderId: 2,
+      minImportance: 3,
+      sort: "importance",
       cursor: "2026-10-12T05:00:00+00:00~9",
     });
 
     const [url] = fetchMock.mock.calls[0] as [URL];
     expect(url.pathname).toBe("/ai-projects/rss-news/api/inbox");
     expect(url.searchParams.get("folder")).toBe("2");
+    expect(url.searchParams.get("min_importance")).toBe("3");
+    expect(url.searchParams.get("sort")).toBe("importance");
     expect(url.searchParams.get("cursor")).toBe("2026-10-12T05:00:00+00:00~9");
     expect(page).toEqual({
       items: [
@@ -102,6 +108,8 @@ describe("HttpApiClient", () => {
           source: "Example",
           folder: { id: 2, name: "World" },
           publishedAt: "2026-10-12T04:00:00+00:00",
+          importance: 4,
+          summary: "Something happened.",
         },
       ],
       nextCursor: "2026-10-12T04:00:00+00:00~7",
