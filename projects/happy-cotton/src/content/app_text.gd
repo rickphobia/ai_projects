@@ -57,19 +57,24 @@ const STORE_FULLY_UPGRADED := "Fully upgraded!"
 const STORE_FULLY_BOUGHT := "Fully bought!"
 ## The store is honest about the Quota rise: the player sees the trade and takes it anyway.
 const STORE_QUOTA_RISE := "Quota +{quota_rise} from next Shift. More to give, more to be proud of!"
-## A supply's stock beside its name, and tomorrow's price: the store is open about the rise.
+## A supply's stock beside its name, and tomorrow's price when it rises: the store is open about
+## the rise.
 const STORE_HELD := "Held {held} of {most_held}"
 const STORE_NEXT_PRICE := "Tomorrow: {next_price} Labour Points. Prices only go up, so buy today!"
 ## The supplies bar in the field: a button per supply with how many he holds, and the hint
 ## while one is picked, until the next tap uses it.
 const SUPPLY_BUTTON := "{name} ×{held}"
-const SUPPLY_CHOSEN := "Tap a Seedling to spread {name}"
+const SUPPLY_CHOSEN: Dictionary[StringName, String] = {
+	Farm.FERTILISER: "Tap a Seedling to spread {name}",
+	Farm.PESTICIDE: "Tap a Plot to spray {name}",
+}
 ## What each item is called in the store, and The App's pitch for it (values: effect, current).
 const STORE_NAMES: Dictionary[StringName, String] = {
 	Farm.GENERATOR: "Generator",
 	Farm.TOOLS: "Tools",
 	Farm.LAND: "Plot of land",
 	Farm.FERTILISER: "Fertiliser",
+	Farm.PESTICIDE: "Pesticide",
 	Farm.REST_HOUR: "Rest hour",
 	Farm.CALL_HOME: "Call home",
 }
@@ -84,6 +89,12 @@ const STORE_BLURBS: Dictionary[StringName, String] = {
 	Farm.LAND: "More land for the Farm, one Plot at a time! Every Plot is the state's gain.",
 	Farm.FERTILISER:
 	"Happy Fertiliser! Spread it on a Seedling and that crop races to harvest. One crop each.",
+	# What it does in the game only: no claim about real Pesticide or who sprays it.
+	Farm.PESTICIDE:
+	(
+		"Happy Pesticide! Spray a Plot and no Bollworms touch its crop, or the next one planted."
+		+ " One crop each."
+	),
 	Farm.REST_HOUR: "A short rest, kindly granted. The Shift goes on while you recover.",
 	Farm.CALL_HOME: "Hear your Children's voices! The Shift goes on while you talk.",
 }
@@ -272,12 +283,12 @@ static func lines() -> Dictionary[StringName, AppLine]:
 		AppLine.new(
 			"Harmony Support complete! Your file shows steady improvement. Keep up the honest work!"
 		),
-		# Cheerful about the price rising every Shift: the rise is out in the open.
+		# Cheerful about the price, rising every Shift for Fertiliser: the rise is out in the open.
 		Farm.SUPPLY_BOUGHT:
 		AppLine.new(
 			(
 				"Delivered! {held} in your supplies, for {price} Labour Points. Tomorrow's price:"
-				+ " {next_price}. Prices rise with our prosperity!"
+				+ " {next_price}. Our prices follow our prosperity!"
 			)
 		),
 		# The pest is the Worker's job: he is told to tap, not that anyone will help.
@@ -333,9 +344,19 @@ static func fertilise_refusals() -> Dictionary[StringName, AppLine]:
 	}
 
 
-## The fertilise refusal as The App says it, or an empty string when the reason has no text.
-static func render_fertilise_refusal(reason: StringName) -> String:
-	var refusals := fertilise_refusals()
+## Why Pesticide can't go on a Plot, for each reason The App explains (Farm.SPRAY_REFUSALS).
+static func spray_refusals() -> Dictionary[StringName, AppLine]:
+	return {
+		Farm.NONE_HELD: AppLine.new("No Pesticide in your supplies. The Happy Store has plenty!"),
+		Farm.BOLLWORMS_ON_PLOT: AppLine.new("Bollworms first! Pick them off, then spray."),
+		Farm.ALREADY_PROTECTED: AppLine.new("This Plot is already sprayed. Once is enough!"),
+	}
+
+
+## Why `supply` (Farm.FERTILISER or Farm.PESTICIDE) wasn't used, as The App says it, or an
+## empty string when the reason has no text.
+static func render_supply_refusal(supply: StringName, reason: StringName) -> String:
+	var refusals := fertilise_refusals() if supply == Farm.FERTILISER else spray_refusals()
 	return refusals[reason].text if refusals.has(reason) else ""
 
 

@@ -1,14 +1,16 @@
 class_name Supplies
 extends RefCounted
 ## The supplies the Worker holds, bought in the store into a small stock of each and used from
-## the supplies bar in the field. Fertiliser's price is its first price plus a rise for every
-## Shift after the first, so it follows from the Shift number and is never saved. Which crops
-## are fertilised is the crops' business (see Crops). Farm owns this, checks the Worker can pay
-## and decides when; tested through Farm, not on its own.
+## the supplies bar in the field. Pesticide's price is fixed; Fertiliser's is its first price
+## plus a rise for every Shift after the first, so it follows from the Shift number and is never
+## saved. Which crops are fertilised is the crops' business (see Crops), and which Plots are
+## protected the Bollworms' (see Bollworms). Farm owns this, checks the Worker can pay and
+## decides when; tested through Farm, not on its own.
 
 ## The supplies the store sells and the field uses.
 const FERTILISER := &"fertiliser"
-const KINDS: Array[StringName] = [FERTILISER]
+const PESTICIDE := &"pesticide"
+const KINDS: Array[StringName] = [FERTILISER, PESTICIDE]
 ## A supply was bought: values kind, price, next_price (in the next Shift), held (now).
 const SUPPLY_BOUGHT := &"supply_bought"
 ## The Worker already holds the most of this supply he can.
@@ -49,18 +51,31 @@ func fertiliser_price(shift_number: int) -> int:
 	return roundi(_tuning.fertiliser_first_price + rises * _tuning.fertiliser_price_rise)
 
 
+## What `kind` costs in Shift `shift_number`.
+func price(kind: StringName, shift_number: int) -> int:
+	if kind == FERTILISER:
+		return fertiliser_price(shift_number)
+	return roundi(_tuning.pesticide_price)
+
+
 ## Adds one to the stock. Callers check is_full() first.
 func add(kind: StringName) -> void:
 	_held[kind] += 1
 
 
-## Why Fertiliser can't go on a crop at `stage` that is `fertilised` or not, or &"" when it can.
-func fertiliser_refusal(stage: PlotView.Stage, fertilised: bool) -> StringName:
-	if _held[FERTILISER] == 0:
+## Why `kind` can't be used on plot `index` of `crops`, or &"" when it can. Fertiliser goes only
+## on a Seedling not fertilised yet; Pesticide goes wherever the Bollworms allow
+## (`spray_refusal`, see Bollworms).
+func use_refusal(
+	kind: StringName, crops: Crops, index: int, spray_refusal: StringName
+) -> StringName:
+	if _held[kind] == 0:
 		return NONE_HELD
-	if stage != PlotView.Stage.SEEDLING:
+	if kind == PESTICIDE:
+		return spray_refusal
+	if crops.view(index).stage != PlotView.Stage.SEEDLING:
 		return WRONG_STAGE
-	if fertilised:
+	if crops.is_fertilised(index):
 		return ALREADY_FERTILISED
 	return &""
 
@@ -75,6 +90,14 @@ func to_save() -> Dictionary:
 	for kind in KINDS:
 		held_now[String(kind)] = _held[kind]
 	return {"held": held_now}
+
+
+## The stock from a save, or none held when it is from before supplies (`has_supplies` false).
+static func restored(tuning: Tuning, reader: SaveReader, has_supplies: bool) -> Supplies:
+	var supplies := Supplies.new(tuning)
+	if has_supplies:
+		supplies.restore(reader.section("supplies"))
+	return supplies
 
 
 ## Takes the stock from a save, held to the most the tuning table allows now, in case it was

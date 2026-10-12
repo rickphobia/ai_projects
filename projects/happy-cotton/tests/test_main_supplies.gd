@@ -93,5 +93,5 @@ func test_with_none_held_the_app_says_so_plainly() -> void:
 	app.supplies_bar().button(Farm.FERTILISER).pressed.emit()
 	field.plot_tapped.emit(0)
 
-	assert_eq(app.speech(), AppText.render_fertilise_refusal(Farm.NONE_HELD))
+	assert_eq(app.speech(), AppText.render_supply_refusal(Farm.FERTILISER, Farm.NONE_HELD))
 	assert_false(_farm(main).plot(0).fertilised)

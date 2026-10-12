@@ -197,3 +197,15 @@ func _start_run() -> void:
 	_into_lap = 0.0
 	_lap_seconds = _next_lap_seconds
 	_laps_this_run = _exhaustion.laps_before_breath()
+
+
+## What the Worker is doing, `resting` on a rest hour or not, and how worn down he is.
+func worker_view(resting: bool) -> WorkerView:
+	var activity := WorkerView.Activity.IN_FIELD
+	if resting:
+		activity = WorkerView.Activity.RESTING
+	elif is_breathing():
+		activity = WorkerView.Activity.BREATHING
+	elif is_running():
+		activity = WorkerView.Activity.RUNNING
+	return WorkerView.new(activity, laps_left(), _exhaustion.level(), lap_progress(), lap_seconds())

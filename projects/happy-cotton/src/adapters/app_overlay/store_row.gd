@@ -82,7 +82,7 @@ func show_item(item: StoreItemView, labour_points: int, hidden_savings := 0) -> 
 	var raises_quota := item.kind in [StoreItemView.Kind.UPGRADE, StoreItemView.Kind.LAND]
 	if raises_quota and not sold_out:
 		_quota_rise.text = AppText.fill(AppText.STORE_QUOTA_RISE, {"quota_rise": item.quota_rise})
-	elif item.kind == StoreItemView.Kind.SUPPLY:
+	elif item.kind == StoreItemView.Kind.SUPPLY and item.next_price > item.price:
 		var tomorrow := {"next_price": item.next_price}
 		_quota_rise.text = AppText.fill(AppText.STORE_NEXT_PRICE, tomorrow)
 	_quota_rise.visible = not _quota_rise.text.is_empty()

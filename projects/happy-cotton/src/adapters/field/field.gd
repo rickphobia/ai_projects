@@ -3,8 +3,8 @@ extends Node3D
 ## The field the Worker works: a fenced grid of plots seen from a fixed, angled camera, with the
 ## Worker beside it, a track around the fence paved with power tiles (see PowerTiles) and the
 ## Generator at the track's corner, outside the fence's gate. Shows each plot's growth stage as a
-## cotton plant (see CropLooks) and marks the fertilised ones and those with Bollworms, shows the
-## time left on a growing plot, shows the Worker walking out to the track and running laps of it
+## cotton plant (see CropLooks), marks the fertilised, protected and Bollworm-ridden ones, shows
+## the time left on a growing plot, shows the Worker walking out to the track and running laps of it
 ## (see WorkerMotion), lights the tile under each of his steps, shows the Overseer beside the
 ## Generator whistling and whipping when the rules say so (see OverseerLook), shows the Worker's
 ## tools on a rack by the Generator at their Upgrade tier (see ToolRack), plays the field's sounds
@@ -78,6 +78,7 @@ var _crops: Array[Node3D] = []
 var _shown_stages: Array[PlotView.Stage] = []
 var _fertiliser_marks: Array[Node3D] = []
 var _bollworm_marks: Array[Node3D] = []
+var _pesticide_marks: Array[Node3D] = []
 var _labelled_plot := -1
 var _label_seconds_remaining := 0.0
 var _gesture := PointerGesture.new(TAP_SLOP)
@@ -181,19 +182,19 @@ func _add_plots() -> void:
 		plot.add_child(crop)
 		_crops.append(crop)
 		_shown_stages.append(PlotView.Stage.EMPTY)
-		var mark := _crop_looks.fertiliser_mark()
-		mark.name = "Fertilised"
-		mark.position.y = SOIL_HEIGHT / 2.0
-		mark.visible = false
-		plot.add_child(mark)
-		_fertiliser_marks.append(mark)
-		var bollworms := _crop_looks.bollworm_mark()
-		bollworms.name = "Bollworms"
-		bollworms.position.y = SOIL_HEIGHT / 2.0
-		bollworms.visible = false
-		plot.add_child(bollworms)
-		_bollworm_marks.append(bollworms)
+		_add_mark(plot, _crop_looks.fertiliser_mark(), "Fertilised", _fertiliser_marks)
+		_add_mark(plot, _crop_looks.bollworm_mark(), "Bollworms", _bollworm_marks)
+		_add_mark(plot, _crop_looks.pesticide_mark(), "Protected", _pesticide_marks)
 		add_child(plot)
+
+
+## Puts a hidden `mark` named `mark_name` on the plot's soil and keeps it in `marks`.
+func _add_mark(plot: Node3D, mark: Node3D, mark_name: String, marks: Array[Node3D]) -> void:
+	mark.name = mark_name
+	mark.position.y = SOIL_HEIGHT / 2.0
+	mark.visible = false
+	plot.add_child(mark)
+	marks.append(mark)
 
 
 ## A flat patch of hard ground in each cell of the land with no plot yet.
@@ -221,6 +222,7 @@ func show_plots(views: Array[PlotView]) -> void:
 	for index in views.size():
 		_fertiliser_marks[index].visible = views[index].fertilised
 		_bollworm_marks[index].visible = views[index].bollworms
+		_pesticide_marks[index].visible = views[index].protected
 		var stage := views[index].stage
 		if stage == _shown_stages[index]:
 			continue

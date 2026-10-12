@@ -193,16 +193,16 @@ func _process(delta: float) -> void:
 ## A tap on a plot with Bollworms picks them off, on an empty plot plants it, on a Withered one
 ## clears it, and on any other plot it tries to pick. The rules decide whether that happens, and a
 ## command that happens brings the Worker back to the field; an unripe plot shows its time left
-## instead. With a supply picked on the supplies bar, the tap spreads it instead, and the tap after
-## works as normal; Bollworms come first even then, and the supply is put back.
+## instead. With a supply picked on the supplies bar, the tap spreads or sprays it instead, and the
+## tap after works as normal; Bollworms come first even then, and the supply is put back.
 func _on_plot_tapped(index: int) -> void:
 	var view := _farm.plot(index)
 	var stage := view.stage
 	var chosen := _app.supplies_bar().take_chosen()
 	if view.bollworms:
 		_pick_off_bollworms(index)
-	elif chosen == Farm.FERTILISER:
-		_fertilise(index)
+	elif chosen in Farm.SUPPLIES:
+		_use_supply(chosen, index)
 	elif stage == PlotView.Stage.EMPTY:
 		_log_command("plant", index, _farm.plant(index))
 	elif stage == PlotView.Stage.WITHERED:
@@ -229,15 +229,16 @@ func _pick_off_bollworms(index: int) -> void:
 		_log_command("pick off bollworms", index, result)
 
 
-## Spreads Fertiliser on the plot, or has The App say plainly why not. Supplies used are logged
-## by kind and plot.
-func _fertilise(index: int) -> void:
-	var result := _farm.fertilise(index)
+## Spreads Fertiliser or sprays Pesticide on the plot, or has The App say plainly why not.
+## Supplies used are logged by kind and plot.
+func _use_supply(supply: StringName, index: int) -> void:
+	var fertiliser := supply == Farm.FERTILISER
+	var result := _farm.fertilise(index) if fertiliser else _farm.spray(index)
 	if result.happened:
-		GameLog.info("supply used", {"kind": Farm.FERTILISER, "plot": index})
+		GameLog.info("supply used", {"kind": supply, "plot": index})
 		return
-	_log_command("fertilise", index, result)
-	var refusal := AppText.render_fertilise_refusal(result.reason)
+	_log_command("fertilise" if fertiliser else "spray", index, result)
+	var refusal := AppText.render_supply_refusal(supply, result.reason)
 	if not refusal.is_empty():
 		_app.say(refusal)
 

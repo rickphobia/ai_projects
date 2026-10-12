@@ -6,7 +6,7 @@ extends RefCounted
 enum Kind { UPGRADE, LAND, SUPPLY, PRIVILEGE }
 
 ## Which item: an Upgrade (Farm.GENERATOR, Farm.TOOLS), land (Farm.LAND), a supply
-## (Farm.FERTILISER) or a Privilege (Farm.REST_HOUR, Farm.CALL_HOME).
+## (Farm.FERTILISER, Farm.PESTICIDE) or a Privilege (Farm.REST_HOUR, Farm.CALL_HOME).
 var id: StringName:
 	get:
 		return _id

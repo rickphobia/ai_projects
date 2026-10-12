@@ -97,7 +97,8 @@ func _show_chosen() -> void:
 		_paint(_buttons[id], CHOSEN_COLOUR if id == _chosen else BUTTON_COLOUR)
 	_hint.visible = _chosen != &""
 	if _hint.visible:
-		_hint.text = AppText.fill(AppText.SUPPLY_CHOSEN, {"name": _name_of(_chosen)})
+		var hint: String = AppText.SUPPLY_CHOSEN.get(_chosen, "")
+		_hint.text = AppText.fill(hint, {"name": _name_of(_chosen)})
 
 
 func _name_of(id: StringName) -> String:

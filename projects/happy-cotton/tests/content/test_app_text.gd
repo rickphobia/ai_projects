@@ -170,3 +170,11 @@ func test_the_app_never_mentions_hidden_savings() -> void:
 
 	for text in texts:
 		assert_null(tin.search(text), "The App never mentions hidden savings: %s" % text)
+
+
+func test_every_spray_refusal_has_text_citing_only_registered_sources() -> void:
+	var problems := AppText.problems(
+		Farm.SPRAY_REFUSALS, AppText.spray_refusals(), AppText.DOUBLESPEAK, _register_ids()
+	)
+
+	assert_eq(problems, [] as Array[String])

@@ -65,6 +65,7 @@ const LIMITS: Dictionary = {
 	"fertiliser_first_price": [1.0, 1000000.0],
 	"fertiliser_price_rise": [1.0, 1000000.0],
 	"fertiliser_growth_factor": [1.0, 10.0],
+	"pesticide_price": [1.0, 1000000.0],
 	"most_supplies_held": [1.0, 100.0],
 	"bollworm_check_seconds": [1.0, 86400.0],
 	"bollworm_chance": [0.0, 1.0],
@@ -99,6 +100,7 @@ const WHOLE_NUMBERS: Array[String] = [
 	"on_watch_shifts",
 	"fertiliser_first_price",
 	"fertiliser_price_rise",
+	"pesticide_price",
 	"most_supplies_held",
 ]
 ## What a Generator tier's growth multiplier is measured against: no Upgrade at all.
@@ -256,6 +258,8 @@ const MOST_TIER_QUOTA_RISE := 10000.0
 ## How much faster a fertilised crop grows, online and offline, from the moment it is spread
 ## until the crop leaves the Plot; it multiplies the Generator Upgrade's growth. More than 1.
 @export var fertiliser_growth_factor: float = NAN
+## Labour Points Pesticide costs, the same every Shift.
+@export var pesticide_price: float = NAN
 ## The most of each supply the Worker can hold, so he can't hoard Fertiliser before its price
 ## rises.
 @export var most_supplies_held: float = NAN

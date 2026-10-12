@@ -12,6 +12,7 @@ const GENERATOR := &"generator"
 const TOOLS := &"tools"
 const LAND := &"land"
 const FERTILISER := Supplies.FERTILISER
+const PESTICIDE := Supplies.PESTICIDE
 const REST_HOUR := &"rest_hour"
 const CALL_HOME := &"call_home"
 ## The Upgrade has no tier left to buy.
@@ -57,9 +58,9 @@ func plot_price() -> int:
 	return roundi(_tuning.first_plot_price + _land.plots_bought() * _tuning.plot_price_rise)
 
 
-## Fertiliser's price today, which rises every Shift.
-func fertiliser_price() -> int:
-	return _supplies.fertiliser_price(_shift_number)
+## A supply's price today; Fertiliser's rises every Shift.
+func supply_price(kind: StringName) -> int:
+	return _supplies.price(kind, _shift_number)
 
 
 func rest_hour_price() -> int:
@@ -109,12 +110,15 @@ func items() -> Array[StoreItemView]:
 	if not _land.is_fully_bought():
 		var rise := _land.quota_rise_per_plot()
 		land = StoreItemView.land(LAND, plot_price(), rise, false, refusal(LAND, with_points))
-	var fertiliser := StoreItemView.supply(
-		FERTILISER,
-		Vector2i(fertiliser_price(), _supplies.fertiliser_price(_shift_number + 1)),
-		Vector2i(_supplies.held(FERTILISER), _supplies.most_held()),
-		refusal(FERTILISER, with_points)
-	)
+	var supplies: Array[StoreItemView] = []
+	for kind in Supplies.KINDS:
+		var supply := StoreItemView.supply(
+			kind,
+			Vector2i(supply_price(kind), _supplies.price(kind, _shift_number + 1)),
+			Vector2i(_supplies.held(kind), _supplies.most_held()),
+			refusal(kind, with_points)
+		)
+		supplies.append(supply)
 	var privilege := StoreItemView.Kind.PRIVILEGE
 	var rest_hour := StoreItemView.new(
 		REST_HOUR, privilege, rest_hour_price(), refusal(REST_HOUR, with_points)
@@ -122,7 +126,9 @@ func items() -> Array[StoreItemView]:
 	var call_home := StoreItemView.new(
 		CALL_HOME, privilege, call_home_price(), refusal(CALL_HOME, with_points)
 	)
-	var all_items: Array[StoreItemView] = [generator, tools, land, fertiliser, rest_hour, call_home]
+	var all_items: Array[StoreItemView] = [generator, tools, land]
+	all_items.append_array(supplies)
+	all_items.append_array([rest_hour, call_home])
 	for item in all_items:
 		item.set_savings_refusal(refusal(item.id, Ledger.PayWith.HIDDEN_SAVINGS))
 	return all_items
@@ -136,7 +142,7 @@ func _sold_out(id: StringName) -> StringName:
 		return FULLY_UPGRADED
 	if id == LAND and _land.is_fully_bought():
 		return FULLY_BOUGHT
-	if id == FERTILISER and _supplies.is_full(id):
+	if id in Supplies.KINDS and _supplies.is_full(id):
 		return Supplies.STOCK_FULL
 	return &""
 
@@ -151,8 +157,8 @@ func _price(id: StringName) -> int:
 		return roundi(tier_price)
 	if id == LAND:
 		return plot_price()
-	if id == FERTILISER:
-		return fertiliser_price()
+	if id in Supplies.KINDS:
+		return supply_price(id)
 	return rest_hour_price() if id == REST_HOUR else call_home_price()
 
 

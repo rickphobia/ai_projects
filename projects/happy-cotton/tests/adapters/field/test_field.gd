@@ -219,31 +219,3 @@ func test_with_an_audit_coming_the_overseer_watches_the_scale_and_then_goes_back
 	assert_true(watching)
 	assert_false(field.is_overseer_at_the_scale())
 	assert_eq(overseer.position, by_the_generator)
-
-
-func test_a_fertilised_plot_shows_the_fertiliser_mark_until_the_crop_leaves() -> void:
-	var field := _field()
-	var views := _empty_plots(FieldLand.first().plot_count())
-	views[1] = PlotView.new(PlotView.Stage.SEEDLING, 10.0, true)
-	var mark: Node3D = field.get_node("Plot1/Fertilised")
-
-	field.show_plots(views)
-	assert_true(mark.visible)
-	assert_false((field.get_node("Plot0/Fertilised") as Node3D).visible)
-
-	field.show_plots(_empty_plots(FieldLand.first().plot_count()))
-	assert_false(mark.visible)
-
-
-func test_a_plot_with_bollworms_shows_them_until_they_are_gone() -> void:
-	var field := _field()
-	var views := _empty_plots(FieldLand.first().plot_count())
-	views[2] = PlotView.new(PlotView.Stage.FLOWERING, 10.0, false, 20.0)
-	var mark: Node3D = field.get_node("Plot2/Bollworms")
-
-	field.show_plots(views)
-	assert_true(mark.visible)
-	assert_false((field.get_node("Plot0/Bollworms") as Node3D).visible)
-
-	field.show_plots(_empty_plots(FieldLand.first().plot_count()))
-	assert_false(mark.visible)

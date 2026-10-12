@@ -36,7 +36,7 @@ extends RefCounted
 ## starts a 120-second Study Session, longer than Negligence's 80, and puts him on watch for 2
 ## Shifts, when the chance doubles.
 ## Fertiliser first costs 5 Labour Points and 2 more every Shift after the first; it doubles a
-## crop's growth. He holds at most 2 of each supply.
+## crop's growth. Pesticide costs 4 Labour Points. He holds at most 2 of each supply.
 ## Bollworms never come in table(): their chance is 0. with_bollworms() makes them come on every
 ## growing Plot at each check, every 10 seconds; they eat a crop after 25 seconds, and picking
 ## them off takes 3 seconds and adds 5 Exhaustion.
@@ -107,6 +107,7 @@ const CAUGHT_STUDY_SESSION_SECONDS := 120.0
 const FERTILISER_FIRST_PRICE := 5
 const FERTILISER_PRICE_RISE := 2
 const FERTILISER_GROWTH_FACTOR := 2.0
+const PESTICIDE_PRICE := 4
 const MOST_SUPPLIES_HELD := 2
 const BOLLWORM_CHECK_SECONDS := 10.0
 const BOLLWORM_EAT_SECONDS := 25.0
@@ -174,6 +175,7 @@ static func table() -> Tuning:
 	tuning.fertiliser_first_price = FERTILISER_FIRST_PRICE
 	tuning.fertiliser_price_rise = FERTILISER_PRICE_RISE
 	tuning.fertiliser_growth_factor = FERTILISER_GROWTH_FACTOR
+	tuning.pesticide_price = PESTICIDE_PRICE
 	tuning.most_supplies_held = MOST_SUPPLIES_HELD
 	tuning.bollworm_check_seconds = BOLLWORM_CHECK_SECONDS
 	tuning.bollworm_chance = 0.0
