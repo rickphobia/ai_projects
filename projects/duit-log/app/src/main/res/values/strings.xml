@@ -53,6 +53,15 @@
     <item quantity="other">This deletes all %d recorded notifications from this phone.</item>
   </plurals>
   <string name="menu">Menu</string>
+  <string name="recorder_switch">Record notifications (debug)</string>
+
+  <!-- Couldn't read -->
+  <string name="open_couldnt_read">Couldn\'t read</string>
+  <string name="couldnt_read_title">Couldn\'t read</string>
+  <string name="couldnt_read_explainer">Wallet notifications that mention an amount but that duit-log couldn\'t read. Add each one by hand, or dismiss it. The log has a warning for each, without its text.</string>
+  <string name="couldnt_read_empty">Nothing here: every Wallet notification so far was read.</string>
+  <string name="couldnt_read_add">Add by hand</string>
+  <string name="couldnt_read_dismiss">Dismiss</string>
 
   <!-- Daily tab -->
   <string name="previous_month">Previous Month</string>
@@ -63,6 +72,7 @@
   <string name="empty_month">Nothing this Month yet. Tap + to add a Transaction.</string>
   <string name="month_unreadable">Couldn\'t read this Month. Send the log from ⋮ → Share log.</string>
   <string name="add_transaction">Add a Transaction</string>
+  <string name="uncategorised">No Category</string>
 
   <!-- Add by hand -->
   <string name="expense">Expense</string>
@@ -76,6 +86,7 @@
   <string name="problem_merchant">Type who the money went to or came from</string>
   <string name="problem_category">Pick a Category</string>
   <string name="problem_gone">This Transaction no longer exists</string>
+  <string name="problem_entry_gone">This entry no longer exists</string>
   <string name="problem_storage">Couldn\'t save. Send the log from ⋮ → Share log.</string>
 
   <!-- Edit a Transaction -->
@@ -84,6 +95,7 @@
   <string name="delete">Delete</string>
   <string name="delete_title">Delete this Transaction?</string>
   <string name="delete_body">It is removed from duit-log for good.</string>
+  <string name="original_notification">From %1$s\'s notification</string>
 
   <!-- Categories -->
   <string name="open_categories">Categories</string>

@@ -1,20 +1,34 @@
 package com.rickphobia.duitlog
 
 import android.app.Application
+import com.rickphobia.duitlog.capture.RecorderSwitch
 import com.rickphobia.duitlog.capture.RecordingStore
 import com.rickphobia.duitlog.core.ledger.Ledger
 import com.rickphobia.duitlog.logging.AppLog
 import com.rickphobia.duitlog.storage.PhoneClock
 import com.rickphobia.duitlog.storage.PhoneDatabase
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.io.File
 
 /**
  * Starts what every part of the app needs, once per process: the log (so a notification listener
- * started without the activity logs too), the Ledger, and the one recorder store that the
- * listener and the screens share.
+ * started without the activity logs too), the Ledger, and the recorder's store and switch, which
+ * the listener and the screens share.
  */
 class DuitLogApplication : Application() {
     val ledger: Ledger by lazy { Ledger(PhoneDatabase.create(this), PhoneClock()) }
+
+    private val captures = MutableStateFlow(0)
+
+    /** Counts the listener's changes to the Ledger, so an open screen reads it again. */
+    val ledgerChanges: StateFlow<Int> = captures.asStateFlow()
+
+    fun ledgerChanged() = captures.update { it + 1 }
+
+    val recorderSwitch by lazy { RecorderSwitch(this) }
 
     val recordings by lazy {
         RecordingStore(File(filesDir, RECORDINGS_DIR), MAX_RECORDINGS_BYTES).also { store ->

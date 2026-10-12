@@ -20,13 +20,14 @@ import java.util.concurrent.Executors
  * Receives every notification on the phone once the user grants notification access. Android
  * offers nothing narrower, so the first thing done with each one is the Notification Reader's
  * "Not a Wallet" check on the posting app, and those are dropped without their text being read,
- * stored, logged or counted (decision 0003). Wallet notifications go to the recorder
- * (milestone 1).
+ * stored, logged or counted (decision 0003). Wallet notifications are read and captured into
+ * the Ledger, and also recorded while the recorder's debug setting is on.
  */
 class WalletNotificationListener : NotificationListenerService() {
     private val reader = NotificationReader(WalletApps.DEFAULT)
 
-    // Android calls the listener on the main thread; file writes happen off it, in arrival order.
+    // Android calls the listener on the main thread; database and file writes happen off it, in
+    // arrival order.
     private lateinit var writer: ExecutorService
 
     override fun onCreate() {
@@ -60,7 +61,11 @@ class WalletNotificationListener : NotificationListenerService() {
                     with(reading.content) {
                         Recording(reading.wallet, posted.packageName, posted.key, postedAt, title, text, expandedText)
                     }
-                writer.execute { record(recording) }
+                writer.execute {
+                    val app = application as DuitLogApplication
+                    if (app.recorderSwitch.on.value) record(recording)
+                    if (capture(app.ledger, reading)) app.ledgerChanged()
+                }
             }
         }
     }

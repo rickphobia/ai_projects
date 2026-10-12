@@ -1,6 +1,7 @@
 package com.rickphobia.duitlog.screens
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -17,13 +18,17 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.rickphobia.duitlog.R
 
-/** The ⋮ menu: Categories, the Recorder, the notification access guide, "Share log" and the app's version. */
+/**
+ * The ⋮ menu: Categories, "Couldn't read", the notification access guide, "Share log", the
+ * recorder's debug setting (and the Recorder while it is on) and the app's version.
+ */
 @Composable
 fun AppMenu(
     versionName: String,
     buildNumber: Int,
     onOpenCategories: () -> Unit,
-    onOpenRecorder: () -> Unit,
+    onOpenCouldntRead: () -> Unit,
+    recorder: RecorderMenu,
     onOpenGuide: () -> Unit,
     onShareLog: () -> Unit,
 ) {
@@ -42,10 +47,10 @@ fun AppMenu(
                 },
             )
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.open_recorder)) },
+                text = { Text(stringResource(R.string.open_couldnt_read)) },
                 onClick = {
                     open = false
-                    onOpenRecorder()
+                    onOpenCouldntRead()
                 },
             )
             DropdownMenuItem(
@@ -62,6 +67,20 @@ fun AppMenu(
                     onShareLog()
                 },
             )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.recorder_switch)) },
+                trailingIcon = { Checkbox(checked = recorder.on, onCheckedChange = null) },
+                onClick = { recorder.onChange(!recorder.on) },
+            )
+            if (recorder.on) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.open_recorder)) },
+                    onClick = {
+                        open = false
+                        recorder.onOpen()
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.version, versionName, buildNumber)) },
                 onClick = {},

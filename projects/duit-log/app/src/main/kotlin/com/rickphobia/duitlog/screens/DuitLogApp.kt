@@ -38,22 +38,35 @@ fun DuitLogApp(
     versionName: String,
     buildNumber: Int,
     access: AccessBanner,
-    onOpenRecorder: () -> Unit,
+    ledgerChanges: Int,
+    recorder: RecorderMenu,
     onOpenGuide: () -> Unit,
     onShareLog: () -> Unit,
 ) {
     var month by rememberSaveable { mutableStateOf(ledger.currentMonth()) }
     var adding by rememberSaveable { mutableStateOf(false) }
     var inCategories by rememberSaveable { mutableStateOf(false) }
+    var inCouldntRead by rememberSaveable { mutableStateOf(false) }
     // The id of the Transaction whose details are open, if any.
     var openId by rememberSaveable { mutableStateOf<Long?>(null) }
     // Bumped after a save, so the Month is read again.
     var saves by remember { mutableIntStateOf(0) }
 
-    val monthState by produceMonth(ledger, month, saves)
+    // The listener's captures count as saves too, so a payment shows up while the Daily tab is open.
+    val monthState by produceMonth(ledger, month, saves + ledgerChanges)
 
     val editing = openId
-    if (inCategories) {
+    if (inCouldntRead) {
+        CouldntReadShown(
+            ledger = ledger,
+            changes = ledgerChanges,
+            onAdded = { landedIn ->
+                month = landedIn
+                saves++
+            },
+            onBack = { inCouldntRead = false },
+        )
+    } else if (inCategories) {
         CategoriesShown(ledger, onBack = {
             saves++
             inCategories = false
@@ -95,12 +108,13 @@ fun DuitLogApp(
             onOpen = { openId = it.id },
             menu = {
                 AppMenu(
-                    versionName,
-                    buildNumber,
-                    { inCategories = true },
-                    onOpenRecorder,
-                    onOpenGuide,
-                    onShareLog,
+                    versionName = versionName,
+                    buildNumber = buildNumber,
+                    onOpenCategories = { inCategories = true },
+                    onOpenCouldntRead = { inCouldntRead = true },
+                    recorder = recorder,
+                    onOpenGuide = onOpenGuide,
+                    onShareLog = onShareLog,
                 )
             },
             banner = { AccessMissing(access) },
@@ -203,12 +217,19 @@ private fun CategoriesShown(
 
 /** Both Category lists, read off the main thread; [changes] changing reads them again. */
 @Composable
-private fun produceCategories(
+internal fun produceCategories(
     ledger: Ledger,
     changes: Int = 0,
 ) = produceState(emptyMap<Kind, List<Category>>(), changes) {
     value = withContext(Dispatchers.IO) { Kind.entries.associateWith(ledger::categories) }
 }
+
+/** The recorder's debug setting, and the Recorder screen it shows in the menu while on. */
+data class RecorderMenu(
+    val on: Boolean,
+    val onChange: (Boolean) -> Unit,
+    val onOpen: () -> Unit,
+)
 
 /** Whether notification access is on, and how to fix it when it isn't. */
 data class AccessBanner(
@@ -217,7 +238,7 @@ data class AccessBanner(
 )
 
 /** Adds [entry] off the main thread and logs the outcome: kind and id only, never the Merchant or Note. */
-private suspend fun addByHand(
+internal suspend fun addByHand(
     ledger: Ledger,
     entry: HandEntry,
 ) {
