@@ -85,11 +85,11 @@ link_preview() { # link_preview <N> <url>
   fi
 }
 
-# Waits up to <seconds> for the preview on <port> to answer; fails if it doesn't.
-wait_for_preview() { # wait_for_preview <port> <seconds>
+# Waits up to <seconds> for PR N's preview to answer; fails if it doesn't, or stops running.
+wait_for_preview() { # wait_for_preview <N> <seconds>
   local deadline=$((SECONDS + $2))
-  until curl -s -o /dev/null --max-time 2 "http://localhost:$1/"; do
-    ((SECONDS < deadline)) || return 1
+  until curl -s -o /dev/null --max-time 2 "http://localhost:$(port_of "$1")/"; do
+    [[ $(unit_state "$1") =~ ^(active|activating)$ ]] && ((SECONDS < deadline)) || return 1
     sleep "$poll_seconds"
   done
 }
@@ -164,7 +164,7 @@ cmd_sync() {
     for row in "${prs[@]}"; do
       IFS=$'\t' read -r n sha gate project title <<<"$row"
       [[ $(unit_state "$n") == active && $(unit_sha "$n") == "$sha" ]] || continue
-      wait_for_preview "$(port_of "$n")" "$([[ -n ${started[$n]:-} ]] && echo "$link_wait_seconds" || echo 0)" ||
+      wait_for_preview "$n" "$([[ -n ${started[$n]:-} ]] && echo "$link_wait_seconds" || echo 0)" ||
         continue
       link_preview "$n" "https://$host:$(port_of "$n")/"
     done
