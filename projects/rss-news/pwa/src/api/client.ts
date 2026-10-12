@@ -467,7 +467,9 @@ export class HttpApiClient implements ApiClient {
       if (answer?.kind === "searched") onSearched(answer.search);
       if (answer?.kind === "message") return answer.message;
       if (answer?.kind === "failed") {
-        throw new RefusedError(answer.detail ?? "The Chat couldn't answer.");
+        throw new RefusedError(
+          detailIn(answer.data) ?? "The Chat couldn't answer.",
+        );
       }
     }
     throw new ApiError("The Chat stream ended before the answer arrived");

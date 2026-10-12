@@ -232,6 +232,32 @@ describe("the Chat panel", () => {
     ).toBe("true");
   });
 
+  it("keeps Ask off while a Chat loads, so a question can't start a new Chat", async () => {
+    api.savedChats.set(5, savedChat(5, "Malaysia", [ANSWER]));
+
+    const rendering = render(5);
+    const askButton = screen.getByRole("button", { name: "Ask" });
+    expect(askButton).toHaveProperty("disabled", true);
+    await rendering;
+
+    expect(askButton).toHaveProperty("disabled", false);
+  });
+
+  it("opens the sheet onto the question box and closes it with Escape", async () => {
+    await render();
+    const toggle = screen.getByRole("button", { name: "Chat" });
+
+    toggle.click();
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(questionBox());
+    questionBox().dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(toggle);
+  });
+
   it("starts a new Chat on the next question after New Chat", async () => {
     api.savedChats.set(5, savedChat(5, "Malaysia", [ANSWER]));
     api.chatAnswers = [{ searches: [], result: { ...ANSWER, id: 8 } }];

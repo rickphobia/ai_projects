@@ -37,8 +37,15 @@ export async function renderChatPanel(
     toggle.setAttribute("aria-expanded", String(open));
   };
   setOpen(openChatId !== null);
+  // Opening the sheet moves focus to the question box; Escape closes it again.
   toggle.addEventListener("click", () => {
     setOpen(panel.dataset.sheet !== "open");
+    if (panel.dataset.sheet === "open") question.focus();
+  });
+  panel.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || panel.dataset.sheet !== "open") return;
+    setOpen(false);
+    toggle.focus();
   });
 
   const newChat = button("New Chat");
@@ -55,7 +62,6 @@ export async function renderChatPanel(
   const messages = document.createElement("ol");
   messages.className = "chat-messages";
   messages.setAttribute("aria-label", "Messages");
-  messages.setAttribute("aria-live", "polite");
   const progress = document.createElement("p");
   progress.setAttribute("role", "status");
   progress.setAttribute("aria-label", "Chat progress");
@@ -120,6 +126,8 @@ export async function renderChatPanel(
     const thisShow = latestShown;
     history.open = false;
     progress.textContent = "Loading the Chat…";
+    // A question asked now would go to a new Chat instead of continuing this one.
+    ask.disabled = true;
     try {
       const opened = await api.chat(chatId);
       if (thisShow === latestShown) show(opened);
@@ -127,12 +135,15 @@ export async function renderChatPanel(
       if (thisShow !== latestShown || error instanceof SignedOutError) return;
       progress.textContent = "";
       showFailure(`Couldn't open the Chat: ${messageOf(error)}`);
+    } finally {
+      if (thisShow === latestShown) ask.disabled = false;
     }
   }
 
   newChat.addEventListener("click", () => {
     latestShown += 1;
     show(null);
+    ask.disabled = false;
     question.focus();
   });
 
@@ -153,7 +164,7 @@ export async function renderChatPanel(
     showFailure("");
     progress.textContent = "Searching your Items…";
     try {
-      // A new Chat is created on its first question, so empty Chats aren't saved.
+      // A new Chat is created on its first question, so New Chat alone saves nothing.
       const current = chat ?? (await api.createChat());
       if (thisShow !== latestShown) return;
       chat = current;
@@ -179,7 +190,7 @@ export async function renderChatPanel(
           : `The Chat couldn't answer: ${messageOf(error)}`,
       );
     } finally {
-      ask.disabled = false;
+      if (thisShow === latestShown) ask.disabled = false;
     }
   }
 

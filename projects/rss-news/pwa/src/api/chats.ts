@@ -97,7 +97,8 @@ export function chatMessageFromJson(message: ChatMessageJson): ChatMessage {
 export type ChatAnswerEvent =
   | { kind: "searched"; search: ChatSearch }
   | { kind: "message"; message: ChatMessage }
-  | { kind: "failed"; detail: string | null };
+  // `data` is FastAPI's {"detail": "..."}, read like any other refusal.
+  | { kind: "failed"; data: unknown };
 
 export function chatAnswerEvent(
   event: string,
@@ -112,12 +113,6 @@ export function chatAnswerEvent(
       message: chatMessageFromJson(data as ChatMessageJson),
     };
   }
-  if (event === "failed") {
-    const { detail } = (data ?? {}) as Record<string, unknown>;
-    return {
-      kind: "failed",
-      detail: typeof detail === "string" ? detail : null,
-    };
-  }
+  if (event === "failed") return { kind: "failed", data };
   return null;
 }
