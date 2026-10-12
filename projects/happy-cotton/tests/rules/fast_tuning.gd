@@ -40,6 +40,9 @@ extends RefCounted
 ## Bollworms never come in table(): their chance is 0. with_bollworms() makes them come on every
 ## growing Plot at each check, every 10 seconds; they eat a crop after 25 seconds, and picking
 ## them off takes 3 seconds and adds 5 Exhaustion.
+## Sandstorms never come in table(): their chance is 0. with_sandstorms() plans one at the start
+## of every Shift after the first. The App warns 10 seconds before one strikes, it lasts 20
+## seconds (a fifth of the Shift) and halves growth while it does.
 
 const GROW_SECONDS := 30.0
 const SHIFT_SECONDS := 100.0
@@ -113,6 +116,9 @@ const BOLLWORM_CHECK_SECONDS := 10.0
 const BOLLWORM_EAT_SECONDS := 25.0
 const BOLLWORM_PICK_OFF_SECONDS := 3.0
 const BOLLWORM_PICK_OFF_EXHAUSTION := 5.0
+const DISASTER_WARNING_SECONDS := 10.0
+const DISASTER_SECONDS := 20.0
+const SANDSTORM_GROWTH_FACTOR := 0.5
 
 
 static func table() -> Tuning:
@@ -182,6 +188,10 @@ static func table() -> Tuning:
 	tuning.bollworm_eat_seconds = BOLLWORM_EAT_SECONDS
 	tuning.bollworm_pick_off_seconds = BOLLWORM_PICK_OFF_SECONDS
 	tuning.bollworm_pick_off_exhaustion = BOLLWORM_PICK_OFF_EXHAUSTION
+	tuning.sandstorm_chance = 0.0
+	tuning.disaster_warning_seconds = DISASTER_WARNING_SECONDS
+	tuning.disaster_seconds = DISASTER_SECONDS
+	tuning.sandstorm_growth_factor = SANDSTORM_GROWTH_FACTOR
 	var tiers: Array[GeneratorTier] = []
 	for index in GENERATOR_PRICES.size():
 		tiers.append(
@@ -238,6 +248,12 @@ static func with_land(tuning: Tuning, columns: int, rows: int) -> Tuning:
 ## A table where every growing Plot without Bollworms gets them at each check.
 static func with_bollworms(tuning: Tuning) -> Tuning:
 	tuning.bollworm_chance = 1.0
+	return tuning
+
+
+## A table where a Sandstorm is planned at the start of every Shift after the first.
+static func with_sandstorms(tuning: Tuning) -> Tuning:
+	tuning.sandstorm_chance = 1.0
 	return tuning
 
 

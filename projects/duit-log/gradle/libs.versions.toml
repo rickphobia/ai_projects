@@ -1,0 +1,46 @@
+# Every tool and library version the build uses. Where each was checked is in the README
+# ("Pinned versions"). scripts/setup-android-sdk.sh reads compileSdk and buildTools from here.
+[versions]
+compileSdk = "37.1"
+targetSdk = "37"
+minSdk = "29"
+buildTools = "37.0.0"
+jdk = "21"
+
+agp = "9.4.1"
+kotlin = "2.4.21"
+composeBom = "2026.09.00"
+activityCompose = "1.13.0"
+coreKtx = "1.19.1"
+lifecycle = "2.11.0"
+sqldelight = "2.4.1"
+junit = "4.13.2"
+ktlint = "1.8.0"
+ktlintGradle = "14.2.0"
+detekt = "1.23.8"
+
+[libraries]
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui" }
+androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+# SQLite through SQLDelight (decision 0004): the schema and queries live in core, the JVM tests
+# run them on sqlite-driver and the app on Android's own SQLite through android-driver.
+sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
+sqldelight-sqlite-driver = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
+sqldelight-android-driver = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
+# Checks the .sq files against SQLite 3.18 at build time: API 29 phones ship SQLite 3.22, so
+# newer syntax that the JVM tests' SQLite would accept fails the build instead of the phone.
+sqldelight-dialect-sqlite318 = { module = "app.cash.sqldelight:sqlite-3-18-dialect", version.ref = "sqldelight" }
+junit = { module = "junit:junit", version.ref = "junit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintGradle" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

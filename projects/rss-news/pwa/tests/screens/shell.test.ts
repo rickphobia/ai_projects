@@ -50,6 +50,45 @@ describe("the app shell", () => {
     expect(screen.getByRole("button", { name: "Back to Home" })).toBeTruthy();
   });
 
+  it("the Brief me (24h) shortcut briefs the last 24 hours at once", async () => {
+    api.writeAnswers = [
+      { progress: [], result: new Error("The AI provider is down.") },
+    ];
+
+    await renderShell(root, api, () => undefined, { shortcut: "brief" });
+
+    await waitFor(() => {
+      expect(api.writeScopes).toEqual([{ window: "24h" }]);
+    });
+    // Not a regenerate: today's saved Briefing is shown if there is one.
+    expect(api.writeRequests).toEqual([false]);
+  });
+
+  it("the Chat shortcut opens the Inbox with its Chat open", async () => {
+    await renderShell(root, api, () => undefined, { shortcut: "chat" });
+
+    expect(
+      screen
+        .getByRole("button", { name: "Inbox" })
+        .getAttribute("aria-current"),
+    ).toBe("page");
+    expect(
+      screen
+        .getByRole("button", { name: "Chat" })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+  });
+
+  it("the Notes shortcut opens the Notes", async () => {
+    await renderShell(root, api, () => undefined, { shortcut: "notes" });
+
+    expect(
+      screen
+        .getByRole("button", { name: "Notes" })
+        .getAttribute("aria-current"),
+    ).toBe("page");
+  });
+
   it("Ask AI on an Item's text opens the Inbox Chat with the quote", async () => {
     api.items = [
       {

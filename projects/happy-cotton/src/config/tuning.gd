@@ -72,6 +72,10 @@ const LIMITS: Dictionary = {
 	"bollworm_eat_seconds": [1.0, 86400.0],
 	"bollworm_pick_off_seconds": [0.1, 600.0],
 	"bollworm_pick_off_exhaustion": [0.0, 100.0],
+	"sandstorm_chance": [0.0, 1.0],
+	"disaster_warning_seconds": [1.0, 86400.0],
+	"disaster_seconds": [1.0, 86400.0],
+	"sandstorm_growth_factor": [0.5, 1.0],
 }
 ## Fields that count things (picks, points), so they must be whole numbers.
 const WHOLE_NUMBERS: Array[String] = [
@@ -272,6 +276,15 @@ const MOST_TIER_QUOTA_RISE := 10000.0
 ## How long picking Bollworms off a Plot keeps the Worker busy, and the Exhaustion it adds.
 @export var bollworm_pick_off_seconds: float = NAN
 @export var bollworm_pick_off_exhaustion: float = NAN
+## The chance a Sandstorm is planned at the start of each Shift after the first.
+@export var sandstorm_chance: float = NAN
+## How long before a Disaster strikes The App warns of it, and how long it lasts, both in
+## seconds of online Shift time. It lasts at most a quarter of a Shift, and the warning and the
+## Disaster fit in one, so a Disaster never makes a Quota impossible on its own.
+@export var disaster_warning_seconds: float = NAN
+@export var disaster_seconds: float = NAN
+## What a Sandstorm multiplies growth per second of running by: from half up to 1.
+@export var sandstorm_growth_factor: float = NAN
 ## The Generator Upgrade's tiers, bought in order: each one's price, growth per second of
 ## running, and Quota rise. At least one tier.
 @export var generator_tiers: Array[GeneratorTier] = []
@@ -339,8 +352,26 @@ func problems() -> Array[String]:
 			+ " bollworm_pick_off_seconds (%s)"
 		)
 		found.append(bollworm_problem % [bollworm_eat_seconds, bollworm_pick_off_seconds])
+	found.append_array(_disaster_problems())
 	found.append_array(_generator_tier_problems())
 	found.append_array(_tools_tier_problems())
+	return found
+
+
+## A Disaster lasts at most a quarter of a Shift, and its warning and length fit in one.
+func _disaster_problems() -> Array[String]:
+	var found: Array[String] = []
+	if disaster_seconds > shift_seconds / 4.0:
+		var length_problem := (
+			"disaster_seconds is %s, but it must be at most a quarter of" + " shift_seconds (%s)"
+		)
+		found.append(length_problem % [disaster_seconds, shift_seconds / 4.0])
+	if disaster_warning_seconds + disaster_seconds > shift_seconds:
+		var fit_problem := (
+			"disaster_warning_seconds plus disaster_seconds is %s, but it must be at most"
+			+ " shift_seconds (%s)"
+		)
+		found.append(fit_problem % [disaster_warning_seconds + disaster_seconds, shift_seconds])
 	return found
 
 

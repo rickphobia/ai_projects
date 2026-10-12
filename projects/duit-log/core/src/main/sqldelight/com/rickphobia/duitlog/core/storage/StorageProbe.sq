@@ -1,0 +1,17 @@
+-- The table the storage check writes to (decision 0004). Ticket 03 replaces it with the Ledger's
+-- tables. The app only ever creates it in an in-memory database, so no phone has it on disk and
+-- dropping it needs no migration.
+CREATE TABLE storage_probe (
+  id INTEGER NOT NULL PRIMARY KEY,
+  amount_sen INTEGER NOT NULL,
+  label TEXT NOT NULL
+);
+
+insert:
+INSERT INTO storage_probe(amount_sen, label) VALUES (?, ?);
+
+all:
+SELECT amount_sen, label FROM storage_probe ORDER BY id;
+
+sqliteVersion:
+SELECT sqlite_version();

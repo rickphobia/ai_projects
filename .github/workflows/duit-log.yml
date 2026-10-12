@@ -1,0 +1,191 @@
+name: duit-log
+
+on:
+  push:
+    paths:
+      - "projects/duit-log/**"
+      - ".github/workflows/duit-log.yml"
+  pull_request:
+    # "closed" deletes the PR's Preview prerelease.
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - "projects/duit-log/**"
+      - ".github/workflows/duit-log.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  # One group per PR: when a PR is merged, its "closed" run has github.ref set to main, and
+  # sharing main's group would let the release run cancel its prerelease cleanup.
+  group: duit-log-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: projects/duit-log
+
+env:
+  # The APK's versionCode (see app/build.gradle.kts).
+  DUITLOG_BUILD_NUMBER: ${{ github.run_number }}
+
+jobs:
+  check:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      # Not the APK's name: GitHub drops an output that contains a secret's value, and the key
+      # alias ("duit-log") is a secret. The publish jobs find the APK in the artifact instead.
+      signed: ${{ steps.signed.outcome }}
+      version-name: ${{ steps.version.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+      # Runs the Gradle launcher; the build's own JDK comes from gradle/gradle-daemon-jvm.properties.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      # Caches Gradle's downloads and checks the committed wrapper jar is genuine.
+      - uses: gradle/actions/setup-gradle@v6
+      # shellcheck comes preinstalled on the runner.
+      - run: shellcheck scripts/*.sh scripts/tests/*.sh
+      - run: scripts/tests/pr-try-link.test.sh
+      # Install the pinned SDK with the same script a developer uses, instead of the runner's own SDK.
+      - run: echo "ANDROID_HOME=$RUNNER_TEMP/android-sdk" >> "$GITHUB_ENV"
+      - run: scripts/setup-android-sdk.sh
+      - run: ./gradlew checkAll assembleDebug
+      - id: version
+        run: |
+          name="$(sed -n 's/^duitlog\.versionName=//p' gradle.properties)"
+          [[ -n $name ]] || { echo "::error::No duitlog.versionName in gradle.properties"; exit 1; }
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+      # main builds duit-log, a pull request builds duit-log Preview. Other pushes (a PR branch
+      # also gets one) and pull requests from forks, which get no secrets, stop here.
+      - id: signed
+        if: >-
+          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+        env:
+          DUITLOG_KEYSTORE_BASE64: ${{ secrets.DUITLOG_KEYSTORE_BASE64 }}
+          DUITLOG_KEYSTORE_PASSWORD: ${{ secrets.DUITLOG_KEYSTORE_PASSWORD }}
+          DUITLOG_KEY_ALIAS: ${{ secrets.DUITLOG_KEY_ALIAS }}
+          DUITLOG_KEY_PASSWORD: ${{ secrets.DUITLOG_KEY_PASSWORD }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: |
+          if [[ $GITHUB_EVENT_NAME == push ]]; then
+            build_type=release apk=duit-log-$VERSION_NAME.apk
+          else
+            build_type=preview apk=duit-log-preview-$VERSION_NAME-$DUITLOG_BUILD_NUMBER.apk
+          fi
+          if [[ -z $DUITLOG_KEYSTORE_BASE64 ]]; then
+            echo "::error::The DUITLOG_KEYSTORE_BASE64 secret is not set; see the README's \"Signing key\" section."
+            exit 1
+          fi
+          export DUITLOG_KEYSTORE_FILE="$RUNNER_TEMP/duit-log.jks"
+          trap 'rm -f "$DUITLOG_KEYSTORE_FILE"' EXIT
+          base64 --decode <<<"$DUITLOG_KEYSTORE_BASE64" >"$DUITLOG_KEYSTORE_FILE"
+          ./gradlew "assemble${build_type^}"
+          mkdir "$RUNNER_TEMP/apk"
+          cp "app/build/outputs/apk/$build_type/app-$build_type.apk" "$RUNNER_TEMP/apk/$apk"
+      - if: steps.signed.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: duit-log-apk
+          path: ${{ runner.temp }}/apk/
+          retention-days: 7
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: duit-log-reports
+          path: projects/duit-log/*/build/reports/
+
+  # Phones (directly or through Obtainium) install these releases (duit-log-v<versionName>).
+  # Only a new version name makes one, so merges that don't raise it reach nobody.
+  release:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: duit-log-apk
+          path: ${{ runner.temp }}/apk
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION_NAME: ${{ needs.check.outputs.version-name }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          tag="duit-log-v$VERSION_NAME"
+          apk=("$RUNNER_TEMP"/apk/*.apk)
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::notice::$tag is already released; raise duitlog.versionName in gradle.properties to release this build."
+            exit 0
+          fi
+          gh release create "$tag" "${apk[0]}" --title "$tag" --target "$GITHUB_SHA" --latest \
+            --notes "duit-log $VERSION_NAME (build $DUITLOG_BUILD_NUMBER), from $GITHUB_SHA: ${COMMIT_MESSAGE%%$'\n'*}"
+
+  # One prerelease per pull request, replaced on every green run, installed as duit-log Preview.
+  preview:
+    needs: check
+    if: github.event_name == 'pull_request' && needs.check.outputs.signed == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: projects/duit-log/scripts
+      - uses: actions/download-artifact@v4
+        with:
+          name: duit-log-apk
+          path: ${{ runner.temp }}/apk
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          tag="duit-log-pr-$PR_NUMBER"
+          apk=("$RUNNER_TEMP"/apk/*.apk)
+          # Deleting and recreating moves the tag to this commit; --cleanup-tag removes the old tag.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release delete "$tag" --cleanup-tag --yes
+          fi
+          gh release create "$tag" "${apk[0]}" --prerelease --title "$tag" --target "$HEAD_SHA" \
+            --notes "duit-log Preview build $DUITLOG_BUILD_NUMBER for #$PR_NUMBER, from $HEAD_SHA. Not for Obtainium: open the APK on the phone to install it beside duit-log."
+          url="https://github.com/$GH_REPO/releases/download/$tag/$(basename "${apk[0]}")"
+          gh pr view "$PR_NUMBER" --json body --jq .body \
+            | scripts/pr-try-link.sh "duit-log Preview build $DUITLOG_BUILD_NUMBER (APK)" "$url" \
+            | gh pr edit "$PR_NUMBER" --body-file -
+
+  remove-preview:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          tag="duit-log-pr-$PR_NUMBER"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release delete "$tag" --cleanup-tag --yes
+          else
+            echo "No $tag release to delete."
+          fi
