@@ -5,7 +5,7 @@ extends GutTest
 ## first, and while it lasts no Privilege or Upgrade can be bought. Three picks (90 seconds on
 ## the Generator, 9 laps) meet the first Quota and earn 15.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 
 var _farm: Farm
 
@@ -15,7 +15,7 @@ func before_each() -> void:
 
 
 func _new_farm(tuning: Tuning) -> Farm:
-	var farm := Farm.new(tuning, PLOTS)
+	var farm := Farm.new(tuning)
 	farm.take_messages()
 	return farm
 
@@ -240,7 +240,7 @@ func _school_fees(slip: AppMessage) -> int:
 
 
 func test_a_new_game_says_the_children_are_at_a_state_boarding_school() -> void:
-	var farm := Farm.new(FastTuning.billing_table(), PLOTS)
+	var farm := Farm.new(FastTuning.billing_table())
 
 	var children := _messages(Farm.CHILDREN_AT_SCHOOL, farm.take_messages())
 

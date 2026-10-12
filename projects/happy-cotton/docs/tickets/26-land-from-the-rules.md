@@ -4,15 +4,15 @@
 
 **Blocked by:** 25 (Split the Shift end out of Farm)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** rules, config/tuning, adapters/field, entrypoint
 
 **Effort:** medium
 
-- [ ] Farm's starting land comes from the tuning table (first columns and rows, and the largest), with validation that the largest Farm is at least the first
-- [ ] A land view gives the Farm's columns and rows and each Plot's cell; Plots keep their numbers, the first twelve in today's cells
-- [ ] The field builds Plots, fence and track from the land view instead of its own columns and rows
-- [ ] The track follows the Farm's edges, so a wider or deeper Farm grows to the right and the back with the gate where it is
-- [ ] Plot grid and track path tests cover Farms of other sizes, with the first twelve cells and the gate unchanged
-- [ ] The web build looks and plays as before
+- [x] Farm's starting land comes from the tuning table (first columns and rows, and the largest), with validation that the largest Farm is at least the first
+- [x] A land view gives the Farm's columns and rows and each Plot's cell; Plots keep their numbers, the first twelve in today's cells
+- [x] The field builds Plots, fence and track from the land view instead of its own columns and rows
+- [x] The track follows the Farm's edges, so a wider or deeper Farm grows to the right and the back with the gate where it is
+- [x] Plot grid and track path tests cover Farms of other sizes, with the first twelve cells and the gate unchanged
+- [x] The web build looks and plays as before

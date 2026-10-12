@@ -44,6 +44,10 @@ _Avoid_: my farm, the player's farm (a Plot is one bed of it, not the whole Farm
 One bed of the Farm's field where the Worker plants and picks cotton. It is empty, growing or ripe.
 _Avoid_: tile, cell, patch
 
+**Land**:
+The ground the Farm covers, in columns and rows of cells. Each Plot sits in one cell for good; a cell without a Plot is unworked ground. The Farm starts with a fixed land and grows to the right and at the back.
+_Avoid_: map, grid, acreage
+
 **Stage**:
 How far a Plot's cotton has grown: Seedling, Flowering, Boll, then Ripe, when it can be picked.
 _Avoid_: level, phase

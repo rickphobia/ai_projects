@@ -27,6 +27,7 @@ docker run --detach --name "$container" --publish "127.0.0.1:$port:8000" \
   --env RSS_NEWS_PASSWORD_HASH="$password_hash" \
   --env RSS_NEWS_SESSION_SECRET=smoke-test-session-secret-not-for-real-use \
   --env RSS_NEWS_SECURE_COOKIES=false \
+  --env RSS_NEWS_ANTHROPIC_API_KEY=smoke-test-not-a-real-key \
   "$image" >/dev/null
 
 fail() {

@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 
-from rss_news.items.inbox import InboxItem, InboxPosition, NewItem
+from rss_news.items.inbox import InboxItem, NewItem
 from rss_news.sources.catalog import Folder, Source, StarterFolder
 from rss_news.sources.fetching import FetchFailed, SourceFetching
 from rss_news.sources.polite_queue import FetchPacing
@@ -44,9 +44,7 @@ class NoItems:
     def add_new(self, items: Sequence[NewItem]) -> int:
         return 0
 
-    def newest_first(
-        self, *, folder_id: int | None, after: InboxPosition | None, limit: int
-    ) -> list[InboxItem]:
+    def listed(self, **_: object) -> list[InboxItem]:
         return []
 
 

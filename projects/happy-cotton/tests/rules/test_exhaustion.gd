@@ -21,7 +21,7 @@ func before_each() -> void:
 	_roll = HOLDS
 	var tuning := FastTuning.exhausting_table()
 	tuning.shift_seconds = SHIFT_SECONDS
-	_farm = Farm.new(tuning, PLOTS, func() -> float: return _roll)
+	_farm = Farm.new(FastTuning.with_land(tuning, 4, 3), func() -> float: return _roll)
 	_farm.take_messages()
 
 

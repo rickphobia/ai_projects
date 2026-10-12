@@ -5,13 +5,13 @@ extends GutTest
 ## Session starts that is longer than one for a missed Quota. A Withered plot must be cleared
 ## before it can be planted again.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 
 var _farm: Farm
 
 
 func before_each() -> void:
-	_farm = Farm.new(FastTuning.withering_table(), PLOTS)
+	_farm = Farm.new(FastTuning.withering_table())
 	_farm.take_messages()
 
 
@@ -92,7 +92,7 @@ func _farm_with_ripe_cotton_in_a_study_session() -> Farm:
 	var tuning := FastTuning.withering_table()
 	tuning.shift_seconds = 10.0
 	tuning.study_session_seconds = 45.0
-	var farm := Farm.new(tuning, PLOTS)
+	var farm := Farm.new(tuning)
 	farm.plant(0)
 	farm.resume_offline(_offline_ripen_seconds())
 	farm.advance(10.0)
@@ -137,7 +137,7 @@ func test_negligence_docks_labour_points_for_a_withered_plot() -> void:
 func test_negligence_docks_labour_points_for_each_withered_plot() -> void:
 	var tuning := FastTuning.withering_table()
 	tuning.negligence_labour_points = 3
-	_farm = Farm.new(tuning, PLOTS)
+	_farm = Farm.new(tuning)
 	_ripen_online([0, 1, 2, 3])
 	_farm.pick(2)
 	_farm.pick(3)

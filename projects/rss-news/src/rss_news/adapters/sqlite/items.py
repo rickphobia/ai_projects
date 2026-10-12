@@ -1,10 +1,12 @@
-"""Items in SQLite: storing each clean URL once, and the Inbox query."""
+"""Items in SQLite: storing each clean URL once, the Inbox query, and their scores."""
 
 from collections.abc import Sequence
+from datetime import datetime
 
 from rss_news.adapters.sqlite.database import SqliteDatabase, from_db_time, to_db_time
 from rss_news.clock import Clock
-from rss_news.items.inbox import InboxItem, InboxPosition, NewItem
+from rss_news.items.inbox import InboxItem, InboxOrder, InboxPosition, NewItem
+from rss_news.scoring.item_scoring import ItemScore, UnscoredItem
 
 
 class SqliteItems:
@@ -35,25 +37,41 @@ class SqliteItems:
             )
             return connection.total_changes - before
 
-    def newest_first(
-        self, *, folder_id: int | None, after: InboxPosition | None, limit: int
+    def listed(
+        self,
+        *,
+        order: InboxOrder,
+        folder_id: int | None,
+        min_importance: int | None,
+        after: InboxPosition | None,
+        limit: int,
     ) -> list[InboxItem]:
         conditions: list[str] = []
         parameters: list[object] = []
         if folder_id is not None:
             conditions.append("sources.folder_id = ?")
             parameters.append(folder_id)
+        if min_importance is not None:
+            conditions.append("items.importance >= ?")
+            parameters.append(min_importance)
+        columns = ["items.published_at", "items.id"]
+        if order is InboxOrder.IMPORTANCE:
+            columns.insert(0, "COALESCE(items.importance, 0)")
         if after is not None:
-            conditions.append("(items.published_at, items.id) < (?, ?)")
+            placeholders = ", ".join("?" for _ in columns)
+            conditions.append(f"({', '.join(columns)}) < ({placeholders})")
+            if order is InboxOrder.IMPORTANCE:
+                parameters.append(after.importance or 0)
             parameters.extend([to_db_time(after.published_at), after.item_id])
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        descending = ", ".join(f"{column} DESC" for column in columns)
         with self._database.connection() as connection:
             rows = connection.execute(
                 "SELECT items.id, items.title, items.url, sources.name, folders.id, "
-                "folders.name, items.published_at FROM items "
+                "folders.name, items.published_at, items.importance, items.summary FROM items "
                 "JOIN sources ON sources.id = items.source_id "
                 "JOIN folders ON folders.id = sources.folder_id "
-                f"{where} ORDER BY items.published_at DESC, items.id DESC LIMIT ?",
+                f"{where} ORDER BY {descending} LIMIT ?",
                 [*parameters, limit],
             ).fetchall()
         return [
@@ -65,6 +83,39 @@ class SqliteItems:
                 folder_id=row[4],
                 folder_name=row[5],
                 published_at=from_db_time(row[6]),
+                importance=row[7],
+                summary=row[8],
             )
             for row in rows
         ]
+
+    def unscored(self, *, due_at: datetime, limit: int) -> list[UnscoredItem]:
+        with self._database.connection() as connection:
+            rows = connection.execute(
+                "SELECT items.id, items.title, items.excerpt, sources.name, items.score_failures "
+                "FROM items JOIN sources ON sources.id = items.source_id "
+                "WHERE items.scored_at IS NULL "
+                "AND (items.score_retry_at IS NULL OR items.score_retry_at <= ?) "
+                "ORDER BY items.score_failures, items.published_at DESC LIMIT ?",
+                (to_db_time(due_at), limit),
+            ).fetchall()
+        return [UnscoredItem(*row) for row in rows]
+
+    def save_scores(self, scores: Sequence[ItemScore], *, at: datetime) -> None:
+        with self._database.connection() as connection:
+            connection.executemany(
+                "UPDATE items SET importance = ?, summary = ?, scored_at = ?, "
+                "score_retry_at = NULL WHERE id = ?",
+                [
+                    (score.importance, score.summary, to_db_time(at), score.item_id)
+                    for score in scores
+                ],
+            )
+
+    def record_failures(self, failures: Sequence[tuple[int, datetime]]) -> None:
+        with self._database.connection() as connection:
+            connection.executemany(
+                "UPDATE items SET score_failures = score_failures + 1, score_retry_at = ? "
+                "WHERE id = ?",
+                [(to_db_time(retry_at), item_id) for item_id, retry_at in failures],
+            )

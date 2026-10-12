@@ -4,17 +4,19 @@
 
 **Blocked by:** 04 (Feeds arrive in the Inbox)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** scoring, spending, adapters/language_model, adapters/sqlite/spending, adapters/sqlite/items, items, tick, web/inbox, pwa/inbox
 
 **Effort:** medium
 
-- [ ] LanguageModel port with a score-Items operation, a real Anthropic adapter (timeouts, retries with backoff) and a scripted fake that returns usage
-- [ ] Models per job and prices per model come from config; the scoring model defaults to `claude-haiku-5-5`
-- [ ] The tick scores unscored Items in batches that stay under 100K prompt tokens; failed Items are retried on a later tick and never block the Inbox
-- [ ] Malay-language Items get an English summary
-- [ ] Spending ledger stores one row per AI call (feature, model, tokens, web searches, cost, duration); AI calls are logged with model, tokens, cost and latency
-- [ ] Inbox shows Importance and the one-line summary, and can be sorted and filtered by Importance
-- [ ] Adapter test against a saved Anthropic scoring response; API tests cover scoring, retries and ledger rows; a Vitest test covers the Importance filter
-- [ ] README and `.env.example` updated (API key, models, prices)
+**Owner steps:** before deploying, add `RSS_NEWS_ANTHROPIC_API_KEY=<your key>` to `~/homelab/env/rss-news.env`; without it the new container won't start (the old one keeps serving).
+
+- [x] LanguageModel port with a score-Items operation, a real Anthropic adapter (timeouts, retries with backoff) and a scripted fake that returns usage
+- [x] Models per job and prices per model come from config; the scoring model defaults to `claude-haiku-5-5`
+- [x] The tick scores unscored Items in batches that stay under 100K prompt tokens; failed Items are retried on a later tick and never block the Inbox
+- [x] Malay-language Items get an English summary
+- [x] Spending ledger stores one row per AI call (feature, model, tokens, web searches, cost, duration); AI calls are logged with model, tokens, cost and latency
+- [x] Inbox shows Importance and the one-line summary, and can be sorted and filtered by Importance
+- [x] Adapter test against a saved Anthropic scoring response; API tests cover scoring, retries and ledger rows; a Vitest test covers the Importance filter
+- [x] README and `.env.example` updated (API key, models, prices)

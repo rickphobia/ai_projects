@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import Protocol
 
 DEFAULT_PAGE_SIZE = 50
@@ -10,7 +11,13 @@ MAX_PAGE_SIZE = 200
 
 
 class InvalidCursor(Exception):
-    """A paging cursor that this Inbox didn't hand out."""
+    """A paging cursor that this Inbox didn't hand out, or handed out for another order."""
+
+
+class InboxOrder(StrEnum):
+    NEWEST = "newest"
+    # Highest Importance first, newest first within one Importance; unscored Items last.
+    IMPORTANCE = "importance"
 
 
 @dataclass(frozen=True)
@@ -34,14 +41,19 @@ class InboxItem:
     folder_id: int
     folder_name: str
     published_at: datetime
+    # Both None until the Item is scored.
+    importance: int | None
+    summary: str | None
 
 
 @dataclass(frozen=True)
 class InboxPosition:
-    """Where a page ended: the next page starts with the Items older than this one."""
+    """Where a page ended: the next page starts with the Items after this one in the order."""
 
     published_at: datetime
     item_id: int
+    # Only for the Importance order; 0 stands for unscored.
+    importance: int | None = None
 
 
 @dataclass(frozen=True)
@@ -56,10 +68,17 @@ class ItemStore(Protocol):
         """Store the Items whose clean URL isn't stored yet; return how many were new."""
         ...
 
-    def newest_first(
-        self, *, folder_id: int | None, after: InboxPosition | None, limit: int
+    def listed(
+        self,
+        *,
+        order: InboxOrder,
+        folder_id: int | None,
+        min_importance: int | None,
+        after: InboxPosition | None,
+        limit: int,
     ) -> list[InboxItem]:
-        """Items newest first (ties broken by id), optionally in one Folder, after a position."""
+        """Items in the order (ties broken by newest id), optionally only one Folder's and only
+        those scored at least `min_importance`, after a position."""
         ...
 
 
@@ -70,36 +89,50 @@ class Inbox:
     def page(
         self,
         *,
+        order: InboxOrder = InboxOrder.NEWEST,
         folder_id: int | None = None,
+        min_importance: int | None = None,
         cursor: str | None = None,
         limit: int = DEFAULT_PAGE_SIZE,
     ) -> InboxPage:
         """One page of the Inbox. Paging by position, not offset, so Items arriving between
         pages don't shift the next page."""
         limit = max(1, min(limit, MAX_PAGE_SIZE))
-        after = _decode(cursor) if cursor else None
+        after = _decode(cursor, order) if cursor else None
         # One extra Item says whether there is a next page.
-        found = self._items.newest_first(folder_id=folder_id, after=after, limit=limit + 1)
+        found = self._items.listed(
+            order=order,
+            folder_id=folder_id,
+            min_importance=min_importance,
+            after=after,
+            limit=limit + 1,
+        )
         shown = found[:limit]
         next_cursor = None
         if len(found) > limit:
             last = shown[-1]
-            next_cursor = _encode(InboxPosition(last.published_at, last.id))
+            importance = (last.importance or 0) if order is InboxOrder.IMPORTANCE else None
+            next_cursor = _encode(InboxPosition(last.published_at, last.id, importance))
         return InboxPage(items=shown, next_cursor=next_cursor)
 
 
-# Cursors are "<microseconds since 1970 UTC>-<item id>": only digits and a dash, so a cursor
-# pasted into a URL by hand needs no escaping.
+# Cursors are "<microseconds since 1970 UTC>-<item id>", led by "<importance>-" in the
+# Importance order: only digits and dashes, so a cursor pasted into a URL needs no escaping.
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
 def _encode(position: InboxPosition) -> str:
     microseconds = (position.published_at - _EPOCH) // timedelta(microseconds=1)
-    return f"{microseconds}-{position.item_id}"
+    cursor = f"{microseconds}-{position.item_id}"
+    return cursor if position.importance is None else f"{position.importance}-{cursor}"
 
 
-def _decode(cursor: str) -> InboxPosition:
-    microseconds, _, item_id = cursor.partition("-")
-    if not (microseconds.isdigit() and item_id.isdigit()):
-        raise InvalidCursor(f"not an Inbox cursor: {cursor!r}")
-    return InboxPosition(_EPOCH + timedelta(microseconds=int(microseconds)), int(item_id))
+def _decode(cursor: str, order: InboxOrder) -> InboxPosition:
+    parts = cursor.split("-")
+    expected = 3 if order is InboxOrder.IMPORTANCE else 2
+    if len(parts) != expected or not all(part.isdigit() for part in parts):
+        raise InvalidCursor(f"not an Inbox cursor for the {order.value} order: {cursor!r}")
+    numbers = [int(part) for part in parts]
+    importance = numbers.pop(0) if order is InboxOrder.IMPORTANCE else None
+    microseconds, item_id = numbers
+    return InboxPosition(_EPOCH + timedelta(microseconds=microseconds), item_id, importance)

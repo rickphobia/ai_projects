@@ -26,6 +26,7 @@ extends RefCounted
 ## quarter of each and raises the Quota by 2 more.
 ## A letter from the Children arrives at the start of every second Shift (2, 4, 6...). A call
 ## home costs 5 Labour Points (one pick) and lasts 10 seconds.
+## The Farm starts as 2 × 2 Plots (4) and can grow to 3 × 3; with_land() starts it at another size.
 
 const GROW_SECONDS := 30.0
 const SHIFT_SECONDS := 100.0
@@ -72,6 +73,11 @@ const SCHOOL_FEES_EVERY_SHIFTS := 3
 const LETTER_EVERY_SHIFTS := 2
 const CALL_HOME_PRICE := 5
 const CALL_HOME_SECONDS := 10.0
+const FIRST_LAND_COLUMNS := 2
+const FIRST_LAND_ROWS := 2
+const FIRST_PLOTS := FIRST_LAND_COLUMNS * FIRST_LAND_ROWS
+const LARGEST_LAND_COLUMNS := 3
+const LARGEST_LAND_ROWS := 3
 
 
 static func table() -> Tuning:
@@ -112,6 +118,10 @@ static func table() -> Tuning:
 	tuning.letter_every_shifts = LETTER_EVERY_SHIFTS
 	tuning.call_home_price = CALL_HOME_PRICE
 	tuning.call_home_seconds = CALL_HOME_SECONDS
+	tuning.first_land_columns = FIRST_LAND_COLUMNS
+	tuning.first_land_rows = FIRST_LAND_ROWS
+	tuning.largest_land_columns = LARGEST_LAND_COLUMNS
+	tuning.largest_land_rows = LARGEST_LAND_ROWS
 	var tiers: Array[GeneratorTier] = []
 	for index in GENERATOR_PRICES.size():
 		tiers.append(
@@ -153,4 +163,13 @@ static func billing_table() -> Tuning:
 	tuning.electricity_per_lap = ELECTRICITY_PER_LAP
 	tuning.rent_per_shift = RENT_PER_SHIFT
 	tuning.school_fees = SCHOOL_FEES
+	return tuning
+
+
+## A table starting the Farm with another first land, and no larger land to grow into.
+static func with_land(tuning: Tuning, columns: int, rows: int) -> Tuning:
+	tuning.first_land_columns = columns
+	tuning.first_land_rows = rows
+	tuning.largest_land_columns = columns
+	tuning.largest_land_rows = rows
 	return tuning

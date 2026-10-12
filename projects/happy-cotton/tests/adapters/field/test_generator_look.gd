@@ -76,7 +76,7 @@ func test_with_the_pulse_skipped_the_lamp_stays_steady() -> void:
 
 func test_the_fence_leaves_a_gate_on_the_left_side_only() -> void:
 	var half_size := Vector2(6.0, 5.0)
-	var fence := FenceLook.build(half_size, 2.0)
+	var fence := FenceLook.build(Rect2(-half_size, half_size * 2.0), 2.0)
 	autofree(fence)
 	var gate_sections := 0
 	var left_sections := 0
@@ -114,3 +114,18 @@ func test_a_tier_past_the_colour_list_keeps_the_last_colour() -> void:
 	_generator.show_tier(Generator.TIER_COLOURS.size() + 2)
 
 	assert_eq(_generator.machine_colour(), Generator.TIER_COLOURS[-1])
+
+
+func test_a_fence_round_off_centre_bounds_keeps_the_gate_where_it_is() -> void:
+	var fence := FenceLook.build(Rect2(-6.0, -9.0, 14.0, 14.0), 2.0)
+	autofree(fence)
+	var left_sections_at: Array[float] = []
+	for child in fence.get_children():
+		var section := child as Node3D
+		var place := fence.position + section.position
+		if is_equal_approx(section.rotation.y, PI / 2.0) and place.x < 0.0:
+			left_sections_at.append(place.z)
+	assert_eq(fence.position, Vector3(1.0, 0.0, -2.0), "the fence sits round the bounds' middle")
+	assert_eq(left_sections_at.size(), 6, "one of the left side's 7 sections is the gate")
+	for z in left_sections_at:
+		assert_true(absf(z - 2.0) >= 1.0, "no left section covers the gate at z=2 (one at %s)" % z)

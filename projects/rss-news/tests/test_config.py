@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -6,11 +7,18 @@ import pytest
 
 from rss_news.auth.passwords import parse_password_hash
 from rss_news.config import ConfigError, Settings, load_settings
+from rss_news.spending.ledger import ModelPrice
 from tests.support import OWNER_PASSWORD_HASH, SESSION_SECRET, fake_pwa_build
 
 SECRETS = {
     "RSS_NEWS_PASSWORD_HASH": OWNER_PASSWORD_HASH,
     "RSS_NEWS_SESSION_SECRET": SESSION_SECRET,
+    "RSS_NEWS_ANTHROPIC_API_KEY": "sk-ant-test",
+}
+DEFAULT_PRICES = {
+    "claude-haiku-5-5": ModelPrice(Decimal("0.10"), Decimal("0.50")),
+    "claude-sonnet-5-5": ModelPrice(Decimal(2), Decimal(10)),
+    "claude-opus-5-5": ModelPrice(Decimal(4), Decimal(20)),
 }
 
 
@@ -40,6 +48,14 @@ def test_defaults_apply_when_only_the_pwa_folder_and_secrets_are_set(pwa_dir: Pa
         fetch_max_backoff=timedelta(hours=24),
         fetch_timeout=timedelta(seconds=20),
         user_agent="rss-news/0.1 (+https://rickphobia.com/ai-projects/rss-news/)",
+        anthropic_api_key="sk-ant-test",
+        anthropic_timeout=timedelta(seconds=120),
+        anthropic_max_attempts=4,
+        scoring_model="claude-haiku-5-5",
+        scoring_batch_size=100,
+        scoring_prompt_token_limit=90_000,
+        model_prices=DEFAULT_PRICES,
+        web_search_price_usd=Decimal("0.01"),
     )
 
 
@@ -64,6 +80,13 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
             "RSS_NEWS_FETCH_MAX_BACKOFF_HOURS": "6",
             "RSS_NEWS_FETCH_TIMEOUT_SECONDS": "5",
             "RSS_NEWS_USER_AGENT": "my-reader/1.0",
+            "RSS_NEWS_ANTHROPIC_TIMEOUT_SECONDS": "30",
+            "RSS_NEWS_ANTHROPIC_MAX_ATTEMPTS": "2",
+            "RSS_NEWS_SCORING_MODEL": "claude-sonnet-5-5",
+            "RSS_NEWS_SCORING_BATCH_SIZE": "20",
+            "RSS_NEWS_SCORING_PROMPT_TOKEN_LIMIT": "50000",
+            "RSS_NEWS_MODEL_PRICES": "claude-sonnet-5-5=2.5/12, claude-haiku-5-5=0.1/0.5",
+            "RSS_NEWS_WEB_SEARCH_PRICE_USD": "0.02",
         }
     )
 
@@ -87,6 +110,17 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         fetch_max_backoff=timedelta(hours=6),
         fetch_timeout=timedelta(seconds=5),
         user_agent="my-reader/1.0",
+        anthropic_api_key="sk-ant-test",
+        anthropic_timeout=timedelta(seconds=30),
+        anthropic_max_attempts=2,
+        scoring_model="claude-sonnet-5-5",
+        scoring_batch_size=20,
+        scoring_prompt_token_limit=50_000,
+        model_prices={
+            "claude-sonnet-5-5": ModelPrice(Decimal("2.5"), Decimal(12)),
+            "claude-haiku-5-5": ModelPrice(Decimal("0.1"), Decimal("0.5")),
+        },
+        web_search_price_usd=Decimal("0.02"),
     )
 
 
@@ -116,6 +150,14 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
             "RSS_NEWS_FETCH_MAX_BACKOFF_HOURS must be a whole",
         ),
         ("RSS_NEWS_USER_AGENT", " ", "RSS_NEWS_USER_AGENT must not be blank"),
+        ("RSS_NEWS_ANTHROPIC_API_KEY", "", "RSS_NEWS_ANTHROPIC_API_KEY is required"),
+        ("RSS_NEWS_ANTHROPIC_MAX_ATTEMPTS", "0", "RSS_NEWS_ANTHROPIC_MAX_ATTEMPTS must be at"),
+        ("RSS_NEWS_SCORING_MODEL", "claude-unknown", "has no price in RSS_NEWS_MODEL_PRICES"),
+        ("RSS_NEWS_MODEL_PRICES", "claude-haiku-5-5=cheap", "must look like 'model=input/output"),
+        ("RSS_NEWS_MODEL_PRICES", "claude-haiku-5-5=-1/2", "must look like 'model=input/output"),
+        ("RSS_NEWS_MODEL_PRICES", "=1/2", "must look like 'model=input/output"),
+        ("RSS_NEWS_WEB_SEARCH_PRICE_USD", "free", "RSS_NEWS_WEB_SEARCH_PRICE_USD must be an"),
+        ("RSS_NEWS_WEB_SEARCH_PRICE_USD", "-0.01", "must be zero or more"),
     ],
 )
 def test_a_bad_value_is_rejected_naming_the_variable(
@@ -129,6 +171,7 @@ def test_the_secrets_are_kept_out_of_the_settings_repr(pwa_dir: Path) -> None:
     text = repr(load_settings({"RSS_NEWS_PWA_DIR": str(pwa_dir), **SECRETS}))
 
     assert SESSION_SECRET not in text
+    assert "sk-ant-test" not in text
     assert "scrypt" not in text
 
 

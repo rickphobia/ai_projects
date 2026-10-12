@@ -169,7 +169,7 @@ These are the only places that touch the network or the system. Each has one rea
 
 - **Clock:** the current time in the owner's time zone (`Asia/Kuala_Lumpur` by default).
 - **FeedFetcher:** a conditional GET of a URL. It returns not-modified, a body with caching headers, rate-limited with a retry delay, or a failure that includes the step and detail.
-- **LanguageModel:** one operation per job: score Items, write a Briefing section, run a Chat turn with tools, and define a word. Each returns the result plus usage (model, input and output tokens, web searches, duration). The real adapter uses the Anthropic SDK with timeouts, retries with backoff, and the Batch API for scoring.
+- **LanguageModel:** one operation per job: score Items, write a Briefing section, run a Chat turn with tools, and define a word. Each returns the result plus usage (model, input and output tokens, web searches, duration). The real adapter uses the Anthropic SDK with timeouts and retries with backoff. Scoring sends batches of Items in ordinary Messages API calls, not the Batch API (decision 0003).
 - **Mailbox:** reads new messages from the newsletter Gmail inbox over IMAP and marks them handled.
 - **HoldingsReport:** fetches the IBKR Flex Query and returns a list of tickers.
 - **PushSender:** sends a Web Push message to a stored subscription and reports gone subscriptions.

@@ -8,7 +8,12 @@ import { FakeApiClient } from "../fake-api";
 const AI: Folder = { id: 1, name: "AI" };
 const WORLD: Folder = { id: 2, name: "World" };
 
-function item(id: number, title: string, folder: Folder): InboxItem {
+function item(
+  id: number,
+  title: string,
+  folder: Folder,
+  importance: number | null = null,
+): InboxItem {
   return {
     id,
     title,
@@ -16,6 +21,8 @@ function item(id: number, title: string, folder: Folder): InboxItem {
     source: `${folder.name} source`,
     folder,
     publishedAt: "2026-10-12T04:00:00+00:00",
+    importance,
+    summary: importance === null ? null : `Summary of ${title}`,
   };
 }
 
@@ -25,6 +32,10 @@ function shownTitles(): string[] {
 
 function folderFilter(): HTMLSelectElement {
   return screen.getByRole("combobox", { name: "Folder" });
+}
+
+function importanceFilter(): HTMLSelectElement {
+  return screen.getByRole("combobox", { name: "Importance" });
 }
 
 function choose(select: HTMLSelectElement, label: string): void {
@@ -46,10 +57,62 @@ describe("the Inbox", () => {
     api = new FakeApiClient();
     api.foldersAnswer = [AI, WORLD];
     api.items = [
-      item(3, "Newest world story", WORLD),
-      item(2, "AI story", AI),
+      item(3, "Newest world story", WORLD, 2),
+      item(2, "AI story", AI, 5),
       item(1, "Older world story", WORLD),
     ];
+  });
+
+  it("shows each Item's Importance and one-line summary", async () => {
+    await renderInbox(root, api);
+
+    expect(screen.getByLabelText("Importance 5")).toBeTruthy();
+    expect(screen.getByText("Summary of AI story")).toBeTruthy();
+    expect(screen.getByLabelText("Not scored yet")).toBeTruthy();
+  });
+
+  it("filters by Importance, keeping the Folder filter", async () => {
+    await renderInbox(root, api);
+    choose(folderFilter(), "World");
+    await waitFor(() => {
+      expect(shownTitles()).toHaveLength(2);
+    });
+
+    choose(importanceFilter(), "2 and up");
+
+    await waitFor(() => {
+      expect(shownTitles()).toEqual(["Newest world story"]);
+    });
+    expect(api.inboxQueries.at(-1)).toEqual({
+      folderId: WORLD.id,
+      minImportance: 2,
+    });
+
+    choose(importanceFilter(), "5 only");
+    await waitFor(() => {
+      expect(shownTitles()).toEqual([]);
+    });
+    expect(screen.getByRole("status", { name: "Inbox" }).textContent).toBe(
+      "No Items match these filters.",
+    );
+  });
+
+  it("sorts by Importance on request", async () => {
+    await renderInbox(root, api);
+
+    choose(
+      screen.getByRole("combobox", { name: "Sort" }),
+      "Most important first",
+    );
+
+    await waitFor(() => {
+      expect(shownTitles()).toEqual([
+        "AI story",
+        "Newest world story",
+        "Older world story",
+      ]);
+    });
+    expect(api.inboxQueries.at(-1)).toEqual({ sort: "importance" });
   });
 
   it("lists every Item newest first, each linking to the original", async () => {
