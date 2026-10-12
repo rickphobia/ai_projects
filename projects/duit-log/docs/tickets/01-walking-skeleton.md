@@ -19,6 +19,6 @@
 - [x] CI workflow `name: duit-log`, scoped to the project folder: checks, then a signed build; on `main` a GitHub Release `duit-log-v<version>` when the version name is new; on a green PR a `duit-log-pr-<N>` prerelease with the Preview APK linked from the PR body, deleted when the PR closes; version code is the CI run number
 - [x] A rolling log file on the device with a "Share log" button on the (otherwise empty) home screen
 - [x] README from the template (install from Releases, build, test, signing key setup), MIT `LICENSE` for this project, `.claude/settings.json` copied from the root, and a row in the root README's project index
-- [ ] CI is green
+- [x] CI is green
 
 **Owner steps:** generate the signing key on the Beelink and back it up; add the GitHub secrets; install the first release on your phone (directly or through Obtainium).
