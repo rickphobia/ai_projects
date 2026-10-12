@@ -4,7 +4,7 @@ A personal news briefing for one owner: it reads many Sources (RSS and Atom feed
 
 ## Status
 
-`in progress`: feeds arrive in the Inbox and get scored. On first run the starter Sources from [`docs/starter-sources.md`](docs/starter-sources.md) are loaded; every minute the server fetches the Sources that are due, stores new Items once each, and has Claude Haiku give each new Item an Importance from 1 to 5 and a one-line English summary. Every AI call is recorded in a spending ledger. The owner signs in with one password and sees the Inbox, newest or most important first, filtered by Folder and Importance. It installs to the home screen from Chrome, and its service worker caches the app shell (never API answers). Deployable to the Beelink. No Source management, polite fetching, Briefings or Chat yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
+`in progress`: feeds arrive in the Inbox and get scored. On first run the starter Sources from [`docs/starter-sources.md`](docs/starter-sources.md) are loaded; every minute the server fetches the Sources that are due, stores new Items once each, and has Claude Haiku give each new Item an Importance from 1 to 5 and a one-line English summary. Every AI call is recorded in a spending ledger. The owner signs in with one password and sees the Inbox, newest or most important first, filtered by Folder and Importance. It installs to the home screen from Chrome, and its service worker caches the app shell (never API answers). Deployable to the Beelink. Fetching is polite: Reddit requests are spaced out, retry delays are honoured and failing Sources back off. No Source management, Briefings or Chat yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
 
 ## Requirements
 
@@ -79,7 +79,9 @@ Needs `git`, `docker` (your user can run it without sudo) and `flock` (already o
    # rss-news: proxied to the container on homelab_default.
    location = /ai-projects/rss-news { return 301 https://$host$uri/; }
 
-   location /ai-projects/rss-news/ {
+   # ^~ stops default.conf's regex location for paths ending in / or .html from taking these
+   # requests and serving them as static files (a 404 for /ai-projects/rss-news/).
+   location ^~ /ai-projects/rss-news/ {
        # Resolve per request, so a missing container is a 502 here, not an nginx that won't start.
        resolver 127.0.0.11 valid=10s;
        set $rss_news_upstream rss-news:8000;
@@ -134,7 +136,7 @@ Logs: `docker logs rss-news-<tag>-<n>`, or Dozzle.
 
 ### Try a PR before merging
 
-`scripts/try-pr.sh <PR number>` (at the repo root) checks the PR out in its own worktree, builds the PWA and runs the backend on `localhost:8000` with a throwaway database. The Beelink preview timer (`scripts/previews.sh`) does this for every open rss-news PR and links it in the PR body. The app answers both at `/` and under `/ai-projects/rss-news/`.
+`scripts/try-pr.sh <PR number>` (at the repo root) checks the PR out in its own worktree, builds the PWA and runs the backend on `localhost:8000` with a throwaway database. The Beelink preview timer (`scripts/previews.sh`) does this for every open rss-news PR and links it in the PR body. The app answers both at `/` and under `/ai-projects/rss-news/`. A preview signs in with the password `preview` (set `TRY_PR_RSS_NEWS_PASSWORD` to change it), not the real site's.
 
 ## Configuration
 
@@ -155,9 +157,12 @@ Settings come from environment variables, checked at startup (`src/rss_news/conf
 | `RSS_NEWS_SECURE_COOKIES` | no (`true`) | Send the cookie over https only; `false` for local runs over plain http |
 | `RSS_NEWS_LOGIN_MAX_FAILURES` | no (`5`) | Wrong passwords within the lockout time that lock sign-in |
 | `RSS_NEWS_LOGIN_LOCKOUT_MINUTES` | no (`15`) | How long sign-in stays locked |
-| `RSS_NEWS_FETCH_INTERVAL_MINUTES` | no (`15`) | How long after a fetch a Source is due again |
-| `RSS_NEWS_FETCH_TIMEOUT_SECONDS` | no (`20`) | How long one feed request may take |
-| `RSS_NEWS_USER_AGENT` | no (`rss-news/0.1 (+https://rickphobia.com/ai-projects/rss-news/)`) | Sent with every feed request |
+| `RSS_NEWS_FETCH_INTERVAL_MINUTES` | no (`15`) | How long after a successful fetch a Source is due again |
+| `RSS_NEWS_REDDIT_GAP_SECONDS` | no (`10`) | Least time between the end of one Reddit request and the start of the next |
+| `RSS_NEWS_REDDIT_INTERVAL_MINUTES` | no (`60`) | How long after a successful fetch a subreddit is due again |
+| `RSS_NEWS_FETCH_MAX_BACKOFF_HOURS` | no (`24`) | The longest a failing Source waits between tries |
+| `RSS_NEWS_FETCH_TIMEOUT_SECONDS` | no (`20`) | How long one feed request may take before it counts as failed |
+| `RSS_NEWS_USER_AGENT` | no (`rss-news/0.1 (+https://rickphobia.com/ai-projects/rss-news/)`) | Sent with every feed request; Reddit refuses generic ones |
 | `RSS_NEWS_ANTHROPIC_API_KEY` | **yes** | The Anthropic API key, for scoring |
 | `RSS_NEWS_ANTHROPIC_TIMEOUT_SECONDS` | no (`120`) | How long one AI request may take |
 | `RSS_NEWS_ANTHROPIC_MAX_ATTEMPTS` | no (`4`) | Tries per AI call; network errors, 429 and 5xx are tried again with growing waits |
@@ -175,7 +180,8 @@ Settings come from environment variables, checked at startup (`src/rss_news/conf
 - Sign-in follows court-booker's auth (`src/rss_news/auth/`, `src/rss_news/web/auth.py`). `POST /api/login` with `{"password": …}` checks the scrypt hash and sets a signed, HttpOnly, SameSite=Strict cookie under the prefix (204), or answers 401 (wrong password) or 429 with `minutes_left` (locked out). Every other `/api` route sits behind the `require_session` dependency and answers 401 without the cookie; add new routers to the app with that dependency. Failed attempts are kept in the `login_failures` table, so a restart doesn't reset a lockout. The cookie's signature covers the password hash, so a new password signs out every device. No CSRF tokens: a SameSite=Strict cookie isn't sent on cross-site requests, and the API only takes JSON.
 - **Starter Sources** (`src/rss_news/sources/starter.py`, a copy of `docs/starter-sources.md`) are loaded once, the first time the app starts on a database. The `done_once` table remembers it, so Sources the owner later removes don't come back.
 - **The tick** (`src/rss_news/tick.py`) runs in a background thread: once at start, then every minute. Its steps run in order; a failing step is logged as `tick step failed` and doesn't stop the later ones, but then the tick doesn't count for `/healthz`. Today it has two steps: fetching due Sources, then scoring new Items.
-- **Fetching** (`src/rss_news/sources/fetching.py`): a Source is due when it was never fetched or `RSS_NEWS_FETCH_INTERVAL_MINUTES` have passed since its last try, successful or not. The FeedFetcher (`src/rss_news/adapters/feed_fetcher.py`, httpx) makes a conditional GET with the ETag and Last-Modified from last time. `feedparser` reads RSS, RDF and Atom (Reddit's too) in `sources/feed_parsing.py`. Each entry's link is cleaned of tracking parameters (`sources/clean_url.py`: `utm_*`, `fbclid`, BBC's `at_*` and others), and an Item whose clean URL is already stored is dropped, so the same story from two Sources appears once. An undated or future-dated entry counts as arriving at fetch time. One Source failing (network, HTTP status, not a feed, or a bug) is logged with the Source and step and the next Source carries on.
+- **Fetching** (`src/rss_news/sources/fetching.py`): a Source is due when it was never fetched or its wait since the last try has passed: `RSS_NEWS_FETCH_INTERVAL_MINUTES` after a success (`RSS_NEWS_REDDIT_INTERVAL_MINUTES` for any `reddit.com` host). The FeedFetcher (`src/rss_news/adapters/feed_fetcher.py`, httpx) makes a conditional GET with the ETag and Last-Modified from last time. `feedparser` reads RSS, RDF and Atom (Reddit's too) in `sources/feed_parsing.py`. Each entry's link is cleaned of tracking parameters (`sources/clean_url.py`: `utm_*`, `fbclid`, BBC's `at_*` and others), and an Item whose clean URL is already stored is dropped, so the same story from two Sources appears once. An undated or future-dated entry counts as arriving at fetch time. One Source failing (network, HTTP status, not a feed, rate limited, or a bug) is logged with the Source and step and the next Source carries on.
+- **Polite fetching** (`src/rss_news/sources/polite_queue.py`): the tick asks one host at a time, in one thread. Reddit hosts get `RSS_NEWS_REDDIT_GAP_SECONDS` between the end of one request and the start of the next; the queue asks other hosts meanwhile and sleeps only when every remaining due Source is waiting for Reddit. A 429 answer becomes `RateLimited` with its `Retry-After` (seconds or a date): every Source on that host is left due until the delay has passed, and the rate-limited Source itself waits at least that long. A failure, a 429 included, doubles the Source's wait each time in a row (15, 30, 60 minutes …) up to `RSS_NEWS_FETCH_MAX_BACKOFF_HOURS`; the first success brings back the normal interval. Sources are never disabled. The spacing, holds and failure counts live in memory, so a restart may ask a held host once more, and a broken Source starts its backoff again.
 - **Scoring** (`src/rss_news/scoring/item_scoring.py`): each tick takes the unscored Items, newest first, and sends them to the scoring model in batches of up to `RSS_NEWS_SCORING_BATCH_SIZE`, keeping each call's estimated prompt under `RSS_NEWS_SCORING_PROMPT_TOKEN_LIMIT` (at most 10 calls a tick, so the first run's backlog takes a few minutes). The model returns an Importance from 1 to 5 and a one-line summary in English, whatever the Item's language. The calls are ordinary Messages API calls, not the Batch API ([decision 0003](docs/decisions/0003-score-with-the-messages-api-not-the-batch-api.md)). When a call fails because of what was in it (a refusal, an answer that isn't the scores, a 400), or the answer leaves an Item out, those Items wait (1 minute, doubling to at most 6 hours) and go in batches half as big as last time, so one Item the model can't handle ends up alone. When the model is unavailable (network, outage, bad API key) the tick stops scoring and nothing is held against the Items. Unscored Items still show in the Inbox.
 - **The LanguageModel** (`src/rss_news/adapters/language_model.py`) calls the Anthropic Messages API with structured JSON output at low effort. It retries network errors, 408, 409, 429 and 5xx itself (1, 2, 4… seconds, or the `retry-after` the API gives, at most 60), so each retry is logged; the SDK's own retries are off.
 - **The spending ledger** (`src/rss_news/spending/ledger.py`, table `ai_calls`): one row per AI call with the feature, model, tokens, web searches, cost and duration. The cost comes from `RSS_NEWS_MODEL_PRICES` and is kept in millionths of a dollar so totals add up exactly. A failed call the model answered (such as a refusal) is recorded too, because it was billed.
@@ -193,7 +199,8 @@ src/rss_news/
   wiring.py          puts the stores, features and tick together over the adapters
   tick.py            the steps run every minute, and the background loop running them
   auth/              password hashes, signed session cookies, lockout
-  sources/           Folders and Sources, the starter set, fetching due Sources,
+  sources/           Folders and Sources, the starter set, fetching due Sources, the
+                     polite fetch queue (host spacing, retry delays, backoff),
                      feed parsing and tracking-parameter cleaning
   items/             Items and the Inbox query with its orders, filters and paging cursor
   scoring/           giving new Items an Importance and a summary, in batches, with retries
@@ -220,7 +227,7 @@ docs/                spec, tickets, decisions
 
 - Logs are JSON lines on stdout, one object per event with `time`, `level`, `logger`, `message` and any extra fields. Set `RSS_NEWS_LOG_LEVEL=DEBUG` for more. In Docker: `docker logs <container>`.
 - `serve` exits with code 2 and an `invalid configuration` log line naming the variable when a setting is bad, and with `database unusable` when the SQLite file or its folder can't be opened or written (often a volume owned by another user).
-- Each feed request logs `feed request` with the host, result and `duration_ms`; each Source then logs `source fetched` (with `entries` and `new_items`), `source not modified` (debug) or `source fetch failed` (warning) with `source`, `step` (`connect`, `timeout`, `http status`, `parse`, …) and `detail`. A Source's last error is also kept in the `sources` table: `sqlite3 data/rss-news.sqlite3 'SELECT name, last_error_at, last_error FROM sources WHERE last_error IS NOT NULL'`. Reddit answers 429 to most requests until polite fetching (ticket 06) spaces them out.
+- Each feed request logs `feed request` with the host, result and `duration_ms`; each Source then logs `source fetched` (with `entries` and `new_items`), `source not modified` (debug) or `source fetch failed` (warning) with `source`, `step` (`connect`, `timeout`, `http status`, `parse`, `rate limited`, …), `detail`, `failures_in_a_row` and `next_try_in_minutes`. A `Retry-After` logs `host on hold` with `retry_after_seconds`; Sources skipped for it log `source left for a later tick: host on hold` at debug. A Source's last error is also kept in the `sources` table: `sqlite3 data/rss-news.sqlite3 'SELECT name, last_error_at, last_error FROM sources WHERE last_error IS NOT NULL'`. If Reddit still answers 429 often, raise `RSS_NEWS_REDDIT_GAP_SECONDS` and check `RSS_NEWS_USER_AGENT` is specific.
 - Scoring: each AI call logs `ai call` with `feature`, `model`, tokens, `cost_usd` and `duration_ms`; `ai call retried` (warning) names the attempt, wait and error; `ai call failed` (error) has the HTTP status and Anthropic request id. `scoring failed` (warning) lists the `item_ids` of a failed batch, which are retried later; `scoring paused until the next tick: the model is unavailable` (error) every minute usually means a wrong `RSS_NEWS_ANTHROPIC_API_KEY` (HTTP 401) or no credit. Items still waiting: `sqlite3 data/rss-news.sqlite3 'SELECT id, title, score_failures, score_retry_at FROM items WHERE scored_at IS NULL ORDER BY score_failures DESC LIMIT 20'`. This month's spend: `sqlite3 data/rss-news.sqlite3 "SELECT feature, count(*), sum(cost_micro_usd) / 1e6 FROM ai_calls WHERE called_at >= strftime('%Y-%m-01') GROUP BY feature"`.
 - `last_tick_seconds_ago` in `/healthz` keeps growing: look for `tick step failed` in the logs (a whole step broke) or for no `tick loop started` line at all.
 - `RSS_NEWS_PWA_DIR ... index.html is missing`: the PWA isn't built. Run `npm run build` in `pwa/`.

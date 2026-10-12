@@ -37,8 +37,13 @@ class Settings:
     secure_cookies: bool
     login_max_failures: int
     login_lockout: timedelta
-    # How long after a fetch a Source is due again.
+    # How long after a successful fetch a Source is due again.
     fetch_interval: timedelta
+    # Reddit allows anonymous feeds about one request every 6 seconds; keep under that.
+    reddit_gap: timedelta
+    reddit_interval: timedelta
+    # Failing Sources back off by doubling their interval, up to this.
+    fetch_max_backoff: timedelta
     fetch_timeout: timedelta
     # Sent with every feed request, so site owners can see who is asking.
     user_agent: str
@@ -81,6 +86,15 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         ),
         fetch_interval=timedelta(
             minutes=_positive_int(environ, "RSS_NEWS_FETCH_INTERVAL_MINUTES", default=15)
+        ),
+        reddit_gap=timedelta(
+            seconds=_positive_int(environ, "RSS_NEWS_REDDIT_GAP_SECONDS", default=10)
+        ),
+        reddit_interval=timedelta(
+            minutes=_positive_int(environ, "RSS_NEWS_REDDIT_INTERVAL_MINUTES", default=60)
+        ),
+        fetch_max_backoff=timedelta(
+            hours=_positive_int(environ, "RSS_NEWS_FETCH_MAX_BACKOFF_HOURS", default=24)
         ),
         fetch_timeout=timedelta(
             seconds=_positive_int(environ, "RSS_NEWS_FETCH_TIMEOUT_SECONDS", default=20)

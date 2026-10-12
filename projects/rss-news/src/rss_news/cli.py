@@ -29,7 +29,10 @@ def serve(settings: Settings) -> int:
     except DatabaseError as error:
         logger.error("database unusable: %s", error)
         return 2
-    feed_fetcher = HttpFeedFetcher(user_agent=settings.user_agent, timeout=settings.fetch_timeout)
+    clock = SystemClock()
+    feed_fetcher = HttpFeedFetcher(
+        user_agent=settings.user_agent, timeout=settings.fetch_timeout, clock=clock
+    )
     language_model = AnthropicLanguageModel(
         api_key=settings.anthropic_api_key,
         scoring_model=settings.scoring_model,
@@ -41,7 +44,7 @@ def serve(settings: Settings) -> int:
         database=database,
         feed_fetcher=feed_fetcher,
         language_model=language_model,
-        clock=SystemClock(),
+        clock=clock,
         starter_folders=STARTER_FOLDERS,
         run_tick_loop=True,
     )

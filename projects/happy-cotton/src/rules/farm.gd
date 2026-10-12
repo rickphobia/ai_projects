@@ -1,15 +1,16 @@
 # gdlint: disable=max-public-methods
 # Farm is the one seam the game and the tests drive (see the specs), so every command and view
-# is public here; the work itself is delegated to Crops, Toil, Exhaustion, Ledger and Store.
+# is public here; the work itself is delegated to Crops, Toil, Exhaustion, Ledger, Store and
+# Shifts.
 class_name Farm
 extends RefCounted
 ## The Farm rules: the plots and the cotton growing in them. No scene tree, clock or file
 ## access: time only moves when advance() or resume_offline() is called, so tests play hours
 ## in milliseconds.
-## It also runs the Shift: online play counts it down, and at its end the Quota is checked and
-## the next Shift starts at once with a higher Quota. What The App should say comes out as
-## AppMessages through take_messages(). A missed Quota starts a Study Session: the Worker can't
-## plant or pick until it ends, and the next Shift's clock waits for it.
+## It also runs the Shift (see Shifts): online play counts it down, and at its end the Quota is
+## checked and the next Shift starts at once with a higher Quota. What The App should say comes
+## out as AppMessages through take_messages(). A missed Quota starts a Study Session: the Worker
+## can't plant or pick until it ends, and the next Shift's clock waits for it.
 ## The Worker is either in the field or on the Generator (see Toil). Crops grow only while he
 ## runs on it; after a set number of laps he stops to breathe and growth halts until the
 ## Overseer whistles, then whips, and he runs again (advance() returns these events).
@@ -95,20 +96,16 @@ const LEAST_SAVED_BALANCE := -1000000000
 const NEGATIVE_OFFLINE_TIME := &"negative_offline_time"
 const OFFLINE_TIME_CAPPED := &"offline_time_capped"
 
-## App message keys. A Shift began: values shift, quota.
-const SHIFT_STARTED := &"shift_started"
-## The Quota was met (or beaten) at the end of a Shift: values shift, picked, quota.
-const QUOTA_MET := &"quota_met"
-## The Quota was missed at the end of a Shift: values shift, picked, quota. The key grows
-## colder with each miss in a row: the first, the second, then every one after.
-const QUOTA_MISSED := &"quota_missed"
-const QUOTA_MISSED_AGAIN := &"quota_missed_again"
-const QUOTA_MISSED_REPEATEDLY := &"quota_missed_repeatedly"
-## A Study Session began: values seconds, minutes (rounded up), in_a_row (Quotas missed in a
-## row so far: 1 for the first since the last met Quota, unchanged by Negligence).
-const STUDY_SESSION_STARTED := &"study_session_started"
-## A Study Session ended: values in_a_row.
-const STUDY_SESSION_ENDED := &"study_session_ended"
+## App message keys. The Shift's own are documented in Shifts.
+const SHIFT_STARTED := Shifts.SHIFT_STARTED
+const QUOTA_MET := Shifts.QUOTA_MET
+const QUOTA_MISSED := Shifts.QUOTA_MISSED
+const QUOTA_MISSED_AGAIN := Shifts.QUOTA_MISSED_AGAIN
+const QUOTA_MISSED_REPEATEDLY := Shifts.QUOTA_MISSED_REPEATEDLY
+const STUDY_SESSION_STARTED := Shifts.STUDY_SESSION_STARTED
+const STUDY_SESSION_ENDED := Shifts.STUDY_SESSION_ENDED
+const PAY_SLIP := Shifts.PAY_SLIP
+const FELL_INTO_DEBT := Shifts.FELL_INTO_DEBT
 ## Plots Withered at the same moment: values plots (how many), points (Labour Points docked).
 ## A Study Session for the Negligence follows at once.
 const NEGLIGENCE_LOGGED := &"negligence_logged"
@@ -131,12 +128,6 @@ const GENERATOR_UPGRADED := &"generator_upgraded"
 ## A tools tier was bought: values tier (from 1), price, share (of a slow pick's time and of the
 ## drop chance, against no Upgrade), quota_rise (from the next Shift).
 const TOOLS_UPGRADED := &"tools_upgraded"
-## The Bills were charged at the end of a Shift: values shift, earned (by work this Shift),
-## laps, electricity, electricity_covered, rent, rent_covered (whether the balance covered each
-## Bill) and balance (Labour Points left, negative for Debt).
-const PAY_SLIP := &"pay_slip"
-## A Bill left the Worker in Debt when he wasn't: values debt.
-const FELL_INTO_DEBT := &"fell_into_debt"
 ## Earnings paid the last of the Debt: values points (Labour Points left over).
 const DEBT_CLEARED := &"debt_cleared"
 ## The App tells a new game that the Worker's two Children are at a state boarding school
@@ -164,11 +155,10 @@ const MESSAGE_KEYS: Array[StringName] = [
 	DEBT_CLEARED,
 	CHILDREN_AT_SCHOOL,
 ]
-## Family events (FamilyEvent kinds), the Children's side, never App text. A letter arrived at
-## the start of a Shift: id is one of LETTER_IDS.
-const LETTER_ARRIVED := &"letter_arrived"
-## A school-fees Bill left a shortfall, so no letters come until the Debt is cleared.
-const LETTERS_STOPPED := &"letters_stopped"
+## Family events (FamilyEvent kinds), the Children's side, never App text. The Shift's own are
+## documented in Shifts.
+const LETTER_ARRIVED := Shifts.LETTER_ARRIVED
+const LETTERS_STOPPED := Shifts.LETTERS_STOPPED
 ## The Debt that stopped the letters was cleared, so the next letter Shift brings one again.
 const LETTERS_STARTED_AGAIN := &"letters_started_again"
 ## The Worker called home: id is one of CALL_IDS.
@@ -207,25 +197,16 @@ const OVERSEER_WHISTLE := Toil.WHISTLE
 ## He used the whip, and the Worker runs again. It changes no numbers.
 const OVERSEER_WHIP := Toil.WHIP
 ## The Quota-missed key for the first, second and every later miss in a row.
-const MISSED_KEYS: Array[StringName] = [QUOTA_MISSED, QUOTA_MISSED_AGAIN, QUOTA_MISSED_REPEATEDLY]
+const MISSED_KEYS := Shifts.MISSED_KEYS
 
 var _tuning: Tuning
 var _crops: Crops
 var _exhaustion: Exhaustion
 var _toil: Toil
-var _shift_number := 1
-## Seconds of online play into the current Shift.
-var _shift_elapsed := 0.0
-## Cotton picked this Shift. Starts from zero each Shift: a surplus carries no credit.
-var _picked := 0
-var _ledger := Ledger.new()
+var _ledger: Ledger
 var _store: Store
-## The Quota rise of the Upgrades bought before this Shift began; later ones wait for the next.
-var _shift_upgrade_rise := 0
-## Seconds left in the current Study Session; 0 when the Worker is on the field.
-var _study_left := 0.0
-## Quotas missed since the last met one; it sets the next Study Session's length.
-var _misses_in_a_row := 0
+var _shifts: Shifts
+## Shared with Shifts, so both queues are emptied in place, never replaced.
 var _messages: Array[AppMessage] = []
 var _letters := Letters.new(LETTER_IDS)
 var _family_events: Array[FamilyEvent] = []
@@ -235,8 +216,6 @@ var _busy_left := 0.0
 var _rest_left := 0.0
 ## Seconds left of a call home; 0 when he isn't on one.
 var _call_left := 0.0
-## Set by a missed Quota for the whole of the next Shift.
-var _privileges_taken_away := false
 ## Returns a number from 0 to 1 each call; a pick drops its cotton when it comes up under the
 ## tuning's chance.
 var _roll: Callable
@@ -259,9 +238,10 @@ func _init(tuning: Tuning, plot_count: int, roll: Callable = Callable()) -> void
 		_random.randomize()
 		_roll = _random.randf
 	_ledger = Ledger.new(0, 0, _fees_every())
+	_shifts = _new_shifts(_ledger, _exhaustion, _toil, _store, _letters)
 	var children := {"school_fees_shift": _ledger.next_fees_shift(), "every": _fees_every()}
 	_messages.append(AppMessage.new(CHILDREN_AT_SCHOOL, children))
-	_start_shift()
+	_shifts.start()
 
 
 func plant(index: int) -> CommandResult:
@@ -298,7 +278,7 @@ func pick(index: int) -> CommandResult:
 	if drops:
 		_messages.append(AppMessage.new(COTTON_DROPPED, {}))
 	else:
-		_picked += 1
+		_shifts.count_pick()
 		var were_stopped := letters_stopped()
 		_note_paid_in(_ledger.earn(roundi(_tuning.labour_points_per_pick)), were_stopped)
 	return CommandResult.done()
@@ -423,9 +403,9 @@ func advance(seconds: float) -> Array[StringName]:
 	# Witherings; each ends in turn.
 	while remaining > 0.0:
 		if in_study_session():
-			remaining -= _serve_study_session(remaining)
+			remaining -= _shifts.serve_study_session(remaining)
 		else:
-			var shift_left := _tuning.shift_seconds - _shift_elapsed
+			var shift_left := _shifts.seconds_left()
 			var growth_rate := _store.growth_multiplier() if _toil.is_running() else 0.0
 			var worked := minf(minf(remaining, shift_left), _toil.seconds_until_turn())
 			worked = minf(worked, _crops.seconds_until_wither(growth_rate))
@@ -438,11 +418,8 @@ func advance(seconds: float) -> Array[StringName]:
 			_call_left = maxf(0.0, _call_left - worked)
 			var withered := _crops.tend(worked, growth_rate)
 			remaining -= worked
-			if worked >= shift_left:
-				_shift_elapsed = 0.0
-				_end_shift()
-			else:
-				_shift_elapsed += worked
+			_shifts.run(worked)
+			_cut_short_for_study_session()
 			# After the Shift's end, so a missed Quota's shorter Study Session can't replace it.
 			_log_negligence(withered)
 	return overseer_events
@@ -471,7 +448,7 @@ func resume_offline(seconds: float) -> AwayReport:
 	# The Study Session comes first; ripe cotton ages towards Withering only after it.
 	while remaining > 0.0:
 		if in_study_session():
-			var served := _serve_study_session(remaining)
+			var served := _shifts.serve_study_session(remaining)
 			_crops.grow(served, rate)
 			study_served += served
 			remaining -= served
@@ -498,30 +475,24 @@ func resume_offline(seconds: float) -> AwayReport:
 ## The whole Farm as plain data (numbers, true or false, lists and dictionaries), with the save
 ## format version. Pending App messages and the source of chance are not part of it.
 func to_save() -> Dictionary:
-	return {
+	var save := {
 		"version": SAVE_VERSION,
-		"shift_number": _shift_number,
-		"shift_elapsed": _shift_elapsed,
-		"picked": _picked,
 		"labour_points": _ledger.balance(),
 		"shift_earned": _ledger.earned(),
 		"school_fees_shift": _ledger.next_fees_shift(),
 		"school_fees_unpaid": _ledger.fees_unpaid(),
 		"school_fees_unpaid_in_a_row": _ledger.fees_unpaid_in_a_row(),
 		"letters": {"letter_shifts": _letters.letter_shifts(), "received": _letters.received()},
-		"study_left": _study_left,
-		"misses_in_a_row": _misses_in_a_row,
 		"busy_left": _busy_left,
 		"rest_left": _rest_left,
 		"call_left": _call_left,
-		# Named before every Privilege was taken away, not only the rest hour; kept for old saves.
-		"rest_taken_away": _privileges_taken_away,
 		"crops": _crops.to_save(),
 		"exhaustion": _exhaustion.to_save(),
 		"toil": _toil.to_save(),
 		"store": _store.to_save(),
-		"shift_upgrade_quota_rise": _shift_upgrade_rise,
 	}
+	save.merge(_shifts.to_save())
+	return save
 
 
 ## Takes the Farm from a save written by to_save(), as it comes back from JSON. Returns what is
@@ -542,7 +513,7 @@ func restore(save: Dictionary) -> Array[String]:
 	var toil := Toil.new(_tuning, exhaustion)
 	toil.restore(reader.section("toil"), version >= 4)
 	var shift_number := reader.whole("shift_number", 1)
-	var shift_elapsed := minf(reader.number("shift_elapsed"), _tuning.shift_seconds)
+	var shift_elapsed := reader.number("shift_elapsed")
 	var picked := reader.whole("picked")
 	var balance := reader.whole("labour_points", LEAST_SAVED_BALANCE)
 	var shift_earned := reader.whole("shift_earned") if version >= 4 else 0
@@ -574,26 +545,31 @@ func restore(save: Dictionary) -> Array[String]:
 	if version >= 2:
 		store.restore(reader.section("store"), version >= 3)
 		shift_upgrade_rise = reader.whole("shift_upgrade_quota_rise")
+	var ledger := Ledger.new(balance, shift_earned, fees_shift, fees_unpaid, fees_unpaid_in_a_row)
+	var shifts := _new_shifts(ledger, exhaustion, toil, store, letters)
+	shifts.restore(
+		shift_number,
+		shift_elapsed,
+		picked,
+		study_left,
+		misses_in_a_row,
+		privileges_taken_away,
+		shift_upgrade_rise
+	)
 	if not reader.problems().is_empty():
 		return reader.problems()
 	_crops = crops
 	_exhaustion = exhaustion
 	_toil = toil
-	_shift_number = shift_number
-	_shift_elapsed = shift_elapsed
-	_picked = picked
-	_ledger = Ledger.new(balance, shift_earned, fees_shift, fees_unpaid, fees_unpaid_in_a_row)
+	_ledger = ledger
 	_letters = letters
-	_study_left = study_left
-	_misses_in_a_row = misses_in_a_row
 	_busy_left = busy_left
 	_rest_left = rest_left
 	_call_left = call_left
-	_privileges_taken_away = privileges_taken_away
 	_store = store
-	_shift_upgrade_rise = shift_upgrade_rise
-	_messages = []
-	_family_events = []
+	_shifts = shifts
+	_messages.clear()
+	_family_events.clear()
 	return []
 
 
@@ -610,8 +586,7 @@ func plots() -> Array[PlotView]:
 
 
 func shift() -> ShiftView:
-	var seconds_left := _tuning.shift_seconds - _shift_elapsed
-	return ShiftView.new(_shift_number, _quota(), _picked, seconds_left, _ledger.next_fees_shift())
+	return _shifts.view()
 
 
 ## Set when a school-fees Bill left a shortfall; cleared when the Debt reaches zero.
@@ -645,12 +620,12 @@ func debt() -> int:
 
 
 func in_study_session() -> bool:
-	return _study_left > 0.0
+	return _shifts.in_study_session()
 
 
 ## Seconds until the Worker is back on the field; 0 when they are on it.
 func study_session_seconds_left() -> float:
-	return _study_left
+	return _shifts.study_session_seconds_left()
 
 
 func worker() -> WorkerView:
@@ -693,7 +668,7 @@ func _call_home_price() -> int:
 
 ## Its price, the seconds left of one under way, and whether a missed Quota took it away.
 func rest_hour() -> RestHourView:
-	return RestHourView.new(_rest_hour_price(), _rest_left, _privileges_taken_away)
+	return RestHourView.new(_rest_hour_price(), _rest_left, _shifts.privileges_taken_away())
 
 
 func _rest_hour_price() -> int:
@@ -704,7 +679,7 @@ func _rest_hour_price() -> int:
 func _privilege_refusal(price: int) -> StringName:
 	if in_study_session():
 		return IN_STUDY_SESSION
-	if _privileges_taken_away:
+	if _shifts.privileges_taken_away():
 		return PRIVILEGES_TAKEN_AWAY
 	var away := _away_from_work()
 	if away != &"":
@@ -789,65 +764,16 @@ func _upgrade_view(
 
 ## What The App should say since the last call, oldest first. Empties the queue.
 func take_messages() -> Array[AppMessage]:
-	var taken := _messages
-	_messages = []
+	var taken: Array[AppMessage] = _messages.duplicate()
+	_messages.clear()
 	return taken
 
 
 ## What the Family sent since the last call, oldest first. Empties the queue.
 func take_family_events() -> Array[FamilyEvent]:
-	var taken := _family_events
-	_family_events = []
+	var taken: Array[FamilyEvent] = _family_events.duplicate()
+	_family_events.clear()
 	return taken
-
-
-## The Quota only ever rises: a fixed step every Shift, met or missed, and the rise of every
-## Upgrade bought before this Shift began.
-func _quota() -> int:
-	var rise := (_shift_number - 1) * _tuning.quota_rise
-	return roundi(_tuning.first_quota + rise) + _shift_upgrade_rise
-
-
-func _start_shift() -> void:
-	_picked = 0
-	_shift_upgrade_rise = _store.quota_rise()
-	_messages.append(AppMessage.new(SHIFT_STARTED, {"shift": _shift_number, "quota": _quota()}))
-	var every := roundi(_tuning.letter_every_shifts)
-	var letter := _letters.start_shift(_shift_number, every, letters_stopped())
-	if letter != &"":
-		_family_events.append(FamilyEvent.new(LETTER_ARRIVED, letter))
-
-
-## Checks the Quota, charges the Bills, raises the Exhaustion floor and starts the next Shift.
-## A missed Quota also takes every Privilege away until the next Shift ends.
-func _end_shift() -> void:
-	var values := {"shift": _shift_number, "picked": _picked, "quota": _quota()}
-	if _picked >= _quota():
-		_misses_in_a_row = 0
-		_privileges_taken_away = false
-		_messages.append(AppMessage.new(QUOTA_MET, values))
-	else:
-		_misses_in_a_row += 1
-		_privileges_taken_away = true
-		var key := MISSED_KEYS[mini(_misses_in_a_row, MISSED_KEYS.size()) - 1]
-		_messages.append(AppMessage.new(key, values))
-		_start_study_session()
-	_charge_bills()
-	_exhaustion.raise_floor(_tuning.exhaustion_floor_rise)
-	_shift_number += 1
-	_start_shift()
-
-
-## The pay slip, and word of the Worker falling into Debt if the Bills put him there.
-func _charge_bills() -> void:
-	var was_in_debt := _ledger.in_debt()
-	var were_stopped := letters_stopped()
-	var slip := _ledger.settle_shift(_shift_number, _toil.take_laps_run(), _tuning)
-	_messages.append(AppMessage.new(PAY_SLIP, slip))
-	if _ledger.in_debt() and not was_in_debt:
-		_messages.append(AppMessage.new(FELL_INTO_DEBT, {"debt": _ledger.debt()}))
-	if letters_stopped() and not were_stopped:
-		_family_events.append(FamilyEvent.new(LETTERS_STOPPED))
 
 
 ## After Labour Points came in: says so when they paid off the last of the Debt (`cleared`),
@@ -863,14 +789,6 @@ func _fees_every() -> int:
 	return roundi(_tuning.school_fees_every_shifts)
 
 
-## Doubles for each miss in a row, up to the cap.
-func _start_study_session() -> void:
-	var doublings := _misses_in_a_row - 1
-	_begin_study_session(
-		minf(_tuning.study_session_seconds * pow(2.0, doublings), _tuning.study_session_cap_seconds)
-	)
-
-
 ## Logs the plots that Withered at one moment as Negligence: docks Labour Points for each, never
 ## below zero, and starts the Negligence Study Session. Plots Withering together share one.
 func _log_negligence(withered_plots: Array[int]) -> void:
@@ -879,39 +797,22 @@ func _log_negligence(withered_plots: Array[int]) -> void:
 	var docked := _ledger.dock(withered_plots.size() * roundi(_tuning.negligence_labour_points))
 	var values := {"plots": withered_plots.size(), "points": docked}
 	_messages.append(AppMessage.new(NEGLIGENCE_LOGGED, values))
-	_begin_study_session(maxf(_study_left, _tuning.negligence_study_session_seconds))
+	_shifts.start_negligence_study_session()
+	_cut_short_for_study_session()
 
 
-## Takes the Worker off the Generator and cuts any rest hour or call home short.
-func _begin_study_session(seconds: float) -> void:
-	_study_left = seconds
-	_rest_left = 0.0
-	_call_left = 0.0
-	_toil.bring_back()
-	var values := {
-		"seconds": _study_left,
-		"minutes": ceili(_study_left / 60.0),
-		"in_a_row": _misses_in_a_row,
-	}
-	_messages.append(AppMessage.new(STUDY_SESSION_STARTED, values))
+## The Shifts with the parts they work on, sharing the Farm's queues.
+func _new_shifts(
+	ledger: Ledger, exhaustion: Exhaustion, toil: Toil, store: Store, letters: Letters
+) -> Shifts:
+	return Shifts.new(_tuning, ledger, exhaustion, toil, store, letters, _messages, _family_events)
 
 
-## Counts the Study Session down by up to `seconds`, ending it if they cover what is left.
-## Returns the seconds served: 0 when there is no Study Session.
-func _serve_study_session(seconds: float) -> float:
-	var served := minf(seconds, _study_left)
-	if served <= 0.0:
-		return 0.0
-	if served >= _study_left:
-		_end_study_session()
-	else:
-		_study_left -= served
-	return served
-
-
-func _end_study_session() -> void:
-	_study_left = 0.0
-	_messages.append(AppMessage.new(STUDY_SESSION_ENDED, {"in_a_row": _misses_in_a_row}))
+## A Study Session cuts any rest hour or call home short.
+func _cut_short_for_study_session() -> void:
+	if in_study_session():
+		_rest_left = 0.0
+		_call_left = 0.0
 
 
 ## Why plot `index` can't be picked right now, or &"" when it can.

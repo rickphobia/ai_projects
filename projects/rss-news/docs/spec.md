@@ -74,8 +74,8 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 ### Reading an Item
 
 34. As the owner, I want to open an Item and see its one-line summary, Source, time and a button to the original page, so that I can decide whether to read more.
-35. As the owner, I want a Reader view button that shows the article without ads or clutter, so that I can read comfortably on my phone.
-36. As the owner, I want Reader view to fetch the article only when I press it and not keep a copy, so that the app stays small.
+35. As the owner, I want the full article shown in Reader view, without ads or clutter, as soon as I open an Item, so that I can read it in the app without jumping to the original site.
+36. As the owner, I want Reader view to fetch the article only when I open that Item and not keep a copy, so that the app stays small.
 37. As the owner, I want a clear message when Reader view can't extract a page, with the original link, so that I'm never stuck.
 
 ### Briefings
@@ -257,7 +257,7 @@ The monthly limit defaults to 100 USD.
 | Folders, Sources | list, create, update, delete. Source health is included when listing |
 | Stocks | Holdings (read), Watchlist (list, add, remove) |
 | Inbox | list with filters and paging, search, mark read |
-| Items | show one; Reader view (fetches and extracts on request) |
+| Items | show one; Reader view (fetches and extracts when the Item is opened) |
 | Briefings | estimate, create (returns progress as server-sent events), list, show, regenerate |
 | Chats | list, create, send message (streamed), show |
 | Dictionary | look up |
@@ -273,7 +273,7 @@ The monthly limit defaults to 100 USD.
   - home (latest Briefing and the "Brief me" controls with estimated cost)
   - Briefings list
   - Inbox with the Chat panel
-  - Item view (summary, original link, Reader view)
+  - Item view (summary, original link, Reader view loaded on open)
   - Notes
   - Sources and Folders
   - Stocks

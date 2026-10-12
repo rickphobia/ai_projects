@@ -60,16 +60,28 @@ class FakeClock:
     def advance(self, delta: timedelta) -> None:
         self.current += delta
 
+    def sleep(self, delta: timedelta) -> None:
+        self.current += delta
+
 
 class FakeFeedFetcher:
-    """Answers each feed URL with what the test set for it; other URLs fail to connect."""
+    """Answers each feed URL with what the test set for it; other URLs fail to connect.
 
-    def __init__(self) -> None:
+    Given a clock, it records when each request was made and lets `took` pass during it.
+    """
+
+    def __init__(self, clock: FakeClock | None = None, took: timedelta = timedelta()) -> None:
         self.answers: dict[str, FetchResult] = {}
         self.requests: list[FeedRequest] = []
+        self.asked_at: list[tuple[str, datetime]] = []
+        self._clock = clock
+        self._took = took
 
     def fetch(self, request: FeedRequest) -> FetchResult:
         self.requests.append(request)
+        if self._clock:
+            self.asked_at.append((request.url, self._clock.now()))
+            self._clock.advance(self._took)
         return self.answers.get(request.url, FetchFailed("connect", "no answer set in the test"))
 
 
