@@ -21,6 +21,7 @@ from rss_news.briefings.briefing import (
     WindowScope,
 )
 from rss_news.briefings.writing import BriefingPlan, BriefingProgress, Briefings
+from rss_news.spending.limit import SpendingStopped
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ def show_briefing(request: Request, briefing_id: int) -> dict[str, Any]:
 def create_briefing(request: Request, body: NewBriefing) -> StreamingResponse:
     """A `text/event-stream`: `progress` events, then `briefing` (with `reused` true when
     today's saved one is given back) or `failed` with a `detail` for the owner. 422 when there
-    is nothing to brief."""
+    is nothing to brief, 429 when this month's spending limit is reached."""
     briefings = briefings_of(request)
     scope = body.scope()
     saved = None if body.regenerate else briefings.saved_today(scope)
@@ -121,7 +122,11 @@ def create_briefing(request: Request, body: NewBriefing) -> StreamingResponse:
             plan = briefings.plan(scope)
         except NothingToBrief as error:
             raise HTTPException(status_code=422, detail=str(error)) from None
-        events = _written(briefings, plan)
+        try:
+            steps = briefings.write(plan)
+        except SpendingStopped as error:
+            raise HTTPException(status_code=429, detail=str(error)) from None
+        events = _written(steps, plan)
     # no-transform and X-Accel-Buffering keep proxies (the host nginx) from holding events back.
     return StreamingResponse(
         events,
@@ -130,9 +135,9 @@ def create_briefing(request: Request, body: NewBriefing) -> StreamingResponse:
     )
 
 
-def _written(briefings: Briefings, plan: BriefingPlan) -> Iterator[str]:
+def _written(steps: Iterator[BriefingProgress | Briefing], plan: BriefingPlan) -> Iterator[str]:
     try:
-        for step in briefings.write(plan):
+        for step in steps:
             if isinstance(step, BriefingProgress):
                 yield _event(
                     "progress",

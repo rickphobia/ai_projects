@@ -16,6 +16,7 @@ from rss_news.items.inbox import Inbox
 from rss_news.items.reading import ItemReading
 from rss_news.sources.managing import SourceManagement
 from rss_news.spending.ledger import SpendingLedger
+from rss_news.spending.limit import SpendingLimit
 from rss_news.web.app import create_app
 from rss_news.wiring import Wiring
 from tests.support import (
@@ -77,6 +78,15 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
     settings = load_settings(app_env(tmp_path))
     database = SqliteDatabase(settings.database_path)
     clock = FakeClock()
+    ledger = SpendingLedger(
+        SqliteSpending(database),
+        clock,
+        prices=settings.model_prices,
+        web_search_price_usd=settings.web_search_price_usd,
+    )
+    limit = SpendingLimit(
+        ledger, clock, timezone=settings.timezone, monthly_limit_usd=settings.monthly_limit_usd
+    )
     client = TestClient(
         create_app(
             settings,
@@ -94,18 +104,15 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
                 store=SqliteBriefings(database),
                 model=FakeLanguageModel(),
                 extractor=FakeArticleExtractor(),
-                ledger=SpendingLedger(
-                    SqliteSpending(database),
-                    clock,
-                    prices=settings.model_prices,
-                    web_search_price_usd=settings.web_search_price_usd,
-                ),
+                ledger=ledger,
+                limit=limit,
                 clock=clock,
                 timezone=settings.timezone,
                 model_name=settings.briefing_model,
                 token_budget=settings.briefing_token_budget,
                 importance_cutoff=settings.briefing_importance_cutoff,
             ),
+            spending=limit,
             tick=NeverTicked(),
         )
     )

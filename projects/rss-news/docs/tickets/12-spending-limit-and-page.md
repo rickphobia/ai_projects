@@ -4,15 +4,15 @@
 
 **Blocked by:** 11 (Briefing scopes and history)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** spending, briefings, web/spending, pwa/settings, pwa/shell
 
 **Effort:** low
 
-- [ ] Spending summary API: month-to-date total, total per feature, and the limit status (ok, warning, stopped) in the owner's time zone
-- [ ] Monthly limit comes from config (100 USD by default)
-- [ ] Briefings check the status first and refuse with a clear error when stopped; scoring never stops
-- [ ] PWA Settings screen with the spending summary, and a warning banner at 80%
-- [ ] API tests cover the month boundary, the warning, and the refusal; a Vitest test covers the banner
-- [ ] README and `.env.example` updated
+- [x] Spending summary API: month-to-date total, total per feature, and the limit status (ok, warning, stopped) in the owner's time zone
+- [x] Monthly limit comes from config (100 USD by default)
+- [x] Briefings check the status first and refuse with a clear error when stopped; scoring never stops
+- [x] PWA Settings screen with the spending summary, and a warning banner at 80%
+- [x] API tests cover the month boundary, the warning, and the refusal; a Vitest test covers the banner
+- [x] README and `.env.example` updated
