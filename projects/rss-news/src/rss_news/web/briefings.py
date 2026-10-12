@@ -98,6 +98,16 @@ def _written(briefings: Briefings, plan: BriefingPlan) -> Iterator[str]:
             "failed",
             {"detail": f"The Briefing couldn't be written, and nothing was saved: {error}."},
         )
+    except Exception:
+        # A bug or a database error: still tell the owner, instead of a stream that just stops.
+        logger.exception("briefing failed unexpectedly", extra={"scope": plan.scope.key})
+        yield _event(
+            "failed",
+            {
+                "detail": "The Briefing couldn't be written, and nothing was saved: "
+                "something went wrong on the server; see its logs."
+            },
+        )
 
 
 def _event(name: str, data: dict[str, Any]) -> str:

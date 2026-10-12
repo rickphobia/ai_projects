@@ -6,6 +6,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from rss_news.briefings.briefing import (
@@ -65,7 +66,7 @@ class BriefingProgress:
     """Sent while a Briefing is written. `step` is "reading" while the top articles are fetched
     and "writing" while the model writes the section."""
 
-    step: str
+    step: Literal["reading", "writing"]
     # 1-based, of `sections`.
     section: int
     sections: int
@@ -105,7 +106,9 @@ class Briefings:
         """Every Item in the window, grouped by Folder. Raises NothingToBrief."""
         items = self._store.items_since(self._clock.now() - scope.window)
         if not items:
-            raise NothingToBrief(f"No Items arrived in the last {_window_text(scope.window)}.")
+            raise NothingToBrief(
+                f"No Items were published in the last {_window_text(scope.window)}."
+            )
         by_folder: dict[int, PlannedSection] = {}
         for item in items:
             section = by_folder.setdefault(
@@ -161,6 +164,14 @@ class Briefings:
                 )
                 raise
             cost += self._ledger.record(Feature.BRIEFINGS, result.usage).cost_usd
+            invented = sorted(
+                {item_id for point in result.points for item_id in point.item_ids} - set(given)
+            )
+            if invented:
+                logger.warning(
+                    "briefing points named items they weren't given; links dropped",
+                    extra={"folder": planned.folder_name, "item_ids": invented},
+                )
             points = [
                 BriefingPoint(
                     point.text,
@@ -173,7 +184,7 @@ class Briefings:
         briefing = self._store.add(
             scope_key=plan.scope.key,
             created_at=now,
-            local_day=now.astimezone(self._timezone).date(),
+            local_day=self._today(),
             item_count=plan.item_count,
             cost_usd=cost,
             sections=sections,

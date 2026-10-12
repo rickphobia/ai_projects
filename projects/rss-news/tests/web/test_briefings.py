@@ -202,7 +202,7 @@ def test_nothing_to_brief_is_refused(client: TestClient, clock: FakeClock) -> No
     response = client.post(BRIEFINGS, json={})
 
     assert response.status_code == 422
-    assert response.json()["detail"] == "No Items arrived in the last 24 hours."
+    assert response.json()["detail"] == "No Items were published in the last 24 hours."
 
 
 def test_brief_me_streams_progress_then_a_briefing_grouped_by_folder(client: TestClient) -> None:
@@ -360,6 +360,21 @@ def test_a_failed_section_saves_nothing_but_keeps_the_cost(
     assert client.get(f"{BRIEFINGS}/latest").json() == {"briefing": None}
     # The AI section and the refused World section were both billed.
     assert len(briefing_calls(wiring)) == 2
+
+
+def test_an_unexpected_error_still_ends_with_a_failure_event(
+    client: TestClient, extractor: FakeArticleExtractor, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(url: str) -> ReaderView:
+        raise RuntimeError("a bug")
+
+    monkeypatch.setattr(extractor, "extract", broken)
+
+    name, failure = events(client)[-1]
+
+    assert name == "failed"
+    assert "something went wrong on the server" in failure["detail"]
+    assert client.get(f"{BRIEFINGS}/latest").json() == {"briefing": None}
 
 
 def test_after_a_failure_asking_again_writes_it(
