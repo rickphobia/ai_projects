@@ -23,20 +23,27 @@ var exhaustion: float:
 var lap_progress: float:
 	get:
 		return _lap_progress
+## Seconds the lap he is on takes; longer on a bigger Farm.
+var lap_seconds: float:
+	get:
+		return _lap_seconds
 
 var _activity: Activity
 var _laps_left: int
 var _exhaustion: float
 var _lap_progress: float
+var _lap_seconds: float
 
 
 func _init(
 	worker_activity: Activity,
 	worker_laps_left: int,
 	worker_exhaustion := 0.0,
-	worker_lap_progress := 0.0
+	worker_lap_progress := 0.0,
+	worker_lap_seconds := 0.0
 ) -> void:
 	_activity = worker_activity
 	_laps_left = worker_laps_left
 	_exhaustion = worker_exhaustion
 	_lap_progress = worker_lap_progress
+	_lap_seconds = worker_lap_seconds

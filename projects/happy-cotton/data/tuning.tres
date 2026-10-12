@@ -50,6 +50,7 @@ labour_points_per_pick = 2.0
 study_session_seconds = 300.0
 study_session_cap_seconds = 2400.0
 lap_seconds = 16.0
+lap_seconds_per_strip = 1.46
 laps_before_breath = 2.0
 whistle_after_seconds = 4.0
 whip_after_seconds = 2.5

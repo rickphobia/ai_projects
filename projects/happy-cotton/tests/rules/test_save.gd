@@ -222,6 +222,7 @@ func test_a_save_from_before_the_store_restores_with_no_upgrades() -> void:
 	var saved := _played_farm()
 	var save := _through_json(saved.to_save())
 	save["version"] = 1
+	OldSaves.before_longer_laps(save)
 	save.erase("store")
 	save.erase("shift_upgrade_quota_rise")
 	var restored := _new_farm()
@@ -255,6 +256,7 @@ func test_a_save_from_before_the_tools_restores_with_none() -> void:
 	saved.buy_upgrade(Farm.GENERATOR)
 	var save := _through_json(saved.to_save())
 	save["version"] = 2
+	OldSaves.before_longer_laps(save)
 	var store: Dictionary = save["store"]
 	store.erase("tools_tier")
 	var restored := _new_farm()
@@ -320,6 +322,7 @@ func test_a_save_from_before_the_bills_restores_with_nothing_earned_or_run_this_
 	var saved := _played_farm()
 	var save := _through_json(saved.to_save())
 	save["version"] = 3
+	OldSaves.before_longer_laps(save)
 	save.erase("shift_earned")
 	var toil: Dictionary = save["toil"]
 	var laps_before_save: int = toil["laps_run"]
@@ -367,6 +370,7 @@ func test_a_save_from_before_the_school_fees_has_them_due_three_shifts_on() -> v
 	_miss_shifts(saved, 4)
 	var save := _through_json(saved.to_save())
 	save["version"] = 4
+	OldSaves.before_longer_laps(save)
 	save.erase("school_fees_shift")
 	save.erase("school_fees_unpaid")
 	save.erase("school_fees_unpaid_in_a_row")

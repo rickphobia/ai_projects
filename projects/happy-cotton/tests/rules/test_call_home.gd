@@ -190,6 +190,7 @@ func test_a_call_waits_while_away_and_survives_a_save() -> void:
 func test_a_save_from_before_the_call_restores_with_none_under_way() -> void:
 	var save := _through_json(_farm.to_save())
 	save["version"] = 6
+	OldSaves.before_longer_laps(save)
 	save.erase("call_left")
 	var restored := Farm.new(FastTuning.table())
 

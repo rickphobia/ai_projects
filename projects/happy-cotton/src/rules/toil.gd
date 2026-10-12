@@ -16,8 +16,14 @@ const NO_EVENT := &""
 var _tuning: Tuning
 var _exhaustion: Exhaustion
 var _on_generator := false
-## Seconds run since his last breath or rest. Leaving the Generator doesn't reset this.
-var _run_since_breath := 0.0
+## Laps finished since his last breath or rest, and seconds into the one he is on. Leaving
+## the Generator doesn't reset these.
+var _laps_done := 0
+var _into_lap := 0.0
+## How long the lap he is on takes, and how long the ones after it will: a bigger Farm makes
+## the next lap longer, never the one in progress.
+var _lap_seconds: float
+var _next_lap_seconds: float
 ## Seconds left of his breath; while above 0 on the Generator, he stands and crops halt. The
 ## whistle comes when it falls to whip_after_seconds, the whip when it reaches 0.
 var _breath_left := 0.0
@@ -27,10 +33,17 @@ var _laps_this_run: int
 var _laps_run := 0
 
 
-func _init(tuning: Tuning, exhaustion: Exhaustion) -> void:
+func _init(tuning: Tuning, exhaustion: Exhaustion, lap_seconds: float) -> void:
 	_tuning = tuning
 	_exhaustion = exhaustion
 	_laps_this_run = exhaustion.laps_before_breath()
+	_lap_seconds = lap_seconds
+	_next_lap_seconds = lap_seconds
+
+
+## The track changed length: laps from his next one on take this long.
+func set_next_lap_seconds(seconds: float) -> void:
+	_next_lap_seconds = seconds
 
 
 func send() -> void:
@@ -43,15 +56,16 @@ func bring_back() -> void:
 
 ## A rest is a real break: his next run starts fresh, as long as his Exhaustion now allows.
 func rested() -> void:
-	_run_since_breath = 0.0
+	_start_run()
 	_breath_left = 0.0
-	_laps_this_run = _exhaustion.laps_before_breath()
 
 
 func to_save() -> Dictionary:
 	return {
 		"on_generator": _on_generator,
-		"run_since_breath": _run_since_breath,
+		"laps_done": _laps_done,
+		"into_lap": _into_lap,
+		"lap_seconds": _lap_seconds,
 		"breath_left": _breath_left,
 		"laps_this_run": _laps_this_run,
 		"laps_run": _laps_run,
@@ -60,11 +74,24 @@ func to_save() -> Dictionary:
 
 ## Takes his place and run from a save. The run and breath are held to what the tuning table
 ## allows now, in case it shortened them since the save was written. A save from before the
-## Bills (`has_laps_run` false) restores with no laps counted.
-func restore(reader: SaveReader, has_laps_run: bool) -> void:
+## Bills (`has_laps_run` false) restores with no laps counted. One from before longer laps
+## (`has_lap_seconds` false) kept only the seconds run, all of them on first-Farm laps.
+func restore(reader: SaveReader, has_laps_run: bool, has_lap_seconds: bool) -> void:
 	_on_generator = reader.flag("on_generator")
 	_laps_this_run = reader.whole("laps_this_run", 1)
-	_run_since_breath = minf(reader.number("run_since_breath"), _run_seconds())
+	if has_lap_seconds:
+		_lap_seconds = reader.number("lap_seconds", _tuning.lap_seconds)
+		_laps_done = reader.whole("laps_done")
+		_into_lap = reader.number("into_lap")
+	else:
+		var run_since_breath := reader.number("run_since_breath")
+		_lap_seconds = _tuning.lap_seconds
+		_laps_done = floori(run_since_breath / _lap_seconds)
+		_into_lap = fmod(run_since_breath, _lap_seconds)
+	if _laps_done >= _laps_this_run:
+		_laps_done = _laps_this_run - 1
+		_into_lap = _lap_seconds
+	_into_lap = minf(_into_lap, _lap_seconds)
 	_breath_left = minf(reader.number("breath_left"), _breath_seconds())
 	if has_laps_run:
 		_laps_run = reader.whole("laps_run")
@@ -87,12 +114,17 @@ func is_breathing() -> bool:
 
 ## Laps he will run before he stops to breathe, counting the one he is on.
 func laps_left() -> int:
-	return _laps_this_run - floori(_run_since_breath / _tuning.lap_seconds)
+	return _laps_this_run - _laps_done
 
 
 ## How far through his current lap he is, from 0 up to (not including) 1.
 func lap_progress() -> float:
-	return fmod(_run_since_breath, _tuning.lap_seconds) / _tuning.lap_seconds
+	return _into_lap / _lap_seconds
+
+
+## Seconds the lap he is on takes.
+func lap_seconds() -> float:
+	return _lap_seconds
 
 
 ## Seconds until he stops to breathe, the Overseer whistles, or the whip sends him running
@@ -104,7 +136,7 @@ func seconds_until_turn() -> float:
 		return _breath_left - _tuning.whip_after_seconds
 	if _breath_left > 0.0:
 		return _breath_left
-	return _run_seconds() - _run_since_breath
+	return _run_seconds_left()
 
 
 ## Some seconds of his time outside a Study Session, never past the next turn. The crops'
@@ -126,17 +158,25 @@ func pass_time(seconds: float) -> StringName:
 			return WHIP
 		_breath_left -= seconds
 		return NO_EVENT
-	_exhaustion.add(_tuning.exhaustion_per_lap * seconds / _tuning.lap_seconds)
-	var laps_before := floori(_run_since_breath / _tuning.lap_seconds)
-	if seconds >= _run_seconds() - _run_since_breath:
-		_laps_run += _laps_this_run - laps_before
-		_run_since_breath = 0.0
-		_breath_left = _breath_seconds()
-		_laps_this_run = _exhaustion.laps_before_breath()
-	else:
-		_run_since_breath += seconds
-		_laps_run += floori(_run_since_breath / _tuning.lap_seconds) - laps_before
+	_run(seconds)
 	return NO_EVENT
+
+
+## Some seconds running, never past the end of his run, which starts his breath.
+func _run(seconds: float) -> void:
+	# Charged per second at the first Farm's rate, so a longer lap tires him more.
+	_exhaustion.add(_tuning.exhaustion_per_lap * seconds / _tuning.lap_seconds)
+	if seconds >= _run_seconds_left():
+		_laps_run += _laps_this_run - _laps_done
+		_start_run()
+		_breath_left = _breath_seconds()
+		return
+	_into_lap += seconds
+	while _into_lap >= _lap_seconds and _laps_done < _laps_this_run - 1:
+		_into_lap -= _lap_seconds
+		_laps_done += 1
+		_laps_run += 1
+		_lap_seconds = _next_lap_seconds
 
 
 ## His whole breath: until the whistle, then until the whip.
@@ -144,5 +184,16 @@ func _breath_seconds() -> float:
 	return _tuning.whistle_after_seconds + _tuning.whip_after_seconds
 
 
-func _run_seconds() -> float:
-	return _tuning.lap_seconds * _laps_this_run
+## Seconds until his run ends: the rest of this lap, then the laps left at the next length.
+func _run_seconds_left() -> float:
+	var later_laps := _laps_this_run - _laps_done - 1
+	return _lap_seconds - _into_lap + later_laps * _next_lap_seconds
+
+
+## A fresh run after a breath or rest: from the lap line, at the newest lap length, as many laps
+## as his Exhaustion now allows.
+func _start_run() -> void:
+	_laps_done = 0
+	_into_lap = 0.0
+	_lap_seconds = _next_lap_seconds
+	_laps_this_run = _exhaustion.laps_before_breath()
