@@ -79,3 +79,10 @@ func letter_shifts() -> int:
 
 func received() -> Array[StringName]:
 	return _received.duplicate()
+
+
+## The call that follows the latest letter received, or the first call before any letter.
+func next_call() -> StringName:
+	if _received.is_empty():
+		return CALL_IDS[0]
+	return CALLS.get(_received.back(), CALL_IDS[0])

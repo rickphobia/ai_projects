@@ -49,6 +49,9 @@ extends RefCounted
 ## Audits); one that catches him takes the savings and starts the longest Study Session.
 ## The store also sells supplies (see Supplies) into a small stock. Fertiliser, dearer every
 ## Shift, is spread on a Seedling so that crop grows faster until it leaves the Plot.
+## Bollworms come to growing Plots by chance in online play outside Study Sessions (see
+## Bollworms). Tapping the Plot picks them off, which is slow field work; left too long they eat
+## the crop, emptying the Plot, and it is Negligence as for a Withered Plot.
 ## to_save() gives the whole Farm as plain data and restore() takes it back, so a restored Farm
 ## plays on exactly as the saved one would have.
 
@@ -105,6 +108,11 @@ const NO_SUCH_SUPPLY := Supplies.NO_SUCH_SUPPLY
 const NONE_HELD := Supplies.NONE_HELD
 const WRONG_STAGE := Supplies.WRONG_STAGE
 const ALREADY_FERTILISED := Supplies.ALREADY_FERTILISED
+## Bollworm keys and refusals, documented in Bollworms.
+const BOLLWORMS_ARRIVED := Bollworms.BOLLWORMS_ARRIVED
+const CROP_EATEN := Bollworms.CROP_EATEN
+const NO_BOLLWORMS := Bollworms.NO_BOLLWORMS
+const BOLLWORMS_ON_PLOT := Bollworms.BOLLWORMS_ON_PLOT
 ## The reasons fertilise() refuses that The App explains; the others it shares with planting.
 const FERTILISE_REFUSALS: Array[StringName] = [NONE_HELD, WRONG_STAGE, ALREADY_FERTILISED]
 ## Every reason a store item can be refused with; the App text table explains each.
@@ -133,9 +141,10 @@ const STORE_REFUSALS: Array[StringName] = [
 ## Hand-in; an older save carries on with the Shift's picks as cotton in hand and none open.
 ## Version 11 added hidden savings; an older save restores with none. Version 12 added Harmony
 ## Audits; an older save restores with a clean record, none planned, never caught. Version 13
-## added supplies; an older save restores with none held and nothing fertilised.
-const SAVE_VERSION := 13
-const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, SAVE_VERSION]
+## added supplies; an older save restores with none held and nothing fertilised. Version 14
+## added Bollworms; an older save restores with none.
+const SAVE_VERSION := 14
+const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, SAVE_VERSION]
 
 ## Why resume_offline() didn't use the clock's time as given (AwayReport.clock_problem).
 const NEGATIVE_OFFLINE_TIME := &"negative_offline_time"
@@ -220,6 +229,8 @@ const MESSAGE_KEYS: Array[StringName] = [
 	CAUGHT_AGAIN,
 	ON_WATCH_ENDED,
 	SUPPLY_BOUGHT,
+	BOLLWORMS_ARRIVED,
+	CROP_EATEN,
 ]
 ## Family events (FamilyEvent kinds), the Children's side, never App text. The Shift's own are
 ## documented in Shifts.
@@ -252,6 +263,7 @@ var _store: Store
 var _shifts: Shifts
 var _audits: Audits
 var _supplies: Supplies
+var _bollworms: Bollworms
 ## Shared with Shifts, so both queues are emptied in place, never replaced.
 var _messages: Array[AppMessage] = []
 var _letters := Letters.new(LETTER_IDS)
@@ -271,7 +283,7 @@ var _random: RandomNumberGenerator
 ## columns and rows.
 func _init(tuning: Tuning, roll: Callable = Callable()) -> void:
 	_tuning = tuning
-	_land = _new_land()
+	_land = Land.first_land(_tuning)
 	_crops = _new_crops(_land)
 	_supplies = Supplies.new(tuning)
 	_exhaustion = Exhaustion.new(tuning)
@@ -284,6 +296,7 @@ func _init(tuning: Tuning, roll: Callable = Callable()) -> void:
 		_random = RandomNumberGenerator.new()
 		_random.randomize()
 		_roll = _random.randf
+	_bollworms = Bollworms.new(tuning, _land.plot_count(), _roll, _messages)
 	_ledger = Ledger.new(0, 0, _fees_every())
 	_audits = Audits.new(tuning, _ledger, _messages, _roll)
 	_shifts = _new_shifts(_ledger, _exhaustion, _toil, _store, _land, _letters, _audits)
@@ -370,6 +383,24 @@ func clear(index: int) -> CommandResult:
 	return CommandResult.done()
 
 
+## Picks the Bollworms off plot `index`, saving its crop. It is field work that keeps him busy
+## for bollworm_pick_off_seconds, longer if he is slow anyway, and adds its own Exhaustion.
+func pick_off_bollworms(index: int) -> CommandResult:
+	var refusal := _held_up()
+	if refusal == &"" and not _crops.exists(index):
+		refusal = NO_SUCH_PLOT
+	if refusal == &"" and not _bollworms.has(index):
+		refusal = NO_BOLLWORMS
+	if refusal == &"":
+		refusal = _unable_to_work()
+	if refusal != &"":
+		return CommandResult.refused(refusal)
+	_start_field_work(_tuning.bollworm_pick_off_exhaustion)
+	_busy_left = maxf(_busy_left, _tuning.bollworm_pick_off_seconds)
+	_bollworms.remove(index)
+	return CommandResult.done()
+
+
 ## Sends the Worker to run on the Generator. Sending him while he is on it changes nothing.
 func run_generator() -> CommandResult:
 	var held_up := _held_up()
@@ -421,6 +452,7 @@ func buy_plot(pay_with: Ledger.PayWith = PAY_LABOUR_POINTS) -> CommandResult:
 	_pay(price, pay_with)
 	var plot := _land.buy()
 	_crops.add_plot()
+	_bollworms.add_plot()
 	_toil.set_next_lap_seconds(_lap_seconds(_land))
 	var values := {"plot": plot + 1, "price": price, "quota_rise": _land.quota_rise_per_plot()}
 	_messages.append(AppMessage.new(PLOT_BOUGHT, values))
@@ -470,6 +502,11 @@ func debug_add_labour_points(points: int) -> void:
 	_note_paid_in(_ledger.credit(points), were_stopped)
 
 
+## Only the debug wiring calls this: Bollworms come at once to every growing Plot without them.
+func debug_bollworms_now() -> void:
+	_bollworms.arrive(_crops.growing())
+
+
 ## Only the debug wiring calls this: it plans a Harmony Audit for this Shift, announced at once
 ## if the Hand-in is already open.
 func debug_plan_audit() -> void:
@@ -496,16 +533,8 @@ func buy_privilege(
 	var values := {"price": price, "minutes": ceili(_privileges.start(rest) / 60.0)}
 	_messages.append(AppMessage.new(REST_STARTED if rest else CALL_STARTED, values))
 	if not rest:
-		_family_events.append(FamilyEvent.new(CALLED_HOME, _call_id()))
+		_family_events.append(FamilyEvent.new(CALLED_HOME, _letters.next_call()))
 	return CommandResult.done()
-
-
-## The call that follows the latest letter received, or the first call before any letter.
-func _call_id() -> StringName:
-	var received := _letters.received()
-	if received.is_empty():
-		return CALL_IDS[0]
-	return LETTER_CALLS.get(received.back(), CALL_IDS[0])
 
 
 ## Moves the Farm on by some seconds of online play. Time never runs backwards, so a
@@ -530,16 +559,19 @@ func advance(seconds: float) -> Array[StringName]:
 			var worked := minf(minf(remaining, shift_left), _toil.seconds_until_turn())
 			worked = minf(worked, _crops.seconds_until_wither(growth_rate))
 			worked = minf(worked, _privileges.seconds_until_end())
+			worked = minf(worked, _bollworms.seconds_until_next())
 			var overseer_event := _toil.pass_time(worked)
 			if overseer_event != Toil.NO_EVENT:
 				overseer_events.append(overseer_event)
 			_privileges.pass_time(worked)
 			var withered := _crops.tend(worked, growth_rate)
+			var eaten := _bollworms.tend(worked, _crops, withered)
 			remaining -= worked
 			_shifts.run(worked)
 			_cut_short_for_study_session()
 			# After the Shift's end, so a missed Quota's shorter Study Session can't replace it.
 			_log_negligence(withered)
+			_log_negligence(eaten, CROP_EATEN)
 			if hand_in_open():
 				break
 	# Only the time that passed before the Hand-in opened, if it did.
@@ -608,6 +640,7 @@ func to_save() -> Dictionary:
 		"plots_bought": _land.plots_bought(),
 		"audits": _audits.to_save(),
 		"supplies": _supplies.to_save(),
+		"bollworms": _bollworms.to_save(),
 	}
 	save.merge(_ledger.to_save())
 	save.merge(_shifts.to_save())
@@ -624,20 +657,23 @@ func to_save() -> Dictionary:
 ## before land (version 7 or older) restores with the first land's Plots only. One from before
 ## the Hand-in (version 9 or older) keeps the Shift's picks as cotton in hand, and one from
 ## before hidden savings (version 10 or older) has none, and one from before supplies (version 12
-## or older) holds none and has nothing fertilised.
+## or older) holds none and has nothing fertilised, and one from before Bollworms has none.
 func restore(save: Dictionary) -> Array[String]:
 	var reader := SaveReader.new(save)
 	var version := reader.whole("version")
 	if reader.problems().is_empty() and version not in SAVE_VERSIONS_READ:
 		return ["version %d is not a version this game reads (%s)" % [version, SAVE_VERSIONS_READ]]
-	var land := _new_land()
+	var land := Land.first_land(_tuning)
 	if version >= 8:
-		_restore_land(land, reader)
+		land.restore(reader)
 	var crops := _new_crops(land)
 	crops.restore(reader.section("crops"), version >= 13)
 	var supplies := Supplies.new(_tuning)
 	if version >= 13:
 		supplies.restore(reader.section("supplies"))
+	var bollworms := Bollworms.new(_tuning, land.plot_count(), _roll, _messages)
+	if version >= 14:
+		bollworms.restore(reader.section("bollworms"))
 	var exhaustion := Exhaustion.new(_tuning)
 	exhaustion.restore(reader.section("exhaustion"))
 	var toil := Toil.new(_tuning, exhaustion, _lap_seconds(land))
@@ -682,6 +718,7 @@ func restore(save: Dictionary) -> Array[String]:
 	_ledger = ledger
 	_audits = audits
 	_supplies = supplies
+	_bollworms = bollworms
 	_letters = letters
 	_busy_left = busy_left
 	_privileges = privileges
@@ -692,21 +729,10 @@ func restore(save: Dictionary) -> Array[String]:
 	return []
 
 
-## Buys the save's Plots again on a fresh land, in the same fixed order, so they land in the
-## same cells.
-func _restore_land(land: Land, reader: SaveReader) -> void:
-	var bought := reader.whole("plots_bought")
-	if bought > land.plots_for_sale():
-		var problem := "plots_bought is %d, but the land holds only %d more Plots"
-		reader.problems().append(problem % [bought, land.plots_for_sale()])
-		return
-	for plot in bought:
-		land.buy()
-
-
 ## The plot at index; it must exist.
 func plot(index: int) -> PlotView:
-	return _crops.view(index, _store.growth_multiplier())
+	var view := _crops.view(index, _store.growth_multiplier())
+	return view.with_bollworms(_bollworms.seconds_left(index))
 
 
 func plots() -> Array[PlotView]:
@@ -864,14 +890,17 @@ func _fees_every() -> int:
 	return roundi(_tuning.school_fees_every_shifts)
 
 
-## Logs the plots that Withered at one moment as Negligence: docks Labour Points for each, never
-## below zero, and starts the Negligence Study Session. Plots Withering together share one.
-func _log_negligence(withered_plots: Array[int]) -> void:
-	if withered_plots.is_empty():
+## Logs the plots lost at one moment, Withered or eaten (`key`), as Negligence: docks Labour
+## Points for each, never below zero, and starts the Negligence Study Session. Plots lost
+## together share one. An eaten crop's message also says which Plots, for the log.
+func _log_negligence(lost_plots: Array[int], key := NEGLIGENCE_LOGGED) -> void:
+	if lost_plots.is_empty():
 		return
-	var docked := _ledger.dock(withered_plots.size() * roundi(_tuning.negligence_labour_points))
-	var values := {"plots": withered_plots.size(), "points": docked}
-	_messages.append(AppMessage.new(NEGLIGENCE_LOGGED, values))
+	var docked := _ledger.dock(lost_plots.size() * roundi(_tuning.negligence_labour_points))
+	var values := {"plots": lost_plots.size(), "points": docked}
+	if key == CROP_EATEN:
+		values["plot_indexes"] = Bollworms.plain(lost_plots)
+	_messages.append(AppMessage.new(key, values))
 	_shifts.start_negligence_study_session()
 	_cut_short_for_study_session()
 
@@ -879,14 +908,7 @@ func _log_negligence(withered_plots: Array[int]) -> void:
 ## How long a lap of the track round this land takes: each column or row beyond the first
 ## land's lengthens it by lap_seconds_per_strip.
 func _lap_seconds(land: Land) -> float:
-	var view := land.view()
-	var strips := (
-		view.columns
-		- roundi(_tuning.first_land_columns)
-		+ view.rows
-		- roundi(_tuning.first_land_rows)
-	)
-	return _tuning.lap_seconds + strips * _tuning.lap_seconds_per_strip
+	return _tuning.lap_seconds + land.strips_added() * _tuning.lap_seconds_per_strip
 
 
 func _new_crops(land: Land) -> Crops:
@@ -895,15 +917,6 @@ func _new_crops(land: Land) -> Crops:
 		_tuning.wither_seconds,
 		land.plot_count(),
 		_tuning.fertiliser_growth_factor
-	)
-
-
-## The land at the tuning's first size, able to grow to its largest.
-func _new_land() -> Land:
-	return Land.new(
-		Vector2i(roundi(_tuning.first_land_columns), roundi(_tuning.first_land_rows)),
-		Vector2i(roundi(_tuning.largest_land_columns), roundi(_tuning.largest_land_rows)),
-		roundi(_tuning.plot_quota_rise)
 	)
 
 
@@ -948,7 +961,7 @@ func _pick_refusal(index: int) -> StringName:
 		return WITHERED
 	if not _crops.is_ripe(index):
 		return NOT_RIPE
-	return _unable_to_work()
+	return BOLLWORMS_ON_PLOT if _bollworms.has(index) else _unable_to_work()
 
 
 ## HAND_IN_OPEN or IN_STUDY_SESSION while either holds up every command but handing in, or

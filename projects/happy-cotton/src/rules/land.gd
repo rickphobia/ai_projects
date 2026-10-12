@@ -16,12 +16,14 @@ var _cells: Array[Vector2i] = []
 ## The cells still for sale, in the order they are sold.
 var _for_sale: Array[Vector2i] = []
 var _first_plots: int
+var _first: Vector2i
 ## How many more picks the Quota demands for each Plot bought.
 var _quota_rise_per_plot: int
 
 
 func _init(first: Vector2i, largest: Vector2i, quota_rise_per_plot: int) -> void:
 	_quota_rise_per_plot = quota_rise_per_plot
+	_first = first
 	_columns = first.x
 	_rows = first.y
 	for row in range(first.y - 1, -1, -1):
@@ -29,6 +31,15 @@ func _init(first: Vector2i, largest: Vector2i, quota_rise_per_plot: int) -> void
 			_cells.append(Vector2i(column, row))
 	_first_plots = _cells.size()
 	_for_sale = _sale_order(first, largest)
+
+
+## The land at the tuning's first size, able to grow to its largest.
+static func first_land(tuning: Tuning) -> Land:
+	return Land.new(
+		Vector2i(roundi(tuning.first_land_columns), roundi(tuning.first_land_rows)),
+		Vector2i(roundi(tuning.largest_land_columns), roundi(tuning.largest_land_rows)),
+		roundi(tuning.plot_quota_rise)
+	)
 
 
 func plot_count() -> int:
@@ -67,6 +78,22 @@ func buy() -> int:
 	_columns = maxi(_columns, cell.x + 1)
 	_rows = maxi(_rows, cell.y + 1)
 	return _cells.size() - 1
+
+
+## Columns and rows taken in since the first land.
+func strips_added() -> int:
+	return _columns - _first.x + _rows - _first.y
+
+
+## Buys a save's Plots again, in the same fixed order, so they land in the same cells.
+func restore(reader: SaveReader) -> void:
+	var bought := reader.whole("plots_bought")
+	if bought > plots_for_sale():
+		var problem := "plots_bought is %d, but the land holds only %d more Plots"
+		reader.problems().append(problem % [bought, plots_for_sale()])
+		return
+	for plot in bought:
+		buy()
 
 
 func view() -> LandView:

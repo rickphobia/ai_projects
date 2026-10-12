@@ -50,6 +50,7 @@ func _main_from(save: Dictionary) -> Node:
 	var main := MAIN_SCENE.instantiate()
 	main.set("save_store", _store)
 	main.set("settings_store", _settings_store)
+	main.set("roll", FastTuning.never)
 	return add_child_autofree(main)
 
 

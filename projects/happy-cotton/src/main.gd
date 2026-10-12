@@ -2,11 +2,10 @@ extends Node
 ## Entry scene: logs which build is running, loads and checks the tuning table, continues the
 ## saved Farm (or starts a new one) and wires it to the field, The App and its store, the
 ## Children's letters (see LettersView), the hidden savings tin (see SavingsTin) and the wall
-## clock, and adds the debug controls (Skip time, +100 Labour Points, Audit this Shift) in
-## debug mode. It puts the player's settings into effect and opens the Settings screen from
-## The App. It autosaves
-## after every command, when a Shift's Hand-in opens, when the player leaves (see
-## LeavingWatch), and every AUTOSAVE_SECONDS of play.
+## clock, and adds the debug controls (Skip time, +100 Labour Points, Audit this Shift,
+## Bollworms now) in debug mode. It puts the player's settings into effect and opens the
+## Settings screen from The App. It autosaves after every command, when a Shift's Hand-in
+## opens, when the player leaves (see LeavingWatch), and every AUTOSAVE_SECONDS of play.
 ## Kept thin: no game rules here.
 
 const TUNING_PATH := "res://data/tuning.tres"
@@ -19,6 +18,9 @@ const AUTOSAVE_SECONDS := 15.0
 var save_store := SaveStore.new()
 ## The player's settings file. Tests set their own before adding the scene.
 var settings_store := SettingsStore.new()
+## The Farm's source of chance (see Farm); unset, the Farm rolls at random. Tests set their own
+## before adding the scene, so random Bollworms, audits and drops can't upset them.
+var roll := Callable()
 
 var _tuning: Tuning
 var _farm: Farm
@@ -67,6 +69,7 @@ func _ready() -> void:
 		debug_panel.skip_requested.connect(_on_skip_requested)
 		debug_panel.labour_points_requested.connect(_on_labour_points_requested)
 		debug_panel.audit_requested.connect(_on_audit_requested)
+		debug_panel.bollworms_requested.connect(_on_bollworms_requested)
 		add_child(debug_panel)
 
 
@@ -139,7 +142,7 @@ func _on_start_over_after_damaged_save() -> void:
 
 
 func _new_farm() -> Farm:
-	return Farm.new(_tuning)
+	return Farm.new(_tuning, roll)
 
 
 ## Builds the field from the Farm's land, wires the Farm to it and The App, and saves it at
@@ -187,13 +190,18 @@ func _process(delta: float) -> void:
 	_show_farm()
 
 
-## A tap on an empty plot plants it, on a Withered one clears it, and on any other plot it
-## tries to pick. The rules decide whether that happens, and a command that happens brings the
-## Worker back to the field; an unripe plot shows its time left instead. With a supply picked
-## on the supplies bar, the tap spreads it instead, and the tap after works as normal.
+## A tap on a plot with Bollworms picks them off, on an empty plot plants it, on a Withered one
+## clears it, and on any other plot it tries to pick. The rules decide whether that happens, and a
+## command that happens brings the Worker back to the field; an unripe plot shows its time left
+## instead. With a supply picked on the supplies bar, the tap spreads it instead, and the tap after
+## works as normal; Bollworms come first even then, and the supply is put back.
 func _on_plot_tapped(index: int) -> void:
-	var stage := _farm.plot(index).stage
-	if _app.supplies_bar().take_chosen() == Farm.FERTILISER:
+	var view := _farm.plot(index)
+	var stage := view.stage
+	var chosen := _app.supplies_bar().take_chosen()
+	if view.bollworms:
+		_pick_off_bollworms(index)
+	elif chosen == Farm.FERTILISER:
 		_fertilise(index)
 	elif stage == PlotView.Stage.EMPTY:
 		_log_command("plant", index, _farm.plant(index))
@@ -210,6 +218,15 @@ func _on_plot_tapped(index: int) -> void:
 	_save("command")
 	# The whole Farm, so the crop counter goes up with the "+1".
 	_show_farm()
+
+
+## Bollworms picked off are logged by Plot.
+func _pick_off_bollworms(index: int) -> void:
+	var result := _farm.pick_off_bollworms(index)
+	if result.happened:
+		GameLog.info("bollworms picked off", {"plot": index})
+	else:
+		_log_command("pick off bollworms", index, result)
 
 
 ## Spreads Fertiliser on the plot, or has The App say plainly why not. Supplies used are logged
@@ -344,6 +361,16 @@ func _on_audit_requested() -> void:
 		return
 	GameLog.info("debug audit planned", {"shift": _farm.shift().number})
 	_farm.debug_plan_audit()
+	_save("command")
+	_show_farm()
+
+
+## Debug mode only: Bollworms on every growing Plot, to see them without waiting.
+func _on_bollworms_requested() -> void:
+	if _farm == null:
+		return
+	GameLog.info("debug bollworms now")
+	_farm.debug_bollworms_now()
 	_save("command")
 	_show_farm()
 
@@ -486,6 +513,10 @@ func _log_message(message: AppMessage) -> void:
 		GameLog.info("study session ended", message.values)
 	elif message.key == Farm.NEGLIGENCE_LOGGED:
 		GameLog.info("negligence logged", message.values)
+	elif message.key == Farm.BOLLWORMS_ARRIVED:
+		GameLog.info("bollworms arrived", message.values)
+	elif message.key == Farm.CROP_EATEN:
+		GameLog.info("crop eaten", message.values)
 	elif message.key == Farm.REST_ENDED:
 		GameLog.info("rest hour ended", {"exhaustion": _farm.exhaustion()})
 	elif message.key == Farm.COTTON_DROPPED:
