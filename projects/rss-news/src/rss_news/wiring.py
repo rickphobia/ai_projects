@@ -19,6 +19,7 @@ from rss_news.config import Settings
 from rss_news.items.inbox import Inbox
 from rss_news.sources.catalog import StarterFolder, load_starter_sources
 from rss_news.sources.fetching import FeedFetcher, SourceFetching
+from rss_news.sources.managing import SourceManagement
 from rss_news.tick import Tick, TickLoop, TickStep
 from rss_news.web.app import create_app
 
@@ -59,7 +60,7 @@ def build_app(
         login_failures=SqliteLoginFailures(database),
         clock=clock,
         inbox=Inbox(items),
-        folders=sources,
+        source_management=SourceManagement(sources=sources, fetcher=feed_fetcher),
         tick=tick,
         background=(TickLoop(tick, TICK_INTERVAL),) if run_tick_loop else (),
     )
