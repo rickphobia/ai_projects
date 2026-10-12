@@ -1,5 +1,6 @@
 package com.rickphobia.duitlog.core.ledger
 
+import com.rickphobia.duitlog.core.reader.Wallet
 import com.rickphobia.duitlog.core.storage.DuitLogDatabase
 import com.rickphobia.duitlog.core.storage.LedgerTransactionQueries
 import java.time.Instant
@@ -66,6 +67,8 @@ internal fun toTransaction(
     categoryName: String?,
     note: String?,
     excluded: Long,
+    wallet: String?,
+    originalText: String?,
 ) = Transaction(
     id,
     Kind.valueOf(kind),
@@ -76,6 +79,8 @@ internal fun toTransaction(
     categoryName,
     note,
     excluded == 1L,
+    wallet?.let(Wallet::valueOf),
+    originalText,
 )
 
 internal fun toCategory(

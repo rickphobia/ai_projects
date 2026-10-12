@@ -1,0 +1,30 @@
+-- Wallet notifications that mention an amount but match no known wording, kept until the user
+-- adds them by hand or dismisses them. posted_at is epoch milliseconds.
+CREATE TABLE couldnt_read (
+  id INTEGER NOT NULL PRIMARY KEY,
+  wallet TEXT NOT NULL,
+  posted_at INTEGER NOT NULL,
+  original_text TEXT NOT NULL
+);
+
+insert:
+INSERT INTO couldnt_read(wallet, posted_at, original_text) VALUES (?, ?, ?);
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+-- Newest first.
+all:
+SELECT id, wallet, posted_at, original_text FROM couldnt_read ORDER BY posted_at DESC, id DESC;
+
+-- The same words from the same Wallet posted from (inclusive) until (inclusive).
+sameWordsBetween:
+SELECT id FROM couldnt_read
+WHERE wallet = :wallet AND original_text = :originalText AND posted_at BETWEEN :from AND :until
+LIMIT 1;
+
+delete:
+DELETE FROM couldnt_read WHERE id = ?;
+
+changes:
+SELECT changes();

@@ -26,6 +26,10 @@ sealed class LedgerException(
         transactionId: Long,
     ) : LedgerException("no Transaction with id $transactionId")
 
+    class UnknownCouldntRead(
+        entryId: Long,
+    ) : LedgerException("no \"Couldn't read\" entry with id $entryId")
+
     class CategoryNameMissing : LedgerException("a Category needs a name")
 
     /** Names are compared ignoring case, so "f&b" can't sit next to "F&B". */
