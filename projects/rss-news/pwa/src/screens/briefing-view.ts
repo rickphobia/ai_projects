@@ -11,7 +11,10 @@ export function showBriefing(
 ): void {
   const title = document.createElement("h2");
   title.textContent = `Briefing of ${shownTime.format(new Date(briefing.createdAt))}`;
-  offerSelection(shown, `${title.textContent} (${briefing.title})`);
+  offerSelection(shown, `${title.textContent} (${briefing.title})`, {
+    kind: "briefing",
+    id: briefing.id,
+  });
   const details = document.createElement("p");
   details.className = "item-meta";
   details.textContent = `${briefing.title} · ${String(briefing.itemCount)} Items · cost $${briefing.costUsd}`;

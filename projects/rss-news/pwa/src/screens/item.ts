@@ -31,7 +31,10 @@ export async function renderItem(
     return;
   }
   status.remove();
-  offerSelection(column, `Item: ${item.title} (${item.source})`);
+  offerSelection(column, `Item: ${item.title} (${item.source})`, {
+    kind: "item",
+    id: item.id,
+  });
   const reader = document.createElement("section");
   reader.setAttribute("aria-label", "Reader view");
   reader.className = "prose";

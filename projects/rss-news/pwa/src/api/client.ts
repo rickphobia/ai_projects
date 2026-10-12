@@ -41,6 +41,7 @@ import {
   type DefinitionJson,
 } from "./dictionary";
 import { readEvents } from "./event-stream";
+import { noteFromJson, type NewNote, type Note, type NoteJson } from "./notes";
 
 export interface Health {
   status: "ok" | "failing";
@@ -200,6 +201,13 @@ export interface ApiClient {
   // A short definition of `term` as `context` uses it. Rejects with RefusedError, saying why,
   // when the model gave none or this month's spending limit is reached.
   defineWord(term: string, context: string): Promise<Definition>;
+  // Every Note, newest first.
+  notes(): Promise<Note[]>;
+  saveNote(note: NewNote): Promise<Note>;
+  changeNoteComment(noteId: number, comment: string): Promise<Note>;
+  deleteNote(noteId: number): Promise<void>;
+  // Every Note as one Markdown file.
+  exportNotes(): Promise<string>;
 }
 
 export class ApiError extends Error {
@@ -493,6 +501,35 @@ export class HttpApiClient implements ApiClient {
       context,
     });
     return definitionFromJson((await response.json()) as DefinitionJson);
+  }
+
+  async notes(): Promise<Note[]> {
+    const response = await this.sendWithSession("GET", "api/notes");
+    const body = (await response.json()) as { notes: NoteJson[] };
+    return body.notes.map(noteFromJson);
+  }
+
+  async saveNote(note: NewNote): Promise<Note> {
+    const response = await this.sendWithSession("POST", "api/notes", note);
+    return noteFromJson((await response.json()) as NoteJson);
+  }
+
+  async changeNoteComment(noteId: number, comment: string): Promise<Note> {
+    const response = await this.sendWithSession(
+      "PATCH",
+      `api/notes/${String(noteId)}`,
+      { comment },
+    );
+    return noteFromJson((await response.json()) as NoteJson);
+  }
+
+  async deleteNote(noteId: number): Promise<void> {
+    await this.sendWithSession("DELETE", `api/notes/${String(noteId)}`);
+  }
+
+  async exportNotes(): Promise<string> {
+    const response = await this.sendWithSession("GET", "api/notes/export");
+    return response.text();
   }
 
   // For every call except login: a 401 means the session is gone, so go to login.

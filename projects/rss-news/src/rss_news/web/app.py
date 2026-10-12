@@ -20,6 +20,7 @@ from rss_news.config import Settings
 from rss_news.dictionary.lookup import Dictionary
 from rss_news.items.inbox import Inbox
 from rss_news.items.reading import ItemReading
+from rss_news.notes.notes import Notes
 from rss_news.sources.managing import SourceManagement
 from rss_news.spending.limit import SpendingLimit
 from rss_news.web.alerts import alerts_router
@@ -29,6 +30,7 @@ from rss_news.web.chats import chats_router
 from rss_news.web.dictionary import dictionary_router
 from rss_news.web.inbox import inbox_router
 from rss_news.web.items import items_router
+from rss_news.web.notes import notes_router
 from rss_news.web.sources import sources_router
 from rss_news.web.spending import spending_router
 
@@ -61,6 +63,7 @@ def create_app(
     briefings: Briefings,
     chats: Chats,
     dictionary: Dictionary,
+    notes: Notes,
     spending: SpendingLimit,
     alert_push: AlertPush,
     tick: TickHealth,
@@ -107,6 +110,7 @@ def create_app(
     app.state.briefings = briefings
     app.state.chats = chats
     app.state.dictionary = dictionary
+    app.state.notes = notes
     app.state.spending = spending
     app.state.alert_push = alert_push
 
@@ -137,6 +141,7 @@ def create_app(
         briefings_router,
         chats_router,
         dictionary_router,
+        notes_router,
         spending_router,
         alerts_router,
     ):

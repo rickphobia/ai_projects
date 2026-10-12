@@ -17,6 +17,7 @@ from rss_news.adapters.sqlite.chat import SqliteChats
 from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.adapters.sqlite.items import SqliteItems
 from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
+from rss_news.adapters.sqlite.notes import SqliteNotes
 from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.adapters.sqlite.spending import SqliteSpending
 from rss_news.alerts.push import AlertPush, PushSender
@@ -29,6 +30,7 @@ from rss_news.config import Settings
 from rss_news.dictionary.lookup import Dictionary, DictionaryModel
 from rss_news.items.inbox import Inbox, OldItemCleanup
 from rss_news.items.reading import ArticleExtractor, ItemReading
+from rss_news.notes.notes import Notes
 from rss_news.scoring.item_scoring import ItemScoring, ScoringModel
 from rss_news.sources.catalog import StarterFolder, load_starter_sources
 from rss_news.sources.fetching import FeedFetcher, SourceFetching
@@ -143,6 +145,7 @@ def build_app(
             timezone=settings.timezone,
         ),
         dictionary=Dictionary(model=language_model, ledger=ledger, limit=limit),
+        notes=Notes(SqliteNotes(database), clock),
         spending=limit,
         alert_push=AlertPush(
             store=SqlitePushSubscriptions(database), sender=push_sender, inbox=inbox, clock=clock
