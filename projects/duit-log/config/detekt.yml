@@ -1,7 +1,7 @@
 # Overrides on top of detekt's default rules (buildUponDefaultConfig = true).
 naming:
   FunctionNaming:
-    # Compose functions are named like types (HomeScreen).
+    # Compose functions are named like types (DailyScreen).
     ignoreAnnotated: ['Composable']
 
 style:
@@ -11,3 +11,5 @@ style:
   MagicNumber:
     # Colours are hex numbers given a name where they are declared (val Green = Color(0xFF1B7F5A)).
     ignorePropertyDeclaration: true
+    # @Preview functions hold sample data (amounts, dates), not rules.
+    ignoreAnnotated: ['Preview']

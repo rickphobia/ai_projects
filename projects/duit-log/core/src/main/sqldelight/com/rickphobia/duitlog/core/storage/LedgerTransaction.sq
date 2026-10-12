@@ -1,0 +1,29 @@
+-- One row per Transaction. Amounts are whole sen and always positive; kind says which way the
+-- money went. occurred_at is epoch milliseconds, so a change of the phone's time zone moves the
+-- day and Month a Transaction shows in, never the moment it happened.
+CREATE TABLE ledger_transaction (
+  id INTEGER NOT NULL PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('EXPENSE', 'INCOME')),
+  amount_sen INTEGER NOT NULL CHECK (amount_sen > 0),
+  occurred_at INTEGER NOT NULL,
+  merchant TEXT NOT NULL,
+  category_id INTEGER REFERENCES category(id),
+  note TEXT
+);
+
+CREATE INDEX ledger_transaction_occurred_at ON ledger_transaction(occurred_at);
+
+insert:
+INSERT INTO ledger_transaction(kind, amount_sen, occurred_at, merchant, category_id, note)
+VALUES (?, ?, ?, ?, ?, ?);
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+-- Newest first, from (inclusive) until (exclusive), in epoch milliseconds.
+between:
+SELECT t.id, t.kind, t.amount_sen, t.occurred_at, t.merchant, c.name AS category_name, t.note
+FROM ledger_transaction t
+LEFT JOIN category c ON c.id = t.category_id
+WHERE t.occurred_at >= :from AND t.occurred_at < :until
+ORDER BY t.occurred_at DESC, t.id DESC;
