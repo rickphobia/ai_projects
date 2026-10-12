@@ -40,13 +40,25 @@ func _main() -> Node:
 	return main
 
 
+## Plays to each of the next `count` Hand-ins, through any Study Session before it, and hands
+## in at each, as the player would.
+func _hand_in_shifts(main: Node, count: int) -> void:
+	var tuning: Tuning = main.call("tuning")
+	var app: AppOverlay = main.get_node("AppOverlay")
+	var button: Button = app.find_child("HandInButton", true, false)
+	for shift in count:
+		# The Farm waits at the Hand-in, so a long step stops there.
+		main.call("_process", tuning.shift_seconds + tuning.study_session_cap_seconds)
+		button.pressed.emit()
+
+
 func test_a_letter_arriving_is_logged_by_id_and_opens_as_a_page() -> void:
 	var main: Node = add_child_autofree(_main())
 	await wait_process_frames(1)
 	var tuning: Tuning = main.call("tuning")
 	var letters: LettersView = main.find_child("LettersView", true, false)
 
-	main.call("_process", tuning.shift_seconds * (tuning.letter_every_shifts - 1))
+	_hand_in_shifts(main, roundi(tuning.letter_every_shifts) - 1)
 
 	var id := Farm.LETTER_IDS[0]
 	var shift := roundi(tuning.letter_every_shifts)
@@ -62,8 +74,8 @@ func test_unpaid_school_fees_log_the_letters_stopping() -> void:
 	await wait_process_frames(1)
 	var tuning: Tuning = main.call("tuning")
 
-	# Long enough for every Shift and Study Session up to the first school fees, unpaid.
-	main.call("_process", tuning.shift_seconds * tuning.school_fees_every_shifts * 2.0)
+	# Every Shift up to the first school fees, unpaid.
+	_hand_in_shifts(main, roundi(tuning.school_fees_every_shifts))
 
 	var stopped := func(line: String) -> bool: return line.begins_with("[info] letters stopped")
 	assert_true(_lines.any(stopped))

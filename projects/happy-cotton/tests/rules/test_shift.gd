@@ -17,7 +17,7 @@ func _pick_cotton(count: int) -> void:
 	for index in count:
 		_farm.plant(index)
 	_farm.run_generator()
-	_farm.advance(FastTuning.GROW_SECONDS)
+	HandingIn.advance(_farm, FastTuning.GROW_SECONDS)
 	for index in count:
 		_farm.pick(index)
 
@@ -54,22 +54,24 @@ func test_taking_messages_empties_the_queue() -> void:
 
 
 func test_the_shift_counts_down_with_online_play() -> void:
-	_farm.advance(40.0)
+	HandingIn.advance(_farm, 40.0)
 
 	assert_eq(_farm.shift().seconds_left, 60.0)
 
 
 func test_negative_time_does_not_wind_the_shift_back() -> void:
-	_farm.advance(40.0)
-	_farm.advance(-10.0)
+	HandingIn.advance(_farm, 40.0)
+	HandingIn.advance(_farm, -10.0)
 
 	assert_eq(_farm.shift().seconds_left, 60.0)
 
 
-func test_each_pick_counts_towards_the_quota_and_earns_labour_points() -> void:
+func test_each_pick_counts_towards_the_quota_and_earns_labour_points_at_the_hand_in() -> void:
 	_pick_cotton(2)
 
 	assert_eq(_farm.shift().picked, 2)
+	assert_eq(_farm.labour_points(), 0, "nothing is paid at a pick")
+	HandingIn.finish_shift(_farm)
 	assert_eq(_farm.labour_points(), 2 * FastTuning.LABOUR_POINTS_PER_PICK)
 
 
@@ -85,34 +87,41 @@ func test_a_met_quota_is_praised_at_the_end_of_the_shift_and_not_before() -> voi
 	_pick_cotton(3)
 	_farm.take_messages()
 
-	_farm.advance(FastTuning.SHIFT_SECONDS - FastTuning.GROW_SECONDS - 1.0)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS - FastTuning.GROW_SECONDS - 1.0)
 	assert_eq(_farm.take_messages(), [] as Array[AppMessage], "no check before the end")
-	_farm.advance(1.0)
+	HandingIn.advance(_farm, 1.0)
 
 	var messages := _farm.take_messages()
-	var expected: Array[StringName] = [Farm.QUOTA_MET, Farm.PAY_SLIP, Farm.SHIFT_STARTED]
+	var expected: Array[StringName] = [
+		Farm.HAND_IN_OPENED, Farm.HANDED_IN, Farm.QUOTA_MET, Farm.PAY_SLIP, Farm.SHIFT_STARTED
+	]
 	assert_eq(_keys(messages), expected)
-	assert_eq(messages[0].values, {"shift": 1, "picked": 3, "quota": 3})
+	assert_eq(messages[2].values, {"shift": 1, "picked": 3, "quota": 3})
 
 
 func test_a_missed_quota_is_reported_at_the_end_of_the_shift() -> void:
 	_pick_cotton(2)
 	_farm.take_messages()
 
-	_farm.advance(FastTuning.SHIFT_SECONDS - FastTuning.GROW_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS - FastTuning.GROW_SECONDS)
 
 	var messages := _farm.take_messages()
 	var expected: Array[StringName] = [
-		Farm.QUOTA_MISSED, Farm.STUDY_SESSION_STARTED, Farm.PAY_SLIP, Farm.SHIFT_STARTED
+		Farm.HAND_IN_OPENED,
+		Farm.HANDED_IN,
+		Farm.QUOTA_MISSED,
+		Farm.STUDY_SESSION_STARTED,
+		Farm.PAY_SLIP,
+		Farm.SHIFT_STARTED,
 	]
 	assert_eq(_keys(messages), expected)
-	assert_eq(messages[0].values, {"shift": 1, "picked": 2, "quota": 3})
+	assert_eq(messages[2].values, {"shift": 1, "picked": 2, "quota": 3})
 
 
 func test_the_next_shift_starts_at_once_with_a_higher_quota() -> void:
 	_farm.take_messages()
 
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 
 	var shift := _farm.shift()
 	var raised := FastTuning.FIRST_QUOTA + FastTuning.QUOTA_RISE
@@ -124,7 +133,7 @@ func test_the_next_shift_starts_at_once_with_a_higher_quota() -> void:
 
 func test_time_past_the_end_of_a_shift_carries_into_the_next() -> void:
 	_pick_cotton(3)
-	_farm.advance(FastTuning.SHIFT_SECONDS - FastTuning.GROW_SECONDS + 25.0)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS - FastTuning.GROW_SECONDS + 25.0)
 
 	assert_eq(_farm.shift().number, 2)
 	assert_eq(_farm.shift().seconds_left, FastTuning.SHIFT_SECONDS - 25.0)
@@ -134,20 +143,26 @@ func test_one_long_step_ends_every_shift_it_covers() -> void:
 	_farm.take_messages()
 
 	# Three missed Shifts and the Study Sessions after the first two (20 and 40 seconds).
-	_farm.advance(FastTuning.SHIFT_SECONDS * 3 + 60.0)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS * 3 + 60.0)
 
 	assert_eq(_farm.shift().number, 4)
 	var expected: Array[StringName] = [
+		Farm.HAND_IN_OPENED,
+		Farm.HANDED_IN,
 		Farm.QUOTA_MISSED,
 		Farm.STUDY_SESSION_STARTED,
 		Farm.PAY_SLIP,
 		Farm.SHIFT_STARTED,
 		Farm.STUDY_SESSION_ENDED,
+		Farm.HAND_IN_OPENED,
+		Farm.HANDED_IN,
 		Farm.QUOTA_MISSED_AGAIN,
 		Farm.STUDY_SESSION_STARTED,
 		Farm.PAY_SLIP,
 		Farm.SHIFT_STARTED,
 		Farm.STUDY_SESSION_ENDED,
+		Farm.HAND_IN_OPENED,
+		Farm.HANDED_IN,
 		Farm.QUOTA_MISSED_REPEATEDLY,
 		Farm.STUDY_SESSION_STARTED,
 		Farm.PAY_SLIP,
@@ -159,9 +174,9 @@ func test_one_long_step_ends_every_shift_it_covers() -> void:
 func test_the_quota_rises_every_shift_whether_met_or_missed() -> void:
 	var quotas: Array[int] = [_farm.shift().quota]
 	_pick_cotton(3)
-	_farm.advance(FastTuning.SHIFT_SECONDS - FastTuning.GROW_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS - FastTuning.GROW_SECONDS)
 	quotas.append(_farm.shift().quota)
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 	quotas.append(_farm.shift().quota)
 
 	assert_eq(quotas, [3, 5, 7] as Array[int], "met, then missed: it still rises")
@@ -170,26 +185,26 @@ func test_the_quota_rises_every_shift_whether_met_or_missed() -> void:
 func test_picks_above_the_quota_are_praised_but_carry_no_credit_forward() -> void:
 	_pick_cotton(4)
 	_farm.take_messages()
-	_farm.advance(FastTuning.SHIFT_SECONDS - FastTuning.GROW_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS - FastTuning.GROW_SECONDS)
 
 	var first_end := _farm.take_messages()
-	assert_eq(first_end[0].key, Farm.QUOTA_MET)
-	assert_eq(first_end[0].values, {"shift": 1, "picked": 4, "quota": 3})
+	assert_eq(first_end[2].key, Farm.QUOTA_MET)
+	assert_eq(first_end[2].values, {"shift": 1, "picked": 4, "quota": 3})
 	assert_eq(_farm.shift().picked, 0, "the new Shift starts from nothing")
 	assert_eq(_farm.shift().quota, 5, "the surplus doesn't lower the next Quota")
 
 	_pick_cotton(4)
-	_farm.advance(FastTuning.SHIFT_SECONDS - FastTuning.GROW_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS - FastTuning.GROW_SECONDS)
 
 	var second_end := _farm.take_messages()
-	assert_eq(second_end[0].key, Farm.QUOTA_MISSED, "4 + no credit is short of 5")
-	assert_eq(second_end[0].values, {"shift": 2, "picked": 4, "quota": 5})
+	assert_eq(second_end[2].key, Farm.QUOTA_MISSED, "4 + no credit is short of 5")
+	assert_eq(second_end[2].values, {"shift": 2, "picked": 4, "quota": 5})
 
 
 func test_labour_points_are_kept_across_shifts() -> void:
 	_pick_cotton(1)
 
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 
 	assert_eq(_farm.labour_points(), FastTuning.LABOUR_POINTS_PER_PICK)
 
@@ -198,15 +213,15 @@ func test_a_full_shift_of_play() -> void:
 	_farm.take_messages()
 	for _round in 3:
 		_pick_cotton(1)
-		_farm.advance(3.0)
+		HandingIn.advance(_farm, 3.0)
 
 	assert_eq(_farm.shift().seconds_left, 1.0)
 	assert_eq(_farm.shift().picked, 3)
 	assert_eq(_farm.take_messages(), [] as Array[AppMessage])
 
-	_farm.advance(1.0)
+	HandingIn.advance(_farm, 1.0)
 
-	assert_eq(_farm.take_messages()[0].key, Farm.QUOTA_MET)
+	assert_eq(_farm.take_messages()[2].key, Farm.QUOTA_MET)
 	assert_eq(_farm.shift().number, 2)
 	assert_eq(_farm.labour_points(), 3 * FastTuning.LABOUR_POINTS_PER_PICK)
 
@@ -223,6 +238,8 @@ func test_a_shift_view_does_not_change_when_the_farm_does() -> void:
 func test_every_key_the_rules_emit_is_listed() -> void:
 	var emitted: Array[StringName] = [
 		Farm.SHIFT_STARTED,
+		Farm.HAND_IN_OPENED,
+		Farm.HANDED_IN,
 		Farm.QUOTA_MET,
 		Farm.QUOTA_MISSED,
 		Farm.QUOTA_MISSED_AGAIN,

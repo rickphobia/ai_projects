@@ -72,13 +72,20 @@ func test_a_new_game_is_saved_at_once_and_after_each_command() -> void:
 	assert_eq(_saved_farm(main).plot(4).stage, PlotView.Stage.SEEDLING)
 
 
-func test_the_end_of_a_shift_is_saved() -> void:
+func test_the_hand_in_opening_and_handing_in_are_each_saved() -> void:
 	var main: Node = add_child_autofree(_main())
 	await wait_process_frames(1)
 	var tuning: Tuning = main.call("tuning")
 
 	main.call("_process", tuning.shift_seconds)
 
+	assert_true(_saved_farm(main).hand_in_open(), "closing the game now finds it waiting")
+
+	var app: AppOverlay = main.get_node("AppOverlay")
+	var button: Button = app.find_child("HandInButton", true, false)
+	button.pressed.emit()
+
+	assert_false(_saved_farm(main).hand_in_open())
 	assert_eq(_saved_farm(main).shift().number, 2)
 
 

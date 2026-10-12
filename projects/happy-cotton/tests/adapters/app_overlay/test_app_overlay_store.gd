@@ -11,28 +11,32 @@ func before_each() -> void:
 	add_child_autofree(_overlay)
 
 
+func _store_button() -> Button:
+	return _overlay.find_child("StoreButton", true, false) as Button
+
+
 func test_the_store_button_reads_store() -> void:
 	_overlay.show_resting(0.0)
 
-	assert_eq(_overlay.store_button().text, "Store")
+	assert_eq(_store_button().text, "Store")
 
 
 func test_while_he_rests_the_store_button_shows_the_time_left() -> void:
 	_overlay.show_resting(45.0)
 
-	assert_eq(_overlay.store_button().text, "Resting  ·  0:45 left")
+	assert_eq(_store_button().text, "Resting  ·  0:45 left")
 
 
 func test_on_a_call_home_the_store_button_shows_the_time_left() -> void:
 	_overlay.show_resting(0.0, 30.0)
 
-	assert_eq(_overlay.store_button().text, "On a call home  ·  0:30 left")
+	assert_eq(_store_button().text, "On a call home  ·  0:30 left")
 
 
 func test_the_store_is_closed_until_its_button_is_pressed() -> void:
 	assert_false(_overlay.is_store_open())
 
-	_overlay.store_button().pressed.emit()
+	_store_button().pressed.emit()
 
 	assert_true(_overlay.is_store_open())
 

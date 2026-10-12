@@ -10,14 +10,18 @@ var number: int:
 var quota: int:
 	get:
 		return _quota
-## Cotton picked so far this Shift.
+## The crop counter: cotton picked so far this Shift, and so in hand for the Hand-in.
 var picked: int:
 	get:
 		return _picked
-## Seconds of online play until the Quota is checked.
+## Seconds of online play until the Hand-in opens; 0 while it is open.
 var seconds_left: float:
 	get:
 		return _seconds_left
+## Set from the moment the Shift's time runs out until the Worker hands in his cotton.
+var hand_in_open: bool:
+	get:
+		return _hand_in_open
 ## The Shift whose end charges the next school fees.
 var school_fees_shift: int:
 	get:
@@ -28,13 +32,20 @@ var _quota: int
 var _picked: int
 var _seconds_left: float
 var _school_fees_shift: int
+var _hand_in_open: bool
 
 
 func _init(
-	shift_number: int, shift_quota: int, shift_picked: int, shift_left: float, fees_shift: int
+	shift_number: int,
+	shift_quota: int,
+	shift_picked: int,
+	shift_left: float,
+	fees_shift: int,
+	hand_in_is_open := false
 ) -> void:
 	_number = shift_number
 	_quota = shift_quota
 	_picked = shift_picked
 	_seconds_left = shift_left
 	_school_fees_shift = fees_shift
+	_hand_in_open = hand_in_is_open

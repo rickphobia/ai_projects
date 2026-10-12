@@ -3,7 +3,8 @@ extends GutTest
 ## Points and takes the Worker off the Generator for its length, so crops halt, and it sends a
 ## "called home" Family event whose call follows the latest letter received. Like every
 ## Privilege it is refused after a missed Quota, in Debt and in a Study Session. With the test
-## table it costs 5 Labour Points (one pick) and lasts 10 seconds.
+## table it costs 5 Labour Points (one pick) and lasts 10 seconds. Labour Points are paid at the
+## Hand-in, so the tests that earn a call first meet a Quota of one pick and hand it in.
 
 const PLOTS := FastTuning.FIRST_PLOTS
 
@@ -11,7 +12,9 @@ var _farm: Farm
 
 
 func before_each() -> void:
-	_farm = _farm_with(FastTuning.table())
+	var tuning := FastTuning.table()
+	tuning.first_quota = 1
+	_farm = _farm_with(tuning)
 
 
 func _farm_with(tuning: Tuning) -> Farm:
@@ -21,12 +24,14 @@ func _farm_with(tuning: Tuning) -> Farm:
 	return farm
 
 
-## Plants, grows and picks one plot: the price of a call home.
+## Plants, grows and picks one plot and hands it in at the Shift's end: the price of a call
+## home.
 func _earn_a_call() -> void:
 	_farm.plant(0)
 	_farm.run_generator()
 	_farm.advance(FastTuning.GROW_SECONDS)
 	_farm.pick(0)
+	HandingIn.finish_shift(_farm)
 	assert_eq(_farm.labour_points(), FastTuning.CALL_HOME_PRICE)
 
 
@@ -73,7 +78,7 @@ func test_crops_halt_during_the_call_and_he_can_run_again_after_it() -> void:
 
 	assert_eq(_farm.run_generator().reason, Farm.ON_A_CALL)
 	assert_eq(_farm.plant(2).reason, Farm.ON_A_CALL)
-	_farm.advance(FastTuning.CALL_HOME_SECONDS)
+	HandingIn.advance(_farm, FastTuning.CALL_HOME_SECONDS)
 
 	assert_eq(_farm.plot(1).seconds_left, growth_left)
 	assert_eq(_farm.call_home_seconds_left(), 0.0)
@@ -94,7 +99,7 @@ func test_the_call_follows_the_latest_letter_received() -> void:
 	tuning.quota_rise = 0
 	_farm = _farm_with(tuning)
 	for letter in 5:
-		_farm.advance(FastTuning.SHIFT_SECONDS * FastTuning.LETTER_EVERY_SHIFTS)
+		HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS * FastTuning.LETTER_EVERY_SHIFTS)
 	var latest: StringName = _farm.letters_received().back()
 	assert_eq(latest, Farm.LETTER_IDS[4])
 	_farm.take_family_events()
@@ -119,8 +124,8 @@ func test_it_is_refused_when_he_cannot_afford_it() -> void:
 
 
 func test_it_is_refused_after_a_missed_quota() -> void:
-	_farm.advance(FastTuning.SHIFT_SECONDS)
-	_farm.advance(_farm.study_session_seconds_left())
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, _farm.study_session_seconds_left())
 	_farm.debug_add_labour_points(FastTuning.CALL_HOME_PRICE)
 
 	assert_eq(_farm.buy_privilege(Farm.CALL_HOME).reason, Farm.PRIVILEGES_TAKEN_AWAY)
@@ -128,7 +133,7 @@ func test_it_is_refused_after_a_missed_quota() -> void:
 
 func test_it_is_refused_in_a_study_session() -> void:
 	_farm.debug_add_labour_points(FastTuning.CALL_HOME_PRICE)
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 
 	assert_eq(_farm.buy_privilege(Farm.CALL_HOME).reason, Farm.IN_STUDY_SESSION)
 
@@ -138,7 +143,7 @@ func test_it_is_refused_in_debt() -> void:
 	tuning.first_quota = 0
 	tuning.rent_per_shift = FastTuning.RENT_PER_SHIFT
 	_farm = _farm_with(tuning)
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 	assert_gt(_farm.debt(), 0)
 
 	assert_eq(_farm.buy_privilege(Farm.CALL_HOME).reason, Farm.IN_DEBT)
@@ -168,7 +173,7 @@ func test_a_study_session_cuts_a_call_short() -> void:
 	_farm.debug_add_labour_points(FastTuning.CALL_HOME_PRICE)
 	_farm.buy_privilege(Farm.CALL_HOME)
 
-	_farm.advance(5.0)
+	HandingIn.advance(_farm, 5.0)
 
 	assert_true(_farm.in_study_session())
 	assert_eq(_farm.call_home_seconds_left(), 0.0)
@@ -177,7 +182,7 @@ func test_a_study_session_cuts_a_call_short() -> void:
 func test_a_call_waits_while_away_and_survives_a_save() -> void:
 	_farm.debug_add_labour_points(FastTuning.CALL_HOME_PRICE)
 	_farm.buy_privilege(Farm.CALL_HOME)
-	_farm.advance(4.0)
+	HandingIn.advance(_farm, 4.0)
 	_farm.resume_offline(100.0)
 	var restored := Farm.new(FastTuning.table())
 

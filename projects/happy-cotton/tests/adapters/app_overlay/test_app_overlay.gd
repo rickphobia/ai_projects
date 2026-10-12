@@ -139,12 +139,14 @@ func test_it_shows_the_exhaustion_as_a_whole_percentage() -> void:
 
 func test_the_app_dims_while_the_generator_stands_still_and_brightens_when_it_turns() -> void:
 	_overlay.show_powered(false)
-	assert_eq(_overlay.store_button().modulate, AppOverlay.UNPOWERED)
+	assert_eq(
+		(_overlay.find_child("StoreButton", true, false) as Button).modulate, AppOverlay.UNPOWERED
+	)
 	assert_false(_overlay.is_powered())
 
 	_overlay.show_powered(true)
 
-	assert_eq(_overlay.store_button().modulate, Color.WHITE)
+	assert_eq((_overlay.find_child("StoreButton", true, false) as Button).modulate, Color.WHITE)
 	assert_true(_overlay.is_powered())
 
 

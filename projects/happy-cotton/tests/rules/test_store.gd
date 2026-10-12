@@ -4,7 +4,8 @@ extends GutTest
 ## in a Study Session, Privileges taken away, already resting, fully upgraded), the rest hour
 ## bought as a Privilege, and the debug command that adds Labour Points. With the fast table
 ## the first Generator tier costs 10 (two picks), doubles growth and raises the Quota by 1; the
-## second costs 20, triples growth and raises it by 2 more.
+## second costs 20, triples growth and raises it by 2 more. Labour Points are paid at the
+## Hand-in, and the first Shift asks for nothing, so the picks earned in it are always paid.
 
 const PLOTS := FastTuning.FIRST_PLOTS
 
@@ -12,24 +13,28 @@ var _farm: Farm
 
 
 func before_each() -> void:
-	_farm = _farm_with_shift(1000.0)
+	_farm = _farm_with_shift(1000.0, 0)
 
 
-func _farm_with_shift(shift_seconds: float) -> Farm:
+func _farm_with_shift(shift_seconds: float, first_quota := FastTuning.FIRST_QUOTA) -> Farm:
 	var tuning := FastTuning.table()
 	tuning.shift_seconds = shift_seconds
+	tuning.first_quota = first_quota
 	var farm := Farm.new(tuning)
 	farm.take_messages()
 	return farm
 
 
-## Grows and picks `picks` plots, a crop at a time, at whatever growth the Generator has.
+## Grows and picks `picks` plots, a crop at a time, at whatever growth the Generator has, then
+## hands them in at the Shift's end and serves any Study Session a missed Quota brings.
 func _earn(picks: int) -> void:
 	for pick in picks:
 		_farm.plant(0)
 		_farm.run_generator()
 		_farm.advance(FastTuning.GROW_SECONDS)
 		_farm.pick(0)
+	HandingIn.finish_shift(_farm)
+	_farm.advance(_farm.study_session_seconds_left())
 
 
 func _item(id: StringName) -> StoreItemView:
@@ -92,7 +97,7 @@ func test_it_is_refused_when_he_cannot_afford_it() -> void:
 func test_it_is_refused_in_a_study_session() -> void:
 	_farm = _farm_with_shift(FastTuning.SHIFT_SECONDS)
 	_farm.debug_add_labour_points(100)
-	_farm.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
 
 	var result := _farm.buy_upgrade(Farm.GENERATOR)
 
@@ -143,8 +148,8 @@ func test_the_rest_hour_shows_why_it_cannot_be_bought() -> void:
 
 func test_the_rest_hour_shows_it_was_taken_away_after_a_missed_quota() -> void:
 	_farm = _farm_with_shift(FastTuning.SHIFT_SECONDS)
-	_farm.advance(FastTuning.SHIFT_SECONDS)
-	_farm.advance(FastTuning.STUDY_SESSION_SECONDS)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(_farm, FastTuning.STUDY_SESSION_SECONDS)
 
 	assert_eq(_item(Farm.REST_HOUR).refusal, Farm.PRIVILEGES_TAKEN_AWAY)
 

@@ -21,24 +21,25 @@ func _through_json(save: Dictionary) -> Dictionary:
 	return parsed
 
 
-## Two plots picked (the price of a rest hour, one short of the Quota), one growing, one
-## ripe, and the Worker part way through a lap on the Generator, tired enough that field work
-## is slow.
+## Two plots picked and in hand (one short of the Quota), one growing, one ripe, the price of a
+## rest hour from earlier Shifts, and the Worker part way through a lap on the Generator, tired
+## enough that field work is slow.
 func _played_farm() -> Farm:
 	var farm := _new_farm()
 	for index in 3:
 		farm.plant(index)
 	farm.run_generator()
-	farm.advance(FastTuning.GROW_SECONDS + 5.0)
+	HandingIn.advance(farm, FastTuning.GROW_SECONDS + 5.0)
 	farm.pick(0)
-	farm.advance(FastTuning.SLOW_ACTION_SECONDS)
+	HandingIn.advance(farm, FastTuning.SLOW_ACTION_SECONDS)
 	farm.pick(1)
-	farm.advance(FastTuning.SLOW_ACTION_SECONDS)
+	HandingIn.advance(farm, FastTuning.SLOW_ACTION_SECONDS)
 	farm.plant(0)
 	farm.run_generator()
-	farm.advance(12.0)
+	HandingIn.advance(farm, 12.0)
+	# Labour Points are paid at the Hand-in, so these stand in for an earlier Shift's.
+	farm.debug_add_labour_points(FastTuning.REST_HOUR_PRICE)
 	farm.take_messages()
-	assert_eq(farm.labour_points(), FastTuning.REST_HOUR_PRICE, "enough for a rest hour")
 	return farm
 
 
@@ -57,7 +58,7 @@ func _seen(farm: Farm) -> Dictionary:
 		family_events.append([event.kind, event.id])
 	return {
 		"plots": plots,
-		"shift": [shift.number, shift.quota, shift.picked, shift.seconds_left],
+		"shift": [shift.number, shift.quota, shift.picked, shift.seconds_left, shift.hand_in_open],
 		"labour_points": farm.labour_points(),
 		"debt": farm.debt(),
 		"worker": [worker.activity, worker.laps_left, worker.exhaustion],
@@ -103,23 +104,23 @@ func test_a_restored_farm_plays_on_exactly_as_the_saved_one() -> void:
 	assert_eq(_seen(restored), _seen(saved), "as restored")
 	var rest := func(farm: Farm) -> void:
 		farm.buy_privilege(Farm.REST_HOUR)
-		farm.advance(FastTuning.REST_HOUR_SECONDS + 3.0)
+		HandingIn.advance(farm, FastTuning.REST_HOUR_SECONDS + 3.0)
 	_assert_play_alike(saved, restored, rest, "through the rest hour")
 	assert_eq(saved.labour_points(), 0, "the rest hour was bought")
 	var work := func(farm: Farm) -> void:
 		farm.plant(1)
-		farm.advance(FastTuning.SLOW_ACTION_SECONDS)
+		HandingIn.advance(farm, FastTuning.SLOW_ACTION_SECONDS)
 		farm.plant(3)
 		farm.run_generator()
-		farm.advance(20.0)
+		HandingIn.advance(farm, 20.0)
 	_assert_play_alike(saved, restored, work, "planting and running")
-	var end_shift := func(farm: Farm) -> void: farm.advance(farm.shift().seconds_left)
+	var end_shift := func(farm: Farm) -> void: HandingIn.advance(farm, farm.shift().seconds_left)
 	_assert_play_alike(saved, restored, end_shift, "through the end of the Shift")
 	assert_true(saved.in_study_session(), "the Quota was missed")
 	var study := func(farm: Farm) -> void:
-		farm.advance(FastTuning.STUDY_SESSION_SECONDS / 2.0)
+		HandingIn.advance(farm, FastTuning.STUDY_SESSION_SECONDS / 2.0)
 		farm.resume_offline(FastTuning.STUDY_SESSION_SECONDS)
-		farm.advance(5.0)
+		HandingIn.advance(farm, 5.0)
 	_assert_play_alike(saved, restored, study, "through the Study Session, part offline")
 	assert_eq(restored.to_save(), saved.to_save(), "nothing hidden differs either")
 
@@ -210,7 +211,7 @@ func test_upgrade_tiers_and_the_quota_rise_still_to_come_survive_a_save() -> voi
 	assert_eq(problems, [] as Array[String])
 	assert_eq(_seen(restored), _seen(saved), "as restored")
 	assert_eq(restored.store()[0].tier, 1)
-	var end_shift := func(farm: Farm) -> void: farm.advance(farm.shift().seconds_left)
+	var end_shift := func(farm: Farm) -> void: HandingIn.advance(farm, farm.shift().seconds_left)
 	_assert_play_alike(saved, restored, end_shift, "through the end of the Shift")
 	var quota := (
 		FastTuning.FIRST_QUOTA + FastTuning.QUOTA_RISE + FastTuning.GENERATOR_QUOTA_RISES[0]
@@ -246,7 +247,7 @@ func test_tools_tiers_survive_a_save() -> void:
 	assert_eq(problems, [] as Array[String])
 	assert_eq(_seen(restored), _seen(saved), "as restored")
 	assert_eq(_tools(restored).tier, 1)
-	var end_shift := func(farm: Farm) -> void: farm.advance(farm.shift().seconds_left)
+	var end_shift := func(farm: Farm) -> void: HandingIn.advance(farm, farm.shift().seconds_left)
 	_assert_play_alike(saved, restored, end_shift, "through the end of the Shift")
 
 
@@ -308,7 +309,7 @@ func test_upgrade_tiers_beyond_the_tuning_now_are_cut_to_its_top_tier() -> void:
 
 func test_debt_survives_a_save() -> void:
 	var saved := Farm.new(FastTuning.billing_table())
-	saved.advance(FastTuning.SHIFT_SECONDS)
+	HandingIn.advance(saved, FastTuning.SHIFT_SECONDS)
 	var restored := Farm.new(FastTuning.billing_table())
 
 	var problems := restored.restore(_through_json(saved.to_save()))
@@ -336,16 +337,18 @@ func test_a_save_from_before_the_bills_restores_with_nothing_earned_or_run_this_
 	var restored_slip := _end_shift_slip(restored)
 	var saved_laps: int = saved_slip["laps"]
 	var restored_laps: int = restored_slip["laps"]
+	var saved_earned: int = saved_slip["earned"]
 	var restored_earned: int = restored_slip["earned"]
 	assert_gt(laps_before_save, 0, "laps were run before the save")
 	assert_eq(restored_laps, saved_laps - laps_before_save, "only laps after the restore count")
-	assert_eq(restored_earned, 0)
+	# Labour Points are paid only at the Hand-in, so nothing was earned before the save either way.
+	assert_eq(restored_earned, saved_earned)
 
 
 ## Plays to the end of the Shift and returns the pay slip's values.
 func _end_shift_slip(farm: Farm) -> Dictionary:
 	farm.take_messages()
-	farm.advance(farm.shift().seconds_left)
+	HandingIn.advance(farm, farm.shift().seconds_left)
 	for message in farm.take_messages():
 		if message.key == Farm.PAY_SLIP:
 			return message.values
@@ -388,5 +391,5 @@ func test_a_save_from_before_the_school_fees_has_them_due_three_shifts_on() -> v
 ## Ends `shifts` Shifts with nothing picked, serving each Study Session that follows.
 func _miss_shifts(farm: Farm, shifts: int) -> void:
 	for shift in shifts:
-		farm.advance(farm.shift().seconds_left)
-		farm.advance(farm.study_session_seconds_left())
+		HandingIn.advance(farm, farm.shift().seconds_left)
+		HandingIn.advance(farm, farm.study_session_seconds_left())

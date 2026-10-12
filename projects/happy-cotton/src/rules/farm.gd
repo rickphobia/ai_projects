@@ -7,8 +7,11 @@ extends RefCounted
 ## The Farm rules: the plots and the cotton growing in them. No scene tree, clock or file
 ## access: time only moves when advance() or resume_offline() is called, so tests play hours
 ## in milliseconds.
-## It also runs the Shift (see Shifts): online play counts it down, and at its end the Quota is
-## checked and the next Shift starts at once with a higher Quota. What The App should say comes
+## It also runs the Shift (see Shifts): online play counts it down, and at its end the Hand-in
+## opens. The Farm stands still until the Worker hands in his cotton: online time moves
+## nothing and every other command is refused, though offline time works as usual. Handing in
+## pays Labour Points for the cotton handed in (never at a pick), checks the Quota on it, and
+## starts the next Shift with a higher Quota. What The App should say comes
 ## out as AppMessages through take_messages(). A missed Quota starts a Study Session: the Worker
 ## can't plant or pick until it ends, and the next Shift's clock waits for it.
 ## The Worker is either in the field or on the Generator (see Toil). Crops grow only while he
@@ -50,6 +53,10 @@ const WITHERED := &"withered"
 const NOT_WITHERED := &"not_withered"
 ## He is still at a slow plant, pick or clear (Exhaustion above the slow threshold).
 const WORKER_BUSY := &"worker_busy"
+## The Shift's time ran out: nothing else happens until he hands in his cotton.
+const HAND_IN_OPEN := &"hand_in_open"
+## hand_in() was called with no Hand-in open.
+const NO_HAND_IN := &"no_hand_in"
 const RESTING := &"resting"
 ## He is on a call home: no field work, no Generator, no other Privilege until it ends.
 const ON_A_CALL := &"on_a_call"
@@ -76,6 +83,7 @@ const TOOLS := &"tools"
 const NO_SUCH_UPGRADE := &"no_such_upgrade"
 ## Every reason a store item can be refused with; the App text table explains each.
 const STORE_REFUSALS: Array[StringName] = [
+	HAND_IN_OPEN,
 	IN_STUDY_SESSION,
 	PRIVILEGES_TAKEN_AWAY,
 	RESTING,
@@ -94,9 +102,10 @@ const STORE_REFUSALS: Array[StringName] = [
 ## its own. Version 6 added the letters; an older save restores with none received and no
 ## letter Shifts passed. Version 7 added the call home; an older save restores with none under
 ## way. Version 8 added land; an older save restores with the first land's Plots only. Version 9
-## added longer laps; an older save's lap in progress takes lap_seconds.
-const SAVE_VERSION := 9
-const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, SAVE_VERSION]
+## added longer laps; an older save's lap in progress takes lap_seconds. Version 10 added the
+## Hand-in; an older save carries on with the Shift's picks as cotton in hand and none open.
+const SAVE_VERSION := 10
+const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, SAVE_VERSION]
 ## The lowest balance a save can hold: Debt can grow, but not without end.
 const LEAST_SAVED_BALANCE := -1000000000
 
@@ -106,6 +115,9 @@ const OFFLINE_TIME_CAPPED := &"offline_time_capped"
 
 ## App message keys. The Shift's own are documented in Shifts.
 const SHIFT_STARTED := Shifts.SHIFT_STARTED
+const HAND_IN_OPENED := Shifts.HAND_IN_OPENED
+## The Worker handed in his cotton: values shift, handed_in, earned (Labour Points for it).
+const HANDED_IN := &"handed_in"
 const QUOTA_MET := Shifts.QUOTA_MET
 const QUOTA_MISSED := Shifts.QUOTA_MISSED
 const QUOTA_MISSED_AGAIN := Shifts.QUOTA_MISSED_AGAIN
@@ -146,6 +158,8 @@ const CHILDREN_AT_SCHOOL := &"children_at_school"
 ## Every key the rules can emit; the App text table must have text for each.
 const MESSAGE_KEYS: Array[StringName] = [
 	SHIFT_STARTED,
+	HAND_IN_OPENED,
+	HANDED_IN,
 	QUOTA_MET,
 	QUOTA_MISSED,
 	QUOTA_MISSED_AGAIN,
@@ -174,34 +188,11 @@ const LETTERS_STOPPED := Shifts.LETTERS_STOPPED
 const LETTERS_STARTED_AGAIN := &"letters_started_again"
 ## The Worker called home: id is one of CALL_IDS.
 const CALLED_HOME := &"called_home"
-## Every call home the Family text table must have lines for, in the order the Children's tone
-## changes. The first is for a call before any letter has come.
-const CALL_IDS: Array[StringName] = [&"call_01", &"call_02", &"call_03", &"call_04"]
-## The call that follows each letter, so a call sounds like the latest letter received.
-const LETTER_CALLS: Dictionary[StringName, StringName] = {
-	&"letter_01": &"call_01",
-	&"letter_02": &"call_01",
-	&"letter_03": &"call_02",
-	&"letter_04": &"call_02",
-	&"letter_05": &"call_03",
-	&"letter_06": &"call_03",
-	&"letter_07": &"call_04",
-	&"letter_08": &"call_04",
-}
-## Every letter, in the order they arrive; the Family text table must have text for each. Their
-## tone moves from warm and homesick to distant and full of school slogans. Saves hold these
-## ids, and one that holds an unknown id is damaged, so add new letters at the end and never
-## rename or remove one.
-const LETTER_IDS: Array[StringName] = [
-	&"letter_01",
-	&"letter_02",
-	&"letter_03",
-	&"letter_04",
-	&"letter_05",
-	&"letter_06",
-	&"letter_07",
-	&"letter_08",
-]
+## Every call home the Family text table must have lines for (see Letters).
+const CALL_IDS := Letters.CALL_IDS
+## The call that follows each letter, and every letter in the order they arrive (see Letters).
+const LETTER_CALLS := Letters.CALLS
+const LETTER_IDS := Letters.IDS
 ## Overseer events, for the field and its sounds; never App text. He blew his whistle at the
 ## Worker stopped to breathe.
 const OVERSEER_WHISTLE := Toil.WHISTLE
@@ -259,8 +250,9 @@ func _init(tuning: Tuning, roll: Callable = Callable()) -> void:
 
 
 func plant(index: int) -> CommandResult:
-	if in_study_session():
-		return CommandResult.refused(IN_STUDY_SESSION)
+	var held_up := _held_up()
+	if held_up != &"":
+		return CommandResult.refused(held_up)
 	if not _crops.exists(index):
 		return CommandResult.refused(NO_SUCH_PLOT)
 	if _crops.is_withered(index):
@@ -275,9 +267,9 @@ func plant(index: int) -> CommandResult:
 	return CommandResult.done()
 
 
-## Picks ripe cotton. Exhausted past the mistake threshold, he can drop it: the plot is
-## emptied, but nothing counts towards the Quota and nothing is earned. Better tools make a
-## slow pick shorter and a drop less likely.
+## Picks ripe cotton into his hands: the crop counter goes up by one, and it is paid for only
+## when handed in. Exhausted past the mistake threshold, he can drop it: the plot is emptied,
+## but nothing is counted. Better tools make a slow pick shorter and a drop less likely.
 func pick(index: int) -> CommandResult:
 	var refusal := _pick_refusal(index)
 	if refusal != &"":
@@ -293,15 +285,30 @@ func pick(index: int) -> CommandResult:
 		_messages.append(AppMessage.new(COTTON_DROPPED, {}))
 	else:
 		_shifts.count_pick()
-		var were_stopped := letters_stopped()
-		_note_paid_in(_ledger.earn(roundi(_tuning.labour_points_per_pick)), were_stopped)
+	return CommandResult.done()
+
+
+## Hands in all the cotton in hand and runs the rest of the Shift end: Labour Points for it,
+## the Quota check on it, the Bills, the Exhaustion floor rise and the next Shift.
+func hand_in() -> CommandResult:
+	if not hand_in_open():
+		return CommandResult.refused(NO_HAND_IN)
+	var handed_in := _shifts.cotton_in_hand()
+	var earned := handed_in * roundi(_tuning.labour_points_per_pick)
+	var values := {"shift": _shifts.view().number, "handed_in": handed_in, "earned": earned}
+	_messages.append(AppMessage.new(HANDED_IN, values))
+	var were_stopped := letters_stopped()
+	_note_paid_in(_ledger.earn(earned), were_stopped)
+	_shifts.hand_in(handed_in)
+	_cut_short_for_study_session()
 	return CommandResult.done()
 
 
 ## Empties a Withered plot so it can be planted again. Like planting, it is field work.
 func clear(index: int) -> CommandResult:
-	if in_study_session():
-		return CommandResult.refused(IN_STUDY_SESSION)
+	var held_up := _held_up()
+	if held_up != &"":
+		return CommandResult.refused(held_up)
 	if not _crops.exists(index):
 		return CommandResult.refused(NO_SUCH_PLOT)
 	if not _crops.is_withered(index):
@@ -316,8 +323,9 @@ func clear(index: int) -> CommandResult:
 
 ## Sends the Worker to run on the Generator. Sending him while he is on it changes nothing.
 func run_generator() -> CommandResult:
-	if in_study_session():
-		return CommandResult.refused(IN_STUDY_SESSION)
+	var held_up := _held_up()
+	if held_up != &"":
+		return CommandResult.refused(held_up)
 	var unable := _away_from_work()
 	if unable != &"":
 		return CommandResult.refused(unable)
@@ -421,13 +429,15 @@ func _buy_rest_hour() -> CommandResult:
 
 
 ## Moves the Farm on by some seconds of online play. Time never runs backwards, so a
-## negative step does nothing. The clock that runs is the Study Session's while the Worker is
+## negative step does nothing, and while the Hand-in is open nothing moves: the step stops
+## where it opens. The clock that runs is the Study Session's while the Worker is
 ## in one, and the Shift's otherwise; crops grow only while he runs on the Generator.
 ## Returns what the Overseer did in that time (OVERSEER_WHISTLE, OVERSEER_WHIP), oldest first,
 ## for the scene to show as it happens; they are not saved.
 func advance(seconds: float) -> Array[StringName]:
 	var overseer_events: Array[StringName] = []
-	_busy_left = maxf(0.0, _busy_left - maxf(seconds, 0.0))
+	if hand_in_open():
+		return overseer_events
 	var remaining := seconds
 	# One long step can cover several Shifts, Study Sessions, runs, breaths, rests and
 	# Witherings; each ends in turn.
@@ -452,6 +462,10 @@ func advance(seconds: float) -> Array[StringName]:
 			_cut_short_for_study_session()
 			# After the Shift's end, so a missed Quota's shorter Study Session can't replace it.
 			_log_negligence(withered)
+			if hand_in_open():
+				break
+	# Only the time that passed before the Hand-in opened, if it did.
+	_busy_left = maxf(0.0, _busy_left - (maxf(seconds, 0.0) - maxf(remaining, 0.0)))
 	return overseer_events
 
 
@@ -532,7 +546,8 @@ func to_save() -> Dictionary:
 ## Timers are held to what the tuning table allows now, in case it shortened them since the
 ## save was written; the save's other numbers are taken as they are. A version 1 save, from
 ## before the store, restores with no Upgrades; a negative balance restores as Debt. One from
-## before land (version 7 or older) restores with the first land's Plots only.
+## before land (version 7 or older) restores with the first land's Plots only. One from before
+## the Hand-in (version 9 or older) keeps the Shift's picks as cotton in hand.
 func restore(save: Dictionary) -> Array[String]:
 	var reader := SaveReader.new(save)
 	var version := reader.whole("version")
@@ -550,6 +565,7 @@ func restore(save: Dictionary) -> Array[String]:
 	var shift_number := reader.whole("shift_number", 1)
 	var shift_elapsed := reader.number("shift_elapsed")
 	var picked := reader.whole("picked")
+	var hand_in_is_open := reader.flag("hand_in_open") if version >= 10 else false
 	var balance := reader.whole("labour_points", LEAST_SAVED_BALANCE)
 	var shift_earned := reader.whole("shift_earned") if version >= 4 else 0
 	var fees_shift := shift_number + _fees_every()
@@ -586,6 +602,7 @@ func restore(save: Dictionary) -> Array[String]:
 		shift_number,
 		shift_elapsed,
 		picked,
+		hand_in_is_open,
 		study_left,
 		misses_in_a_row,
 		privileges_taken_away,
@@ -676,6 +693,11 @@ func in_study_session() -> bool:
 	return _shifts.in_study_session()
 
 
+## Set from the moment the Shift's time runs out until hand_in().
+func hand_in_open() -> bool:
+	return _shifts.hand_in_open()
+
+
 ## Seconds until the Worker is back on the field; 0 when they are on it.
 func study_session_seconds_left() -> float:
 	return _shifts.study_session_seconds_left()
@@ -732,8 +754,9 @@ func _rest_hour_price() -> int:
 
 ## Why a Privilege costing `price` can't be bought right now, or &"" when it can.
 func _privilege_refusal(price: int) -> StringName:
-	if in_study_session():
-		return IN_STUDY_SESSION
+	var held_up := _held_up()
+	if held_up != &"":
+		return held_up
 	if _shifts.privileges_taken_away():
 		return PRIVILEGES_TAKEN_AWAY
 	var away := _away_from_work()
@@ -777,8 +800,9 @@ func _plot_refusal() -> StringName:
 ## Why something costing `price` can't be bought from the store right now, once it is known
 ## to be for sale, or &"" when it can.
 func _purchase_refusal(price: int) -> StringName:
-	if in_study_session():
-		return IN_STUDY_SESSION
+	var held_up := _held_up()
+	if held_up != &"":
+		return held_up
 	if _ledger.in_debt():
 		return IN_DEBT
 	if not _ledger.can_afford(price):
@@ -799,20 +823,22 @@ func _land_view() -> StoreItemView:
 ## and why it can't be bought right now.
 func store() -> Array[StoreItemView]:
 	var generator_next := _store.next_generator_tier()
-	var generator := _upgrade_view(
+	var generator := StoreItemView.next_tier(
 		GENERATOR,
 		Vector2i(_store.generator_tier(), _store.generator_top_tier()),
 		generator_next,
 		generator_next.growth_multiplier if generator_next != null else 0.0,
-		_store.growth_multiplier()
+		_store.growth_multiplier(),
+		_upgrade_refusal(GENERATOR)
 	)
 	var tools_next := _store.next_tools_tier()
-	var tools := _upgrade_view(
+	var tools := StoreItemView.next_tier(
 		TOOLS,
 		Vector2i(_store.tools_tier(), _store.tools_top_tier()),
 		tools_next,
 		tools_next.work_share if tools_next != null else 0.0,
-		_store.work_share()
+		_store.work_share(),
+		_upgrade_refusal(TOOLS)
 	)
 	var rest_price := _rest_hour_price()
 	var rest_hour := StoreItemView.new(
@@ -823,25 +849,6 @@ func store() -> Array[StoreItemView]:
 		CALL_HOME, StoreItemView.Kind.PRIVILEGE, call_price, _privilege_refusal(call_price)
 	)
 	return [generator, tools, _land_view(), rest_hour, call_home]
-
-
-## The store's view of an Upgrade. Fully upgraded (`next` null), it shows the owned tier's
-## effect, no price and no Quota rise.
-func _upgrade_view(
-	upgrade: StringName, tiers: Vector2i, next: Resource, next_effect: float, current: float
-) -> StoreItemView:
-	var price := 0
-	var effect := current
-	var rise := 0
-	if next != null:
-		var next_price: float = next.get("price")
-		var next_rise: float = next.get("quota_rise")
-		price = roundi(next_price)
-		effect = next_effect
-		rise = roundi(next_rise)
-	return StoreItemView.upgrade(
-		upgrade, tiers, price, Vector2(effect, current), rise, _upgrade_refusal(upgrade)
-	)
 
 
 ## What The App should say since the last call, oldest first. Empties the queue.
@@ -923,8 +930,9 @@ func _cut_short_for_study_session() -> void:
 
 ## Why plot `index` can't be picked right now, or &"" when it can.
 func _pick_refusal(index: int) -> StringName:
-	if in_study_session():
-		return IN_STUDY_SESSION
+	var held_up := _held_up()
+	if held_up != &"":
+		return held_up
 	if not _crops.exists(index):
 		return NO_SUCH_PLOT
 	if _crops.is_empty(index):
@@ -934,6 +942,16 @@ func _pick_refusal(index: int) -> StringName:
 	if not _crops.is_ripe(index):
 		return NOT_RIPE
 	return _unable_to_work()
+
+
+## HAND_IN_OPEN or IN_STUDY_SESSION while either holds up every command but handing in, or
+## &"" when neither does.
+func _held_up() -> StringName:
+	if hand_in_open():
+		return HAND_IN_OPEN
+	if in_study_session():
+		return IN_STUDY_SESSION
+	return &""
 
 
 ## Why the Worker can't do field work right now, or &"" when he can.

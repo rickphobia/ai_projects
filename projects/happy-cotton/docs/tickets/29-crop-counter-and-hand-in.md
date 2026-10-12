@@ -4,20 +4,20 @@
 
 **Blocked by:** 28 (Longer laps on a bigger Farm)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** rules, content/app-text, adapters/app-overlay, adapters/save
 
 **Effort:** medium
 
-- [ ] The crop counter goes up by one for every pick that doesn't drop its cotton, fills the Quota bar, and goes back to zero when the next Shift starts
-- [ ] A "+1" rises from the Plot on each counted pick
-- [ ] No Labour Points are paid at a pick; the Hand-in pays them for the cotton handed in
-- [ ] When a Shift's time runs out the Hand-in opens; online time moves nothing and every other command is refused until he hands in; offline time works as usual
-- [ ] Handing in runs the Shift end: Labour Points, the Quota check on what was handed in, Bills, the Exhaustion floor rise, the next Shift
-- [ ] The Hand-in card shows the cotton in hand against the Quota
-- [ ] An open Hand-in and the counter are saved; a previous-version save carries on with the Shift's picks as cotton in hand
-- [ ] Existing tests that count Labour Points after a pick hand in first; none is deleted or weakened
-- [ ] A decision record explains why wages are paid at the Hand-in
-- [ ] Each Hand-in (handed in) is logged
-- [ ] GUT tests through Farm cover the counter, the Hand-in, wages and the Quota on what was handed in
+- [x] The crop counter goes up by one for every pick that doesn't drop its cotton, fills the Quota bar, and goes back to zero when the next Shift starts
+- [x] A "+1" rises from the Plot on each counted pick
+- [x] No Labour Points are paid at a pick; the Hand-in pays them for the cotton handed in
+- [x] When a Shift's time runs out the Hand-in opens; online time moves nothing and every other command is refused until he hands in; offline time works as usual
+- [x] Handing in runs the Shift end: Labour Points, the Quota check on what was handed in, Bills, the Exhaustion floor rise, the next Shift
+- [x] The Hand-in card shows the cotton in hand against the Quota
+- [x] An open Hand-in and the counter are saved; a previous-version save carries on with the Shift's picks as cotton in hand
+- [x] Existing tests that count Labour Points after a pick hand in first; none is deleted or weakened
+- [x] A decision record explains why wages are paid at the Hand-in
+- [x] Each Hand-in (handed in) is logged
+- [x] GUT tests through Farm cover the counter, the Hand-in, wages and the Quota on what was handed in

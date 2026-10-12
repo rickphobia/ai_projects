@@ -273,6 +273,11 @@ func show_time_left(index: int, seconds_left: float) -> void:
 	_time_left.visible = true
 
 
+## Where plot `index` is on the screen, for The App to show something rising from it.
+func plot_screen_position(index: int) -> Vector2:
+	return _camera.unproject_position(to_global(_grid.centre_of(index)))
+
+
 ## "2:05 left": whole seconds rounded up, so the label never shows 0:00 on a growing plot.
 static func time_left_text(seconds_left: float) -> String:
 	var whole := ceili(seconds_left)

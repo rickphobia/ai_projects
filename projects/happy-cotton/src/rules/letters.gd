@@ -6,6 +6,35 @@ extends RefCounted
 ## out no new letters come. Whether they are stopped is the Ledger's "school fees unpaid", so
 ## Farm passes it in. Farm owns this; tested through Farm, not on its own.
 
+## Every call home the Family text table must have lines for, in the order the Children's tone
+## changes. The first is for a call before any letter has come.
+const CALL_IDS: Array[StringName] = [&"call_01", &"call_02", &"call_03", &"call_04"]
+## The call that follows each letter, so a call sounds like the latest letter received.
+const CALLS: Dictionary[StringName, StringName] = {
+	&"letter_01": &"call_01",
+	&"letter_02": &"call_01",
+	&"letter_03": &"call_02",
+	&"letter_04": &"call_02",
+	&"letter_05": &"call_03",
+	&"letter_06": &"call_03",
+	&"letter_07": &"call_04",
+	&"letter_08": &"call_04",
+}
+## Every letter, in the order they arrive; the Family text table must have text for each. Their
+## tone moves from warm and homesick to distant and full of school slogans. Saves hold these
+## ids, and one that holds an unknown id is damaged, so add new letters at the end and never
+## rename or remove one.
+const IDS: Array[StringName] = [
+	&"letter_01",
+	&"letter_02",
+	&"letter_03",
+	&"letter_04",
+	&"letter_05",
+	&"letter_06",
+	&"letter_07",
+	&"letter_08",
+]
+
 var _ids: Array[StringName]
 var _letter_shifts := 0
 var _received: Array[StringName] = []

@@ -36,7 +36,7 @@ func _ripen_online(indexes: Array[int]) -> void:
 	for index in indexes:
 		_farm.plant(index)
 	_farm.run_generator()
-	_farm.advance(FastTuning.GROW_SECONDS)
+	HandingIn.advance(_farm, FastTuning.GROW_SECONDS)
 
 
 func test_ripe_cotton_withers_offline_at_exactly_the_wither_time_and_not_before() -> void:
@@ -56,10 +56,10 @@ func test_ripe_cotton_withers_online_even_off_the_generator() -> void:
 	_farm.plant(1)
 	assert_eq(_farm.worker().activity, WorkerView.Activity.IN_FIELD)
 
-	_farm.advance(FastTuning.WITHER_SECONDS - 1.0)
+	HandingIn.advance(_farm, FastTuning.WITHER_SECONDS - 1.0)
 	assert_eq(_stage(0), PlotView.Stage.RIPE)
 
-	_farm.advance(1.0)
+	HandingIn.advance(_farm, 1.0)
 	assert_eq(_stage(0), PlotView.Stage.WITHERED)
 	assert_eq(_stage(1), PlotView.Stage.SEEDLING, "the plot that never ripened stays as it was")
 
@@ -68,7 +68,7 @@ func test_one_long_step_withers_at_the_wither_time_and_serves_the_rest_as_study(
 	_farm.plant(0)
 	_farm.run_generator()
 
-	_farm.advance(FastTuning.GROW_SECONDS + FastTuning.WITHER_SECONDS + 10.0)
+	HandingIn.advance(_farm, FastTuning.GROW_SECONDS + FastTuning.WITHER_SECONDS + 10.0)
 
 	assert_eq(_stage(0), PlotView.Stage.WITHERED)
 	assert_eq(
@@ -95,7 +95,7 @@ func _farm_with_ripe_cotton_in_a_study_session() -> Farm:
 	var farm := Farm.new(tuning)
 	farm.plant(0)
 	farm.resume_offline(_offline_ripen_seconds())
-	farm.advance(10.0)
+	HandingIn.advance(farm, 10.0)
 	assert_true(farm.in_study_session(), "the Quota was missed")
 	return farm
 
@@ -103,7 +103,7 @@ func _farm_with_ripe_cotton_in_a_study_session() -> Farm:
 func test_nothing_withers_during_an_online_study_session() -> void:
 	var farm := _farm_with_ripe_cotton_in_a_study_session()
 
-	farm.advance(45.0)
+	HandingIn.advance(farm, 45.0)
 	assert_false(farm.in_study_session())
 	assert_eq(farm.plot(0).stage, PlotView.Stage.RIPE)
 
@@ -127,7 +127,9 @@ func test_negligence_docks_labour_points_for_a_withered_plot() -> void:
 	_ripen_online([0, 1, 2])
 	_farm.pick(1)
 	_farm.pick(2)
+	# Picks are paid only at the Hand-in, so these stand in for an earlier Shift's Labour Points.
 	var earned := 2 * FastTuning.LABOUR_POINTS_PER_PICK
+	_farm.debug_add_labour_points(earned)
 
 	_farm.resume_offline(FastTuning.WITHER_SECONDS)
 
@@ -141,6 +143,7 @@ func test_negligence_docks_labour_points_for_each_withered_plot() -> void:
 	_ripen_online([0, 1, 2, 3])
 	_farm.pick(2)
 	_farm.pick(3)
+	_farm.debug_add_labour_points(2 * FastTuning.LABOUR_POINTS_PER_PICK)
 
 	_farm.resume_offline(FastTuning.WITHER_SECONDS)
 
@@ -174,6 +177,7 @@ func test_negligence_starts_a_study_session_longer_than_one_for_a_missed_quota()
 func test_negligence_is_logged_with_the_plots_and_points_docked() -> void:
 	_ripen_online([0, 1, 2])
 	_farm.pick(2)
+	_farm.debug_add_labour_points(FastTuning.LABOUR_POINTS_PER_PICK)
 	_farm.take_messages()
 
 	_farm.resume_offline(FastTuning.WITHER_SECONDS)
@@ -215,7 +219,7 @@ func test_the_away_summary_counts_withered_plots_and_what_ripened_before_witheri
 func test_a_withered_plot_cannot_be_planted_or_picked() -> void:
 	_ripen_online([0])
 	_farm.resume_offline(FastTuning.WITHER_SECONDS)
-	_farm.advance(_farm.study_session_seconds_left())
+	HandingIn.advance(_farm, _farm.study_session_seconds_left())
 
 	var planted := _farm.plant(0)
 	var picked := _farm.pick(0)
@@ -230,7 +234,7 @@ func test_a_withered_plot_cannot_be_planted_or_picked() -> void:
 func test_clearing_a_withered_plot_empties_it_for_planting() -> void:
 	_ripen_online([0])
 	_farm.resume_offline(FastTuning.WITHER_SECONDS)
-	_farm.advance(_farm.study_session_seconds_left())
+	HandingIn.advance(_farm, _farm.study_session_seconds_left())
 	_farm.run_generator()
 
 	var result := _farm.clear(0)

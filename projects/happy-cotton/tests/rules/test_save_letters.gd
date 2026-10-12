@@ -16,8 +16,8 @@ func _through_json(save: Dictionary) -> Dictionary:
 ## Ends `shifts` Shifts with nothing picked, serving each Study Session that follows.
 func _miss_shifts(farm: Farm, shifts: int) -> void:
 	for shift in shifts:
-		farm.advance(farm.shift().seconds_left)
-		farm.advance(farm.study_session_seconds_left())
+		HandingIn.advance(farm, farm.shift().seconds_left)
+		HandingIn.advance(farm, farm.study_session_seconds_left())
 
 
 ## What a player could see of the letters, and what the Family sent.

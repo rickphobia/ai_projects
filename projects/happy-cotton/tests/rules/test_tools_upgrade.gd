@@ -27,10 +27,10 @@ func _plant_and_ripen_until(level: float) -> void:
 	var index := 0
 	while _farm.exhaustion() <= level:
 		assert_true(_farm.plant(index).happened, "plant %d" % index)
-		_farm.advance(FastTuning.SLOW_ACTION_SECONDS)
+		HandingIn.advance(_farm, FastTuning.SLOW_ACTION_SECONDS)
 		index += 1
 	_farm.run_generator()
-	_farm.advance(FastTuning.GROW_SECONDS)
+	HandingIn.advance(_farm, FastTuning.GROW_SECONDS)
 
 
 func _buy_tools(tiers: int) -> void:
@@ -91,9 +91,9 @@ func test_a_tools_tier_shortens_a_slow_pick_at_once() -> void:
 	var shortened := FastTuning.SLOW_ACTION_SECONDS * FastTuning.TOOLS_WORK_SHARES[0]
 
 	_farm.pick(0)
-	_farm.advance(shortened - 0.1)
+	HandingIn.advance(_farm, shortened - 0.1)
 	var too_soon := _farm.pick(1)
-	_farm.advance(0.1)
+	HandingIn.advance(_farm, 0.1)
 	var in_time := _farm.pick(1)
 
 	assert_eq(too_soon.reason, Farm.WORKER_BUSY)
@@ -106,7 +106,7 @@ func test_tools_leave_planting_as_slow_as_before() -> void:
 	var next := PLOTS - 1
 
 	_farm.plant(next - 1)
-	_farm.advance(FastTuning.SLOW_ACTION_SECONDS - 0.5)
+	HandingIn.advance(_farm, FastTuning.SLOW_ACTION_SECONDS - 0.5)
 
 	assert_eq(_farm.plant(next).reason, Farm.WORKER_BUSY)
 
@@ -138,8 +138,8 @@ func test_its_quota_rise_starts_with_the_next_shift_as_the_generators_does() -> 
 	_buy_tools(1)
 	var quota := _farm.shift().quota
 
-	_farm.advance(SHIFT_SECONDS)
-	_farm.advance(_farm.study_session_seconds_left())
+	HandingIn.advance(_farm, SHIFT_SECONDS)
+	HandingIn.advance(_farm, _farm.study_session_seconds_left())
 
 	assert_eq(quota, FastTuning.FIRST_QUOTA, "the current Shift keeps its Quota")
 	assert_eq(
@@ -153,8 +153,8 @@ func test_the_generator_and_tools_quota_rises_add_up() -> void:
 	_farm.debug_add_labour_points(FastTuning.GENERATOR_PRICES[0])
 	_farm.buy_upgrade(Farm.GENERATOR)
 
-	_farm.advance(SHIFT_SECONDS)
-	_farm.advance(_farm.study_session_seconds_left())
+	HandingIn.advance(_farm, SHIFT_SECONDS)
+	HandingIn.advance(_farm, _farm.study_session_seconds_left())
 
 	var rises := FastTuning.TOOLS_QUOTA_RISES[0] + FastTuning.GENERATOR_QUOTA_RISES[0]
 	assert_eq(_farm.shift().quota, FastTuning.FIRST_QUOTA + FastTuning.QUOTA_RISE + rises)
@@ -174,7 +174,7 @@ func test_fully_upgraded_tools_are_marked_and_refused() -> void:
 
 
 func test_tools_cannot_be_bought_in_a_study_session() -> void:
-	_farm.advance(SHIFT_SECONDS)
+	HandingIn.advance(_farm, SHIFT_SECONDS)
 	_farm.debug_add_labour_points(FastTuning.TOOLS_PRICES[0])
 
 	assert_eq(_farm.buy_upgrade(Farm.TOOLS).reason, Farm.IN_STUDY_SESSION)
