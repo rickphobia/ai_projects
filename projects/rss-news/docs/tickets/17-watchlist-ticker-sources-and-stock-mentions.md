@@ -4,15 +4,15 @@
 
 **Blocked by:** 16 (Notes)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** stocks, adapters/sqlite/stocks, sources/catalog, scoring, web/stocks, pwa/stocks, pwa/shell
 
 **Effort:** medium
 
-- [ ] Watchlist API: list, add, remove; ticker symbols validated for US and `.KL` formats
-- [ ] Holdings stored (read-only in the API, empty until ticket 18)
-- [ ] One ticker-news Source per Holding or Watchlist stock, created and removed automatically
-- [ ] Scoring returns the owner's stocks each Item mentions, and the Item stores them
-- [ ] PWA Stocks screen; Inbox and Item view show the stocks an Item mentions
-- [ ] API tests cover validation, Source creation and removal, and mentions from the fake model; a Vitest test covers adding a ticker
+- [x] Watchlist API: list, add, remove; ticker symbols validated for US and `.KL` formats
+- [x] Holdings stored (read-only in the API, empty until ticket 18)
+- [x] One ticker-news Source per Holding or Watchlist stock, created and removed automatically
+- [x] Scoring returns the owner's stocks each Item mentions, and the Item stores them
+- [x] PWA Stocks screen; Inbox and Item view show the stocks an Item mentions
+- [x] API tests cover validation, Source creation and removal, and mentions from the fake model; a Vitest test covers adding a ticker

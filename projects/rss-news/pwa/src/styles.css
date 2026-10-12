@@ -487,6 +487,22 @@ form label {
   margin-top: var(--space-1);
 }
 
+/* The owner's stocks an Item mentions, in the Inbox row and the Item view. */
+.stock-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.stock-tag {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
 .importance {
   min-width: 1.5rem;
   padding: 0 var(--space-1);

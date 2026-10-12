@@ -16,6 +16,7 @@ const STORY: InboxItem = {
   summary: "Malaysia's central bank kept its policy rate at 2.75%.",
   read: false,
   imageUrl: null,
+  stocks: [],
 };
 
 function readerView(): HTMLElement {
@@ -31,6 +32,15 @@ describe("the Item view", () => {
     document.body.replaceChildren(root);
     api = new FakeApiClient();
     api.items = [{ ...STORY }];
+  });
+
+  it("shows the owner's stocks the Item mentions", async () => {
+    api.items = [{ ...STORY, stocks: ["1155.KL"] }];
+    await renderItem(root, api, 7, () => undefined);
+
+    expect(screen.getByLabelText("Mentions 1155.KL").textContent).toBe(
+      "1155.KL",
+    );
   });
 
   it("shows the summary, Source, time and Importance at once, with the original link", async () => {

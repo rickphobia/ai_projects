@@ -6,6 +6,7 @@ import {
 } from "../api/client";
 import { renderChatPanel, type ChatPanelOptions } from "./chat";
 import { relativeTime, shownTime } from "./shown-time";
+import { stockTags } from "./stock-tags";
 
 export type InboxChat = Pick<
   ChatPanelOptions,
@@ -264,6 +265,8 @@ function itemRow(
   const details = document.createElement("small");
   details.className = "inbox-row-meta";
   details.append(`${item.source} · `, time);
+  const tags = stockTags(item.stocks);
+  if (tags) details.append(" ", tags);
   body.append(details);
   row.append(pick, body);
   if (item.imageUrl !== null) {
