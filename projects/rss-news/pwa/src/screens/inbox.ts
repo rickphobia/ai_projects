@@ -4,22 +4,18 @@ import {
   type InboxItem,
   type InboxQuery,
 } from "../api/client";
+import { shownTime } from "./shown-time";
 
 const ALL_FOLDERS = "";
 const ANY_IMPORTANCE = "";
 
-const shownTime = new Intl.DateTimeFormat(undefined, {
-  day: "numeric",
-  month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
 // The Inbox: every Item newest first or most important first, filters by Folder and
-// Importance, and a button for the next page.
+// Importance, and a button for the next page. Unread Items are marked; choosing one calls
+// onOpen with its id.
 export async function renderInbox(
   root: HTMLElement,
   api: ApiClient,
+  onOpen: (itemId: number) => void,
 ): Promise<void> {
   const filter = document.createElement("select");
   filter.append(new Option("All folders", ALL_FOLDERS));
@@ -69,7 +65,7 @@ export async function renderInbox(
     try {
       const page = await api.inbox(pageQuery);
       if (thisLoad !== latestLoad) return;
-      const rows = page.items.map(itemRow);
+      const rows = page.items.map((item) => itemRow(item, onOpen));
       if (append) list.append(...rows);
       else list.replaceChildren(...rows);
       nextCursor = page.nextCursor;
@@ -137,8 +133,17 @@ function emptyMessage(query: InboxQuery): string {
     : "No Items match these filters.";
 }
 
-function itemRow(item: InboxItem): HTMLLIElement {
+function itemRow(
+  item: InboxItem,
+  onOpen: (itemId: number) => void,
+): HTMLLIElement {
   const row = document.createElement("li");
+  if (!item.read) {
+    const unread = document.createElement("span");
+    unread.textContent = "●";
+    unread.setAttribute("aria-label", "Unread");
+    row.append(unread, " ");
+  }
   const importance = document.createElement("span");
   // Unscored Items wait for the next scoring run; they show a dash until then.
   importance.textContent =
@@ -150,10 +155,13 @@ function itemRow(item: InboxItem): HTMLLIElement {
       : `Importance ${String(item.importance)}`,
   );
   const link = document.createElement("a");
-  link.href = item.url;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
+  // A real link, so it can be focused and read out; the Item view opens in the app.
+  link.href = `#items/${String(item.id)}`;
   link.textContent = item.title;
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    onOpen(item.id);
+  });
   const details = document.createElement("small");
   details.textContent = ` ${item.source} · ${shownTime.format(new Date(item.publishedAt))}`;
   row.append(importance, " ", link, details);

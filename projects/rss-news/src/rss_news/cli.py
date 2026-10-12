@@ -9,6 +9,7 @@ from typing import TextIO
 
 import uvicorn
 
+from rss_news.adapters.article_extractor import TrafilaturaArticleExtractor
 from rss_news.adapters.feed_fetcher import HttpFeedFetcher
 from rss_news.adapters.language_model import AnthropicLanguageModel
 from rss_news.adapters.sqlite.database import DatabaseError, SqliteDatabase
@@ -33,6 +34,9 @@ def serve(settings: Settings) -> int:
     feed_fetcher = HttpFeedFetcher(
         user_agent=settings.user_agent, timeout=settings.fetch_timeout, clock=clock
     )
+    article_extractor = TrafilaturaArticleExtractor(
+        user_agent=settings.user_agent, timeout=settings.fetch_timeout
+    )
     language_model = AnthropicLanguageModel(
         api_key=settings.anthropic_api_key,
         scoring_model=settings.scoring_model,
@@ -44,6 +48,7 @@ def serve(settings: Settings) -> int:
         database=database,
         feed_fetcher=feed_fetcher,
         language_model=language_model,
+        article_extractor=article_extractor,
         clock=clock,
         starter_folders=STARTER_FOLDERS,
         run_tick_loop=True,
@@ -57,6 +62,7 @@ def serve(settings: Settings) -> int:
         uvicorn.run(wiring.app, host=settings.host, port=settings.port, log_config=None)
     finally:
         feed_fetcher.close()
+        article_extractor.close()
         language_model.close()
     return 0
 

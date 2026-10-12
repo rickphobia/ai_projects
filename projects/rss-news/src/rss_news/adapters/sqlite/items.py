@@ -1,12 +1,35 @@
-"""Items in SQLite: storing each clean URL once, the Inbox query, and their scores."""
+"""Items in SQLite: storing each clean URL once, the Inbox query, read state and scores."""
 
 from collections.abc import Sequence
 from datetime import datetime
+from typing import Any
 
 from rss_news.adapters.sqlite.database import SqliteDatabase, from_db_time, to_db_time
 from rss_news.clock import Clock
 from rss_news.items.inbox import InboxItem, InboxOrder, InboxPosition, NewItem
 from rss_news.scoring.item_scoring import ItemScore, UnscoredItem
+
+_INBOX_SELECT = (
+    "SELECT items.id, items.title, items.url, sources.name, folders.id, folders.name, "
+    "items.published_at, items.importance, items.summary, items.read_at IS NOT NULL "
+    "FROM items JOIN sources ON sources.id = items.source_id "
+    "JOIN folders ON folders.id = sources.folder_id"
+)
+
+
+def _inbox_item(row: tuple[Any, ...]) -> InboxItem:
+    return InboxItem(
+        id=row[0],
+        title=row[1],
+        url=row[2],
+        source_name=row[3],
+        folder_id=row[4],
+        folder_name=row[5],
+        published_at=from_db_time(row[6]),
+        importance=row[7],
+        summary=row[8],
+        read=bool(row[9]),
+    )
 
 
 class SqliteItems:
@@ -67,27 +90,22 @@ class SqliteItems:
         descending = ", ".join(f"{column} DESC" for column in columns)
         with self._database.connection() as connection:
             rows = connection.execute(
-                "SELECT items.id, items.title, items.url, sources.name, folders.id, "
-                "folders.name, items.published_at, items.importance, items.summary FROM items "
-                "JOIN sources ON sources.id = items.source_id "
-                "JOIN folders ON folders.id = sources.folder_id "
-                f"{where} ORDER BY {descending} LIMIT ?",
+                f"{_INBOX_SELECT} {where} ORDER BY {descending} LIMIT ?",
                 [*parameters, limit],
             ).fetchall()
-        return [
-            InboxItem(
-                id=row[0],
-                title=row[1],
-                url=row[2],
-                source_name=row[3],
-                folder_id=row[4],
-                folder_name=row[5],
-                published_at=from_db_time(row[6]),
-                importance=row[7],
-                summary=row[8],
+        return [_inbox_item(row) for row in rows]
+
+    def item(self, item_id: int) -> InboxItem | None:
+        with self._database.connection() as connection:
+            row = connection.execute(f"{_INBOX_SELECT} WHERE items.id = ?", (item_id,)).fetchone()
+        return None if row is None else _inbox_item(row)
+
+    def mark_read(self, item_id: int, *, at: datetime) -> None:
+        with self._database.connection() as connection:
+            connection.execute(
+                "UPDATE items SET read_at = ? WHERE id = ? AND read_at IS NULL",
+                (to_db_time(at), item_id),
             )
-            for row in rows
-        ]
 
     def unscored(self, *, due_at: datetime, limit: int) -> list[UnscoredItem]:
         with self._database.connection() as connection:

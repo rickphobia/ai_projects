@@ -83,6 +83,7 @@ describe("HttpApiClient", () => {
             published_at: "2026-10-12T04:00:00+00:00",
             importance: 4,
             summary: "Something happened.",
+            read: false,
           },
         ],
         next_cursor: "2026-10-12T04:00:00+00:00~7",
@@ -114,6 +115,7 @@ describe("HttpApiClient", () => {
           publishedAt: "2026-10-12T04:00:00+00:00",
           importance: 4,
           summary: "Something happened.",
+          read: false,
         },
       ],
       nextCursor: "2026-10-12T04:00:00+00:00~7",
@@ -187,5 +189,35 @@ describe("HttpApiClient", () => {
     await expect(
       new HttpApiClient(BASE, () => undefined).deleteFolder(4),
     ).rejects.toEqual(new RefusedError("the Folder still has 2 Source(s)"));
+  });
+
+  it("asks for one Item's Reader view", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(answer(200, { title: "A story", text: "One.\nTwo." }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = await new HttpApiClient(BASE, () => undefined).readerView(7);
+
+    const [url] = fetchMock.mock.calls[0] as [URL];
+    expect(url.pathname).toBe("/ai-projects/rss-news/api/items/7/reader");
+    expect(view).toEqual({ title: "A story", text: "One.\nTwo." });
+  });
+
+  it("turns a Reader view failure into a RefusedError for the owner", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          answer(502, { detail: "Reader view isn't available: HTTP 403." }),
+        ),
+    );
+
+    await expect(
+      new HttpApiClient(BASE, () => undefined).readerView(7),
+    ).rejects.toEqual(
+      new RefusedError("Reader view isn't available: HTTP 403."),
+    );
   });
 });

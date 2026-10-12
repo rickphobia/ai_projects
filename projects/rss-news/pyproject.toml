@@ -8,6 +8,7 @@ dependencies = [
     "fastapi==0.142.2",
     "feedparser==6.0.14",
     "httpx==0.28.1",
+    "trafilatura==2.0.0",
     "uvicorn==0.54.0",
 ]
 

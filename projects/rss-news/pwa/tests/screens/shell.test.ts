@@ -55,11 +55,39 @@ describe("the app shell", () => {
         publishedAt: "2026-10-12T04:00:00+00:00",
         importance: null,
         summary: null,
+        read: false,
       },
     ];
 
     await renderShell(root, api, () => undefined);
 
+    expect(screen.getByRole("link", { name: "A story" })).toBeTruthy();
+  });
+
+  it("opens an Item from the Inbox and goes back", async () => {
+    api.items = [
+      {
+        id: 1,
+        title: "A story",
+        url: "https://news.example/1",
+        source: "Example",
+        folder: { id: 1, name: "AI" },
+        publishedAt: "2026-10-12T04:00:00+00:00",
+        importance: 4,
+        summary: "Something happened.",
+        read: false,
+      },
+    ];
+    await renderShell(root, api, () => undefined);
+
+    screen.getByRole("link", { name: "A story" }).click();
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "A story" })).toBeTruthy();
+    });
+    screen.getByRole("button", { name: "Back to Inbox" }).click();
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Unread")).toBeNull();
+    });
     expect(screen.getByRole("link", { name: "A story" })).toBeTruthy();
   });
 

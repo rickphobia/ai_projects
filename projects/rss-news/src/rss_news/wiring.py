@@ -18,6 +18,7 @@ from rss_news.adapters.sqlite.spending import SqliteSpending
 from rss_news.clock import Clock
 from rss_news.config import Settings
 from rss_news.items.inbox import Inbox
+from rss_news.items.reading import ArticleExtractor, ItemReading
 from rss_news.scoring.item_scoring import ItemScoring, ScoringModel
 from rss_news.sources.catalog import StarterFolder, load_starter_sources
 from rss_news.sources.fetching import FeedFetcher, SourceFetching
@@ -44,6 +45,7 @@ def build_app(
     database: SqliteDatabase,
     feed_fetcher: FeedFetcher,
     language_model: ScoringModel,
+    article_extractor: ArticleExtractor,
     clock: Clock,
     starter_folders: Sequence[StarterFolder],
     run_tick_loop: bool,
@@ -91,6 +93,7 @@ def build_app(
         login_failures=SqliteLoginFailures(database),
         clock=clock,
         inbox=Inbox(items),
+        item_reading=ItemReading(items=items, extractor=article_extractor, clock=clock),
         source_management=SourceManagement(sources=sources, fetcher=feed_fetcher),
         tick=tick,
         background=(TickLoop(tick, TICK_INTERVAL),) if run_tick_loop else (),

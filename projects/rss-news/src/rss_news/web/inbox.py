@@ -44,10 +44,10 @@ def list_inbox(
         )
     except InvalidCursor as error:
         raise HTTPException(status_code=400, detail=str(error)) from None
-    return {"items": [_item_json(item) for item in page.items], "next_cursor": page.next_cursor}
+    return {"items": [item_json(item) for item in page.items], "next_cursor": page.next_cursor}
 
 
-def _item_json(item: InboxItem) -> dict[str, Any]:
+def item_json(item: InboxItem) -> dict[str, Any]:
     return {
         "id": item.id,
         "title": item.title,
@@ -57,4 +57,5 @@ def _item_json(item: InboxItem) -> dict[str, Any]:
         "published_at": item.published_at.isoformat(),
         "importance": item.importance,
         "summary": item.summary,
+        "read": item.read,
     }

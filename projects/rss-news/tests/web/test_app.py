@@ -10,10 +10,19 @@ from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
 from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.config import load_settings
 from rss_news.items.inbox import Inbox
+from rss_news.items.reading import ItemReading
 from rss_news.sources.managing import SourceManagement
 from rss_news.web.app import create_app
 from rss_news.wiring import Wiring
-from tests.support import PREFIX, PWA_INDEX, FakeClock, FakeFeedFetcher, app_env, make_wiring
+from tests.support import (
+    PREFIX,
+    PWA_INDEX,
+    FakeArticleExtractor,
+    FakeClock,
+    FakeFeedFetcher,
+    app_env,
+    make_wiring,
+)
 
 
 class UnreachableDatabase:
@@ -70,6 +79,9 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
             login_failures=SqliteLoginFailures(database),
             clock=clock,
             inbox=Inbox(SqliteItems(database, clock)),
+            item_reading=ItemReading(
+                items=SqliteItems(database, clock), extractor=FakeArticleExtractor(), clock=clock
+            ),
             source_management=SourceManagement(
                 sources=SqliteSources(database), fetcher=FakeFeedFetcher()
             ),
