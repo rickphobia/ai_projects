@@ -44,7 +44,7 @@ Each milestone ends in something installable and useful on its own.
 
 6. As a user, I want a first-run screen that explains in plain words why the app needs notification access and what it does with it, so that I can decide whether to trust it.
 7. As a user, I want the app to keep nothing from notifications that aren't posted by a Wallet app, so that my messages, bank alerts and one-time codes never touch its storage or logs.
-8. As a user, I want the first-run screen to show me how to switch other apps off in Android's notification access settings, so that the app can't see them at all.
+8. As a user, I want the first-run screen to show me how to switch other apps off in Android's notification access settings if I want that extra layer, so that Android doesn't pass their notifications to the app at all (the app already drops them unread).
 9. As a user, I want the AI to receive only the Merchant name, the amount and my Category names, so that nothing else about me leaves the phone.
 10. As a user, I want the app to ask for permission to post notifications, so that the Category Prompt can appear.
 11. As a user, I want to see when notification access has been lost (for example after an update or a battery optimiser), so that I don't silently stop capturing Transactions.

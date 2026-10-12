@@ -18,8 +18,8 @@
   <string name="guide_access_body">Switch on duit-log and confirm.</string>
   <string name="guide_open_access">Open notification access</string>
   <string name="guide_access_on">Notification access is on.</string>
-  <string name="guide_other_apps_title">Switch other apps off</string>
-  <string name="guide_other_apps_body">On duit-log\'s notification access page, open \"Apps\" (on some phones \"See all apps\") and switch off every app except Touch \'n Go eWallet, Grab and Shopee. Then Android doesn\'t even pass their notifications to duit-log.</string>
+  <string name="guide_other_apps_title">Optional: switch other apps off</string>
+  <string name="guide_other_apps_body">duit-log already ignores other apps: it drops every notification that isn\'t from Touch \'n Go eWallet, Grab or Shopee without reading it. If you want Android to stop passing their notifications at all, open \"Apps\" (on some phones \"See all apps\") on duit-log\'s notification access page and switch them off there. At least consider messaging, banking, SMS and email apps. You can skip this step.</string>
   <string name="guide_post_title">Allow duit-log\'s notifications</string>
   <string name="guide_post_body">Later versions ask you right after each payment which Category it belongs to, in a notification.</string>
   <string name="guide_allow_notifications">Allow notifications</string>
