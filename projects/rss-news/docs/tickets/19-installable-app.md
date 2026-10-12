@@ -4,15 +4,15 @@
 
 **Blocked by:** 03 (Sign in)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** pwa/manifest, pwa/service-worker
 
 **Effort:** low
 
-- [ ] Web app manifest scoped to the path prefix, with name, icons and theme colours
-- [ ] Service worker caches the app shell only, never API responses
-- [ ] A new release replaces the cached shell on the next open
-- [ ] The smoke test checks the manifest and service worker are served under the prefix
+- [x] Web app manifest scoped to the path prefix, with name, icons and theme colours
+- [x] Service worker caches the app shell only, never API responses
+- [x] A new release replaces the cached shell on the next open
+- [x] The smoke test checks the manifest and service worker are served under the prefix
 
 **Owner steps:** install the app from Chrome on the Honor 400 Pro after deploying.

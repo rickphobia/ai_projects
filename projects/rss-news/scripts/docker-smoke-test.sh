@@ -51,6 +51,17 @@ script=$(grep --only-matching --max-count=1 'assets/[^"]*\.js' <<<"$page") || fa
 curl --silent --fail --output /dev/null "$base/$script" || fail "$base/$script did not load"
 echo "OK: the PWA and $script load under the prefix"
 
+# Chrome only offers to install the app when both are served from inside the prefix.
+manifest_type=$(curl --silent --fail --output /dev/null --write-out '%{content_type}' "$base/manifest.webmanifest") \
+  || fail "$base/manifest.webmanifest did not load"
+[[ "$manifest_type" == application/manifest+json* ]] \
+  || fail "$base/manifest.webmanifest is served as '$manifest_type', not application/manifest+json"
+worker_type=$(curl --silent --fail --output /dev/null --write-out '%{content_type}' "$base/sw.js") \
+  || fail "$base/sw.js did not load"
+[[ "$worker_type" == text/javascript* || "$worker_type" == application/javascript* ]] \
+  || fail "$base/sw.js is served as '$worker_type', not JavaScript"
+echo "OK: the manifest and service worker load under the prefix"
+
 [ -f "$data_dir/rss-news.sqlite3" ] || fail "the database isn't in the data folder mounted at $data_mount"
 echo "OK: the database is in the data folder"
 

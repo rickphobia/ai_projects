@@ -1,4 +1,5 @@
 import { HttpApiClient, SignedOutError } from "./api/client";
+import { registerServiceWorker } from "./pwa/register";
 import { renderLogin } from "./screens/login";
 import { renderShell } from "./screens/shell";
 
@@ -24,3 +25,6 @@ api.checkSession().then(showShell, (error: unknown) => {
   const detail = error instanceof Error ? error.message : String(error);
   app.textContent = `Can't reach the server: ${detail}`;
 });
+
+// reportError shows the failure in the browser console without stopping the app.
+registerServiceWorker(navigator.serviceWorker, document.baseURI, reportError);
