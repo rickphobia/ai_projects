@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from rss_news.items.inbox import InboxItem, InboxPosition, NewItem
 from rss_news.sources.catalog import Folder, Source, StarterFolder
 from rss_news.sources.fetching import FetchFailed, SourceFetching
+from rss_news.sources.polite_queue import FetchPacing
 from tests.support import FakeClock, FakeFeedFetcher
 
 
@@ -61,7 +62,12 @@ def test_a_store_error_for_one_source_does_not_stop_the_next() -> None:
         items=NoItems(),
         fetcher=fetcher,
         clock=FakeClock(),
-        interval=timedelta(minutes=15),
+        pacing=FetchPacing(
+            interval=timedelta(minutes=15),
+            reddit_gap=timedelta(seconds=10),
+            reddit_interval=timedelta(minutes=60),
+            max_backoff=timedelta(hours=24),
+        ),
     )
 
     fetching.fetch_due()

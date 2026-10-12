@@ -2,19 +2,31 @@
 
 from collections.abc import Callable
 from datetime import timedelta
+from email.utils import format_datetime
 
 import httpx
+import pytest
 
 from rss_news.adapters.feed_fetcher import MAX_BODY_BYTES, HttpFeedFetcher
-from rss_news.sources.fetching import FeedRequest, Fetched, FetchFailed, NotModified
+from rss_news.sources.fetching import (
+    FeedRequest,
+    Fetched,
+    FetchFailed,
+    NotModified,
+    RateLimited,
+)
+from tests.support import FakeClock
 
 URL = "https://example.com/feed.xml"
 
 
-def fetcher(answer: Callable[[httpx.Request], httpx.Response]) -> HttpFeedFetcher:
+def fetcher(
+    answer: Callable[[httpx.Request], httpx.Response], clock: FakeClock | None = None
+) -> HttpFeedFetcher:
     return HttpFeedFetcher(
         user_agent="rss-news-test",
         timeout=timedelta(seconds=5),
+        clock=clock or FakeClock(),
         transport=httpx.MockTransport(answer),
     )
 
@@ -66,6 +78,45 @@ def test_an_error_status_is_a_failure_naming_the_status() -> None:
     result = fetcher(lambda _: httpx.Response(404)).fetch(FeedRequest(URL, None, None))
 
     assert result == FetchFailed("http status", "answered 404")
+
+
+def test_a_429_with_retry_after_seconds_is_rate_limited_for_that_long() -> None:
+    answer = httpx.Response(429, headers={"Retry-After": "120"})
+
+    result = fetcher(lambda _: answer).fetch(FeedRequest(URL, None, None))
+
+    assert result == RateLimited(retry_after=timedelta(seconds=120))
+
+
+def test_a_429_with_a_retry_after_date_is_rate_limited_until_then() -> None:
+    clock = FakeClock()
+    retry_at = format_datetime(clock.now() + timedelta(minutes=10), usegmt=True)
+    answer = httpx.Response(429, headers={"Retry-After": retry_at})
+
+    result = fetcher(lambda _: answer, clock).fetch(FeedRequest(URL, None, None))
+
+    assert result == RateLimited(retry_after=timedelta(minutes=10))
+
+
+def test_a_retry_after_date_already_past_means_no_wait() -> None:
+    clock = FakeClock()
+    retry_at = format_datetime(clock.now() - timedelta(minutes=10), usegmt=True)
+    answer = httpx.Response(429, headers={"Retry-After": retry_at})
+
+    result = fetcher(lambda _: answer, clock).fetch(FeedRequest(URL, None, None))
+
+    assert result == RateLimited(retry_after=timedelta())
+
+
+@pytest.mark.parametrize("headers", [{}, {"Retry-After": "soon"}, {"Retry-After": "-5"}])
+def test_a_429_without_a_usable_retry_after_is_rate_limited_with_no_delay_given(
+    headers: dict[str, str],
+) -> None:
+    answer = httpx.Response(429, headers=headers)
+
+    result = fetcher(lambda _: answer).fetch(FeedRequest(URL, None, None))
+
+    assert result == RateLimited(retry_after=None)
 
 
 def test_a_connection_error_is_a_failure_not_an_exception() -> None:
