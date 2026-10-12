@@ -1,14 +1,15 @@
 class_name AppOverlay
 extends CanvasLayer
-## The App: the bright, state-issued overlay over the grim field. A top bar with the Quota bar,
-## the Shift's time left, the Worker's Exhaustion and Labour Points (or his Debt, in red); the
-## Mascot with a speech bubble at the bottom; the Store button at the bottom right, which opens
-## the store over the field (see StorePanel) and shows the rest time left while he rests; the
-## pay slip card at the end of each Shift until it is put away; and confetti for a met Quota or
-## a purchase. During a Study Session the plain room covers the field, under the bar and the
-## Mascot. It shows what it is given and never decides anything. Only the Store and Settings
-## buttons, the pay slip card, and the store while open, catch taps, so the field underneath
-## still gets the rest. With reduced motion there is no confetti.
+## The App: the bright, state-issued overlay over the grim field. A top bar with the Quota bar, the
+## Shift's time left, the Worker's Exhaustion and Labour Points (or his Debt, in red); the Mascot
+## with a speech bubble at the bottom; the Store button at the bottom right, which opens the store
+## over the field (see StorePanel) and shows the rest time left while he rests; the pay slip card at
+## the end of each Shift until it is put away; and confetti for a met Quota or a purchase. The
+## speech bubble closes by itself after SPEECH_SECONDS, or at the next tap or click anywhere, which
+## still goes on to whatever was tapped. During a Study Session the plain room covers the field,
+## under the bar and the Mascot. It shows what it is given and never decides anything. Only the
+## Store and Settings buttons, the pay slip card, and the store while open, catch taps, so the field
+## underneath still gets the rest. With reduced motion there is no confetti.
 ## The Generator powers The App: while the Worker isn't running it, the bar, the Mascot, the
 ## Store button and the store dim; the Study Session room is not The App and stays as it is.
 
@@ -30,6 +31,8 @@ const FONT_SIZE := 28
 const MARGIN := 16
 ## The player's own button, not one of The App's lines, so it isn't in AppText.
 const SETTINGS_BUTTON_TEXT := "Settings"
+## How long the Mascot's words stay up when nobody taps them away.
+const SPEECH_SECONDS := 5.0
 
 var _root: Control
 var _quota_bar: ProgressBar
@@ -43,6 +46,7 @@ var _pay_slip: PaySlipCard
 var _text_scale := 1.0
 var _speech: Label
 var _bubble: PanelContainer
+var _speech_seconds_left := 0.0
 var _confetti: Confetti
 var _study_room: StudyRoom
 ## The parts of The App that dim with the Generator.
@@ -79,6 +83,23 @@ func _ready() -> void:
 	_powered_parts = [top_bar, mascot_corner, _store_button, _pay_slip, _store]
 	_confetti = Confetti.new()
 	add_child(_confetti)
+
+
+func _process(delta: float) -> void:
+	if not _bubble.visible:
+		return
+	_speech_seconds_left -= delta
+	if _speech_seconds_left <= 0.0:
+		_bubble.visible = false
+
+
+## Any press closes the bubble. It is read here, before the buttons and the field get it, and
+## not marked handled, so the same tap still plants, picks or presses a button.
+func _input(event: InputEvent) -> void:
+	var touched := event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed
+	var clicked := event is InputEventMouseButton and (event as InputEventMouseButton).pressed
+	if touched or clicked:
+		_bubble.visible = false
 
 
 ## Lit while the Worker runs the Generator, dimmed while it stands still.
@@ -174,10 +195,15 @@ func is_celebrating() -> bool:
 	return _confetti.emitting
 
 
-## The Mascot says this until it has something else to say.
+## The Mascot says this for SPEECH_SECONDS, or until a tap or click closes it.
 func say(text: String) -> void:
 	_speech.text = text
 	_bubble.visible = not text.is_empty()
+	_speech_seconds_left = SPEECH_SECONDS
+
+
+func is_speaking() -> bool:
+	return _bubble.visible
 
 
 ## Confetti falls from the whole width of the screen, which can change while playing.

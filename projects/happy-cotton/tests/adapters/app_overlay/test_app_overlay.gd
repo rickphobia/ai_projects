@@ -94,6 +94,7 @@ func test_the_mascot_says_what_it_is_given() -> void:
 	_overlay.say("Shift 1 begins!")
 
 	assert_eq(_overlay.speech(), "Shift 1 begins!")
+	assert_true(_overlay.is_speaking())
 
 
 func test_celebrating_does_not_fail_before_or_after_a_shift_is_shown() -> void:
