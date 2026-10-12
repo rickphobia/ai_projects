@@ -94,6 +94,7 @@ Each milestone ends in something installable and useful on its own.
 
 41. As a user, I want a Transfer I send to a person to be an Expense in Transfers, so that it counts as money out.
 42. As a user, I want a Transfer I receive to be Income in Transfers, so that it counts as money in.
+42a. As a user, I want a Transfer to or from my own name (set once in Settings) to be an Own Transfer, kept in Transfers but Excluded, so that moving money to my own bank account doesn't count as spending.
 43. As a user, I want a Transfer I receive within 2 hours of an Expense larger than it to become a Payback for that Expense, so that paying for the table and being paid back costs me only my share.
 44. As a user, I want the Payback to be matched to the most recent such Expense, so that a Grab ride after lunch doesn't take the lunch Payback.
 45. As a user, I want several Paybacks on one Expense to add up, so that three friends paying RM30 each turn a RM120 meal into RM30.
@@ -161,7 +162,8 @@ The main test seam: everything the app decides goes through it, and the UI and A
 
 - **Capture** a read notification (the Notification Reader's output plus the original text and posting time). Returns what happened: a new Transaction, merged into an existing one, a Payback match, ignored as a duplicate. Duplicates are recognised by Wallet, amount and posting time (a notification key alone isn't enough, because Wallets update notifications in place).
 - **Merge rule:** a Shopee payment and a TNG payment of the same amount within 5 minutes, in either order, are one Expense with Wallet TNG, Merchant Shopee and Shopee's item detail.
-- **Payback rule:** a received Transfer becomes a Payback for the most recent unexcluded Expense posted in the 2 hours before it whose amount is larger than the Transfer and which isn't already fully paid back. The part beyond the Expense's remaining amount becomes Income in Transfers. Paybacks can be confirmed, turned into Income, or linked by hand to any Expense.
+- **Own Transfer rule:** a Transfer sent to or received from the name set in Settings (compared ignoring case, spaces and punctuation) is captured in Transfers as Excluded and never matched as a Payback. With no name set, every Transfer is a normal one.
+- **Payback rule:** a received Transfer (not an Own Transfer) becomes a Payback for the most recent unexcluded Expense posted in the 2 hours before it whose amount is larger than the Transfer and which isn't already fully paid back. The part beyond the Expense's remaining amount becomes Income in Transfers. Paybacks can be confirmed, turned into Income, or linked by hand to any Expense.
 - **Refund rule:** a Refund reduces Expenses in the Category of the latest Expense from the same Merchant; if none is found, it uses Other.
 - **Platforms:** Grab and Shopee. A Grab ride gets Transport and a Grab food order gets F&B straight from the Notification Reader's detail; Shopee is sorted by the prompt or the Daily Sort. Platforms never get Merchant Rules.
 - **Pick Category** (from the prompt or editing): sets the Category, clears any "sorted by AI" mark, and for non-Platform Merchants creates or replaces the Merchant Rule.
@@ -197,7 +199,7 @@ Each Wallet has its own patterns, built from the samples the recorder collects i
 - **Notification listener:** passes every notification to the Notification Reader and drops "Not a Wallet" results before any storage or logging. It writes nothing for them, not even a count by app. In milestone 1 it feeds the recorder instead, which stores Wallet notifications only.
 - **Category Prompt:** a high-importance notification channel with three action buttons and an inline reply for the Note. Tapping it opens a small dialog-style screen with every Category. A quiet variant is used when a Merchant Rule exists. A Payback match shows [Payback] [Income] instead. No "display over other apps" permission is used.
 - **Daily Sort scheduling:** WorkManager, once a day at the chosen time (8pm by default), with a network requirement, and retries with backoff. It may run a few minutes late; that's accepted.
-- **Settings** (one validated settings module, stored on the device): AI provider, base URL, model, key, Category Prompt on/off, Daily Sort time, daily summary on/off. The key is encrypted with an Android Keystore key and excluded from backup. The app has no environment variables; CI's signing secrets are listed in the README.
+- **Settings** (one validated settings module, stored on the device): AI provider, base URL, model, key, Category Prompt on/off, Daily Sort time, daily summary on/off, your name as banks show it (for Own Transfers). The key is encrypted with an Android Keystore key and excluded from backup. The app has no environment variables; CI's signing secrets are listed in the README.
 - **Backup:** Android Auto Backup includes the database and settings except the key and the log.
 - **Logging:** a rolling log file on the device with a "Share log" button, as in RickNotes. It records steps and outcomes (captured, ignored and why, unreadable, merged, Daily Sort counts, AI call metrics, errors) but never notification text, Merchant names or Notes.
 - **Access lost:** the app checks on start that notification access is still granted and shows a banner with a button to fix it.

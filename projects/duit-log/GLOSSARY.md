@@ -39,6 +39,10 @@ _Avoid_: Description, label, memo
 Money sent to or received from a person rather than a business; an Expense when sent, an Income when received.
 _Avoid_: DuitNow, send money
 
+**Own Transfer**:
+A Transfer to or from an account in your own name, such as your bank account, recognised by the name you set in Settings. It is kept in Transfers but Excluded, because moving your own money is neither spending nor earning, and it is never a Payback.
+_Avoid_: Self-transfer, internal transfer
+
 **Payback**:
 A Transfer from a person covering their share of an Expense you paid for, such as a shared meal. It reduces that Expense instead of counting as Income; anything beyond the Expense's amount is Income.
 _Avoid_: Split, reimbursement, refund

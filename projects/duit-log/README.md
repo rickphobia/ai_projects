@@ -106,7 +106,7 @@ The app accepts notifications from these packages only (`WalletApps.DEFAULT` in 
 
 | Wallet | Package | Confirmed on the owner's phone |
 |--------|---------|--------------------------------|
-| Touch 'n Go eWallet | `my.com.tngdigital.ewallet` | not yet |
+| Touch 'n Go eWallet | `my.com.tngdigital.ewallet` | yes (2026-10-13) |
 | Grab | `com.grabtaxi.passenger` | not yet |
 | Shopee (Malaysia) | `com.shopee.my` | not yet |
 
