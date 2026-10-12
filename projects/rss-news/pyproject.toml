@@ -8,6 +8,7 @@ dependencies = [
     "fastapi==0.142.2",
     "feedparser==6.0.14",
     "httpx==0.28.1",
+    "pywebpush==2.5.0",
     "trafilatura==2.0.0",
     "uvicorn==0.54.0",
 ]
@@ -46,4 +47,10 @@ addopts = "-ra --strict-markers"
 [[tool.mypy.overrides]]
 # feedparser ships no type hints; sources/feed_parsing.py is the one module that uses it.
 module = ["feedparser"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# pywebpush, py_vapid and http_ece ship no type hints; adapters/push_sender.py and its test are
+# the only modules that use them.
+module = ["pywebpush", "py_vapid", "http_ece"]
 ignore_missing_imports = true

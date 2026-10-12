@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from rss_news.alerts.vapid_keys import generate_vapid_private_key, parse_vapid_private_key
 from rss_news.auth.passwords import parse_password_hash
 from rss_news.config import ConfigError, Settings, load_settings
 from rss_news.spending.ledger import ModelPrice
@@ -20,6 +21,8 @@ DEFAULT_PRICES = {
     "claude-sonnet-5-5": ModelPrice(Decimal(2), Decimal(10)),
     "claude-opus-5-5": ModelPrice(Decimal(4), Decimal(20)),
 }
+
+VAPID_PRIVATE_KEY = generate_vapid_private_key()
 
 
 @pytest.fixture
@@ -62,6 +65,8 @@ def test_defaults_apply_when_only_the_pwa_folder_and_secrets_are_set(pwa_dir: Pa
         model_prices=DEFAULT_PRICES,
         web_search_price_usd=Decimal("0.01"),
         monthly_limit_usd=Decimal("100"),
+        vapid_key=None,
+        vapid_subject="https://rickphobia.com/ai-projects/rss-news/",
     )
 
 
@@ -99,6 +104,8 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
             "RSS_NEWS_MODEL_PRICES": "claude-sonnet-5-5=2.5/12, claude-haiku-5-5=0.1/0.5",
             "RSS_NEWS_WEB_SEARCH_PRICE_USD": "0.02",
             "RSS_NEWS_MONTHLY_LIMIT_USD": "25.50",
+            "RSS_NEWS_VAPID_PRIVATE_KEY": VAPID_PRIVATE_KEY,
+            "RSS_NEWS_VAPID_SUBJECT": "mailto:owner@example.com",
         }
     )
 
@@ -139,6 +146,8 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         },
         web_search_price_usd=Decimal("0.02"),
         monthly_limit_usd=Decimal("25.50"),
+        vapid_key=parse_vapid_private_key(VAPID_PRIVATE_KEY),
+        vapid_subject="mailto:owner@example.com",
     )
 
 
@@ -181,6 +190,8 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         ("RSS_NEWS_WEB_SEARCH_PRICE_USD", "free", "RSS_NEWS_WEB_SEARCH_PRICE_USD must be an"),
         ("RSS_NEWS_WEB_SEARCH_PRICE_USD", "-0.01", "must be zero or more"),
         ("RSS_NEWS_MONTHLY_LIMIT_USD", "lots", "RSS_NEWS_MONTHLY_LIMIT_USD must be an"),
+        ("RSS_NEWS_VAPID_PRIVATE_KEY", "abc", "not a key from `rss-news vapid-key`"),
+        ("RSS_NEWS_VAPID_SUBJECT", "owner@example.com", "must be a mailto: or https:// URL"),
     ],
 )
 def test_a_bad_value_is_rejected_naming_the_variable(
@@ -191,11 +202,20 @@ def test_a_bad_value_is_rejected_naming_the_variable(
 
 
 def test_the_secrets_are_kept_out_of_the_settings_repr(pwa_dir: Path) -> None:
-    text = repr(load_settings({"RSS_NEWS_PWA_DIR": str(pwa_dir), **SECRETS}))
+    text = repr(
+        load_settings(
+            {
+                "RSS_NEWS_PWA_DIR": str(pwa_dir),
+                **SECRETS,
+                "RSS_NEWS_VAPID_PRIVATE_KEY": VAPID_PRIVATE_KEY,
+            }
+        )
+    )
 
     assert SESSION_SECRET not in text
     assert "sk-ant-test" not in text
     assert "scrypt" not in text
+    assert VAPID_PRIVATE_KEY not in text
 
 
 def test_a_pwa_folder_without_a_build_is_rejected(tmp_path: Path) -> None:

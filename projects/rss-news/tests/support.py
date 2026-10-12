@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from rss_news.adapters.sqlite.database import SqliteDatabase
+from rss_news.alerts.push import Alert, Delivery, PushFailed, PushSubscription
 from rss_news.auth.passwords import hash_password
 from rss_news.briefings.briefing import (
     BriefingFailed,
@@ -106,6 +107,26 @@ class FakeArticleExtractor:
         return self.pages[url]
 
 
+class FakePushSender:
+    """Records each Alert it delivers. Endpoints in `gone` answer that the subscription no
+    longer exists; those in `failing` can't be reached."""
+
+    application_server_key = "BFakeApplicationServerKey"
+
+    def __init__(self) -> None:
+        self.delivered: list[tuple[PushSubscription, Alert]] = []
+        self.gone: set[str] = set()
+        self.failing: set[str] = set()
+
+    def send(self, subscription: PushSubscription, alert: Alert) -> Delivery:
+        if subscription.endpoint in self.failing:
+            raise PushFailed("scripted outage")
+        if subscription.endpoint in self.gone:
+            return Delivery.GONE
+        self.delivered.append((subscription, alert))
+        return Delivery.DELIVERED
+
+
 type ScoringAnswer = Callable[[Sequence[UnscoredItem]], ScoringResult]
 type SectionAnswer = Callable[[SectionRequest], SectionResult]
 
@@ -174,11 +195,14 @@ def make_wiring(
     feed_fetcher: FakeFeedFetcher | None = None,
     language_model: FakeLanguageModel | None = None,
     article_extractor: FakeArticleExtractor | None = None,
+    push_sender: FakePushSender | None = None,
+    alerts_off: bool = False,
     starter_folders: Sequence[StarterFolder] = (),
 ) -> Wiring:
     """The whole app over the settings' database file, with fakes for the outside world.
 
-    A second call over the same file is the app after a restart.
+    A second call over the same file is the app after a restart. `alerts_off` builds it as if
+    no VAPID key were configured.
     """
     database = SqliteDatabase(settings.database_path)
     database.migrate()
@@ -188,6 +212,7 @@ def make_wiring(
         feed_fetcher=feed_fetcher or FakeFeedFetcher(),
         language_model=language_model or FakeLanguageModel(),
         article_extractor=article_extractor or FakeArticleExtractor(),
+        push_sender=None if alerts_off else push_sender or FakePushSender(),
         clock=clock,
         starter_folders=starter_folders,
         run_tick_loop=False,

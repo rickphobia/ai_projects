@@ -11,12 +11,14 @@ from typing import Protocol
 
 from fastapi import FastAPI
 
+from rss_news.adapters.sqlite.alerts import SqlitePushSubscriptions
 from rss_news.adapters.sqlite.briefings import SqliteBriefings
 from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.adapters.sqlite.items import SqliteItems
 from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
 from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.adapters.sqlite.spending import SqliteSpending
+from rss_news.alerts.push import AlertPush, PushSender
 from rss_news.briefings.briefing import BriefingModel
 from rss_news.briefings.writing import Briefings
 from rss_news.clock import Clock
@@ -55,11 +57,15 @@ def build_app(
     feed_fetcher: FeedFetcher,
     language_model: LanguageModel,
     article_extractor: ArticleExtractor,
+    push_sender: PushSender | None,
     clock: Clock,
     starter_folders: Sequence[StarterFolder],
     run_tick_loop: bool,
 ) -> Wiring:
-    """Build the app over a migrated database, loading the starter Sources on first run."""
+    """Build the app over a migrated database, loading the starter Sources on first run.
+
+    Without a push sender (no VAPID key configured) Alerts are off and say so.
+    """
     sources = SqliteSources(database)
     items = SqliteItems(database, clock)
     load_starter_sources(sources, starter_folders)
@@ -103,12 +109,13 @@ def build_app(
         ],
         clock,
     )
+    inbox = Inbox(items)
     app = create_app(
         settings,
         database=database,
         login_failures=SqliteLoginFailures(database),
         clock=clock,
-        inbox=Inbox(items),
+        inbox=inbox,
         item_reading=ItemReading(items=items, extractor=article_extractor, clock=clock),
         source_management=SourceManagement(sources=sources, fetcher=feed_fetcher),
         briefings=Briefings(
@@ -124,6 +131,9 @@ def build_app(
             importance_cutoff=settings.briefing_importance_cutoff,
         ),
         spending=limit,
+        alert_push=AlertPush(
+            store=SqlitePushSubscriptions(database), sender=push_sender, inbox=inbox, clock=clock
+        ),
         tick=tick,
         background=(TickLoop(tick, TICK_INTERVAL),) if run_tick_loop else (),
     )

@@ -4,12 +4,14 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from rss_news.adapters.sqlite.alerts import SqlitePushSubscriptions
 from rss_news.adapters.sqlite.briefings import SqliteBriefings
 from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.adapters.sqlite.items import SqliteItems
 from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
 from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.adapters.sqlite.spending import SqliteSpending
+from rss_news.alerts.push import AlertPush
 from rss_news.briefings.writing import Briefings
 from rss_news.config import load_settings
 from rss_news.items.inbox import Inbox
@@ -113,6 +115,12 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
                 importance_cutoff=settings.briefing_importance_cutoff,
             ),
             spending=limit,
+            alert_push=AlertPush(
+                store=SqlitePushSubscriptions(database),
+                sender=None,
+                inbox=Inbox(SqliteItems(database, clock)),
+                clock=clock,
+            ),
             tick=NeverTicked(),
         )
     )
