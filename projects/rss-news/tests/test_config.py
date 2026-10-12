@@ -34,6 +34,9 @@ def test_defaults_apply_when_only_the_pwa_folder_and_secrets_are_set(pwa_dir: Pa
         secure_cookies=True,
         login_max_failures=5,
         login_lockout=timedelta(minutes=15),
+        fetch_interval=timedelta(minutes=15),
+        fetch_timeout=timedelta(seconds=20),
+        user_agent="rss-news/0.1 (+https://rickphobia.com/ai-projects/rss-news/)",
     )
 
 
@@ -52,6 +55,9 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
             "RSS_NEWS_SECURE_COOKIES": "false",
             "RSS_NEWS_LOGIN_MAX_FAILURES": "3",
             "RSS_NEWS_LOGIN_LOCKOUT_MINUTES": "60",
+            "RSS_NEWS_FETCH_INTERVAL_MINUTES": "30",
+            "RSS_NEWS_FETCH_TIMEOUT_SECONDS": "5",
+            "RSS_NEWS_USER_AGENT": "my-reader/1.0",
         }
     )
 
@@ -69,6 +75,9 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         secure_cookies=False,
         login_max_failures=3,
         login_lockout=timedelta(minutes=60),
+        fetch_interval=timedelta(minutes=30),
+        fetch_timeout=timedelta(seconds=5),
+        user_agent="my-reader/1.0",
     )
 
 
@@ -89,6 +98,9 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         ("RSS_NEWS_SESSION_DAYS", "0", "RSS_NEWS_SESSION_DAYS must be at least 1"),
         ("RSS_NEWS_SECURE_COOKIES", "yes", "RSS_NEWS_SECURE_COOKIES must be true or false"),
         ("RSS_NEWS_LOGIN_MAX_FAILURES", "x", "RSS_NEWS_LOGIN_MAX_FAILURES must be a whole"),
+        ("RSS_NEWS_FETCH_INTERVAL_MINUTES", "0", "RSS_NEWS_FETCH_INTERVAL_MINUTES must be at"),
+        ("RSS_NEWS_FETCH_TIMEOUT_SECONDS", "x", "RSS_NEWS_FETCH_TIMEOUT_SECONDS must be a whole"),
+        ("RSS_NEWS_USER_AGENT", " ", "RSS_NEWS_USER_AGENT must not be blank"),
     ],
 )
 def test_a_bad_value_is_rejected_naming_the_variable(

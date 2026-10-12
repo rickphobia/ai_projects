@@ -9,13 +9,14 @@ from typing import TextIO
 
 import uvicorn
 
+from rss_news.adapters.feed_fetcher import HttpFeedFetcher
 from rss_news.adapters.sqlite.database import DatabaseError, SqliteDatabase
-from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
 from rss_news.auth.passwords import hash_password
 from rss_news.clock import SystemClock
 from rss_news.config import ConfigError, Settings, load_settings
 from rss_news.json_logging import configure_logging
-from rss_news.web.app import create_app
+from rss_news.sources.starter import STARTER_FOLDERS
+from rss_news.wiring import build_app
 
 logger = logging.getLogger(__name__)
 
@@ -27,18 +28,24 @@ def serve(settings: Settings) -> int:
     except DatabaseError as error:
         logger.error("database unusable: %s", error)
         return 2
-    app = create_app(
+    feed_fetcher = HttpFeedFetcher(user_agent=settings.user_agent, timeout=settings.fetch_timeout)
+    wiring = build_app(
         settings,
         database=database,
-        login_failures=SqliteLoginFailures(database),
+        feed_fetcher=feed_fetcher,
         clock=SystemClock(),
+        starter_folders=STARTER_FOLDERS,
+        run_tick_loop=True,
     )
     logger.info(
         "starting web server",
         extra={"host": settings.host, "port": settings.port, "root_path": settings.root_path},
     )
-    # log_config=None keeps uvicorn's loggers on our JSON handler instead of its own format.
-    uvicorn.run(app, host=settings.host, port=settings.port, log_config=None)
+    try:
+        # log_config=None keeps uvicorn's loggers on our JSON handler instead of its own format.
+        uvicorn.run(wiring.app, host=settings.host, port=settings.port, log_config=None)
+    finally:
+        feed_fetcher.close()
     return 0
 
 
