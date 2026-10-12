@@ -256,6 +256,33 @@ def test_an_item_that_keeps_failing_ends_up_alone_and_the_rest_get_scored(
     assert scored == {"Story 1": 3, "Poison 2": None, "Story 3": 3, "Story 4": 3}
 
 
+def test_an_unavailable_model_pauses_scoring_without_holding_it_against_the_items(
+    client: TestClient,
+    wiring: Wiring,
+    clock: FakeClock,
+    fetcher: FakeFeedFetcher,
+    language_model: FakeLanguageModel,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    language_model.unavailable = True
+    fetcher.answers[FEED] = feed(clock, *[f"Story {number}" for number in range(10)])
+
+    with caplog.at_level(logging.ERROR):
+        wiring.tick.run()
+
+    # One call, not one per batch, and no ledger row: nothing was spent.
+    assert len(language_model.calls) == 1
+    assert wiring.ledger.calls() == []
+    assert any("model is unavailable" in record.getMessage() for record in caplog.records)
+
+    language_model.unavailable = False
+    language_model.calls.clear()
+    wiring.tick.run()
+
+    # Full batches straight away on the next tick: no backoff, no halving.
+    assert [len(call) for call in language_model.calls] == [4, 4, 2]
+
+
 def test_items_left_out_of_the_answer_are_retried(
     client: TestClient,
     wiring: Wiring,

@@ -16,6 +16,7 @@ from rss_news.scoring.item_scoring import (
     EXCERPT_CHARACTERS,
     ItemScore,
     ScoringFailed,
+    ScoringUnavailable,
     UnscoredItem,
 )
 
@@ -161,20 +162,20 @@ def test_a_network_error_is_retried() -> None:
     assert calls == 2
 
 
-def test_giving_up_after_the_last_attempt_fails_without_usage() -> None:
+def test_giving_up_after_the_last_attempt_means_the_model_is_unavailable() -> None:
     def answer(request: httpx2.Request) -> httpx2.Response:
         return httpx2.Response(503, json={})
 
     language_model, sleeps = model(answer, max_attempts=3)
 
-    with pytest.raises(ScoringFailed, match="HTTP 503") as failure:
+    with pytest.raises(ScoringUnavailable, match="HTTP 503") as failure:
         language_model.score_items(ITEMS)
 
     assert len(sleeps) == 2
     assert failure.value.usage is None
 
 
-def test_a_bad_request_is_not_retried() -> None:
+def test_a_bad_request_is_not_retried_and_counts_against_the_items() -> None:
     calls = 0
 
     def answer(request: httpx2.Request) -> httpx2.Response:
@@ -185,9 +186,22 @@ def test_a_bad_request_is_not_retried() -> None:
 
     language_model, _ = model(answer)
 
-    with pytest.raises(ScoringFailed, match="HTTP 400"):
+    with pytest.raises(ScoringFailed, match="HTTP 400") as failure:
         language_model.score_items(ITEMS)
     assert calls == 1
+    assert not isinstance(failure.value, ScoringUnavailable)
+
+
+def test_a_bad_api_key_is_not_retried_and_means_the_model_is_unavailable() -> None:
+    def answer(request: httpx2.Request) -> httpx2.Response:
+        error = {"type": "authentication_error", "message": "invalid x-api-key"}
+        return httpx2.Response(401, json={"type": "error", "error": error})
+
+    language_model, sleeps = model(answer)
+
+    with pytest.raises(ScoringUnavailable, match="HTTP 401"):
+        language_model.score_items(ITEMS)
+    assert sleeps == []
 
 
 def test_a_refusal_fails_but_reports_the_tokens_it_cost() -> None:

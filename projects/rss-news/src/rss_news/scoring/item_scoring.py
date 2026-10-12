@@ -31,11 +31,17 @@ _INSTRUCTION_TOKENS = 1_000
 
 
 class ScoringFailed(Exception):
-    """A scoring call failed. `usage` is set when the model answered, so it still cost money."""
+    """A scoring call failed over its Items, such as a refusal or an answer that isn't the
+    scores. `usage` is set when the model answered, so it still cost money."""
 
     def __init__(self, message: str, usage: AiUsage | None = None) -> None:
         super().__init__(message)
         self.usage = usage
+
+
+class ScoringUnavailable(ScoringFailed):
+    """The model can't be reached or won't take calls (network, outage, bad API key), whatever
+    the Items. Nothing is held against them; they wait for the next tick."""
 
 
 @dataclass(frozen=True)
@@ -101,12 +107,19 @@ class ItemScoring:
 
     def score_new(self) -> None:
         """Score unscored Items, a batch per call. A failed batch is retried on a later tick;
-        the other batches carry on."""
+        the other batches carry on, unless the model is unavailable."""
         items = self._store.unscored(
             due_at=self._clock.now(), limit=self._batch_size * MAX_CALLS_PER_TICK
         )
         for batch in self._batches(items)[:MAX_CALLS_PER_TICK]:
-            self._score(batch)
+            try:
+                self._score(batch)
+            except ScoringUnavailable as error:
+                logger.error(
+                    "scoring paused until the next tick: the model is unavailable",
+                    extra={"detail": str(error)},
+                )
+                return
 
     def _batches(self, items: Sequence[UnscoredItem]) -> list[list[UnscoredItem]]:
         """Items that failed before go in smaller batches, halving with each failure, so one
@@ -136,6 +149,8 @@ class ItemScoring:
         ids = [item.id for item in batch]
         try:
             result = self._model.score_items(batch)
+        except ScoringUnavailable:
+            raise
         except ScoringFailed as error:
             if error.usage is not None:
                 self._ledger.record(Feature.SCORING, error.usage)

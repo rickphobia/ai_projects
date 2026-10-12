@@ -7,7 +7,13 @@ from pathlib import Path
 from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.auth.passwords import hash_password
 from rss_news.config import Settings
-from rss_news.scoring.item_scoring import ItemScore, ScoringFailed, ScoringResult, UnscoredItem
+from rss_news.scoring.item_scoring import (
+    ItemScore,
+    ScoringFailed,
+    ScoringResult,
+    ScoringUnavailable,
+    UnscoredItem,
+)
 from rss_news.sources.catalog import StarterFolder
 from rss_news.sources.fetching import FeedRequest, FetchFailed, FetchResult
 from rss_news.spending.ledger import AiUsage
@@ -87,9 +93,13 @@ class FakeLanguageModel:
         self.answer: ScoringAnswer = self.score_all
         # Items whose title contains one of these make their whole call fail.
         self.failing_titles: set[str] = set()
+        # When set, every call fails as if the API were down.
+        self.unavailable = False
 
     def score_items(self, items: Sequence[UnscoredItem]) -> ScoringResult:
         self.calls.append(list(items))
+        if self.unavailable:
+            raise ScoringUnavailable("scripted outage")
         if any(word in item.title for item in items for word in self.failing_titles):
             raise ScoringFailed("scripted failure", self.USAGE)
         return self.answer(items)

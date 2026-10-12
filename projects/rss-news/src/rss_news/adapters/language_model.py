@@ -18,6 +18,7 @@ from rss_news.scoring.item_scoring import (
     ItemScore,
     ScoringFailed,
     ScoringResult,
+    ScoringUnavailable,
     UnscoredItem,
 )
 from rss_news.spending.ledger import AiUsage
@@ -131,7 +132,8 @@ class AnthropicLanguageModel:
                             "detail": _detail(error),
                         },
                     )
-                    raise ScoringFailed(f"{operation} failed: {_detail(error)}") from error
+                    failure = ScoringFailed if _is_about_the_request(error) else ScoringUnavailable
+                    raise failure(f"{operation} failed: {_detail(error)}") from error
                 delay = _retry_delay(error, attempt)
                 logger.warning(
                     "ai call retried",
@@ -198,6 +200,14 @@ def _is_retryable(error: anthropic.APIConnectionError | anthropic.APIStatusError
     if isinstance(error, anthropic.APIConnectionError):
         return True  # includes timeouts
     return error.status_code in (408, 409, 429) or error.status_code >= 500
+
+
+def _is_about_the_request(
+    error: anthropic.APIConnectionError | anthropic.APIStatusError,
+) -> bool:
+    """True for errors this request's content caused (400, 413, 422); auth, a missing model,
+    rate limits, outages and network errors would fail any request."""
+    return isinstance(error, anthropic.APIStatusError) and error.status_code in (400, 413, 422)
 
 
 def _retry_delay(error: Exception, attempt: int) -> float:
