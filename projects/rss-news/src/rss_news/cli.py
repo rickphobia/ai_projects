@@ -10,6 +10,7 @@ from typing import TextIO
 import uvicorn
 
 from rss_news.adapters.feed_fetcher import HttpFeedFetcher
+from rss_news.adapters.language_model import AnthropicLanguageModel
 from rss_news.adapters.sqlite.database import DatabaseError, SqliteDatabase
 from rss_news.auth.passwords import hash_password
 from rss_news.clock import SystemClock
@@ -29,10 +30,17 @@ def serve(settings: Settings) -> int:
         logger.error("database unusable: %s", error)
         return 2
     feed_fetcher = HttpFeedFetcher(user_agent=settings.user_agent, timeout=settings.fetch_timeout)
+    language_model = AnthropicLanguageModel(
+        api_key=settings.anthropic_api_key,
+        scoring_model=settings.scoring_model,
+        timeout=settings.anthropic_timeout,
+        max_attempts=settings.anthropic_max_attempts,
+    )
     wiring = build_app(
         settings,
         database=database,
         feed_fetcher=feed_fetcher,
+        language_model=language_model,
         clock=SystemClock(),
         starter_folders=STARTER_FOLDERS,
         run_tick_loop=True,
@@ -46,6 +54,7 @@ def serve(settings: Settings) -> int:
         uvicorn.run(wiring.app, host=settings.host, port=settings.port, log_config=None)
     finally:
         feed_fetcher.close()
+        language_model.close()
     return 0
 
 

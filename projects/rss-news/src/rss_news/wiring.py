@@ -14,11 +14,14 @@ from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.adapters.sqlite.items import SqliteItems
 from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
 from rss_news.adapters.sqlite.sources import SqliteSources
+from rss_news.adapters.sqlite.spending import SqliteSpending
 from rss_news.clock import Clock
 from rss_news.config import Settings
 from rss_news.items.inbox import Inbox
+from rss_news.scoring.item_scoring import ItemScoring, ScoringModel
 from rss_news.sources.catalog import StarterFolder, load_starter_sources
 from rss_news.sources.fetching import FeedFetcher, SourceFetching
+from rss_news.spending.ledger import SpendingLedger
 from rss_news.tick import Tick, TickLoop, TickStep
 from rss_news.web.app import create_app
 
@@ -30,6 +33,7 @@ class Wiring:
     app: FastAPI
     # Tests run it by hand; `rss-news serve` runs it every minute in the background.
     tick: Tick
+    ledger: SpendingLedger
 
 
 def build_app(
@@ -37,6 +41,7 @@ def build_app(
     *,
     database: SqliteDatabase,
     feed_fetcher: FeedFetcher,
+    language_model: ScoringModel,
     clock: Clock,
     starter_folders: Sequence[StarterFolder],
     run_tick_loop: bool,
@@ -52,7 +57,27 @@ def build_app(
         clock=clock,
         interval=settings.fetch_interval,
     )
-    tick = Tick([TickStep("fetch due sources", fetching.fetch_due)], clock)
+    ledger = SpendingLedger(
+        SqliteSpending(database),
+        clock,
+        prices=settings.model_prices,
+        web_search_price_usd=settings.web_search_price_usd,
+    )
+    scoring = ItemScoring(
+        store=items,
+        model=language_model,
+        ledger=ledger,
+        clock=clock,
+        batch_size=settings.scoring_batch_size,
+        prompt_token_limit=settings.scoring_prompt_token_limit,
+    )
+    tick = Tick(
+        [
+            TickStep("fetch due sources", fetching.fetch_due),
+            TickStep("score new items", scoring.score_new),
+        ],
+        clock,
+    )
     app = create_app(
         settings,
         database=database,
@@ -63,4 +88,4 @@ def build_app(
         tick=tick,
         background=(TickLoop(tick, TICK_INTERVAL),) if run_tick_loop else (),
     )
-    return Wiring(app=app, tick=tick)
+    return Wiring(app=app, tick=tick, ledger=ledger)

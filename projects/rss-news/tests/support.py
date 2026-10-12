@@ -1,14 +1,16 @@
 """Shared test helpers: a stand-in PWA build and the environment the app needs."""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.auth.passwords import hash_password
 from rss_news.config import Settings
+from rss_news.scoring.item_scoring import ItemScore, ScoringFailed, ScoringResult, UnscoredItem
 from rss_news.sources.catalog import StarterFolder
 from rss_news.sources.fetching import FeedRequest, FetchFailed, FetchResult
+from rss_news.spending.ledger import AiUsage
 from rss_news.wiring import Wiring, build_app
 
 PREFIX = "/ai-projects/rss-news"
@@ -37,6 +39,7 @@ def app_env(tmp_path: Path, **overrides: str) -> dict[str, str]:
         "RSS_NEWS_SESSION_SECRET": SESSION_SECRET,
         # The test client talks plain http.
         "RSS_NEWS_SECURE_COOKIES": "false",
+        "RSS_NEWS_ANTHROPIC_API_KEY": "sk-ant-test-not-a-real-key",
         **overrides,
     }
 
@@ -64,11 +67,45 @@ class FakeFeedFetcher:
         return self.answers.get(request.url, FetchFailed("connect", "no answer set in the test"))
 
 
+type ScoringAnswer = Callable[[Sequence[UnscoredItem]], ScoringResult]
+
+
+class FakeLanguageModel:
+    """Scores each Item with what `answer` returns; by default Importance 3 and a summary
+    made from the title. Usage is scripted, so ledger rows can be checked exactly."""
+
+    USAGE = AiUsage(
+        model="claude-haiku-5-5",
+        input_tokens=10_000,
+        output_tokens=2_000,
+        web_searches=0,
+        duration=timedelta(seconds=3),
+    )
+
+    def __init__(self) -> None:
+        self.calls: list[list[UnscoredItem]] = []
+        self.answer: ScoringAnswer = self.score_all
+        # Items whose title contains one of these make their whole call fail.
+        self.failing_titles: set[str] = set()
+
+    def score_items(self, items: Sequence[UnscoredItem]) -> ScoringResult:
+        self.calls.append(list(items))
+        if any(word in item.title for item in items for word in self.failing_titles):
+            raise ScoringFailed("scripted failure", self.USAGE)
+        return self.answer(items)
+
+    @classmethod
+    def score_all(cls, items: Sequence[UnscoredItem]) -> ScoringResult:
+        scores = [ItemScore(item.id, 3, f"Summary of {item.title}") for item in items]
+        return ScoringResult(scores, cls.USAGE)
+
+
 def make_wiring(
     settings: Settings,
     clock: FakeClock,
     *,
     feed_fetcher: FakeFeedFetcher | None = None,
+    language_model: FakeLanguageModel | None = None,
     starter_folders: Sequence[StarterFolder] = (),
 ) -> Wiring:
     """The whole app over the settings' database file, with fakes for the outside world.
@@ -81,6 +118,7 @@ def make_wiring(
         settings,
         database=database,
         feed_fetcher=feed_fetcher or FakeFeedFetcher(),
+        language_model=language_model or FakeLanguageModel(),
         clock=clock,
         starter_folders=starter_folders,
         run_tick_loop=False,

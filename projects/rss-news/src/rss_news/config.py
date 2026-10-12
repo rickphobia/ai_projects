@@ -3,10 +3,12 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from rss_news.auth.passwords import InvalidPasswordHash, PasswordHash, parse_password_hash
+from rss_news.spending.ledger import ModelPrice
 
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR")
 _MIN_SESSION_SECRET_LENGTH = 32
@@ -40,10 +42,23 @@ class Settings:
     fetch_timeout: timedelta
     # Sent with every feed request, so site owners can see who is asking.
     user_agent: str
+    anthropic_api_key: str = field(repr=False)
+    anthropic_timeout: timedelta
+    # Tries per AI call, the first included; network errors, 429 and 5xx are tried again.
+    anthropic_max_attempts: int
+    scoring_model: str
+    # Items per scoring call; a call's prompt also stays under the token limit below.
+    scoring_batch_size: int
+    # Haiku costs 5x more for prompts over 100K tokens, so scoring calls stay under this.
+    scoring_prompt_token_limit: int
+    # USD per million input and output tokens, by model name. Every configured model needs one.
+    model_prices: Mapping[str, ModelPrice]
+    web_search_price_usd: Decimal
 
 
 def load_settings(environ: Mapping[str, str]) -> Settings:
     """Build Settings from `environ`, raising ConfigError that names the first bad variable."""
+    model_prices = _model_prices(environ, "RSS_NEWS_MODEL_PRICES", default=DEFAULT_MODEL_PRICES)
     return Settings(
         log_level=_log_level(environ, "RSS_NEWS_LOG_LEVEL", default="INFO"),
         host=_non_blank(environ, "RSS_NEWS_HOST", default="127.0.0.1"),
@@ -75,7 +90,25 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
             "RSS_NEWS_USER_AGENT",
             default="rss-news/0.1 (+https://rickphobia.com/ai-projects/rss-news/)",
         ),
+        anthropic_api_key=_required(environ, "RSS_NEWS_ANTHROPIC_API_KEY"),
+        anthropic_timeout=timedelta(
+            seconds=_positive_int(environ, "RSS_NEWS_ANTHROPIC_TIMEOUT_SECONDS", default=120)
+        ),
+        anthropic_max_attempts=_positive_int(environ, "RSS_NEWS_ANTHROPIC_MAX_ATTEMPTS", default=4),
+        scoring_model=_priced_model(
+            environ, "RSS_NEWS_SCORING_MODEL", default="claude-haiku-5-5", prices=model_prices
+        ),
+        scoring_batch_size=_positive_int(environ, "RSS_NEWS_SCORING_BATCH_SIZE", default=100),
+        scoring_prompt_token_limit=_positive_int(
+            environ, "RSS_NEWS_SCORING_PROMPT_TOKEN_LIMIT", default=90_000
+        ),
+        model_prices=model_prices,
+        web_search_price_usd=_usd(environ, "RSS_NEWS_WEB_SEARCH_PRICE_USD", default="0.01"),
     )
+
+
+# From the API price list as cached on 2026-10-06: input/output USD per million tokens.
+DEFAULT_MODEL_PRICES = "claude-haiku-5-5=0.10/0.50,claude-sonnet-5-5=2/10,claude-opus-5-5=4/20"
 
 
 def _required(environ: Mapping[str, str], name: str) -> str:
@@ -171,3 +204,44 @@ def _timezone(environ: Mapping[str, str], name: str, *, default: str) -> ZoneInf
         raise ConfigError(
             f"{name} must be an IANA time zone name like Asia/Kuala_Lumpur, got {value!r}"
         ) from None
+
+
+def _model_prices(environ: Mapping[str, str], name: str, *, default: str) -> dict[str, ModelPrice]:
+    raw = _non_blank(environ, name, default=default)
+    prices: dict[str, ModelPrice] = {}
+    for entry in raw.split(","):
+        model, _, price = entry.strip().partition("=")
+        input_price, _, output_price = price.partition("/")
+        try:
+            parsed = ModelPrice(Decimal(input_price), Decimal(output_price))
+        except InvalidOperation:
+            parsed = None
+        if not model or parsed is None or not parsed.is_valid():
+            raise ConfigError(
+                f"{name} must look like 'model=input/output,...' in USD per million tokens, "
+                f"got {entry.strip()!r}"
+            )
+        prices[model] = parsed
+    return prices
+
+
+def _priced_model(
+    environ: Mapping[str, str], name: str, *, default: str, prices: Mapping[str, ModelPrice]
+) -> str:
+    model = _non_blank(environ, name, default=default)
+    if model not in prices:
+        raise ConfigError(
+            f"{name} is {model!r}, which has no price in RSS_NEWS_MODEL_PRICES; add one"
+        )
+    return model
+
+
+def _usd(environ: Mapping[str, str], name: str, *, default: str) -> Decimal:
+    raw = environ.get(name, default).strip()
+    try:
+        amount = Decimal(raw)
+    except InvalidOperation:
+        raise ConfigError(f"{name} must be an amount in USD like 0.01, got {raw!r}") from None
+    if not amount.is_finite() or amount < 0:
+        raise ConfigError(f"{name} must be zero or more, got {raw!r}")
+    return amount

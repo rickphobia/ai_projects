@@ -57,6 +57,31 @@ MIGRATIONS: tuple[str, ...] = (
         done_at TEXT NOT NULL
     );
     """,
+    """
+    ALTER TABLE items ADD COLUMN importance INTEGER;  -- 1 to 5; NULL until scored
+    ALTER TABLE items ADD COLUMN summary TEXT;  -- one line in English; NULL until scored
+    ALTER TABLE items ADD COLUMN scored_at TEXT;
+    ALTER TABLE items ADD COLUMN score_failures INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE items ADD COLUMN score_retry_at TEXT;  -- after a failure, not scored before this
+    CREATE INDEX items_unscored ON items (score_failures, published_at DESC)
+        WHERE scored_at IS NULL;
+    -- Unscored Items sort below every score.
+    CREATE INDEX items_by_importance
+        ON items (COALESCE(importance, 0) DESC, published_at DESC, id DESC);
+    -- One row per AI call: what it was for, what it used and what it cost.
+    CREATE TABLE ai_calls (
+        id INTEGER PRIMARY KEY,
+        called_at TEXT NOT NULL,
+        feature TEXT NOT NULL,
+        model TEXT NOT NULL,
+        input_tokens INTEGER NOT NULL,
+        output_tokens INTEGER NOT NULL,
+        web_searches INTEGER NOT NULL,
+        cost_micro_usd INTEGER NOT NULL,  -- millionths of a dollar, so sums are exact
+        duration_ms INTEGER NOT NULL
+    );
+    CREATE INDEX ai_calls_called_at ON ai_calls (called_at);
+    """,
 )
 
 
