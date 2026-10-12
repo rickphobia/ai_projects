@@ -1,8 +1,9 @@
 import { SignedOutError, type ApiClient } from "../api/client";
 import { renderInbox } from "./inbox";
+import { renderSources } from "./sources";
 
 // The app shell for a signed-in owner: the name, whether the backend is up, sign out, and
-// the Inbox below.
+// the Inbox or the Sources screen below.
 export async function renderShell(
   root: HTMLElement,
   api: ApiClient,
@@ -25,10 +26,20 @@ export async function renderShell(
       status.textContent = `Couldn't sign out: ${detail}`;
     });
   });
-  const inbox = document.createElement("section");
-  root.replaceChildren(heading, status, signOut, inbox);
+  const page = document.createElement("section");
+  const toInbox = navButton("Inbox");
+  const toSources = navButton("Sources");
+  const nav = document.createElement("nav");
+  nav.append(toInbox, toSources);
+  toInbox.addEventListener("click", () => {
+    void renderInbox(page, api);
+  });
+  toSources.addEventListener("click", () => {
+    void renderSources(page, api);
+  });
+  root.replaceChildren(heading, status, signOut, nav, page);
 
-  await Promise.all([showHealth(api, status), renderInbox(inbox, api)]);
+  await Promise.all([showHealth(api, status), renderInbox(page, api)]);
 }
 
 async function showHealth(api: ApiClient, status: HTMLElement): Promise<void> {
@@ -42,4 +53,11 @@ async function showHealth(api: ApiClient, status: HTMLElement): Promise<void> {
     const detail = error instanceof Error ? error.message : String(error);
     status.textContent = `Can't reach the server: ${detail}`;
   }
+}
+
+function navButton(text: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = text;
+  return button;
 }

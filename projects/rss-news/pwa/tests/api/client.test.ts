@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { HttpApiClient, SignedOutError } from "../../src/api/client";
+import {
+  HttpApiClient,
+  RefusedError,
+  SignedOutError,
+} from "../../src/api/client";
 
 const BASE = "https://example.test/ai-projects/rss-news/";
 
@@ -139,5 +143,49 @@ describe("HttpApiClient", () => {
     const folders = await new HttpApiClient(BASE, () => undefined).folders();
 
     expect(folders).toEqual([{ id: 1, name: "AI" }]);
+  });
+
+  it("adds a subreddit with the backend's field names", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      answer(201, {
+        id: 3,
+        folder_id: 1,
+        name: "r/LocalLLaMA",
+        url: "https://www.reddit.com/r/LocalLLaMA/top/.rss?t=day",
+        paused: false,
+        last_success_at: null,
+        last_error_at: null,
+        last_error: null,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const added = await new HttpApiClient(BASE, () => undefined).addSource({
+      folderId: 1,
+      subreddit: "LocalLLaMA",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    expect(url.href).toBe(`${BASE}api/sources`);
+    expect(init.body).toBe(
+      JSON.stringify({ folder_id: 1, subreddit: "LocalLLaMA" }),
+    );
+    expect(added.folderId).toBe(1);
+    expect(added.name).toBe("r/LocalLLaMA");
+  });
+
+  it("turns a refusal into a RefusedError with the server's reason", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          answer(409, { detail: "the Folder still has 2 Source(s)" }),
+        ),
+    );
+
+    await expect(
+      new HttpApiClient(BASE, () => undefined).deleteFolder(4),
+    ).rejects.toEqual(new RefusedError("the Folder still has 2 Source(s)"));
   });
 });

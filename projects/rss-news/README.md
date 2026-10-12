@@ -4,7 +4,7 @@ A personal news briefing for one owner: it reads many Sources (RSS and Atom feed
 
 ## Status
 
-`in progress`: feeds arrive in the Inbox and get scored. On first run the starter Sources from [`docs/starter-sources.md`](docs/starter-sources.md) are loaded; every minute the server fetches the Sources that are due, stores new Items once each, and has Claude Haiku give each new Item an Importance from 1 to 5 and a one-line English summary. Every AI call is recorded in a spending ledger. The owner signs in with one password and sees the Inbox, newest or most important first, filtered by Folder and Importance. It installs to the home screen from Chrome, and its service worker caches the app shell (never API answers). Deployable to the Beelink. Fetching is polite: Reddit requests are spaced out, retry delays are honoured and failing Sources back off. No Source management, Briefings or Chat yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
+`in progress`: feeds arrive in the Inbox and get scored. On first run the starter Sources from [`docs/starter-sources.md`](docs/starter-sources.md) are loaded; every minute the server fetches the Sources that are due, stores new Items once each, and has Claude Haiku give each new Item an Importance from 1 to 5 and a one-line English summary. Every AI call is recorded in a spending ledger. The owner signs in with one password and sees the Inbox, newest or most important first, filtered by Folder and Importance, and manages Sources and Folders: add a feed URL or a subreddit, create, rename and delete Folders, move, pause or remove a Source, and see each Source's last success and last error. It installs to the home screen from Chrome, and its service worker caches the app shell (never API answers). Deployable to the Beelink. Fetching is polite: Reddit requests are spaced out, retry delays are honoured and failing Sources back off. No Briefings or Chat yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
 
 ## Requirements
 
@@ -186,7 +186,8 @@ Settings come from environment variables, checked at startup (`src/rss_news/conf
 - **The LanguageModel** (`src/rss_news/adapters/language_model.py`) calls the Anthropic Messages API with structured JSON output at low effort. It retries network errors, 408, 409, 429 and 5xx itself (1, 2, 4… seconds, or the `retry-after` the API gives, at most 60), so each retry is logged; the SDK's own retries are off.
 - **The spending ledger** (`src/rss_news/spending/ledger.py`, table `ai_calls`): one row per AI call with the feature, model, tokens, web searches, cost and duration. The cost comes from `RSS_NEWS_MODEL_PRICES` and is kept in millionths of a dollar so totals add up exactly. A failed call the model answered (such as a refusal) is recorded too, because it was billed.
 - **The Inbox API**: `GET /api/inbox?folder=<id>&min_importance=<1-5>&sort=<newest|importance>&cursor=<next_cursor>&limit=<1-200>` lists Items with their Source, Folder, Importance and summary (both `null` until scored), 50 to a page. `sort=importance` puts the highest Importance first, newest first within one, and unscored Items last; `min_importance` leaves unscored Items out. Paging is by cursor (the last Item's position in the order), so Items arriving while you scroll don't shift the next page; a cursor only works with the order it came from. `GET /api/folders` lists the Folders for the filter.
-- The PWA (`pwa/`) is TypeScript built with Vite. Every backend call goes through the `ApiClient` in `pwa/src/api/client.ts`; screens get one passed in, and tests pass a fake. On any 401 the client sends the owner to the login screen. At start it asks `/api/session` and shows either login or the shell, which says whether the server is up, has a Sign out button, and shows the Inbox (`pwa/src/screens/inbox.ts`): Items linking to the original page, each with its Importance (a dash until scored) and one-line summary, filters for Folder and Importance, a Newest / Most important sort, and a Load more button.
+- **Managing Sources and Folders** (`sources/managing.py`, API in `web/sources.py`): `POST/PATCH/DELETE /api/folders[/<id>]` and `GET/POST/PATCH/DELETE /api/sources[/<id>]`. `GET /api/sources` includes each Source's `paused`, `last_success_at`, `last_error_at` and `last_error`. A new feed URL (`{"folder_id", "url", "name"?}`) is fetched once and refused with 422 if it doesn't answer with a feed; a subreddit (`{"folder_id", "subreddit"}`, `r/` optional) becomes `https://www.reddit.com/r/<name>/top/.rss?t=day` without a check, since Reddit often answers a lone request with 429. Deleting a Folder that still has Sources, or adding a URL twice, answers 409; an unknown id 404. Each refusal's `detail` is shown to the owner as is. Paused Sources are skipped by the tick; removing a Source deletes its Items.
+- The PWA (`pwa/`) is TypeScript built with Vite. Every backend call goes through the `ApiClient` in `pwa/src/api/client.ts`; screens get one passed in, and tests pass a fake. On any 401 the client sends the owner to the login screen. At start it asks `/api/session` and shows either login or the shell, which says whether the server is up, has a Sign out button, and shows the Inbox (`pwa/src/screens/inbox.ts`): Items linking to the original page, each with its Importance (a dash until scored) and one-line summary, filters for Folder and Importance, a Newest / Most important sort, and a Load more button. The Sources button opens `pwa/src/screens/sources.ts`.
 
 ## Folder layout
 
@@ -199,8 +200,8 @@ src/rss_news/
   wiring.py          puts the stores, features and tick together over the adapters
   tick.py            the steps run every minute, and the background loop running them
   auth/              password hashes, signed session cookies, lockout
-  sources/           Folders and Sources, the starter set, fetching due Sources, the
-                     polite fetch queue (host spacing, retry delays, backoff),
+  sources/           Folders and Sources, the starter set, the owner's changes, fetching due Sources,
+                     the polite fetch queue (host spacing, retry delays, backoff),
                      feed parsing and tracking-parameter cleaning
   items/             Items and the Inbox query with its orders, filters and paging cursor
   scoring/           giving new Items an Importance and a summary, in batches, with retries
@@ -208,7 +209,7 @@ src/rss_news/
   web/app.py         the FastAPI app: /healthz, the API routers and the PWA
   web/auth.py        login, logout, the session check and the guard on /api
   web/inbox.py       GET /api/inbox
-  web/sources.py     GET /api/folders
+  web/sources.py     /api/folders and /api/sources
   adapters/feed_fetcher.py  the FeedFetcher over HTTP (httpx)
   adapters/language_model.py  the LanguageModel over the Anthropic Messages API
   adapters/sqlite/   the database file, its migrations, login failures, Sources, Items, spending

@@ -58,6 +58,9 @@ MIGRATIONS: tuple[str, ...] = (
     );
     """,
     """
+    ALTER TABLE sources ADD COLUMN paused INTEGER NOT NULL DEFAULT 0;
+    """,
+    """
     ALTER TABLE items ADD COLUMN importance INTEGER;  -- 1 to 5; NULL until scored
     ALTER TABLE items ADD COLUMN summary TEXT;  -- one line in English; NULL until scored
     ALTER TABLE items ADD COLUMN scored_at TEXT;

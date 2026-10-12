@@ -15,9 +15,10 @@ from rss_news.auth.sessions import SessionSigner
 from rss_news.clock import Clock
 from rss_news.config import Settings
 from rss_news.items.inbox import Inbox
+from rss_news.sources.managing import SourceManagement
 from rss_news.web.auth import Access, public_router, require_session, session_router
 from rss_news.web.inbox import inbox_router
-from rss_news.web.sources import FolderList, sources_router
+from rss_news.web.sources import sources_router
 
 
 class DatabaseHealth(Protocol):
@@ -43,7 +44,7 @@ def create_app(
     login_failures: LoginFailures,
     clock: Clock,
     inbox: Inbox,
-    folders: FolderList,
+    source_management: SourceManagement,
     tick: TickHealth,
     background: tuple[BackgroundJob, ...] = (),
 ) -> FastAPI:
@@ -83,7 +84,7 @@ def create_app(
         cookie_path=settings.root_path or "/",
     )
     app.state.inbox = inbox
-    app.state.folders = folders
+    app.state.source_management = source_management
 
     @app.get("/healthz")
     def healthz() -> Response:

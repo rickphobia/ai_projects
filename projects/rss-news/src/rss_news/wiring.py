@@ -21,6 +21,7 @@ from rss_news.items.inbox import Inbox
 from rss_news.scoring.item_scoring import ItemScoring, ScoringModel
 from rss_news.sources.catalog import StarterFolder, load_starter_sources
 from rss_news.sources.fetching import FeedFetcher, SourceFetching
+from rss_news.sources.managing import SourceManagement
 from rss_news.sources.polite_queue import FetchPacing
 from rss_news.spending.ledger import SpendingLedger
 from rss_news.tick import Tick, TickLoop, TickStep
@@ -90,7 +91,7 @@ def build_app(
         login_failures=SqliteLoginFailures(database),
         clock=clock,
         inbox=Inbox(items),
-        folders=sources,
+        source_management=SourceManagement(sources=sources, fetcher=feed_fetcher),
         tick=tick,
         background=(TickLoop(tick, TICK_INTERVAL),) if run_tick_loop else (),
     )

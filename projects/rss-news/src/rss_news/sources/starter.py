@@ -3,11 +3,11 @@
 Ticker-news Sources come from the owner's Holdings and Watchlist, so they aren't here.
 """
 
-from rss_news.sources.catalog import StarterFolder, StarterSource
+from rss_news.sources.catalog import StarterFolder, StarterSource, subreddit_feed_url
 
 
 def _subreddit(name: str) -> StarterSource:
-    return StarterSource(f"r/{name}", f"https://www.reddit.com/r/{name}/top/.rss?t=day")
+    return StarterSource(f"r/{name}", subreddit_feed_url(name))
 
 
 STARTER_FOLDERS: tuple[StarterFolder, ...] = (
