@@ -1,5 +1,5 @@
-"""The Inbox over the JSON API: Items in order, filtered by Folder and Importance, a page at a
-time."""
+"""The Inbox over the JSON API: Items in order, filtered by Folder and Importance and searched,
+a page at a time."""
 
 from typing import Annotated, Any
 
@@ -28,17 +28,20 @@ def list_inbox(
     request: Request,
     folder: int | None = None,
     min_importance: Annotated[int | None, Query(ge=MIN_IMPORTANCE, le=MAX_IMPORTANCE)] = None,
+    search: Annotated[str | None, Query(max_length=200)] = None,
     sort: InboxOrder = InboxOrder.NEWEST,
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
 ) -> dict[str, Any]:
-    """`folder` limits the page to one Folder and `min_importance` to Items scored at least
-    that; `sort` is `newest` or `importance`; `cursor` is the last page's `next_cursor`."""
+    """`folder` limits the page to one Folder, `min_importance` to Items scored at least that
+    and `search` to Items with every word in the title, excerpt or summary; `sort` is
+    `newest` or `importance`; `cursor` is the last page's `next_cursor`."""
     try:
         page = inbox_of(request).page(
             order=sort,
             folder_id=folder,
             min_importance=min_importance,
+            search=search,
             cursor=cursor,
             limit=limit,
         )

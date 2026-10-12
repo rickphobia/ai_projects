@@ -1,10 +1,16 @@
-"""Items and the Inbox: storing new Items once each, and listing them newest first."""
+"""Items and the Inbox: storing new Items once each, listing and searching them, and deleting
+old ones."""
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Protocol
+
+from rss_news.clock import Clock
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 200
@@ -76,11 +82,20 @@ class ItemStore(Protocol):
         order: InboxOrder,
         folder_id: int | None,
         min_importance: int | None,
+        search: str | None,
         after: InboxPosition | None,
         limit: int,
     ) -> list[InboxItem]:
-        """Items in the order (ties broken by newest id), optionally only one Folder's and only
-        those scored at least `min_importance`, after a position."""
+        """Items in the order (ties broken by newest id), optionally only one Folder's, only
+        those scored at least `min_importance` and only those whose title, excerpt or summary
+        has every word of `search` (as a word start), after a position."""
+        ...
+
+
+class OldItemStore(Protocol):
+    def delete_fetched_before(self, cutoff: datetime) -> int:
+        """Delete the Items that arrived before `cutoff`, with their search entries; return
+        how many."""
         ...
 
 
@@ -94,6 +109,7 @@ class Inbox:
         order: InboxOrder = InboxOrder.NEWEST,
         folder_id: int | None = None,
         min_importance: int | None = None,
+        search: str | None = None,
         cursor: str | None = None,
         limit: int = DEFAULT_PAGE_SIZE,
     ) -> InboxPage:
@@ -106,6 +122,8 @@ class Inbox:
             order=order,
             folder_id=folder_id,
             min_importance=min_importance,
+            # A blank search box means no search.
+            search=search if search and search.strip() else None,
             after=after,
             limit=limit + 1,
         )
@@ -116,6 +134,25 @@ class Inbox:
             importance = (last.importance or 0) if order is InboxOrder.IMPORTANCE else None
             next_cursor = _encode(InboxPosition(last.published_at, last.id, importance))
         return InboxPage(items=shown, next_cursor=next_cursor)
+
+
+class OldItemCleanup:
+    """Deletes Items older than the configured age, so the database stays small."""
+
+    def __init__(self, items: OldItemStore, clock: Clock, max_age: timedelta) -> None:
+        self._items = items
+        self._clock = clock
+        self._max_age = max_age
+
+    def delete_old(self) -> None:
+        # By arrival, not publish time: an Item a feed still carries but published long ago
+        # would otherwise be deleted and fetched again on every tick.
+        cutoff = self._clock.now() - self._max_age
+        deleted = self._items.delete_fetched_before(cutoff)
+        if deleted:
+            logger.info(
+                "old items deleted", extra={"deleted": deleted, "cutoff": cutoff.isoformat()}
+            )
 
 
 # Cursors are "<microseconds since 1970 UTC>-<item id>", led by "<importance>-" in the

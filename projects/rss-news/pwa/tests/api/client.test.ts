@@ -95,6 +95,7 @@ describe("HttpApiClient", () => {
       folderId: 2,
       minImportance: 3,
       sort: "importance",
+      search: "gemma weights",
       cursor: "2026-10-12T05:00:00+00:00~9",
     });
 
@@ -103,6 +104,7 @@ describe("HttpApiClient", () => {
     expect(url.searchParams.get("folder")).toBe("2");
     expect(url.searchParams.get("min_importance")).toBe("3");
     expect(url.searchParams.get("sort")).toBe("importance");
+    expect(url.searchParams.get("search")).toBe("gemma weights");
     expect(url.searchParams.get("cursor")).toBe("2026-10-12T05:00:00+00:00~9");
     expect(page).toEqual({
       items: [

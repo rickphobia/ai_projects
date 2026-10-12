@@ -70,7 +70,12 @@ export class FakeApiClient implements ApiClient {
       (item) =>
         (query.folderId === undefined || item.folder.id === query.folderId) &&
         (query.minImportance === undefined ||
-          (item.importance ?? 0) >= query.minImportance),
+          (item.importance ?? 0) >= query.minImportance) &&
+        (query.search === undefined ||
+          query.search
+            .toLowerCase()
+            .split(/\s+/)
+            .every((word) => item.title.toLowerCase().includes(word))),
     );
     if (query.sort === "importance") {
       // A stable sort keeps newest first within one Importance.

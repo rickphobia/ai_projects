@@ -9,8 +9,8 @@ import { shownTime } from "./shown-time";
 const ALL_FOLDERS = "";
 const ANY_IMPORTANCE = "";
 
-// The Inbox: every Item newest first or most important first, filters by Folder and
-// Importance, and a button for the next page. Unread Items are marked; choosing one calls
+// The Inbox: every Item newest first or most important first, a keyword search, filters by
+// Folder and Importance, and a button for the next page. Unread Items are marked; choosing one calls
 // onOpen with its id.
 export async function renderInbox(
   root: HTMLElement,
@@ -32,6 +32,18 @@ export async function renderInbox(
     new Option("Newest first", "newest"),
     new Option("Most important first", "importance"),
   );
+  const searchForm = document.createElement("form");
+  searchForm.setAttribute("role", "search");
+  const searchBox = document.createElement("input");
+  searchBox.type = "search";
+  searchBox.placeholder = "Words in the title or summary";
+  const searchLabel = document.createElement("label");
+  searchLabel.textContent = "Search";
+  searchLabel.append(searchBox);
+  const searchButton = document.createElement("button");
+  searchButton.type = "submit";
+  searchButton.textContent = "Search";
+  searchForm.append(searchLabel, searchButton);
   const filters = document.createElement("div");
   filters.append(
     labelled("Folder", filter),
@@ -48,7 +60,14 @@ export async function renderInbox(
   loadMore.type = "button";
   loadMore.textContent = "Load more";
   loadMore.hidden = true;
-  root.replaceChildren(filters, folderError, list, status, loadMore);
+  root.replaceChildren(
+    searchForm,
+    filters,
+    folderError,
+    list,
+    status,
+    loadMore,
+  );
 
   let query: InboxQuery = {};
   let nextCursor: string | null = null;
@@ -83,6 +102,8 @@ export async function renderInbox(
 
   function applyFilters(): void {
     query = {};
+    const search = searchBox.value.trim();
+    if (search !== "") query.search = search;
     if (filter.value !== ALL_FOLDERS) query.folderId = Number(filter.value);
     if (importanceFilter.value !== ANY_IMPORTANCE) {
       query.minImportance = Number(importanceFilter.value);
@@ -94,6 +115,12 @@ export async function renderInbox(
   for (const select of [filter, importanceFilter, order]) {
     select.addEventListener("change", applyFilters);
   }
+  searchForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    applyFilters();
+  });
+  // Clearing the box (its x button or Escape) shows the whole Inbox again.
+  searchBox.addEventListener("search", applyFilters);
   loadMore.addEventListener("click", () => {
     void load(true);
   });
@@ -128,6 +155,7 @@ function labelled(text: string, select: HTMLSelectElement): HTMLLabelElement {
 }
 
 function emptyMessage(query: InboxQuery): string {
+  if (query.search !== undefined) return "No Items match this search.";
   return query.folderId === undefined && query.minImportance === undefined
     ? "No Items yet. Sources are checked every few minutes."
     : "No Items match these filters.";

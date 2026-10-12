@@ -41,6 +41,8 @@ export interface InboxQuery {
   folderId?: number;
   // Only Items scored at least this; unscored Items are left out.
   minImportance?: number;
+  // Only Items with every word in the title, excerpt or one-line summary.
+  search?: string;
   // Newest first when left out.
   sort?: InboxOrder;
   // The last page's nextCursor, for the page after it.
@@ -172,6 +174,7 @@ export class HttpApiClient implements ApiClient {
     if (query.minImportance !== undefined) {
       params.set("min_importance", String(query.minImportance));
     }
+    if (query.search !== undefined) params.set("search", query.search);
     if (query.sort !== undefined) params.set("sort", query.sort);
     if (query.cursor !== undefined) params.set("cursor", query.cursor);
     const path =
