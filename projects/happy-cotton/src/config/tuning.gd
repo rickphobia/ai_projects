@@ -48,7 +48,7 @@ const LIMITS: Dictionary = {
 	"largest_land_columns": [1.0, 20.0],
 	"largest_land_rows": [1.0, 20.0],
 	"first_plot_price": [1.0, 1000000.0],
-	"plot_price_rise": [0.0, 1000000.0],
+	"plot_price_rise": [1.0, 1000000.0],
 	"plot_quota_rise": [1.0, 10000.0],
 	"plot_yield_per_shift": [1.0, 10000.0],
 }

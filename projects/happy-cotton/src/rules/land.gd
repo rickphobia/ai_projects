@@ -16,9 +16,12 @@ var _cells: Array[Vector2i] = []
 ## The cells still for sale, in the order they are sold.
 var _for_sale: Array[Vector2i] = []
 var _first_plots: int
+## How many more picks the Quota demands for each Plot bought.
+var _quota_rise_per_plot: int
 
 
-func _init(first: Vector2i, largest: Vector2i) -> void:
+func _init(first: Vector2i, largest: Vector2i, quota_rise_per_plot: int) -> void:
+	_quota_rise_per_plot = quota_rise_per_plot
 	_columns = first.x
 	_rows = first.y
 	for row in range(first.y - 1, -1, -1):
@@ -35,6 +38,16 @@ func plot_count() -> int:
 ## Plots bought since the first land.
 func plots_bought() -> int:
 	return _cells.size() - _first_plots
+
+
+## How many more picks the Quota demands for each Plot bought, from the next Shift.
+func quota_rise_per_plot() -> int:
+	return _quota_rise_per_plot
+
+
+## The Quota rise of every Plot bought so far.
+func quota_rise() -> int:
+	return plots_bought() * _quota_rise_per_plot
 
 
 ## Plots still for sale before the land is at its largest.

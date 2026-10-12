@@ -359,7 +359,7 @@ func buy_plot() -> CommandResult:
 	_ledger.spend(price)
 	var plot := _land.buy()
 	_crops.add_plot()
-	var values := {"plot": plot + 1, "price": price, "quota_rise": _plot_quota_rise()}
+	var values := {"plot": plot + 1, "price": price, "quota_rise": _land.quota_rise_per_plot()}
 	_messages.append(AppMessage.new(PLOT_BOUGHT, values))
 	return CommandResult.done()
 
@@ -754,14 +754,8 @@ func _upgrade_refusal(upgrade: StringName) -> StringName:
 	)
 	if tier == null:
 		return FULLY_UPGRADED
-	if in_study_session():
-		return IN_STUDY_SESSION
-	if _ledger.in_debt():
-		return IN_DEBT
 	var tier_price: float = tier.get("price")
-	if not _ledger.can_afford(roundi(tier_price)):
-		return NOT_ENOUGH_LABOUR_POINTS
-	return &""
+	return _purchase_refusal(roundi(tier_price))
 
 
 ## The next Plot's price: the first Plot's, and a rise for every one bought since.
@@ -769,19 +763,21 @@ func _plot_price() -> int:
 	return roundi(_tuning.first_plot_price + _land.plots_bought() * _tuning.plot_price_rise)
 
 
-func _plot_quota_rise() -> int:
-	return roundi(_tuning.plot_quota_rise)
-
-
 ## Why the next Plot can't be bought right now, or &"" when it can.
 func _plot_refusal() -> StringName:
 	if _land.is_fully_bought():
 		return FULLY_BOUGHT
+	return _purchase_refusal(_plot_price())
+
+
+## Why something costing `price` can't be bought from the store right now, once it is known
+## to be for sale, or &"" when it can.
+func _purchase_refusal(price: int) -> StringName:
 	if in_study_session():
 		return IN_STUDY_SESSION
 	if _ledger.in_debt():
 		return IN_DEBT
-	if not _ledger.can_afford(_plot_price()):
+	if not _ledger.can_afford(price):
 		return NOT_ENOUGH_LABOUR_POINTS
 	return &""
 
@@ -790,7 +786,9 @@ func _plot_refusal() -> StringName:
 func _land_view() -> StoreItemView:
 	if _land.is_fully_bought():
 		return StoreItemView.land(LAND, 0, 0, true, FULLY_BOUGHT)
-	return StoreItemView.land(LAND, _plot_price(), _plot_quota_rise(), false, _plot_refusal())
+	return StoreItemView.land(
+		LAND, _plot_price(), _land.quota_rise_per_plot(), false, _plot_refusal()
+	)
 
 
 ## Everything the store sells, Upgrades first, then land, then Privileges, each with its price
@@ -885,7 +883,8 @@ func _log_negligence(withered_plots: Array[int]) -> void:
 func _new_land() -> Land:
 	return Land.new(
 		Vector2i(roundi(_tuning.first_land_columns), roundi(_tuning.first_land_rows)),
-		Vector2i(roundi(_tuning.largest_land_columns), roundi(_tuning.largest_land_rows))
+		Vector2i(roundi(_tuning.largest_land_columns), roundi(_tuning.largest_land_rows)),
+		roundi(_tuning.plot_quota_rise)
 	)
 
 

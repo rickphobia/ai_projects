@@ -90,3 +90,13 @@ func test_the_first_plot_price_is_required() -> void:
 	tuning.first_plot_price = NAN
 
 	assert_has(tuning.problems(), "first_plot_price is missing from the tuning table")
+
+
+func test_each_plot_costs_more_than_the_last() -> void:
+	var tuning := _good_table()
+	tuning.plot_price_rise = 0.0
+
+	var problems := tuning.problems()
+
+	assert_eq(problems.size(), 1)
+	assert_string_contains(problems[0], "plot_price_rise is 0")
