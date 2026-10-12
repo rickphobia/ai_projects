@@ -66,6 +66,32 @@ check "writes the link through the REST API, which old gh versions can still edi
   "$(cat "$sent")"
 unset -f gh
 
+# A fake curl that answers from try number $answer_from on, counting tries in a file (curl runs
+# in the subshells the checks capture), and a fake systemctl reporting the preview's state.
+tries=$(mktemp)
+trap 'rm -f "$sent" "$tries"' EXIT
+curl() {
+  local n
+  n=$(($(cat "$tries") + 1))
+  echo "$n" >"$tries"
+  ((n >= answer_from))
+}
+# shellcheck disable=SC2317 # called by unit_state in the sourced script
+ctl() { echo "$preview_state"; }
+poll_seconds=0
+waited() { # waited <N> <seconds>: runs wait_for_preview and says how it ended
+  echo 0 >"$tries"
+  if wait_for_preview "$1" "$2"; then echo "ready after $(cat "$tries") tries"; else echo "gave up after $(cat "$tries") tries"; fi
+}
+
+preview_state=active answer_from=3
+check "waits for a just-started preview until it answers" "ready after 3 tries" "$(waited 88 60)"
+preview_state=active answer_from=999
+check "gives up once the wait is over, so the next sync tries again" "gave up after 1 tries" "$(waited 88 0)"
+preview_state=failed answer_from=999
+check "stops waiting as soon as the preview's build or server fails" "gave up after 1 tries" "$(waited 88 60)"
+unset -f curl ctl waited
+
 if ((failures > 0)); then
   printf '%d failed\n' "$failures"
   exit 1
