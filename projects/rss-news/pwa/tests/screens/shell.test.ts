@@ -44,6 +44,52 @@ describe("the app shell", () => {
     );
   });
 
+  it("starts on the home screen with the latest Briefing", async () => {
+    api.latestBriefingAnswer = {
+      id: 1,
+      scope: "all-24h",
+      createdAt: "2026-10-12T00:30:00+00:00",
+      itemCount: 1,
+      costUsd: "0.20",
+      sections: [
+        {
+          folder: { id: 1, name: "AI" },
+          points: [
+            {
+              text: "A model came out.",
+              items: [{ id: 1, title: "A story", source: "Example" }],
+            },
+          ],
+        },
+      ],
+    };
+    api.items = [
+      {
+        id: 1,
+        title: "A story",
+        url: "https://news.example/1",
+        source: "Example",
+        folder: { id: 1, name: "AI" },
+        publishedAt: "2026-10-12T04:00:00+00:00",
+        importance: 4,
+        summary: "Something happened.",
+        read: false,
+      },
+    ];
+
+    await renderShell(root, api, () => undefined);
+
+    expect(screen.getByText("A model came out.")).toBeTruthy();
+    screen.getByRole("link", { name: "Example: A story" }).click();
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "A story" })).toBeTruthy();
+    });
+    screen.getByRole("button", { name: "Back to Home" }).click();
+    await waitFor(() => {
+      expect(screen.getByText("A model came out.")).toBeTruthy();
+    });
+  });
+
   it("shows the Inbox", async () => {
     api.items = [
       {
@@ -60,8 +106,11 @@ describe("the app shell", () => {
     ];
 
     await renderShell(root, api, () => undefined);
+    screen.getByRole("button", { name: "Inbox" }).click();
 
-    expect(screen.getByRole("link", { name: "A story" })).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "A story" })).toBeTruthy();
+    });
   });
 
   it("opens an Item from the Inbox and goes back", async () => {
@@ -79,6 +128,10 @@ describe("the app shell", () => {
       },
     ];
     await renderShell(root, api, () => undefined);
+    screen.getByRole("button", { name: "Inbox" }).click();
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "A story" })).toBeTruthy();
+    });
 
     screen.getByRole("link", { name: "A story" }).click();
     await waitFor(() => {

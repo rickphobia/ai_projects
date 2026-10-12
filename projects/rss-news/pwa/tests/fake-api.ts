@@ -1,4 +1,10 @@
 import type {
+  Briefing,
+  BriefingEstimate,
+  BriefingProgress,
+  WrittenBriefing,
+} from "../src/api/briefings";
+import type {
   ApiClient,
   Folder,
   Health,
@@ -36,6 +42,22 @@ export class FakeApiClient implements ApiClient {
   changeError: Error | null = null;
   // Every change asked for, in order, as [call, ...arguments].
   changes: unknown[][] = [];
+  latestBriefingAnswer: Briefing | null | Error = null;
+  estimateAnswer: BriefingEstimate | Error = {
+    itemCount: 12,
+    sectionCount: 3,
+    estimatedCostUsd: "0.24",
+  };
+  // The answer to each writeBriefing call in turn: its progress, then its result.
+  writeAnswers: {
+    progress: BriefingProgress[];
+    result: WrittenBriefing | Error;
+  }[] = [];
+  // The `regenerate` of each writeBriefing call.
+  writeRequests: boolean[] = [];
+  // While true, writeBriefing waits after its progress until the test calls releaseWrite.
+  holdWrite = false;
+  releaseWrite: (() => void) | null = null;
 
   health(): Promise<Health> {
     return settle(this.healthAnswer);
@@ -131,6 +153,30 @@ export class FakeApiClient implements ApiClient {
 
   removeSource(sourceId: number): Promise<void> {
     return this.change(["removeSource", sourceId], undefined);
+  }
+
+  latestBriefing(): Promise<Briefing | null> {
+    return settle(this.latestBriefingAnswer);
+  }
+
+  briefingEstimate(): Promise<BriefingEstimate> {
+    return settle(this.estimateAnswer);
+  }
+
+  async writeBriefing(
+    regenerate: boolean,
+    onProgress: (progress: BriefingProgress) => void,
+  ): Promise<WrittenBriefing> {
+    this.writeRequests.push(regenerate);
+    const answer = this.writeAnswers.shift();
+    if (!answer) throw new Error("the test set no writeBriefing answer");
+    answer.progress.forEach(onProgress);
+    if (this.holdWrite) {
+      await new Promise<void>((resolve) => {
+        this.releaseWrite = resolve;
+      });
+    }
+    return settle(answer.result);
   }
 
   private change<T>(call: unknown[], answer: T): Promise<T> {

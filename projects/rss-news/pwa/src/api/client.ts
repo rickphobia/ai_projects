@@ -1,6 +1,18 @@
 // Every call the PWA makes to the backend goes through an ApiClient: screens get one passed in,
 // and tests pass a fake.
 
+import {
+  briefingFromJson,
+  estimateFromJson,
+  type Briefing,
+  type BriefingEstimate,
+  type BriefingJson,
+  type BriefingProgress,
+  type EstimateJson,
+  type WrittenBriefing,
+} from "./briefings";
+import { readEvents } from "./event-stream";
+
 export interface Health {
   status: "ok" | "failing";
   database: "ok" | "unreachable";
@@ -102,6 +114,16 @@ export interface ApiClient {
   addSource(source: NewSource): Promise<SourceInfo>;
   changeSource(sourceId: number, change: SourceChange): Promise<SourceInfo>;
   removeSource(sourceId: number): Promise<void>;
+  // Null until the first Briefing is written.
+  latestBriefing(): Promise<Briefing | null>;
+  // What Brief me would cost; the server works it out without calling the model.
+  briefingEstimate(): Promise<BriefingEstimate>;
+  // Brief me: all Sources over the last 24 hours. Gives back today's saved Briefing unless
+  // `regenerate`. Rejects with RefusedError when there is nothing to brief or it failed.
+  writeBriefing(
+    regenerate: boolean,
+    onProgress: (progress: BriefingProgress) => void,
+  ): Promise<WrittenBriefing>;
 }
 
 export class ApiError extends Error {
@@ -248,6 +270,49 @@ export class HttpApiClient implements ApiClient {
     await this.sendWithSession("DELETE", `api/sources/${String(sourceId)}`);
   }
 
+  async latestBriefing(): Promise<Briefing | null> {
+    const response = await this.sendWithSession("GET", "api/briefings/latest");
+    const body = (await response.json()) as { briefing: BriefingJson | null };
+    return body.briefing === null ? null : briefingFromJson(body.briefing);
+  }
+
+  async briefingEstimate(): Promise<BriefingEstimate> {
+    const response = await this.sendWithSession(
+      "GET",
+      "api/briefings/estimate",
+    );
+    return estimateFromJson((await response.json()) as EstimateJson);
+  }
+
+  async writeBriefing(
+    regenerate: boolean,
+    onProgress: (progress: BriefingProgress) => void,
+  ): Promise<WrittenBriefing> {
+    const response = await this.sendWithSession("POST", "api/briefings", {
+      regenerate,
+    });
+    if (response.body === null) {
+      throw new ApiError("POST api/briefings answered without a body");
+    }
+    for await (const message of readEvents(response.body)) {
+      const data: unknown = JSON.parse(message.data);
+      if (message.event === "progress") {
+        onProgress(data as BriefingProgress);
+      } else if (message.event === "briefing") {
+        const done = data as { briefing: BriefingJson; reused: boolean };
+        return {
+          briefing: briefingFromJson(done.briefing),
+          reused: done.reused,
+        };
+      } else if (message.event === "failed") {
+        throw new RefusedError(
+          detailIn(data) ?? "The Briefing couldn't be written.",
+        );
+      }
+    }
+    throw new ApiError("The Briefing stream ended before the Briefing arrived");
+  }
+
   // For every call except login: a 401 means the session is gone, so go to login.
   private async sendWithSession(
     method: string,
@@ -259,7 +324,7 @@ export class HttpApiClient implements ApiClient {
       this.onSignedOut();
       throw new SignedOutError(`${method} ${path} needs a session`);
     }
-    // 502 is Reader view failing to extract the original page.
+    // 502 is Reader view failing to extract the original page; 422 includes nothing to brief.
     if ([404, 409, 422, 502].includes(response.status)) {
       const body: unknown = await response.json().catch(() => null);
       const detail = detailIn(body);
