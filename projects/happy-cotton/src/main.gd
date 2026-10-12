@@ -299,14 +299,19 @@ func _show_farm() -> void:
 	_show_family()
 
 
-## Opens each letter that has just arrived and keeps the box up to date. Logs the letters
-## arriving, stopping and starting again, by id only: never their words.
+## Opens each letter that has just arrived and each call home, and keeps the box up to date.
+## Logs the letters arriving, stopping and starting again, and the calls, by id only: never
+## their words.
 func _show_family() -> void:
 	for event in _farm.take_family_events():
 		if event.kind == Farm.LETTER_ARRIVED:
 			GameLog.info("letter arrived", {"id": event.id, "shift": _farm.shift().number})
 			if not _letters.open_letter(event.id):
 				GameLog.warning("letter has no text", {"id": event.id})
+		elif event.kind == Farm.CALLED_HOME:
+			GameLog.info("called home", {"id": event.id, "shift": _farm.shift().number})
+			if not _letters.open_call(event.id):
+				GameLog.warning("call has no lines", {"id": event.id})
 		elif event.kind == Farm.LETTERS_STOPPED:
 			GameLog.info("letters stopped", {"shift": _farm.shift().number})
 		elif event.kind == Farm.LETTERS_STARTED_AGAIN:
@@ -350,7 +355,7 @@ func _show_app() -> void:
 	_app.show_shift(_farm.shift(), _farm.labour_points(), _farm.debt())
 	_app.show_study_session(_farm.study_session_seconds_left())
 	_app.show_exhaustion(_farm.exhaustion())
-	_app.show_resting(_farm.rest_hour().seconds_left)
+	_app.show_resting(_farm.rest_hour().seconds_left, _farm.call_home_seconds_left())
 	var store := _farm.store()
 	_app.show_store(store, _farm.labour_points())
 	for item in store:

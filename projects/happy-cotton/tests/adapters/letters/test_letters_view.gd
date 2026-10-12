@@ -37,6 +37,31 @@ func test_a_letter_with_no_text_shows_nothing() -> void:
 	assert_false(_view.is_page_open())
 
 
+func test_a_call_home_opens_as_a_card_of_the_children_s_lines_by_name() -> void:
+	var id := Farm.CALL_IDS[0]
+
+	assert_true(_view.open_call(id))
+
+	assert_true(_view.is_call_open())
+	var first: FamilyCall.Line = FamilyText.calls()[id].lines[0]
+	assert_string_starts_with(_view.call_text(), "Aygül: " + first.text)
+	assert_false(_view.is_page_open(), "a call is not a letter")
+
+
+func test_a_call_with_no_lines_shows_nothing() -> void:
+	assert_false(_view.open_call(&"a_call_never_made"))
+
+	assert_false(_view.is_call_open())
+
+
+func test_putting_the_phone_down_closes_the_call() -> void:
+	_view.open_call(Farm.CALL_IDS[0])
+
+	(_view.find_child("HangUp", true, false) as Button).pressed.emit()
+
+	assert_false(_view.is_call_open())
+
+
 func test_the_box_lists_the_received_letters_in_order_with_their_writers() -> void:
 	_view.show_letters(_ids(3))
 

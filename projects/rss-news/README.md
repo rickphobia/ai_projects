@@ -4,7 +4,7 @@ A personal news briefing for one owner: it reads many Sources (RSS and Atom feed
 
 ## Status
 
-`in progress`: feeds arrive in the Inbox. On first run the starter Sources from [`docs/starter-sources.md`](docs/starter-sources.md) are loaded; every minute the server fetches the Sources that are due and stores new Items once each. The owner signs in with one password and sees the Inbox, newest first, with a Folder filter. Deployable to the Beelink. No Source management, polite fetching or AI yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
+`in progress`: feeds arrive in the Inbox. On first run the starter Sources from [`docs/starter-sources.md`](docs/starter-sources.md) are loaded; every minute the server fetches the Sources that are due and stores new Items once each. The owner signs in with one password and sees the Inbox, newest first, with a Folder filter. It installs to the home screen from Chrome, and its service worker caches the app shell (never API answers). Deployable to the Beelink. No Source management, polite fetching or AI yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
 
 ## Requirements
 
@@ -58,7 +58,7 @@ scripts/docker-smoke-test.sh   # builds, starts with dummy settings, checks /hea
 
 The image is built in two stages ([decision 0002](docs/decisions/0002-python-api-with-typescript-pwa.md)): a Node stage builds the PWA, and the Python stage runs `rss-news serve` and serves the built files from `/app/pwa`. The database lives in `/app/data`; mount a volume there so it survives new containers. The image runs as an unprivileged user and has a Docker `HEALTHCHECK` on `/healthz`.
 
-The smoke test fails if `/healthz`, the page or its script don't answer under the prefix, if the database isn't written to the mounted folder, if `/api/session` doesn't answer 401 without a session or the dummy password doesn't sign in, or if the container uses 300MB of RAM or more (the spec's budget).
+The smoke test fails if `/healthz`, the page, its script, the manifest or the service worker don't answer under the prefix, if the database isn't written to the mounted folder, if `/api/session` doesn't answer 401 without a session or the dummy password doesn't sign in, or if the container uses 300MB of RAM or more (the spec's budget).
 
 ## Deploy
 

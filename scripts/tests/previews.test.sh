@@ -46,6 +46,26 @@ check "only the first preview line is replaced" \
   "$(printf '%s\n\n▶ quoted later in the body' "$link")" \
   "$(printf '▶ No Artifact preview\n\n▶ quoted later in the body' | body_with_link "$url")"
 
+# A fake gh that behaves like gh 2.45 on the Beelink: `gh pr edit` fails on the Projects (classic)
+# sunset, `gh api` works. It records the body the PR would get in a file: link_preview pipes into
+# gh, so gh runs in a subshell.
+sent=$(mktemp)
+trap 'rm -f "$sent"' EXIT
+gh() {
+  case "$1 $2" in
+    "pr view") echo "Ticket: t.md" ;;
+    "pr edit") echo "GraphQL: Projects (classic) is being deprecated" >&2; return 1 ;;
+    "api -X") [[ $3 == PATCH && $4 == "repos/{owner}/{repo}/pulls/88" && $5 == -F && $6 == body=@- ]] || return 1
+      cat >"$sent" ;;
+    *) return 1 ;;
+  esac
+}
+link_preview 88 "$url" >/dev/null 2>&1 || true
+check "writes the link through the REST API, which old gh versions can still edit" \
+  "$(printf 'Ticket: t.md\n%s' "$link")" \
+  "$(cat "$sent")"
+unset -f gh
+
 if ((failures > 0)); then
   printf '%d failed\n' "$failures"
   exit 1

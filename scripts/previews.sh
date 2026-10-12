@@ -72,7 +72,9 @@ link_preview() { # link_preview <N> <url>
   local body
   body=$(gh pr view "$1" --json body --jq .body)
   [[ $body == *"▶ Try this version: $2"* ]] && return 0
-  if body_with_link "$2" <<<"$body" | gh pr edit "$1" --body-file - >/dev/null; then
+  # The REST API, not `gh pr edit`: Ubuntu's gh 2.45 asks GraphQL for classic project cards on
+  # every edit, and GitHub now rejects that, so the edit always failed.
+  if body_with_link "$2" <<<"$body" | gh api -X PATCH "repos/{owner}/{repo}/pulls/$1" -F body=@- >/dev/null; then
     echo "PR #$1: preview link added to the PR body"
   else
     echo "PR #$1: could not add the preview link to the PR body" >&2

@@ -3,7 +3,8 @@ extends CanvasLayer
 ## The Children's letters, drawn to look nothing like The App: a handwritten page in ink on
 ## plain, slightly crooked paper, and a box of the letters received so far, oldest first, to
 ## re-read. The Letters button on the right edge opens the box once a letter has come. A new
-## letter opens by itself. It shows what it is given and decides nothing; while the page or
+## letter opens by itself, and so does a call home, as a small card of the Children's
+## lines. It shows what it is given and decides nothing; while the page or
 ## the box is open it covers the screen, so a tap meant for it never reaches the field.
 ## Its words are the Children's (FamilyText); its own few labels are the Worker's, not The
 ## App's, so they live here rather than in AppText.
@@ -29,6 +30,11 @@ const BOX_TITLE := "Letters from home"
 const BOX_CLOSE_TEXT := "Close the box"
 ## One entry in the box: its place in order and who wrote it.
 const BOX_ENTRY := "{number}. From {name}"
+const HANG_UP_TEXT := "Put the phone down"
+## One line of a call home on its card.
+const CALL_LINE := "{name}: {text}"
+## The call card's share of the screen: smaller than a letter, as a call is short.
+const CALL_SHARE := Vector2(0.5, 0.6)
 
 var _root: Control
 var _box_button: Button
@@ -36,6 +42,8 @@ var _page: Control
 var _page_text: Label
 var _box: Control
 var _box_entries: VBoxContainer
+var _call: Control
+var _call_text: Label
 var _received: Array[StringName] = []
 
 
@@ -53,6 +61,9 @@ func _ready() -> void:
 	_page = _build_page()
 	_page.visible = false
 	_root.add_child(_page)
+	_call = _build_call()
+	_call.visible = false
+	_root.add_child(_call)
 
 
 ## The letters received so far, oldest first, for the box. The Letters button shows once
@@ -86,6 +97,28 @@ func open_letter(id: StringName) -> bool:
 	_page_text.text = letter.text
 	_page.visible = true
 	return true
+
+
+## Shows the call home with this id as a card of the Children's lines. Returns false, showing
+## nothing, when the Family text has no such call.
+func open_call(id: StringName) -> bool:
+	var call: FamilyCall = FamilyText.calls().get(id)
+	if call == null:
+		return false
+	var said: Array[String] = []
+	for line in call.lines:
+		said.append(CALL_LINE.format({"name": FamilyText.name_of(line.child), "text": line.text}))
+	_call_text.text = "\n\n".join(said)
+	_call.visible = true
+	return true
+
+
+func is_call_open() -> bool:
+	return _call.visible
+
+
+func call_text() -> String:
+	return _call_text.text
 
 
 func open_box() -> void:
@@ -146,6 +179,16 @@ func _build_page() -> Control:
 	return column.get_parent().get_parent() as Control
 
 
+func _build_call() -> Control:
+	var column := _sheet("CallCard", HANG_UP_TEXT, "HangUp", CALL_SHARE)
+	_call_text = _ink_label("")
+	_call_text.name = "CallText"
+	_call_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_call_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.get_node("Scroll").add_child(_call_text)
+	return column.get_parent().get_parent() as Control
+
+
 func _build_box() -> Control:
 	var column := _sheet("LettersBox", BOX_CLOSE_TEXT, "CloseBox")
 	var title := _ink_label(BOX_TITLE)
@@ -158,13 +201,15 @@ func _build_box() -> Control:
 	return column.get_parent().get_parent() as Control
 
 
-## A sheet of paper over a cover, named `cover_name`: a column holding a scrolling area named
-## Scroll and, under it, a button that puts the sheet away. Returns the column; the cover is
-## its grandparent.
-func _sheet(cover_name: String, close_text: String, close_name: String) -> VBoxContainer:
+## A sheet of paper taking `share` of the screen over a cover, named `cover_name`: a column
+## holding a scrolling area named Scroll and, under it, a button that puts the sheet away.
+## Returns the column; the cover is its grandparent.
+func _sheet(
+	cover_name: String, close_text: String, close_name: String, share := PAGE_SHARE
+) -> VBoxContainer:
 	var cover := _cover()
 	cover.name = cover_name
-	var paper := _paper()
+	var paper := _paper(share)
 	cover.add_child(paper)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
@@ -205,11 +250,11 @@ func _cover() -> Control:
 
 
 ## A sheet of plain paper with square corners, tilted a little, in the middle of the screen.
-func _paper() -> PanelContainer:
+func _paper(share: Vector2) -> PanelContainer:
 	var paper := PanelContainer.new()
-	paper.anchor_left = (1.0 - PAGE_SHARE.x) / 2.0
+	paper.anchor_left = (1.0 - share.x) / 2.0
 	paper.anchor_right = 1.0 - paper.anchor_left
-	paper.anchor_top = (1.0 - PAGE_SHARE.y) / 2.0
+	paper.anchor_top = (1.0 - share.y) / 2.0
 	paper.anchor_bottom = 1.0 - paper.anchor_top
 	var style := _paper_style(MARGIN)
 	style.shadow_color = Color(0.0, 0.0, 0.0, 0.35)

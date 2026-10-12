@@ -114,10 +114,13 @@ func show_exhaustion(level: float) -> void:
 	_exhaustion_label.text = AppText.EXHAUSTION.format({"level": roundi(level)})
 
 
-## The Store button reads "Store", or how long the rest has left while he rests.
-func show_resting(rest_seconds_left: float) -> void:
+## The Store button reads "Store", or how long the rest or the call home has left while he
+## is on one.
+func show_resting(rest_seconds_left: float, call_seconds_left := 0.0) -> void:
 	if rest_seconds_left > 0.0:
 		_store_button.text = AppText.RESTING.format({"time": clock_text(rest_seconds_left)})
+	elif call_seconds_left > 0.0:
+		_store_button.text = AppText.ON_A_CALL.format({"time": clock_text(call_seconds_left)})
 	else:
 		_store_button.text = AppText.STORE_BUTTON
 
