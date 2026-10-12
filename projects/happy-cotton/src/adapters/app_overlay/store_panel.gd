@@ -10,6 +10,8 @@ extends Control
 signal upgrade_pressed(id: StringName)
 signal privilege_pressed(id: StringName)
 signal land_pressed
+## An item's tin button was pressed: buy it with hidden savings, by its Farm id.
+signal savings_pressed(id: StringName)
 
 const BACKDROP := Color(0.1, 0.05, 0.08, 0.55)
 const CARD_COLOUR := Color(1.0, 0.98, 0.9)
@@ -64,14 +66,15 @@ func _ready() -> void:
 
 
 ## Shows every item the store sells, each in its section. Returns true when it added rows (the
-## first time an item is shown), so their text can be scaled to the player's setting.
-func show_items(items: Array[StoreItemView], labour_points: int) -> bool:
+## first time an item is shown), so their text can be scaled to the player's setting. With
+## `hidden_savings` above zero each item offers to be paid from the tin too.
+func show_items(items: Array[StoreItemView], labour_points: int, hidden_savings := 0) -> bool:
 	var added := false
 	for item in items:
 		if not _rows.has(item.id):
 			_add_row(item)
 			added = true
-		_rows[item.id].show_item(item, labour_points)
+		_rows[item.id].show_item(item, labour_points, hidden_savings)
 	return added
 
 
@@ -82,6 +85,7 @@ func row(id: StringName) -> StoreRow:
 
 func _add_row(item: StoreItemView) -> void:
 	var new_row := StoreRow.new(item.id)
+	new_row.savings_pressed.connect(savings_pressed.emit)
 	if item.kind == StoreItemView.Kind.UPGRADE:
 		new_row.buy_pressed.connect(upgrade_pressed.emit)
 		_upgrades.add_child(new_row)

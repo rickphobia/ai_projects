@@ -86,6 +86,8 @@ const FIRST_PLOT_PRICE := 10
 const PLOT_PRICE_RISE := 5
 const PLOT_QUOTA_RISE := 1
 const PLOT_YIELD_PER_SHIFT := 2
+## More than LABOUR_POINTS_PER_PICK, as the tuning table demands.
+const HIDDEN_SAVINGS_PER_KEPT_PICK := 8
 
 
 static func table() -> Tuning:
@@ -135,6 +137,7 @@ static func table() -> Tuning:
 	tuning.plot_price_rise = PLOT_PRICE_RISE
 	tuning.plot_quota_rise = PLOT_QUOTA_RISE
 	tuning.plot_yield_per_shift = PLOT_YIELD_PER_SHIFT
+	tuning.hidden_savings_per_kept_pick = HIDDEN_SAVINGS_PER_KEPT_PICK
 	var tiers: Array[GeneratorTier] = []
 	for index in GENERATOR_PRICES.size():
 		tiers.append(

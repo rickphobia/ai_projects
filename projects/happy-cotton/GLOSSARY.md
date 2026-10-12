@@ -181,7 +181,7 @@ The Shifts after the Worker is caught keeping back, when Harmony Audits come mor
 _Avoid_: probation, suspicion, flagged
 
 **Debt**:
-What the Worker owes when his Labour Points and hidden savings can't cover a Bill. It is never forgiven: everything he earns pays it down first, and while it lasts he can buy neither Privileges nor Upgrades.
+What the Worker owes when his Labour Points and hidden savings can't cover a Bill. It is never forgiven: everything he earns pays it down first (his hidden savings never do), and while it lasts he can buy nothing in the store, whatever he would pay with.
 _Avoid_: negative balance, loan, overdraft
 
 **Upgrade**:

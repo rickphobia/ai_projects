@@ -52,6 +52,7 @@ const LIMITS: Dictionary = {
 	"plot_price_rise": [1.0, 1000000.0],
 	"plot_quota_rise": [1.0, 10000.0],
 	"plot_yield_per_shift": [1.0, 10000.0],
+	"hidden_savings_per_kept_pick": [1.0, 10000.0],
 }
 ## Fields that count things (picks, points), so they must be whole numbers.
 const WHOLE_NUMBERS: Array[String] = [
@@ -75,6 +76,7 @@ const WHOLE_NUMBERS: Array[String] = [
 	"plot_price_rise",
 	"plot_quota_rise",
 	"plot_yield_per_shift",
+	"hidden_savings_per_kept_pick",
 ]
 ## What a Generator tier's growth multiplier is measured against: no Upgrade at all.
 const NO_UPGRADE_GROWTH := 1.0
@@ -198,6 +200,9 @@ const MOST_TIER_QUOTA_RISE := 10000.0
 ## The cotton a Plot should yield in a Shift, in picks. The state's own reckoning of what the
 ## land is worth; every Plot bought must yield more than it adds to the Quota.
 @export var plot_yield_per_shift: float = NAN
+## Hidden savings each pick kept back at the Hand-in sells for on the side. More than
+## labour_points_per_pick, so keeping back is worth the risk.
+@export var hidden_savings_per_kept_pick: float = NAN
 ## The Generator Upgrade's tiers, bought in order: each one's price, growth per second of
 ## running, and Quota rise. At least one tier.
 @export var generator_tiers: Array[GeneratorTier] = []
@@ -249,6 +254,12 @@ func problems() -> Array[String]:
 		)
 		found.append(laps_problem % [fewest_laps_before_breath, laps_before_breath])
 	found.append_array(_land_problems())
+	if hidden_savings_per_kept_pick <= labour_points_per_pick:
+		var savings_problem := (
+			"hidden_savings_per_kept_pick is %d, but it must be more than"
+			+ " labour_points_per_pick (%d)"
+		)
+		found.append(savings_problem % [hidden_savings_per_kept_pick, labour_points_per_pick])
 	found.append_array(_generator_tier_problems())
 	found.append_array(_tools_tier_problems())
 	return found
