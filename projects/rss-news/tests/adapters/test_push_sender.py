@@ -3,6 +3,7 @@ becomes delivered, gone or failed."""
 
 import base64
 import json
+import logging
 from typing import Any
 
 import http_ece
@@ -53,10 +54,10 @@ def b64url(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
 
-def sender(service: FakePushService) -> WebPushSender:
+def sender(service: FakePushService, subject: str = "mailto:owner@example.com") -> WebPushSender:
     return WebPushSender(
         vapid_key=parse_vapid_private_key(generate_vapid_private_key()),
-        subject="mailto:owner@example.com",
+        subject=subject,
         session=service,
     )
 
@@ -92,6 +93,26 @@ def test_an_unreachable_push_service_fails() -> None:
 
     with pytest.raises(PushFailed, match="couldn't be reached"):
         sender(service).send(browser_subscription(), ALERT)
+
+
+# The subject forms the settings accept, the default among them: each must sign.
+@pytest.mark.parametrize("subject", ["https://rickphobia.com", "mailto:owner@example.com"])
+def test_each_subject_form_the_settings_accept_signs(subject: str) -> None:
+    service = FakePushService(201)
+
+    assert sender(service, subject).send(browser_subscription(), ALERT) is Delivery.DELIVERED
+
+
+def test_an_unexpected_error_is_logged_as_that_error_not_as_delivered(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    service = FakePushService(error=RuntimeError("boom"))
+
+    with caplog.at_level(logging.INFO), pytest.raises(RuntimeError):
+        sender(service).send(browser_subscription(), ALERT)
+
+    (record,) = [r for r in caplog.records if r.getMessage() == "push message"]
+    assert record.__dict__["result"] == "unexpected error: RuntimeError"
 
 
 def test_the_application_server_key_is_the_configured_public_key() -> None:

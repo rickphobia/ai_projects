@@ -1,5 +1,6 @@
 """Every setting rss-news reads, loaded from the environment and validated once at startup."""
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -43,7 +44,7 @@ class Settings:
     login_lockout: timedelta
     # How long after a successful fetch a Source is due again.
     fetch_interval: timedelta
-    # Reddit allows anonymous feeds about one request every 6 seconds; keep under that.
+    # Reddit refused most anonymous feed requests 10 seconds apart; 60 gets them all through.
     reddit_gap: timedelta
     reddit_interval: timedelta
     # Failing Sources back off by doubling their interval, up to this.
@@ -112,7 +113,7 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
             minutes=_positive_int(environ, "RSS_NEWS_FETCH_INTERVAL_MINUTES", default=15)
         ),
         reddit_gap=timedelta(
-            seconds=_positive_int(environ, "RSS_NEWS_REDDIT_GAP_SECONDS", default=10)
+            seconds=_positive_int(environ, "RSS_NEWS_REDDIT_GAP_SECONDS", default=60)
         ),
         reddit_interval=timedelta(
             minutes=_positive_int(environ, "RSS_NEWS_REDDIT_INTERVAL_MINUTES", default=60)
@@ -167,7 +168,7 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         vapid_subject=_vapid_subject(
             environ,
             "RSS_NEWS_VAPID_SUBJECT",
-            default="https://rickphobia.com/ai-projects/rss-news/",
+            default="https://rickphobia.com",
         ),
     )
 
@@ -337,8 +338,19 @@ def _vapid_key(environ: Mapping[str, str], name: str) -> VapidKey | None:
         raise ConfigError(f"{name} is not a key from `rss-news vapid-key`: {error}") from None
 
 
+# The forms pywebpush accepts as the VAPID `sub` claim; it refuses to sign anything else, so a
+# wrong subject would fail every send rather than here at startup.
+_VAPID_MAILTO = re.compile(r"mailto:[^@\s]+@[\w-]+(\.[\w-]+)+", re.IGNORECASE)
+_VAPID_HTTPS = re.compile(r"https://[\w-]+(\.[\w-]+)+", re.IGNORECASE)
+
+
 def _vapid_subject(environ: Mapping[str, str], name: str, *, default: str) -> str:
     value = _non_blank(environ, name, default=default)
-    if not value.startswith(("mailto:", "https://")):
-        raise ConfigError(f"{name} must be a mailto: or https:// URL, got {value!r}")
-    return value
+    if _VAPID_MAILTO.fullmatch(value) or _VAPID_HTTPS.fullmatch(value):
+        return value
+    if value.lower().startswith("https://"):
+        raise ConfigError(f"{name} must be just the site, with no path or port, got {value!r}")
+    raise ConfigError(
+        f"{name} must be a mailto: address or an https:// site like https://example.com, "
+        f"got {value!r}"
+    )

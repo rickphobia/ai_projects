@@ -52,6 +52,11 @@ class WebPushSender:
         except PushFailed as error:
             result = str(error)
             raise
+        except Exception as error:
+            # A bug or a refused signature, not the push service: name it so the log doesn't
+            # claim the message was delivered.
+            result = f"unexpected error: {type(error).__name__}"
+            raise
         finally:
             logger.info(
                 "push message",

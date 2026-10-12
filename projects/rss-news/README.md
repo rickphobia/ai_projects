@@ -180,7 +180,7 @@ Settings come from environment variables, checked at startup (`src/rss_news/conf
 | `RSS_NEWS_LOGIN_MAX_FAILURES` | no (`5`) | Wrong passwords within the lockout time that lock sign-in |
 | `RSS_NEWS_LOGIN_LOCKOUT_MINUTES` | no (`15`) | How long sign-in stays locked |
 | `RSS_NEWS_FETCH_INTERVAL_MINUTES` | no (`15`) | How long after a successful fetch a Source is due again |
-| `RSS_NEWS_REDDIT_GAP_SECONDS` | no (`10`) | Least time between the end of one Reddit request and the start of the next |
+| `RSS_NEWS_REDDIT_GAP_SECONDS` | no (`60`) | Least time between the end of one Reddit request and the start of the next |
 | `RSS_NEWS_REDDIT_INTERVAL_MINUTES` | no (`60`) | How long after a successful fetch a subreddit is due again |
 | `RSS_NEWS_FETCH_MAX_BACKOFF_HOURS` | no (`24`) | The longest a failing Source waits between tries |
 | `RSS_NEWS_FETCH_TIMEOUT_SECONDS` | no (`20`) | How long one feed or Reader view page request may take before it counts as failed |
@@ -203,7 +203,7 @@ Settings come from environment variables, checked at startup (`src/rss_news/conf
 | `RSS_NEWS_WEB_SEARCH_PRICE_USD` | no (`0.01`) | USD per web search, for the spending ledger |
 | `RSS_NEWS_MONTHLY_LIMIT_USD` | no (`100`) | Monthly AI budget in USD: a warning from 80%, Briefings and Chat refused from 100%; scoring never stops |
 | `RSS_NEWS_VAPID_PRIVATE_KEY` | no (Alerts off) | Signs Web Push messages, from `rss-news vapid-key`. The public key is worked out from it. After a change, each phone turns Alerts on again |
-| `RSS_NEWS_VAPID_SUBJECT` | no (`https://rickphobia.com/ai-projects/rss-news/`) | A `mailto:` or `https://` URL push services can contact about our messages |
+| `RSS_NEWS_VAPID_SUBJECT` | no (`https://rickphobia.com`) | A `mailto:` address or an `https://` site with no path that push services can contact about our messages |
 
 ## How it works
 
