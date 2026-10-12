@@ -8,6 +8,21 @@ export default defineConfig({
   base: "./",
   // A new value each build changes sw.js, which is how the browser learns of a new release.
   define: { __BUILD_ID__: JSON.stringify(Date.now().toString(36)) },
+  plugins: [
+    {
+      // The service worker is a classic script and can't load chunks: fail the build rather
+      // than ship a worker that never starts.
+      name: "self-contained-service-worker",
+      generateBundle(_, bundle) {
+        const worker = bundle["sw.js"];
+        if (worker?.type === "chunk" && worker.imports.length > 0) {
+          this.error(
+            `sw.js imports ${worker.imports.join(", ")}: the service worker must not import modules the app also imports`,
+          );
+        }
+      },
+    },
+  ],
   build: {
     rollupOptions: {
       input: { main: "index.html", sw: "src/pwa/service-worker.ts" },

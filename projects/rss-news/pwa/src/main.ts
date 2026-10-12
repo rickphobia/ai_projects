@@ -1,5 +1,7 @@
 import "./styles.css";
 import { HttpApiClient, SignedOutError } from "./api/client";
+import { browserDevicePush } from "./pwa/device-push";
+import { itemIdInPageUrl } from "./pwa/opened-item";
 import { registerServiceWorker } from "./pwa/register";
 import { renderLogin } from "./screens/login";
 import { renderShell } from "./screens/shell";
@@ -9,13 +11,25 @@ if (!root) {
   throw new Error("index.html has no #app element to render into");
 }
 const app = root;
+const devicePush = browserDevicePush(
+  navigator.serviceWorker,
+  typeof Notification === "undefined" ? undefined : Notification,
+);
+
+// A tapped Alert opens the app on its Item. It is opened once, even if login comes first, and
+// dropped from the address so reloading shows the home screen.
+let openItemId = itemIdInPageUrl(location.href);
+if (openItemId !== null) {
+  history.replaceState(null, "", new URL("./", location.href));
+}
 
 function showLogin(): void {
   renderLogin(app, api, showShell);
 }
 
 function showShell(): void {
-  void renderShell(app, api, showLogin);
+  void renderShell(app, api, showLogin, { devicePush, openItemId });
+  openItemId = null;
 }
 
 const api = new HttpApiClient(document.baseURI, showLogin);

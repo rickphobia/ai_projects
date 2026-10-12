@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from rss_news.alerts.vapid_keys import parse_vapid_private_key
 from rss_news.auth.passwords import parse_password_hash
 from rss_news.cli import main, print_password_hash
 from tests.support import app_env
@@ -87,3 +88,15 @@ def test_hash_password_refuses_an_empty_password(monkeypatch: pytest.MonkeyPatch
 
     assert print_password_hash(io.StringIO("\n"), stdout, stderr) == 1
     assert "must not be empty" in stderr.getvalue()
+
+
+def test_vapid_key_prints_a_new_key_line_without_any_settings(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("RSS_NEWS_PASSWORD_HASH", raising=False)
+
+    assert main(["vapid-key"]) == 0
+
+    name, _, key = capsys.readouterr().out.strip().partition("=")
+    assert name == "RSS_NEWS_VAPID_PRIVATE_KEY"
+    parse_vapid_private_key(key)

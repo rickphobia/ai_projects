@@ -1,10 +1,18 @@
 import { SignedOutError, type ApiClient } from "../api/client";
+import { noDevicePush, type DevicePush } from "../pwa/device-push";
 import { renderBriefings } from "./briefings";
 import { renderHome } from "./home";
 import { renderInbox } from "./inbox";
 import { renderItem } from "./item";
 import { renderSettings, spendingBanner } from "./settings";
 import { renderSources } from "./sources";
+
+export interface ShellOptions {
+  // This browser's push subscription, for the Alerts opt-in in Settings.
+  devicePush?: DevicePush;
+  // Open this Item instead of the home screen, as tapping an Alert does.
+  openItemId?: number | null;
+}
 
 // The app shell for a signed-in owner: a header with the name and whether the backend is up,
 // a sidebar with the screens and the Folders (a drawer opened from the header's Menu button on
@@ -15,6 +23,7 @@ export async function renderShell(
   root: HTMLElement,
   api: ApiClient,
   onSignedOut: () => void,
+  { devicePush = noDevicePush, openItemId = null }: ShellOptions = {},
 ): Promise<void> {
   const heading = document.createElement("h1");
   heading.textContent = "rss-news";
@@ -144,7 +153,7 @@ export async function renderShell(
   });
   toSettings.addEventListener("click", () => {
     showing(toSettings);
-    void renderSettings(page, api);
+    void renderSettings(page, api, devicePush);
   });
   app.append(header, sidebar, drawer.backdrop, main);
   root.replaceChildren(app);
@@ -153,7 +162,15 @@ export async function renderShell(
     showHealth(api, status),
     showSpendingWarning(api, warning),
     listFolders(),
-    showHome(),
+    openItemId === null
+      ? showHome()
+      : renderItem(
+          page,
+          api,
+          openItemId,
+          () => void showHome(),
+          "Back to Home",
+        ),
   ]);
 }
 
