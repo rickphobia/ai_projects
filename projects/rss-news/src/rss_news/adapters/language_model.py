@@ -83,8 +83,9 @@ _SCORES_SCHEMA: dict[str, Any] = {
                         "enum": list(range(MIN_IMPORTANCE, MAX_IMPORTANCE + 1)),
                     },
                     "summary": {"type": "string"},
+                    "stocks": {"type": "array", "items": {"type": "string"}},
                 },
-                "required": ["id", "importance", "summary"],
+                "required": ["id", "importance", "summary", "stocks"],
                 "additionalProperties": False,
             },
         }
@@ -166,7 +167,7 @@ class AnthropicLanguageModel:
         self._max_attempts = max_attempts
         self._sleep = sleep
 
-    def score_items(self, items: Sequence[UnscoredItem]) -> ScoringResult:
+    def score_items(self, items: Sequence[UnscoredItem], stocks: Sequence[str]) -> ScoringResult:
         started = time.monotonic()
         try:
             message = self._create(
@@ -174,7 +175,7 @@ class AnthropicLanguageModel:
                 model=self._scoring_model,
                 max_tokens=_SCORING_MAX_TOKENS,
                 system=SCORING_INSTRUCTIONS,
-                messages=[{"role": "user", "content": _scoring_prompt(items)}],
+                messages=[{"role": "user", "content": _scoring_prompt(items, stocks)}],
                 output_config={
                     "effort": "low",
                     "format": {"type": "json_schema", "schema": _SCORES_SCHEMA},
@@ -341,7 +342,7 @@ class AnthropicLanguageModel:
         raise AssertionError("unreachable: the last attempt returns or raises")
 
 
-def _scoring_prompt(items: Sequence[UnscoredItem]) -> str:
+def _scoring_prompt(items: Sequence[UnscoredItem], stocks: Sequence[str]) -> str:
     listed = [
         {
             "id": item.id,
@@ -351,7 +352,10 @@ def _scoring_prompt(items: Sequence[UnscoredItem]) -> str:
         }
         for item in items
     ]
-    return "Score these Items:\n" + json.dumps(listed, ensure_ascii=False)
+    return (
+        f"The reader's stocks: {json.dumps(list(stocks))}\n"
+        f"Score these Items:\n{json.dumps(listed, ensure_ascii=False)}"
+    )
 
 
 def _section_prompt(section: SectionRequest) -> str:
@@ -443,6 +447,7 @@ def _parse_scores(message: Message, usage: AiUsage) -> list[ItemScore]:
                 item_id=int(score["id"]),
                 importance=int(score["importance"]),
                 summary=" ".join(str(score["summary"]).split()),
+                stocks=tuple(str(stock) for stock in score["stocks"]),
             )
             for score in answer["scores"]
         ]

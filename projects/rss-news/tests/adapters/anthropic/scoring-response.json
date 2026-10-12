@@ -11,7 +11,7 @@
     },
     {
       "type": "text",
-      "text": "{\"scores\":[{\"id\":101,\"importance\":5,\"summary\":\"The US Federal Reserve cut interest rates by half a point, more than markets expected.\"},{\"id\":102,\"importance\":3,\"summary\":\"Bank Negara Malaysia kept the overnight policy rate at 2.75% and said inflation stays moderate.\"},{\"id\":103,\"importance\":1,\"summary\":\"A user shares a meme about local language models running slowly on old laptops.\"}]}"
+      "text": "{\"scores\":[{\"id\":101,\"importance\":5,\"summary\":\"The US Federal Reserve cut interest rates by half a point, more than markets expected.\",\"stocks\":[]},{\"id\":102,\"importance\":3,\"summary\":\"Bank Negara Malaysia kept the overnight policy rate at 2.75% and said inflation stays moderate.\",\"stocks\":[\"1155.KL\"]},{\"id\":103,\"importance\":1,\"summary\":\"A user shares a meme about local language models running slowly on old laptops.\",\"stocks\":[\"nvda\"]}]}"
     }
   ],
   "stop_reason": "end_turn",

@@ -62,4 +62,5 @@ def item_json(item: InboxItem) -> dict[str, Any]:
         "summary": item.summary,
         "read": item.read,
         "image_url": item.image_url,
+        "stocks": list(item.stocks),
     }
