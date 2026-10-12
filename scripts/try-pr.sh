@@ -34,7 +34,7 @@ usage() {
 }
 
 # The projects build_web knows. scripts/previews.sh reads this list through --projects.
-web_projects=(happy-cotton my-piggy pawn-swarm rss-news)
+web_projects=(ascii-sky happy-cotton my-piggy pawn-swarm rss-news)
 
 # Builds the project in the current folder and prints the folder to serve. Each web project's
 # build steps come from its README. $2 names the build ("PR #41 · 1ae5b74").
@@ -47,6 +47,12 @@ build_web() {
       mkdir -p build/web
       godot --headless --export-release Web build/web/index.html >&2
       echo build/web
+      ;;
+    ascii-sky)
+      [ -f .env ] || cp .env.example .env
+      npm ci >&2
+      VITE_BUILD_VERSION="$2" npm run build >&2
+      echo dist
       ;;
     pawn-swarm)
       npm ci >&2

@@ -1,0 +1,5 @@
+dist
+node_modules
+package-lock.json
+# Prose is written by hand; Prettier only formats code and config.
+*.md
