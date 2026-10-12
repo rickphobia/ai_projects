@@ -1,10 +1,11 @@
-from datetime import timedelta
+from datetime import time, timedelta
 from decimal import Decimal
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
 
+from rss_news.alerts.rules import QuietHours
 from rss_news.alerts.vapid_keys import generate_vapid_private_key, parse_vapid_private_key
 from rss_news.auth.passwords import parse_password_hash
 from rss_news.config import ConfigError, Settings, load_settings
@@ -71,6 +72,8 @@ def test_defaults_apply_when_only_the_pwa_folder_and_secrets_are_set(pwa_dir: Pa
         monthly_limit_usd=Decimal("100"),
         vapid_key=None,
         vapid_subject="https://rickphobia.com",
+        alert_quiet_hours=QuietHours(time(23, 0), time(7, 0)),
+        alert_daily_cap=10,
     )
 
 
@@ -114,6 +117,8 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
             "RSS_NEWS_MONTHLY_LIMIT_USD": "25.50",
             "RSS_NEWS_VAPID_PRIVATE_KEY": VAPID_PRIVATE_KEY,
             "RSS_NEWS_VAPID_SUBJECT": "mailto:owner@example.com",
+            "RSS_NEWS_ALERT_QUIET_HOURS": "22:30-06:15",
+            "RSS_NEWS_ALERT_DAILY_CAP": "5",
         }
     )
 
@@ -160,6 +165,8 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         monthly_limit_usd=Decimal("25.50"),
         vapid_key=parse_vapid_private_key(VAPID_PRIVATE_KEY),
         vapid_subject="mailto:owner@example.com",
+        alert_quiet_hours=QuietHours(time(22, 30), time(6, 15)),
+        alert_daily_cap=5,
     )
 
 
@@ -209,6 +216,10 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         # Push signing refuses a URL with a path, so every send would fail.
         ("RSS_NEWS_VAPID_SUBJECT", "https://rickphobia.com/ai-projects/rss-news/", "no path"),
         ("RSS_NEWS_VAPID_SUBJECT", "mailto:owner", "must be a mailto: address or an https://"),
+        ("RSS_NEWS_ALERT_QUIET_HOURS", "11pm-7am", "must be two 24-hour times like 23:00-07:00"),
+        ("RSS_NEWS_ALERT_QUIET_HOURS", "23:00-24:00", "must be two 24-hour times"),
+        ("RSS_NEWS_ALERT_QUIET_HOURS", "23:00", "must be two 24-hour times"),
+        ("RSS_NEWS_ALERT_DAILY_CAP", "0", "RSS_NEWS_ALERT_DAILY_CAP must be at least 1"),
     ],
 )
 def test_a_bad_value_is_rejected_naming_the_variable(

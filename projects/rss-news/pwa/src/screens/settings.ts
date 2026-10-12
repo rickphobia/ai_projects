@@ -14,7 +14,8 @@ const featureNames: Record<string, string> = {
 };
 
 // Settings: this month's AI cost by feature against the monthly limit, with the warning
-// banner from 80%, then Alerts: turning them on for this phone and sending a test Alert.
+// banner from 80%, then Alerts: turning them on for this phone, sending a test Alert, and the
+// quiet hours and daily cap that hold them back.
 export async function renderSettings(
   root: HTMLElement,
   api: ApiClient,
@@ -93,6 +94,10 @@ async function showAlerts(
   let publicKey: string;
   try {
     const setup = await api.pushSetup();
+    const limits = document.createElement("p");
+    limits.setAttribute("aria-label", "Alert limits");
+    limits.textContent = `No Alerts from ${setup.quietHours.start} to ${setup.quietHours.end}, and at most ${String(setup.dailyCap)} a day. Alerts held back by these are dropped; the Items stay in the Inbox.`;
+    status.after(limits);
     if (setup.publicKey === null) {
       status.textContent = "Alerts aren't set up on the server yet.";
       return;

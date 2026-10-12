@@ -193,6 +193,17 @@ MIGRATIONS: tuple[str, ...] = (
     -- The owner keeps every stock on the Watchlist; nothing ever wrote Holdings.
     DROP TABLE holdings;
     """,
+    """
+    -- What the Alert rules decided for a scored Item: sent, no_rule, quiet_hours, daily_cap or
+    -- nobody_to_send_to. NULL until decided.
+    ALTER TABLE items ADD COLUMN alert TEXT;
+    ALTER TABLE items ADD COLUMN alert_decided_at TEXT;
+    -- Items scored before the rules existed are old news: they never send an Alert.
+    UPDATE items SET alert = 'no_rule', alert_decided_at = scored_at WHERE scored_at IS NOT NULL;
+    CREATE INDEX items_alert_undecided ON items (scored_at)
+        WHERE alert IS NULL AND scored_at IS NOT NULL;
+    CREATE INDEX items_alerts_sent ON items (alert_decided_at) WHERE alert = 'sent';
+    """,
 )
 
 

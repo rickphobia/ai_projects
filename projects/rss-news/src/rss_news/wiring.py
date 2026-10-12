@@ -11,7 +11,7 @@ from typing import Protocol
 
 from fastapi import FastAPI
 
-from rss_news.adapters.sqlite.alerts import SqlitePushSubscriptions
+from rss_news.adapters.sqlite.alerts import SqliteAlertDecisions, SqlitePushSubscriptions
 from rss_news.adapters.sqlite.briefings import SqliteBriefings
 from rss_news.adapters.sqlite.chat import SqliteChats
 from rss_news.adapters.sqlite.database import SqliteDatabase
@@ -22,6 +22,7 @@ from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.adapters.sqlite.spending import SqliteSpending
 from rss_news.adapters.sqlite.stocks import SqliteStocks
 from rss_news.alerts.push import AlertPush, PushSender
+from rss_news.alerts.rules import AlertLimits, AlertRules
 from rss_news.briefings.briefing import BriefingModel
 from rss_news.briefings.writing import Briefings
 from rss_news.chat.chatting import Chats
@@ -111,10 +112,25 @@ def build_app(
         batch_size=settings.scoring_batch_size,
         prompt_token_limit=settings.scoring_prompt_token_limit,
     )
+    inbox = Inbox(items)
+    alert_push = AlertPush(
+        store=SqlitePushSubscriptions(database), sender=push_sender, inbox=inbox, clock=clock
+    )
+    alert_rules = AlertRules(
+        store=SqliteAlertDecisions(database),
+        push=alert_push,
+        clock=clock,
+        limits=AlertLimits(
+            quiet_hours=settings.alert_quiet_hours,
+            daily_cap=settings.alert_daily_cap,
+            timezone=settings.timezone,
+        ),
+    )
     tick = Tick(
         [
             TickStep("fetch due sources", fetching.fetch_due),
             TickStep("score new items", scoring.score_new),
+            TickStep("send alerts", alert_rules.send_due),
             TickStep(
                 "delete old items",
                 OldItemCleanup(items, clock, settings.item_max_age).delete_old,
@@ -122,7 +138,6 @@ def build_app(
         ],
         clock,
     )
-    inbox = Inbox(items)
     app = create_app(
         settings,
         database=database,
@@ -155,9 +170,8 @@ def build_app(
         dictionary=Dictionary(model=language_model, ledger=ledger, limit=limit),
         notes=Notes(SqliteNotes(database), clock),
         spending=limit,
-        alert_push=AlertPush(
-            store=SqlitePushSubscriptions(database), sender=push_sender, inbox=inbox, clock=clock
-        ),
+        alert_push=alert_push,
+        alert_limits=alert_rules.limits,
         tick=tick,
         background=(TickLoop(tick, TICK_INTERVAL),) if run_tick_loop else (),
     )
