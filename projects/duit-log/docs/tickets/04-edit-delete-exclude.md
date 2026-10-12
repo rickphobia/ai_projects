@@ -4,14 +4,14 @@
 
 **Blocked by:** 03 (Daily tab with hand-added Transactions)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core/ledger, core/summary, app/screens
 
 **Effort:** low
 
-- [ ] Ledger edit, set Note, set Excluded and delete operations, with the project's own error for an unknown Transaction
-- [ ] Excluded Transactions are left out of the Month header, day subtotals and every later total; tests cover it
-- [ ] Details and edit screen; delete asks to confirm
-- [ ] Excluded Transactions are shown greyed with a label in the list
-- [ ] On-phone check: edit an amount and see the totals change; exclude it and see it drop out of the totals
+- [x] Ledger edit, set Note, set Excluded and delete operations, with the project's own error for an unknown Transaction
+- [x] Excluded Transactions are left out of the Month header, day subtotals and every later total; tests cover it
+- [x] Details and edit screen; delete asks to confirm
+- [x] Excluded Transactions are shown greyed with a label in the list
+- [ ] On-phone check (owner, on the Preview APK): edit an amount and see the totals change; exclude it and see it drop out of the totals

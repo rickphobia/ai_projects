@@ -20,7 +20,7 @@ data class MonthSummary(
     val totalSen: Long get() = incomeSen - expensesSen
 }
 
-/** One day's Transactions, newest first, and its subtotals. */
+/** One day's Transactions, newest first, and its subtotals, which leave out Excluded ones. */
 data class DaySummary(
     val date: LocalDate,
     val incomeSen: Long,
@@ -30,7 +30,7 @@ data class DaySummary(
     val totalSen: Long get() = incomeSen - expensesSen
 }
 
-/** Groups [transactions] (all inside [month]) by their day in [zone]. */
+/** Groups [transactions] (all inside [month]) by their day in [zone]. Excluded ones count in no total. */
 fun summarizeMonth(
     month: YearMonth,
     transactions: List<Transaction>,
@@ -48,4 +48,7 @@ fun summarizeMonth(
     return MonthSummary(month, zone, transactions.sumOf(Kind.INCOME), transactions.sumOf(Kind.EXPENSE), days)
 }
 
-private fun List<Transaction>.sumOf(kind: Kind): Long = filter { it.kind == kind }.sumOf { it.amountSen }
+private fun List<Transaction>.sumOf(kind: Kind): Long =
+    filter {
+        it.kind == kind && !it.excluded
+    }.sumOf { it.amountSen }

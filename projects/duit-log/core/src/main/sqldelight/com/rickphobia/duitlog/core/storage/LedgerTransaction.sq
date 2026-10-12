@@ -1,6 +1,7 @@
 -- One row per Transaction. Amounts are whole sen and always positive; kind says which way the
 -- money went. occurred_at is epoch milliseconds, so a change of the phone's time zone moves the
--- day and Month a Transaction shows in, never the moment it happened.
+-- day and Month a Transaction shows in, never the moment it happened. An excluded (1) Transaction
+-- stays in the list but counts in no total; 1.sqm adds the column to databases from version 0.2.0.
 CREATE TABLE ledger_transaction (
   id INTEGER NOT NULL PRIMARY KEY,
   kind TEXT NOT NULL CHECK (kind IN ('EXPENSE', 'INCOME')),
@@ -8,7 +9,8 @@ CREATE TABLE ledger_transaction (
   occurred_at INTEGER NOT NULL,
   merchant TEXT NOT NULL,
   category_id INTEGER REFERENCES category(id),
-  note TEXT
+  note TEXT,
+  excluded INTEGER NOT NULL DEFAULT 0 CHECK (excluded IN (0, 1))
 );
 
 CREATE INDEX ledger_transaction_occurred_at ON ledger_transaction(occurred_at);
@@ -22,8 +24,31 @@ SELECT last_insert_rowid();
 
 -- Newest first, from (inclusive) until (exclusive), in epoch milliseconds.
 between:
-SELECT t.id, t.kind, t.amount_sen, t.occurred_at, t.merchant, c.name AS category_name, t.note
+SELECT t.id, t.kind, t.amount_sen, t.occurred_at, t.merchant, t.category_id, c.name AS category_name, t.note, t.excluded
 FROM ledger_transaction t
 LEFT JOIN category c ON c.id = t.category_id
 WHERE t.occurred_at >= :from AND t.occurred_at < :until
 ORDER BY t.occurred_at DESC, t.id DESC;
+
+byId:
+SELECT t.id, t.kind, t.amount_sen, t.occurred_at, t.merchant, t.category_id, c.name AS category_name, t.note, t.excluded
+FROM ledger_transaction t
+LEFT JOIN category c ON c.id = t.category_id
+WHERE t.id = ?;
+
+update:
+UPDATE ledger_transaction
+SET kind = ?, amount_sen = ?, occurred_at = ?, merchant = ?, category_id = ?, note = ?
+WHERE id = ?;
+
+setNote:
+UPDATE ledger_transaction SET note = ? WHERE id = ?;
+
+setExcluded:
+UPDATE ledger_transaction SET excluded = ? WHERE id = ?;
+
+delete:
+DELETE FROM ledger_transaction WHERE id = ?;
+
+changes:
+SELECT changes();

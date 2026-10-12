@@ -3,20 +3,25 @@ package com.rickphobia.duitlog.core.ledger
 import java.time.Instant
 import java.time.LocalDateTime
 
-/** One logged Expense or Income. [amountSen] is always positive; [kind] gives its direction. */
+/**
+ * One logged Expense or Income. [amountSen] is always positive; [kind] gives its direction. An
+ * [excluded] Transaction stays in the list but counts in no total.
+ */
 data class Transaction(
     val id: Long,
     val kind: Kind,
     val amountSen: Long,
     val occurredAt: Instant,
     val merchant: String,
+    val categoryId: Long?,
     val categoryName: String?,
     val note: String?,
+    val excluded: Boolean = false,
 )
 
 /**
- * A Transaction typed in with the + button. [occurredAt] is the date and time as the user picked
- * them, on the phone's clock.
+ * A Transaction typed in with the + button, or the new fields of one being edited. [occurredAt] is
+ * the date and time as the user picked them, on the phone's clock.
  */
 data class HandEntry(
     val kind: Kind,

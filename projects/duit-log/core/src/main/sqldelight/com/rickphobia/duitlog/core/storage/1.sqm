@@ -1,0 +1,2 @@
+-- Databases made by version 0.2.0 or earlier have no Excluded flag (ticket 04).
+ALTER TABLE ledger_transaction ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0 CHECK (excluded IN (0, 1));
