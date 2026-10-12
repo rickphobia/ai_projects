@@ -15,10 +15,15 @@ const WORLD_COLUMNS = {
   end: SCREEN_COLUMNS - PILLAR_WIDTH,
 };
 
-test("shows the World from the Runway on a full Screen", async ({ page }) => {
+test("opens on the title screen and shows the World from the Runway after a key", async ({
+  page,
+}) => {
   const errors = collectErrors(page);
 
   await page.goto("./");
+  await expect(page.locator("#screen")).toContainText("Press any key to start");
+  await page.keyboard.press("Space");
+  await expect(page.locator("#screen")).not.toContainText("Press any key");
   const lines = await readScreen(page);
 
   expect(lines).toHaveLength(SCREEN_ROWS);

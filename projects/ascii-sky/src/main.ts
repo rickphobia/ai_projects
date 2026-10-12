@@ -9,8 +9,10 @@ import {
 } from "./adapters/view/view-renderer";
 import { loadConfig } from "./config";
 import { chooseLogLevel, createConsoleLogger, type Logger } from "./logger";
-import { drawCockpitScreen } from "./screen/cockpit-screen";
+import { createKeyboard, hasKeyboard } from "./adapters/keyboard/keyboard";
+import { advance, type GameState, newGame, pauseGame } from "./game/game";
 import { framedScreen } from "./screen/framed-screen";
+import { drawGame } from "./screen/game-screen";
 import {
   CELL_ASPECT,
   SCREEN_COLUMNS,
@@ -37,15 +39,25 @@ try {
     buildVersion: config.buildVersion,
     screen: `${String(SCREEN_COLUMNS)}x${String(SCREEN_ROWS)}`,
   });
-  showWorldFromRunway(logger);
+  if (hasKeyboard(window)) {
+    runGame(logger);
+  } else {
+    logger.info("no keyboard found, not starting");
+    screen.show(
+      framedScreen([
+        "ASCII SKY needs a keyboard.",
+        "",
+        "Open this page on a computer to fly.",
+      ]),
+    );
+  }
 } catch (error) {
   // No logger yet if config failed, so fall back to one at the default level.
   createConsoleLogger("info").error("start-up failed", { error });
   showStartFailure("ASCII SKY could not start.", error);
 }
 
-/** Nothing moves yet, so one frame from the start of the Runway is the whole game. */
-function showWorldFromRunway(logger: Logger): void {
+function runGame(logger: Logger): void {
   const world = createWorld(WORLD_LAYOUT);
   let view: ViewRenderer;
   try {
@@ -64,7 +76,26 @@ function showWorldFromRunway(logger: Logger): void {
     );
     return;
   }
-  screen.show(drawCockpitScreen(view.render(cockpitCameraOnRunway(world))));
+
+  const keyboard = createKeyboard(window);
+  let state: GameState = newGame();
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) state = pauseGame(state);
+  });
+
+  let lastFrame = performance.now();
+  const frame = (now: number): void => {
+    const previousPhase = state.phase;
+    state = advance(state, keyboard.controls(), (now - lastFrame) / 1000);
+    lastFrame = now;
+    if (state.phase !== previousPhase) {
+      logger.debug("phase changed", { from: previousPhase, to: state.phase });
+    }
+    // Nothing moves yet, so the camera stays at the start of the Runway.
+    screen.show(drawGame(state, view.render(cockpitCameraOnRunway(world))));
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
 }
 
 function showStartFailure(headline: string, error: unknown): void {

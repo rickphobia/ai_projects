@@ -4,15 +4,15 @@
 
 **Blocked by:** 02 (The World seen from the Runway)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** game phases, screen, adapters/keyboard, entrypoint
 
 **Effort:** low
 
-- [ ] The Game core has phases (title, flying, paused) and an Advance entry point taking the game state, the controls held down and the elapsed time
-- [ ] Controls are a plain set of actions; the keyboard adapter maps keys to them (arrows, `A`/`D`, `W`/`S`, `F`, `B`, `P`/`Esc`, `R`, any key to start)
-- [ ] Draw shows the title screen with the key list in the title phase and a PAUSED message in the paused phase
-- [ ] Hiding the tab pauses the game
-- [ ] A device without a keyboard sees a message that the game needs one
-- [ ] Unit tests through Advance and Draw: any key leaves the title; pause toggles; the title and PAUSED text appear in their phases
+- [x] The Game core has phases (title, flying, paused) and an Advance entry point taking the game state, the controls held down and the elapsed time
+- [x] Controls are a plain set of actions; the keyboard adapter maps keys to them (arrows, `A`/`D`, `W`/`S`, `F`, `B`, `P`/`Esc`, `R`, any key to start)
+- [x] Draw shows the title screen with the key list in the title phase and a PAUSED message in the paused phase
+- [x] Hiding the tab pauses the game
+- [x] A device without a keyboard sees a message that the game needs one
+- [x] Unit tests through Advance and Draw: any key leaves the title; pause toggles; the title and PAUSED text appear in their phases
