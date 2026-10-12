@@ -23,11 +23,11 @@ func test_debug_on_the_command_line_turns_it_on() -> void:
 	assert_false(DebugMode.asked_for("", PackedStringArray(["--verbose"])))
 
 
-func test_the_panel_offers_one_hour_eight_hours_and_a_hundred_labour_points() -> void:
+func test_the_panel_offers_one_hour_eight_hours_a_hundred_labour_points_and_an_audit() -> void:
 	var panel: DebugPanel = add_child_autofree(DebugPanel.new())
 	watch_signals(panel)
 	var buttons := panel.find_children("*", "Button", true, false)
-	assert_eq(buttons.size(), 3)
+	assert_eq(buttons.size(), 4)
 
 	for node in buttons:
 		(node as Button).pressed.emit()
@@ -36,3 +36,5 @@ func test_the_panel_offers_one_hour_eight_hours_and_a_hundred_labour_points() ->
 	assert_signal_emitted_with_parameters(panel, "skip_requested", [28800.0], 1)
 	assert_signal_emitted_with_parameters(panel, "labour_points_requested", [100])
 	assert_eq((buttons[2] as Button).text, "+100 Labour Points")
+	assert_signal_emitted(panel, "audit_requested")
+	assert_eq((buttons[3] as Button).text, "Audit this Shift")

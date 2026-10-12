@@ -199,3 +199,23 @@ func _empty_plots(count: int) -> Array[PlotView]:
 	for index in count:
 		views.append(PlotView.new(PlotView.Stage.EMPTY, 0.0))
 	return views
+
+
+func test_the_weighing_scale_stands_by_the_gate() -> void:
+	var field := _field()
+
+	assert_not_null(field.get_node_or_null("WeighingScale"))
+
+
+func test_with_an_audit_coming_the_overseer_watches_the_scale_and_then_goes_back() -> void:
+	var field := _field()
+	var overseer: Node3D = field.get_node("Overseer")
+	var by_the_generator := overseer.position
+
+	field.show_audit_tell(true)
+	var watching := field.is_overseer_at_the_scale()
+	field.show_audit_tell(false)
+
+	assert_true(watching)
+	assert_false(field.is_overseer_at_the_scale())
+	assert_eq(overseer.position, by_the_generator)

@@ -34,6 +34,9 @@ const SAMPLE_VALUES := {
 	"school_fees_covered": false,
 	"in_hand": 8,
 	"handed_in": 8,
+	"income_recovered": 24,
+	"watch_shifts": 3,
+	"times_caught": 1,
 }
 
 

@@ -30,6 +30,11 @@ extends RefCounted
 ## The first Plot bought costs 10 Labour Points and each one after costs 5 more; each raises the
 ## Quota by 1 and should yield 2 picks a Shift. Each column or row the Farm grows adds 5 seconds
 ## to a lap.
+## Harmony Audits never come in table(): every chance is 0, so tests about other rules never
+## meet one; audit tests raise the chances they need. An audit looks back 3 Shifts, lets a kept
+## share of a quarter pass, and its tell starts 20 seconds before the Shift's end. Being caught
+## starts a 120-second Study Session, longer than Negligence's 80, and puts him on watch for 2
+## Shifts, when the chance doubles.
 
 const GROW_SECONDS := 30.0
 const SHIFT_SECONDS := 100.0
@@ -88,6 +93,12 @@ const PLOT_QUOTA_RISE := 1
 const PLOT_YIELD_PER_SHIFT := 2
 ## More than LABOUR_POINTS_PER_PICK, as the tuning table demands.
 const HIDDEN_SAVINGS_PER_KEPT_PICK := 8
+const AUDIT_MEMORY_SHIFTS := 3
+const AUDIT_TOLERANCE := 0.25
+const AUDIT_TELL_SECONDS := 20.0
+const ON_WATCH_SHIFTS := 2
+const ON_WATCH_CHANCE_FACTOR := 2.0
+const CAUGHT_STUDY_SESSION_SECONDS := 120.0
 
 
 static func table() -> Tuning:
@@ -138,6 +149,15 @@ static func table() -> Tuning:
 	tuning.plot_quota_rise = PLOT_QUOTA_RISE
 	tuning.plot_yield_per_shift = PLOT_YIELD_PER_SHIFT
 	tuning.hidden_savings_per_kept_pick = HIDDEN_SAVINGS_PER_KEPT_PICK
+	tuning.audit_memory_shifts = AUDIT_MEMORY_SHIFTS
+	tuning.audit_base_chance = 0.0
+	tuning.audit_chance_per_kept_share = 0.0
+	tuning.audit_chance_per_savings_spent = 0.0
+	tuning.audit_tolerance = AUDIT_TOLERANCE
+	tuning.audit_tell_seconds = AUDIT_TELL_SECONDS
+	tuning.on_watch_shifts = ON_WATCH_SHIFTS
+	tuning.on_watch_chance_factor = ON_WATCH_CHANCE_FACTOR
+	tuning.caught_study_session_seconds = CAUGHT_STUDY_SESSION_SECONDS
 	var tiers: Array[GeneratorTier] = []
 	for index in GENERATOR_PRICES.size():
 		tiers.append(

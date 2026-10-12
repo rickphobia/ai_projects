@@ -2,7 +2,8 @@ extends Node
 ## Entry scene: logs which build is running, loads and checks the tuning table, continues the
 ## saved Farm (or starts a new one) and wires it to the field, The App and its store, the
 ## Children's letters (see LettersView), the hidden savings tin (see SavingsTin) and the wall
-## clock, and adds the debug controls (Skip time, +100 Labour Points) in debug mode. It puts
+## clock, and adds the debug controls (Skip time, +100 Labour Points, Audit this Shift) in
+## debug mode. It puts
 ## the player's settings into effect and opens the Settings screen from The App. It autosaves
 ## after every command, when a Shift's Hand-in opens, when the player leaves (see
 ## LeavingWatch), and every AUTOSAVE_SECONDS of play.
@@ -65,6 +66,7 @@ func _ready() -> void:
 		var debug_panel := DebugPanel.new()
 		debug_panel.skip_requested.connect(_on_skip_requested)
 		debug_panel.labour_points_requested.connect(_on_labour_points_requested)
+		debug_panel.audit_requested.connect(_on_audit_requested)
 		add_child(debug_panel)
 
 
@@ -305,6 +307,16 @@ func _on_labour_points_requested(points: int) -> void:
 	_show_farm()
 
 
+## Debug mode only: a Harmony Audit this Shift, to see the tell and the result without waiting.
+func _on_audit_requested() -> void:
+	if _farm == null:
+		return
+	GameLog.info("debug audit planned", {"shift": _farm.shift().number})
+	_farm.debug_plan_audit()
+	_save("command")
+	_show_farm()
+
+
 ## Skip time runs exactly the offline resume of a real absence that long.
 func _on_skip_requested(seconds: float) -> void:
 	if _farm == null:
@@ -414,10 +426,12 @@ func _show_app() -> void:
 			lines.append(text)
 	if not lines.is_empty():
 		_app.say("\n".join(lines))
-	_app.show_shift(_farm.shift(), _farm.labour_points(), _farm.debt())
+	var audit := _farm.audit()
+	_app.show_shift(_farm.shift(), _farm.labour_points(), _farm.debt(), audit.watch_shifts_left)
 	_app.show_study_session(_farm.study_session_seconds_left())
 	_app.show_exhaustion(_farm.exhaustion())
 	_app.show_resting(_farm.rest_hour().seconds_left, _farm.call_home_seconds_left())
+	_field.show_audit_tell(audit.tell)
 	var store := _farm.store()
 	_app.show_store(store, _farm.labour_points(), _farm.hidden_savings())
 	_tin.show_savings(_farm.hidden_savings())
@@ -454,6 +468,23 @@ func _log_message(message: AppMessage) -> void:
 		GameLog.info("hand-in opened", message.values)
 	elif message.key == Farm.HANDED_IN:
 		GameLog.info("handed in", message.values)
+	else:
+		_log_audit(message)
+
+
+## Audits planned (with their chance; the plan itself is secret), their result, catches and
+## the end of being on watch.
+func _log_audit(message: AppMessage) -> void:
+	if message.key == Farm.SHIFT_STARTED and message.values.get("audit_planned", false):
+		var planned := {"shift": message.values["shift"]}
+		planned["chance"] = message.values["audit_chance"]
+		GameLog.info("audit planned", planned)
+	elif message.key == Farm.AUDIT_PASSED:
+		GameLog.info("audit passed", message.values)
+	elif message.key in [Farm.CAUGHT, Farm.CAUGHT_AGAIN]:
+		GameLog.info("caught", message.values)
+	elif message.key == Farm.ON_WATCH_ENDED:
+		GameLog.info("on watch ended", {"shift": _farm.shift().number})
 
 
 ## One line per Bill in the order charged, with whether Labour Points and hidden savings

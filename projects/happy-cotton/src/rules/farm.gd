@@ -45,6 +45,8 @@ extends RefCounted
 ## earns Labour Points, but sells on the side for hidden savings, kept in the Ledger beside
 ## them. They buy anything in the store and pay a Bill the Labour Points can't cover before it
 ## becomes Debt; they never pay existing Debt, and Negligence never touches them.
+## Keeping back, and spending hidden savings in the store, make a Harmony Audit likelier (see
+## Audits); one that catches him takes the savings and starts the longest Study Session.
 ## to_save() gives the whole Farm as plain data and restore() takes it back, so a restored Farm
 ## plays on exactly as the saved one would have.
 
@@ -115,9 +117,10 @@ const STORE_REFUSALS: Array[StringName] = [
 ## way. Version 8 added land; an older save restores with the first land's Plots only. Version 9
 ## added longer laps; an older save's lap in progress takes lap_seconds. Version 10 added the
 ## Hand-in; an older save carries on with the Shift's picks as cotton in hand and none open.
-## Version 11 added hidden savings; an older save restores with none.
-const SAVE_VERSION := 11
-const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, SAVE_VERSION]
+## Version 11 added hidden savings; an older save restores with none. Version 12 added Harmony
+## Audits; an older save restores with a clean record, none planned, never caught.
+const SAVE_VERSION := 12
+const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, SAVE_VERSION]
 ## The lowest balance a save can hold: Debt can grow, but not without end.
 const LEAST_SAVED_BALANCE := -1000000000
 
@@ -168,6 +171,12 @@ const DEBT_CLEARED := &"debt_cleared"
 ## The App tells a new game that the Worker's two Children are at a state boarding school
 ## (values: school_fees_shift, every).
 const CHILDREN_AT_SCHOOL := &"children_at_school"
+## Harmony Audit keys, documented in Audits.
+const AUDIT_ANNOUNCED := Audits.AUDIT_ANNOUNCED
+const AUDIT_PASSED := Audits.AUDIT_PASSED
+const CAUGHT := Audits.CAUGHT
+const CAUGHT_AGAIN := Audits.CAUGHT_AGAIN
+const ON_WATCH_ENDED := Audits.ON_WATCH_ENDED
 ## Every key the rules can emit; the App text table must have text for each.
 const MESSAGE_KEYS: Array[StringName] = [
 	SHIFT_STARTED,
@@ -192,6 +201,11 @@ const MESSAGE_KEYS: Array[StringName] = [
 	FELL_INTO_DEBT,
 	DEBT_CLEARED,
 	CHILDREN_AT_SCHOOL,
+	AUDIT_ANNOUNCED,
+	AUDIT_PASSED,
+	CAUGHT,
+	CAUGHT_AGAIN,
+	ON_WATCH_ENDED,
 ]
 ## Family events (FamilyEvent kinds), the Children's side, never App text. The Shift's own are
 ## documented in Shifts.
@@ -222,6 +236,7 @@ var _toil: Toil
 var _ledger: Ledger
 var _store: Store
 var _shifts: Shifts
+var _audits: Audits
 ## Shared with Shifts, so both queues are emptied in place, never replaced.
 var _messages: Array[AppMessage] = []
 var _letters := Letters.new(LETTER_IDS)
@@ -256,7 +271,8 @@ func _init(tuning: Tuning, roll: Callable = Callable()) -> void:
 		_random.randomize()
 		_roll = _random.randf
 	_ledger = Ledger.new(0, 0, _fees_every())
-	_shifts = _new_shifts(_ledger, _exhaustion, _toil, _store, _land, _letters)
+	_audits = Audits.new(tuning, _ledger, _messages, _roll)
+	_shifts = _new_shifts(_ledger, _exhaustion, _toil, _store, _land, _letters, _audits)
 	var children := {"school_fees_shift": _ledger.next_fees_shift(), "every": _fees_every()}
 	_messages.append(AppMessage.new(CHILDREN_AT_SCHOOL, children))
 	_shifts.start()
@@ -318,7 +334,7 @@ func hand_in(amount: int = ALL_IN_HAND) -> CommandResult:
 	_ledger.save_up(kept * roundi(_tuning.hidden_savings_per_kept_pick))
 	var were_stopped := letters_stopped()
 	_note_paid_in(_ledger.earn(earned), were_stopped)
-	_shifts.hand_in(handed_in)
+	_shifts.hand_in(handed_in, kept)
 	_cut_short_for_study_session()
 	return CommandResult.done()
 
@@ -365,14 +381,14 @@ func buy_upgrade(
 		return CommandResult.refused(refusal)
 	if upgrade == GENERATOR:
 		var tier := _store.next_generator_tier()
-		_ledger.pay(roundi(tier.price), pay_with)
+		_pay(roundi(tier.price), pay_with)
 		_store.buy_generator_tier()
 		var values := _upgraded_values(_store.generator_tier(), tier.price, tier.quota_rise)
 		values["multiplier"] = tier.growth_multiplier
 		_messages.append(AppMessage.new(GENERATOR_UPGRADED, values))
 	else:
 		var tier := _store.next_tools_tier()
-		_ledger.pay(roundi(tier.price), pay_with)
+		_pay(roundi(tier.price), pay_with)
 		_store.buy_tools_tier()
 		var values := _upgraded_values(_store.tools_tier(), tier.price, tier.quota_rise)
 		values["share"] = tier.work_share
@@ -388,7 +404,7 @@ func buy_plot(pay_with: Ledger.PayWith = PAY_LABOUR_POINTS) -> CommandResult:
 	if refusal != &"":
 		return CommandResult.refused(refusal)
 	var price := front.plot_price()
-	_ledger.pay(price, pay_with)
+	_pay(price, pay_with)
 	var plot := _land.buy()
 	_crops.add_plot()
 	_toil.set_next_lap_seconds(_lap_seconds(_land))
@@ -402,6 +418,11 @@ func buy_plot(pay_with: Ledger.PayWith = PAY_LABOUR_POINTS) -> CommandResult:
 func debug_add_labour_points(points: int) -> void:
 	var were_stopped := letters_stopped()
 	_note_paid_in(_ledger.credit(points), were_stopped)
+
+
+## Only the debug wiring calls this: it plans a Harmony Audit for this Shift.
+func debug_plan_audit() -> void:
+	_audits.plan_now()
 
 
 ## Buys a Privilege, REST_HOUR or CALL_HOME, paid as buy_upgrade() is.
@@ -423,7 +444,7 @@ func _buy_call_home(pay_with: Ledger.PayWith) -> CommandResult:
 	if refusal != &"":
 		return CommandResult.refused(refusal)
 	var price := front.call_home_price()
-	_ledger.pay(price, pay_with)
+	_pay(price, pay_with)
 	_call_left = _tuning.call_home_seconds
 	_toil.bring_back()
 	var values := {"price": price, "minutes": ceili(_call_left / 60.0)}
@@ -448,7 +469,7 @@ func _buy_rest_hour(pay_with: Ledger.PayWith) -> CommandResult:
 	if refusal != &"":
 		return CommandResult.refused(refusal)
 	var price := front.rest_hour_price()
-	_ledger.pay(price, pay_with)
+	_pay(price, pay_with)
 	_rest_left = _tuning.rest_hour_seconds
 	_toil.bring_back()
 	var values := {"price": price, "minutes": ceili(_rest_left / 60.0)}
@@ -564,6 +585,7 @@ func to_save() -> Dictionary:
 		"toil": _toil.to_save(),
 		"store": _store.to_save(),
 		"plots_bought": _land.plots_bought(),
+		"audits": _audits.to_save(),
 	}
 	save.merge(_shifts.to_save())
 	return save
@@ -630,7 +652,10 @@ func restore(save: Dictionary) -> Array[String]:
 	var ledger := Ledger.new(
 		balance, shift_earned, fees_shift, fees_unpaid, fees_unpaid_in_a_row, savings
 	)
-	var shifts := _new_shifts(ledger, exhaustion, toil, store, land, letters)
+	var audits := Audits.new(_tuning, ledger, _messages, _roll)
+	if version >= 12:
+		audits.restore(reader.section("audits"))
+	var shifts := _new_shifts(ledger, exhaustion, toil, store, land, letters, audits)
 	shifts.restore(
 		shift_number,
 		shift_elapsed,
@@ -648,6 +673,7 @@ func restore(save: Dictionary) -> Array[String]:
 	_exhaustion = exhaustion
 	_toil = toil
 	_ledger = ledger
+	_audits = audits
 	_letters = letters
 	_busy_left = busy_left
 	_rest_left = rest_left
@@ -721,6 +747,11 @@ func labour_points() -> int:
 ## never The App.
 func hidden_savings() -> int:
 	return _ledger.hidden_savings()
+
+
+## The audit's tell, being on watch and the times caught.
+func audit() -> AuditView:
+	return _audits.view(_shifts.seconds_left())
 
 
 ## Labour Points owed to the Farm; 0 while out of Debt. Never above 0 with labour_points().
@@ -868,11 +899,24 @@ func _new_land() -> Land:
 
 ## The Shifts with the parts they work on, sharing the Farm's queues.
 func _new_shifts(
-	ledger: Ledger, exhaustion: Exhaustion, toil: Toil, store: Store, land: Land, letters: Letters
+	ledger: Ledger,
+	exhaustion: Exhaustion,
+	toil: Toil,
+	store: Store,
+	land: Land,
+	letters: Letters,
+	audits: Audits
 ) -> Shifts:
 	return Shifts.new(
-		_tuning, ledger, exhaustion, toil, store, land, letters, _messages, _family_events
+		_tuning, ledger, exhaustion, toil, store, land, letters, audits, _messages, _family_events
 	)
+
+
+## Pays a store price; the store sees hidden savings spent, which makes an audit likelier.
+func _pay(price: int, pay_with: Ledger.PayWith) -> void:
+	_ledger.pay(price, pay_with)
+	if pay_with == PAY_HIDDEN_SAVINGS:
+		_audits.note_savings_spent(price)
 
 
 ## A Study Session cuts any rest hour or call home short.

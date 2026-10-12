@@ -50,6 +50,7 @@ var _shift_label: Label
 var _crop_counter: Label
 var _balance: BalanceBadge
 var _exhaustion_label: Label
+var _on_watch_label: Label
 var _store_button: Button
 var _store: StorePanel
 var _pay_slip: PaySlipCard
@@ -134,7 +135,8 @@ func is_powered() -> bool:
 ## Shows the Shift's Quota progress and crop counter (both the cotton in hand), time left and
 ## when the next school fees are due, the Hand-in card while it is open, and the Worker's Labour
 ## Points, or his Debt in red in their place while he owes any.
-func show_shift(shift: ShiftView, labour_points: int, debt := 0) -> void:
+## `watch_shifts_left` above 0 shows "Harmony Support" and the Shifts left on watch.
+func show_shift(shift: ShiftView, labour_points: int, debt := 0, watch_shifts_left := 0) -> void:
 	_quota_bar.max_value = shift.quota
 	_quota_bar.value = mini(shift.picked, shift.quota)
 	_quota_label.text = AppText.QUOTA_BAR.format({"picked": shift.picked, "quota": shift.quota})
@@ -144,6 +146,8 @@ func show_shift(shift: ShiftView, labour_points: int, debt := 0) -> void:
 	_crop_counter.text = AppText.CROP_COUNTER.format({"picked": shift.picked})
 	_hand_in.show_shift(shift)
 	_balance.show_balance(labour_points, debt)
+	_on_watch_label.visible = watch_shifts_left > 0
+	_on_watch_label.text = AppText.ON_WATCH.format({"shifts": watch_shifts_left})
 
 
 ## A "+1" rises from `at`, a point on the screen over the Plot just picked.
@@ -284,6 +288,10 @@ func _build_top_bar() -> Control:
 	row.add_child(_shift_label)
 	_exhaustion_label = _label(TEXT_ON_BAR)
 	row.add_child(_exhaustion_label)
+	_on_watch_label = _label(TEXT_ON_BAR)
+	_on_watch_label.name = "OnWatch"
+	_on_watch_label.visible = false
+	row.add_child(_on_watch_label)
 	_crop_counter = _label(TEXT_ON_BAR)
 	_crop_counter.name = "CropCounter"
 	row.add_child(_crop_counter)
