@@ -4,16 +4,16 @@
 
 **Blocked by:** 01 (Walking skeleton)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** world, adapters/view, screen, entrypoint, smoke test
 
 **Effort:** medium
 
-- [ ] The World is defined as data in the Game core: ground height and surface type (runway, grass, hill, lake) at any point in a roughly 20×20 km area
-- [ ] The three.js view adapter builds its scene from that same World data, renders from a given camera pose into a hidden target with one pixel per character cell of the view area, and returns a brightness grid
-- [ ] Draw turns a brightness grid into characters from the Character ramp ` .:-=+*#%@` and lays the cowling and window frame over the view; the Screen is always 45 lines of 120 characters in the range 32–126
-- [ ] Unit tests: a uniform brightness grid gives the expected ramp character; darkest gives a space, brightest gives `@`; the frame is in place; the World reports the right surface type at the Runway, the lake and a hill
-- [ ] If WebGL is missing or three.js fails to start, the Screen shows a plain ASCII message saying so and the error is logged
-- [ ] A Playwright smoke test loads the built page and checks the Screen is 45 lines of 120 characters with the view area not blank; it runs in CI
-- [ ] On the preview, the Runway, the lake and the hills are recognisable
+- [x] The World is defined as data in the Game core: ground height and surface type (runway, grass, hill, lake) at any point in a roughly 20×20 km area
+- [x] The three.js view adapter builds its scene from that same World data, renders from a given camera pose into a hidden target with one pixel per character cell of the view area, and returns a brightness grid
+- [x] Draw turns a brightness grid into characters from the Character ramp ` .:-=+*#%@` and lays the cowling and window frame over the view; the Screen is always 45 lines of 120 characters in the range 32–126
+- [x] Unit tests: a uniform brightness grid gives the expected ramp character; darkest gives a space, brightest gives `@`; the frame is in place; the World reports the right surface type at the Runway, the lake and a hill
+- [x] If WebGL is missing or three.js fails to start, the Screen shows a plain ASCII message saying so and the error is logged
+- [x] A Playwright smoke test loads the built page and checks the Screen is 45 lines of 120 characters with the view area not blank; it runs in CI
+- [x] On the preview, the Runway, the lake and the hills are recognisable (checked on a text dump of the build; the owner confirms by eye on the preview)

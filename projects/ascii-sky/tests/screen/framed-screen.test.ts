@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  framedScreen,
-  placeholderScreen,
-} from "../../src/screen/framed-screen";
+import { framedScreen } from "../../src/screen/framed-screen";
 import {
   PRINTABLE_ASCII,
   SCREEN_COLUMNS,
@@ -16,16 +13,6 @@ function expectFullScreen(lines: readonly string[]): void {
     expect(line).toMatch(PRINTABLE_ASCII);
   }
 }
-
-describe("placeholderScreen", () => {
-  it("is 45 lines of 120 printable ASCII characters", () => {
-    expectFullScreen(placeholderScreen());
-  });
-
-  it("names the game", () => {
-    expect(placeholderScreen().join("\n")).toContain("A S C I I   S K Y");
-  });
-});
 
 describe("framedScreen", () => {
   it("wraps a message too long for one line instead of cutting it off", () => {
