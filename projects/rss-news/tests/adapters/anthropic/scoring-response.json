@@ -1,0 +1,28 @@
+{
+  "id": "msg_01ScoringExample7f3a",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-5-5",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "EqQBCkYIBxgCKkBexampleSignatureNotReal"
+    },
+    {
+      "type": "text",
+      "text": "{\"scores\":[{\"id\":101,\"importance\":5,\"summary\":\"The US Federal Reserve cut interest rates by half a point, more than markets expected.\"},{\"id\":102,\"importance\":3,\"summary\":\"Bank Negara Malaysia kept the overnight policy rate at 2.75% and said inflation stays moderate.\"},{\"id\":103,\"importance\":1,\"summary\":\"A user shares a meme about local language models running slowly on old laptops.\"}]}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 1180,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 143,
+    "server_tool_use": null,
+    "service_tier": "standard"
+  }
+}
