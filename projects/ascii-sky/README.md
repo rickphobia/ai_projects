@@ -4,12 +4,12 @@ A browser flight simulator where everything on the Screen, the 3D World included
 
 ## Status
 
-`in progress`: the walking skeleton. The page shows a 120×45 placeholder Screen scaled to fit the window; flying comes in the next tickets (`docs/tickets/`).
+`in progress`: the World seen from the Runway. The page shows the Cockpit view, a still 3D picture of the hills, the lake and the Runway drawn in characters, on a 120×45 Screen scaled to fit the window. Flying comes in the next tickets (`docs/tickets/`).
 
 ## Requirements
 
 - Node.js 22.22.0 (the version in `.nvmrc`; `nvm use` picks it up) and npm
-- A browser with JavaScript
+- A browser with JavaScript and WebGL
 
 No accounts or API keys.
 
@@ -37,7 +37,14 @@ npm run test      # unit tests only
 npm run format    # fix formatting
 ```
 
-CI (`.github/workflows/ascii-sky.yml`) runs `npm run check`, the build and `shellcheck deploy/*.sh` on every push that touches this project.
+The smoke test loads the built page in headless Chromium and checks the Screen. It needs the build and, once per machine, the browser:
+
+```bash
+npx playwright install --only-shell chromium   # once; add --with-deps on a fresh Linux box
+npm run build && npm run test:smoke
+```
+
+CI (`.github/workflows/ascii-sky.yml`) runs `npm run check`, the build, the smoke test and `shellcheck deploy/*.sh` on every push that touches this project.
 
 ## Configuration
 
@@ -53,11 +60,15 @@ The deploy scripts read their own `ASCII_SKY_*` variables from the shell; see "D
 
 ## How it works
 
-- `src/main.ts` is the entrypoint: it loads the config, makes the logger, and shows a Screen.
-- `src/screen/` holds the Screen's size (120 columns × 45 rows) and the text drawn on it. For now that is the placeholder Screen and a framed message for start-up errors.
+- `src/main.ts` is the entrypoint: it loads the config, makes the logger, builds the World, renders it once from the start of the Runway, and shows the Screen.
+- `src/world/` is the World as data: ground height and surface type (runway, grass, hill, lake) at any point of a 20×20 km area, from the hand-made layout in `world-layout.ts`. `cockpit-camera.ts` places the pilot's eye on the Runway. No three.js here, so it is unit-tested directly.
+- `src/adapters/view/` is the three.js view (decision 0001). `world-scene.ts` builds meshes from the same World data; `view-renderer.ts` renders from a camera pose into a hidden 120×32 target, one pixel per character cell of the Cockpit view, and reads it back as a brightness grid (0 to 1 per cell).
+- `src/screen/` holds the Screen's size (120 columns × 45 rows, the top 32 rows being the Cockpit view) and what is drawn on it. `cockpit-screen.ts` turns a brightness grid into characters from the Character ramp ` .:-=+*#%@` (`character-ramp.ts`), draws the window frame and the top of the cowling over it, and leaves an empty box for the Instrument panel. `framed-screen.ts` draws the start-up error messages.
 - `src/adapters/screen/screen-output.ts` writes the 45 lines into one `<pre>`. It refuses anything that isn't 45 lines of 120 printable ASCII characters. The `<pre>` is laid out at its natural size and scaled with a CSS transform to fit the window, so it keeps its shape and never wraps.
 
-`docs/spec.md` describes where this is going: a pure Game core (Advance and Draw), a three.js view adapter, keyboard and audio adapters.
+The look of the 3D picture (how bright each surface is, the sun, the fog) is tuned in `src/adapters/view/world-scene.ts`; the field of view in `view-renderer.ts`.
+
+`docs/spec.md` describes where this is going: a pure Game core (Advance and Draw), keyboard and audio adapters.
 
 ## Folder layout
 
@@ -66,16 +77,20 @@ src/
   main.ts            entrypoint: wires config, logger and adapters
   config.ts          reads and validates VITE_* settings
   logger.ts          levelled logger over the browser console
-  screen/            Screen size and the text drawn on it
+  world/             the World as data, and the cockpit camera on the Runway
+  screen/            Screen size, Character ramp, and the text drawn on the Screen
+  adapters/view/     three.js: renders the World into a brightness grid
   adapters/screen/   writes the Screen into the page
-tests/               mirrors src/
+tests/               mirrors src/ (Vitest)
+tests/smoke/         Playwright smoke tests against the built page
 deploy/              update-site.sh and rollback.sh for the Beelink
 docs/                spec, tickets, decisions
 ```
 
 ## Debugging
 
-- Logs go to the browser console, prefixed `[ascii-sky]`. Start-up logs the build version and Screen size at `info`.
+- Logs go to the browser console, prefixed `[ascii-sky]`. Start-up logs the build version and Screen size at `info`, then `3D view ready` once three.js has started WebGL.
+- If the browser has no WebGL (or it is turned off), the Screen says "ASCII SKY needs WebGL to draw the World" with the reason, and the console has a `3D view could not start` error. Check `chrome://gpu` or `about:support` for WebGL status.
 - Add `?debug=1` to the page URL for debug-level logs without a rebuild, or set `VITE_DEBUG=true` and rebuild.
 - If start-up fails (a bad setting in a dev build, say), the Screen shows "ASCII SKY could not start." with the reason, and the console has the error.
 - A blank page with no log usually means the JS bundle didn't load: check the network tab for a 404 and that `VITE_BASE_PATH` matches where the page is served.

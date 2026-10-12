@@ -19,17 +19,6 @@ export function framedScreen(text: readonly string[]): string[] {
   return [border, ...inner, border];
 }
 
-/** What the Screen shows until the game is drawn on it. */
-export function placeholderScreen(): string[] {
-  return framedScreen([
-    "A S C I I   S K Y",
-    "",
-    ". : - = + * # % @",
-    "",
-    "The cockpit is being built. Come back soon.",
-  ]);
-}
-
 function framedLine(text: string): string {
   const left = Math.floor((TEXT_WIDTH - text.length) / 2);
   return `| ${" ".repeat(left)}${text.padEnd(TEXT_WIDTH - left)} |`;

@@ -12,5 +12,10 @@ export default defineConfig(({ mode }) => {
   if (mode === "test") return { test };
   // Validate here too, so a bad .env fails the build instead of shipping a blank page.
   const config = loadConfig(loadEnv(mode, ".", "VITE_"));
-  return { base: config.basePath, test };
+  return {
+    base: config.basePath,
+    // three.js alone is about 500 kB, accepted in decision 0001; warn only well past that.
+    build: { chunkSizeWarningLimit: 700 },
+    test,
+  };
 });
