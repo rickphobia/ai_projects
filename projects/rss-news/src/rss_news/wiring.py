@@ -12,6 +12,7 @@ from typing import Protocol
 from fastapi import FastAPI
 
 from rss_news.adapters.sqlite.briefings import SqliteBriefings
+from rss_news.adapters.sqlite.chat import SqliteChats
 from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.adapters.sqlite.items import SqliteItems
 from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
@@ -19,6 +20,8 @@ from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.adapters.sqlite.spending import SqliteSpending
 from rss_news.briefings.briefing import BriefingModel
 from rss_news.briefings.writing import Briefings
+from rss_news.chat.chatting import Chats
+from rss_news.chat.conversation import ChatModel
 from rss_news.clock import Clock
 from rss_news.config import Settings
 from rss_news.items.inbox import Inbox, OldItemCleanup
@@ -36,7 +39,7 @@ from rss_news.web.app import create_app
 TICK_INTERVAL = timedelta(minutes=1)
 
 
-class LanguageModel(ScoringModel, BriefingModel, Protocol):
+class LanguageModel(ScoringModel, BriefingModel, ChatModel, Protocol):
     """Every job the app gives the language model."""
 
 
@@ -122,6 +125,14 @@ def build_app(
             model_name=settings.briefing_model,
             token_budget=settings.briefing_token_budget,
             importance_cutoff=settings.briefing_importance_cutoff,
+        ),
+        chats=Chats(
+            store=SqliteChats(database),
+            model=language_model,
+            ledger=ledger,
+            limit=limit,
+            clock=clock,
+            timezone=settings.timezone,
         ),
         spending=limit,
         tick=tick,

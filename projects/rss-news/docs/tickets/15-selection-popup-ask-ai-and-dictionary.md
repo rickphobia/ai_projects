@@ -2,7 +2,7 @@
 
 **What to build:** Selecting text in a Briefing, Item or Chat answer shows a popup. Ask AI opens the Chat with the selection and where it came from. Dictionary shows a short definition that fits the surrounding text, including jargon, tickers and Malay words. Spec user stories 58, 59, 61.
 
-**Blocked by:** 14 (Chat web search and compaction)
+**Blocked by:** 14 (Chat web search and compaction), 26 (Chat panel in the Inbox)
 
 **Status:** ready
 

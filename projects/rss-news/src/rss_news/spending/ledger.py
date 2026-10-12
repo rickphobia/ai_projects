@@ -20,6 +20,7 @@ class Feature(StrEnum):
 
     SCORING = "scoring"
     BRIEFINGS = "briefings"
+    CHAT = "chat"
 
 
 @dataclass(frozen=True)

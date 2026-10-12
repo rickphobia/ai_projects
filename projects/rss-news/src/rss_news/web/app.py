@@ -13,6 +13,7 @@ from starlette.responses import Response
 from rss_news.auth.login import LoginFailures, OwnerLogin
 from rss_news.auth.sessions import SessionSigner
 from rss_news.briefings.writing import Briefings
+from rss_news.chat.chatting import Chats
 from rss_news.clock import Clock
 from rss_news.config import Settings
 from rss_news.items.inbox import Inbox
@@ -21,6 +22,7 @@ from rss_news.sources.managing import SourceManagement
 from rss_news.spending.limit import SpendingLimit
 from rss_news.web.auth import Access, public_router, require_session, session_router
 from rss_news.web.briefings import briefings_router
+from rss_news.web.chats import chats_router
 from rss_news.web.inbox import inbox_router
 from rss_news.web.items import items_router
 from rss_news.web.sources import sources_router
@@ -53,6 +55,7 @@ def create_app(
     item_reading: ItemReading,
     source_management: SourceManagement,
     briefings: Briefings,
+    chats: Chats,
     spending: SpendingLimit,
     tick: TickHealth,
     background: tuple[BackgroundJob, ...] = (),
@@ -96,6 +99,7 @@ def create_app(
     app.state.item_reading = item_reading
     app.state.source_management = source_management
     app.state.briefings = briefings
+    app.state.chats = chats
     app.state.spending = spending
 
     @app.get("/healthz")
@@ -123,6 +127,7 @@ def create_app(
         items_router,
         sources_router,
         briefings_router,
+        chats_router,
         spending_router,
     ):
         app.include_router(router, dependencies=[Depends(require_session)])

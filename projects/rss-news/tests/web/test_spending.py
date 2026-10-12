@@ -88,7 +88,7 @@ def test_the_summary_starts_at_zero_for_every_feature(client: TestClient) -> Non
         "total_usd": "0.00",
         "limit_usd": "10.00",
         "status": "ok",
-        "by_feature": {"scoring": "0.00", "briefings": "0.00"},
+        "by_feature": {"scoring": "0.00", "briefings": "0.00", "chat": "0.00"},
     }
 
 
@@ -99,7 +99,7 @@ def test_the_summary_totals_this_month_by_feature(client: TestClient, wiring: Wi
     summary = client.get(SPENDING).json()
 
     assert summary["total_usd"] == "5.00"
-    assert summary["by_feature"] == {"scoring": "2.00", "briefings": "3.00"}
+    assert summary["by_feature"] == {"scoring": "2.00", "briefings": "3.00", "chat": "0.00"}
 
 
 def test_the_month_starts_at_midnight_in_the_owners_time_zone(

@@ -2,7 +2,7 @@
 
 **What to build:** Long-pressing the app icon offers "Brief me (24h)", "Chat" and "Notes", each opening straight to that action. Spec user story 73.
 
-**Blocked by:** 16 (Notes), 19 (Installable app)
+**Blocked by:** 16 (Notes), 19 (Installable app), 26 (Chat panel in the Inbox)
 
 **Status:** ready
 

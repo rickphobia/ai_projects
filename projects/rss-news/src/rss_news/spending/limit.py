@@ -1,5 +1,5 @@
 """The monthly spending limit: this month's cost so far, by feature, and whether the features
-that can wait (Briefings, later Chat and Dictionary) must stop."""
+that can wait (Briefings, Chat, later Dictionary) must stop."""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -68,7 +68,7 @@ class SpendingLimit:
         if summary.status is LimitStatus.STOPPED:
             raise SpendingStopped(
                 f"This month's AI cost (${summary.total_usd:.2f}) has reached the "
-                f"${summary.limit_usd:.2f} limit, so Briefings are off until next month. "
+                f"${summary.limit_usd:.2f} limit, so Briefings and Chat are off until next month. "
                 "Scoring keeps running."
             )
 

@@ -12,6 +12,14 @@ from rss_news.briefings.briefing import (
     SectionResult,
     WrittenPoint,
 )
+from rss_news.chat.conversation import (
+    ChatFailed,
+    ChatInput,
+    ChatStep,
+    ItemSearch,
+    ModelAnswer,
+    SearchCall,
+)
 from rss_news.config import Settings
 from rss_news.items.reading import ExtractionFailed, ReaderView
 from rss_news.scoring.item_scoring import (
@@ -133,6 +141,32 @@ class FakeLanguageModel:
         self.section_answer: SectionAnswer = self.one_point_per_item
         # Sections of these Folders fail, after the model answered.
         self.failing_folders: set[str] = set()
+        # What each continue_chat call answers, in turn: searches to run, an answer, or a
+        # failure. Every call is recorded with the context it was given.
+        self.chat_script: list[list[ItemSearch] | ModelAnswer | ChatFailed] = []
+        self.chat_calls: list[tuple[str, ChatInput]] = []
+
+    def continue_chat(self, context: str, given: ChatInput) -> ChatStep:
+        self.chat_calls.append((context, given))
+        if not self.chat_script:
+            raise AssertionError("the test scripted no more Chat steps")
+        step = self.chat_script.pop(0)
+        if isinstance(step, ChatFailed):
+            raise step
+        # The context grows by one mark per call, so tests can see it carried between turns.
+        context += f"[{len(self.chat_calls)}]"
+        if isinstance(step, ModelAnswer):
+            return ChatStep(context, self.CHAT_USAGE, [], step)
+        searches = [SearchCall(f"call-{n}", search) for n, search in enumerate(step)]
+        return ChatStep(context, self.CHAT_USAGE, searches, None)
+
+    CHAT_USAGE = AiUsage(
+        model="claude-opus-5-5",
+        input_tokens=5_000,
+        output_tokens=500,
+        web_searches=0,
+        duration=timedelta(seconds=4),
+    )
 
     def score_items(self, items: Sequence[UnscoredItem]) -> ScoringResult:
         self.calls.append(list(items))
