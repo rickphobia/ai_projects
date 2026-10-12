@@ -39,6 +39,8 @@ from rss_news.chat.instructions import (
     CHAT_INSTRUCTIONS,
 )
 from rss_news.config import Effort
+from rss_news.dictionary.instructions import DICTIONARY_INSTRUCTIONS
+from rss_news.dictionary.lookup import DefinitionRequest, DefinitionResult, DictionaryFailed
 from rss_news.scoring.instructions import MAX_IMPORTANCE, MIN_IMPORTANCE, SCORING_INSTRUCTIONS
 from rss_news.scoring.item_scoring import (
     EXCERPT_CHARACTERS,
@@ -58,6 +60,8 @@ _SCORING_MAX_TOKENS = 16_000
 _SECTION_MAX_TOKENS = 16_000
 # Room for a Chat answer or a search call plus the model's thinking.
 _CHAT_MAX_TOKENS = 16_000
+# A definition is a sentence or two; the rest is room for the model's thinking.
+_DEFINITION_MAX_TOKENS = 4_000
 _MAX_RETRY_DELAY_SECONDS = 60.0
 # Times a Chat call is resumed after the API paused a long web search loop.
 _CHAT_RESUMES = 3
@@ -110,6 +114,14 @@ _POINTS_SCHEMA: dict[str, Any] = {
 }
 
 
+_DEFINITION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {"definition": {"type": "string"}},
+    "required": ["definition"],
+    "additionalProperties": False,
+}
+
+
 class _CallFailed(Exception):
     """A Messages API call failed after its retries."""
 
@@ -130,6 +142,7 @@ class AnthropicLanguageModel:
         chat_model: str,
         chat_effort: Effort,
         chat_compaction_tokens: int,
+        dictionary_model: str,
         timeout: timedelta,
         max_attempts: int,
         http_client: anthropic.DefaultHttpxClient | None = None,
@@ -149,6 +162,7 @@ class AnthropicLanguageModel:
         self._chat_model = chat_model
         self._chat_effort = chat_effort
         self._chat_compaction_tokens = chat_compaction_tokens
+        self._dictionary_model = dictionary_model
         self._max_attempts = max_attempts
         self._sleep = sleep
 
@@ -190,6 +204,27 @@ class AnthropicLanguageModel:
             raise BriefingFailed(str(error)) from error
         usage = _usage(message, self._briefing_model, timedelta(seconds=time.monotonic() - started))
         return SectionResult(points=_parse_points(message, usage), usage=usage)
+
+    def define_word(self, request: DefinitionRequest) -> DefinitionResult:
+        started = time.monotonic()
+        try:
+            message = self._create(
+                "define word",
+                model=self._dictionary_model,
+                max_tokens=_DEFINITION_MAX_TOKENS,
+                system=DICTIONARY_INSTRUCTIONS,
+                messages=[{"role": "user", "content": _definition_prompt(request)}],
+                output_config={
+                    "effort": "low",
+                    "format": {"type": "json_schema", "schema": _DEFINITION_SCHEMA},
+                },
+            )
+        except _CallFailed as error:
+            raise DictionaryFailed(str(error)) from error
+        usage = _usage(
+            message, self._dictionary_model, timedelta(seconds=time.monotonic() - started)
+        )
+        return DefinitionResult(_parse_definition(message, usage), usage)
 
     def continue_chat(self, context: str, given: ChatInput) -> ChatStep:
         """`context` is the Messages API conversation as JSON. The full assistant content,
@@ -334,6 +369,22 @@ def _section_prompt(section: SectionRequest) -> str:
     return f"Write the {section.folder_name} section from these Items:\n" + json.dumps(
         listed, ensure_ascii=False
     )
+
+
+def _definition_prompt(request: DefinitionRequest) -> str:
+    return json.dumps({"term": request.term, "context": request.context}, ensure_ascii=False)
+
+
+def _parse_definition(message: Message, usage: AiUsage) -> str:
+    if (stopped := _stop_detail(message)) is not None:
+        raise DictionaryFailed(f"no definition in the answer: {stopped}", usage)
+    try:
+        definition = " ".join(str(json.loads(_answer_text(message))["definition"]).split())
+    except (ValueError, KeyError, TypeError) as error:
+        raise DictionaryFailed(f"answer is not the definition JSON: {error}", usage) from error
+    if not definition:
+        raise DictionaryFailed("the definition is empty", usage)
+    return definition
 
 
 def _parse_answer(message: Message | BetaMessage, usage: AiUsage) -> ModelAnswer:

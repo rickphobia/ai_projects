@@ -270,4 +270,70 @@ describe("the Chat panel", () => {
 
     expect(api.questions).toEqual([[101, "Anything on chips?"]]);
   });
+
+  describe("given a quote from Ask AI", () => {
+    const QUOTE = {
+      text: "kept the OPR at 2.75%",
+      origin: "Item: BNM holds rates (The Star)",
+    };
+
+    async function renderWithQuote(): Promise<void> {
+      await renderChatPanel(panel, api, {
+        onOpenItem,
+        onBriefThese,
+        openChatId: null,
+        onChatOpened,
+        quote: QUOTE,
+      });
+    }
+
+    it("opens with the quote and its origin above the question box", async () => {
+      await renderWithQuote();
+
+      expect(panel.dataset.sheet).toBe("open");
+      const quoted = screen.getByRole("figure", { name: "Asking about" });
+      expect(within(quoted).getByText(QUOTE.text)).toBeTruthy();
+      expect(quoted.textContent).toContain(`From ${QUOTE.origin}`);
+      expect(document.activeElement).toBe(questionBox());
+    });
+
+    it("sends the quote with the next question only", async () => {
+      api.chatAnswers = [
+        { searches: [], result: ANSWER },
+        { searches: [], result: { ...ANSWER, id: 4 } },
+      ];
+      await renderWithQuote();
+
+      askQuestion("What does this mean?");
+      await screen.findByText(ANSWER.text);
+      expect(screen.queryByRole("figure", { name: "Asking about" })).toBe(null);
+      askQuestion("And for the ringgit?");
+      await waitFor(() => {
+        expect(api.quotes).toHaveLength(2);
+      });
+
+      expect(api.quotes).toEqual([QUOTE, null]);
+    });
+
+    it("lets the owner remove the quote before asking", async () => {
+      api.chatAnswers = [{ searches: [], result: ANSWER }];
+      await renderWithQuote();
+
+      screen.getByRole("button", { name: "Remove the quote" }).click();
+      askQuestion("What happened today?");
+      await screen.findByText(ANSWER.text);
+
+      expect(api.quotes).toEqual([null]);
+    });
+  });
+
+  it("offers an answer's text for selection, naming it a Chat answer", async () => {
+    api.chatAnswers = [{ searches: [], result: ANSWER }];
+    await render();
+
+    askQuestion("Malaysia?");
+    const intro = await screen.findByText(ANSWER.text);
+
+    expect(intro.closest("li")?.dataset.selectionOrigin).toBe("a Chat answer");
+  });
 });

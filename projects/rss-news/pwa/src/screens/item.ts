@@ -1,5 +1,6 @@
 import { SignedOutError, type ApiClient, type InboxItem } from "../api/client";
 import { showInReadingColumn } from "./reading-column";
+import { offerSelection } from "./selection";
 import { shownTime } from "./shown-time";
 
 // One Item: its summary, Source, time and Importance at once, a link to the original page,
@@ -30,6 +31,7 @@ export async function renderItem(
     return;
   }
   status.remove();
+  offerSelection(column, `Item: ${item.title} (${item.source})`);
   const reader = document.createElement("section");
   reader.setAttribute("aria-label", "Reader view");
   reader.className = "prose";

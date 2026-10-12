@@ -1,0 +1,28 @@
+{
+  "id": "msg_01DefinitionExample7a1f",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-5-5-20261001",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "EqQBCkYIBxgCKkBexampleSignatureNotReal"
+    },
+    {
+      "type": "text",
+      "text": "{\"definition\": \"Overnight Policy Rate:   the interest rate Bank Negara Malaysia sets for overnight lending between banks.\"}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 312,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 58,
+    "server_tool_use": null,
+    "service_tier": "standard"
+  }
+}

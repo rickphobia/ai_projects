@@ -7,7 +7,10 @@ import {
 import { renderChatPanel, type ChatPanelOptions } from "./chat";
 import { relativeTime, shownTime } from "./shown-time";
 
-export type InboxChat = Pick<ChatPanelOptions, "openChatId" | "onChatOpened">;
+export type InboxChat = Pick<
+  ChatPanelOptions,
+  "openChatId" | "onChatOpened" | "quote"
+>;
 
 const ALL_FOLDERS = "";
 const ANY_IMPORTANCE = "";

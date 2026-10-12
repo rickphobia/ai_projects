@@ -1,9 +1,11 @@
+import type { ChatQuote } from "../api/chats";
 import { SignedOutError, type ApiClient } from "../api/client";
 import { noDevicePush, type DevicePush } from "../pwa/device-push";
 import { renderBriefings } from "./briefings";
 import { renderHome } from "./home";
 import { renderInbox } from "./inbox";
 import { renderItem } from "./item";
+import { installSelectionPopup } from "./selection";
 import { renderSettings, spendingBanner } from "./settings";
 import { renderSources } from "./sources";
 
@@ -107,6 +109,7 @@ export async function renderShell(
   const showInbox = (
     entry: HTMLButtonElement = toInbox,
     folderId?: number,
+    quote: ChatQuote | null = null,
   ): Promise<void> => {
     showing(entry);
     return renderInbox(
@@ -124,6 +127,7 @@ export async function renderShell(
       folderId,
       {
         openChatId,
+        quote,
         onChatOpened: (chatId) => {
           openChatId = chatId;
         },
@@ -164,6 +168,10 @@ export async function renderShell(
     void renderSettings(page, api, devicePush);
   });
   app.append(header, sidebar, drawer.backdrop, main);
+  // Ask AI from a Briefing, an Item or a Chat answer opens the Inbox's Chat with the quote.
+  installSelectionPopup(app, api, (quote) => {
+    void showInbox(toInbox, undefined, quote);
+  });
   root.replaceChildren(app);
 
   await Promise.all([

@@ -44,8 +44,18 @@ SEARCHING_CALLS = 4
 WEB_SEARCHES_PER_QUESTION = 5
 # Words that mean the owner asked for the web, not just their Items.
 _ASKS_FOR_WEB = re.compile(r"\b(web|internet|online|google)\b", re.IGNORECASE)
+# The longest selection Ask AI sends with a question.
+LONGEST_QUOTE = 4_000
 # Put before an answer's intro when the model searched the web for it.
 WEB_SEARCH_FLAG = "Searched the web."
+
+
+@dataclass(frozen=True)
+class Quote:
+    """Text the owner selected and asked about, and where it came from."""
+
+    text: str
+    origin: str
 
 
 @dataclass(frozen=True)
@@ -83,8 +93,11 @@ class Chats:
     def get(self, chat_id: int) -> Chat | None:
         return self._store.get(chat_id)
 
-    def ask(self, chat_id: int, question: str) -> Iterator[ChatSearched | ChatMessage]:
-        """A ChatSearched for each search, then the saved answer. Raises NoSuchChat or
+    def ask(
+        self, chat_id: int, question: str, quote: Quote | None = None
+    ) -> Iterator[ChatSearched | ChatMessage]:
+        """A ChatSearched for each search, then the saved answer. A quote is saved as part of
+        the question, after it, so the Chat's title is still the question. Raises NoSuchChat or
         SpendingStopped at once, before any call. A failed call raises ChatFailed: nothing of
         the turn is saved, and the calls already made stay in the ledger."""
         chat = self._store.get(chat_id)
@@ -92,7 +105,7 @@ class Chats:
             raise NoSuchChat(f"Chat {chat_id} doesn't exist.")
         # Checked here, not inside the generator, so the caller hears before streaming starts.
         self._limit.check_not_stopped()
-        return self._ask(chat, question)
+        return self._ask(chat, question if quote is None else with_quote(question, quote))
 
     def _ask(self, chat: Chat, question: str) -> Iterator[ChatSearched | ChatMessage]:
         chat_id = chat.summary.id
@@ -237,6 +250,12 @@ class Chats:
             listed.add(item.id)
             items.append(AnswerItem(item.id, item.title, item.source_name, entry.summary))
         return _CheckedAnswer(answer.intro, items)
+
+
+def with_quote(question: str, quote: Quote) -> str:
+    """The question followed by the selection as a Markdown quote and its origin."""
+    quoted = "\n".join(f"> {line}" for line in quote.text.strip().splitlines())
+    return f"{question}\n\nAbout this, from {' '.join(quote.origin.split())}:\n{quoted}"
 
 
 def asks_for_web(question: str) -> bool:

@@ -22,6 +22,11 @@ from rss_news.chat.conversation import (
     SearchCall,
 )
 from rss_news.config import Settings
+from rss_news.dictionary.lookup import (
+    DefinitionRequest,
+    DefinitionResult,
+    DictionaryFailed,
+)
 from rss_news.items.reading import ExtractionFailed, ReaderView
 from rss_news.scoring.item_scoring import (
     ItemScore,
@@ -168,6 +173,23 @@ class FakeLanguageModel:
         self.chat_calls: list[tuple[str, ChatInput]] = []
         # What each Chat call reports it used; tests change it to add web searches.
         self.chat_usage = self.CHAT_USAGE
+        self.definitions: list[DefinitionRequest] = []
+        # When set, define_word raises it instead of answering.
+        self.definition_failure: DictionaryFailed | None = None
+
+    def define_word(self, request: DefinitionRequest) -> DefinitionResult:
+        self.definitions.append(request)
+        if self.definition_failure is not None:
+            raise self.definition_failure
+        return DefinitionResult(f"Meaning of {request.term}.", self.DEFINITION_USAGE)
+
+    DEFINITION_USAGE = AiUsage(
+        model="claude-haiku-5-5",
+        input_tokens=400,
+        output_tokens=60,
+        web_searches=0,
+        duration=timedelta(seconds=1),
+    )
 
     def continue_chat(self, context: str, given: ChatInput) -> ChatStep:
         self.chat_calls.append((context, given))

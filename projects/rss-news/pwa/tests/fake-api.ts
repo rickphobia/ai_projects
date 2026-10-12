@@ -14,9 +14,11 @@ import type {
 import type {
   Chat,
   ChatMessage,
+  ChatQuote,
   ChatSearch,
   ChatSummary,
 } from "../src/api/chats";
+import type { Definition } from "../src/api/dictionary";
 import type {
   ApiClient,
   Folder,
@@ -276,6 +278,15 @@ export class FakeApiClient implements ApiClient {
   chatAnswers: { searches: ChatSearch[]; result: ChatMessage | Error }[] = [];
   // Each question asked, as [chatId, question].
   questions: [number, string][] = [];
+  // The quote sent with each question, or null.
+  quotes: (ChatQuote | null)[] = [];
+  // Each look-up, as [term, context]; definitionAnswer answers them all.
+  lookUps: [string, string][] = [];
+  definitionAnswer: Definition | Error = {
+    term: "OPR",
+    definition: "The rate Bank Negara Malaysia sets for overnight lending.",
+    costUsd: "0.0001",
+  };
   chatsCreated = 0;
 
   chats(): Promise<ChatSummary[]> {
@@ -306,8 +317,10 @@ export class FakeApiClient implements ApiClient {
     chatId: number,
     question: string,
     onSearched: (search: ChatSearch) => void,
+    quote?: ChatQuote,
   ): Promise<ChatMessage> {
     this.questions.push([chatId, question]);
+    this.quotes.push(quote ?? null);
     const answer = this.chatAnswers.shift();
     if (!answer) throw new Error("the test set no askChat answer");
     answer.searches.forEach(onSearched);
@@ -326,6 +339,11 @@ export class FakeApiClient implements ApiClient {
       );
     }
     return settle(answer.result);
+  }
+
+  defineWord(term: string, context: string): Promise<Definition> {
+    this.lookUps.push([term, context]);
+    return settle(this.definitionAnswer);
   }
 
   private change<T>(call: unknown[], answer: T): Promise<T> {

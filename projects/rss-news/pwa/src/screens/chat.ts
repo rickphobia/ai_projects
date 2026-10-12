@@ -1,5 +1,6 @@
-import type { Chat, ChatMessage, ChatSummary } from "../api/chats";
+import type { Chat, ChatMessage, ChatQuote, ChatSummary } from "../api/chats";
 import { RefusedError, SignedOutError, type ApiClient } from "../api/client";
+import { offerSelection } from "./selection";
 import { relativeTime, shownTime } from "./shown-time";
 
 export interface ChatPanelOptions {
@@ -11,6 +12,9 @@ export interface ChatPanelOptions {
   openChatId?: number | null;
   // Called with the Chat being shown whenever that changes, so it can be reopened.
   onChatOpened?: (chatId: number) => void;
+  // A selection the owner chose Ask AI for: the panel opens with it attached to the next
+  // question.
+  quote?: ChatQuote | null;
 }
 
 // The Chat docked in the Inbox: a side panel on a wide screen, a bottom sheet opened from its
@@ -18,12 +22,20 @@ export interface ChatPanelOptions {
 // as it runs, and gets the intro line and the matching Items, each with its one-line summary and
 // a Source button, then "Brief these". Earlier Chats are listed, newest used first; choosing one
 // shows its messages and continues it. A new Chat is only saved once something is asked.
+// Given a quote (Ask AI), it opens with the quote shown above the question box, sent with the
+// next question unless the owner removes it.
 export async function renderChatPanel(
   panel: HTMLElement,
   api: ApiClient,
   options: ChatPanelOptions,
 ): Promise<void> {
-  const { onOpenItem, onBriefThese, onChatOpened, openChatId = null } = options;
+  const {
+    onOpenItem,
+    onBriefThese,
+    onChatOpened,
+    openChatId = null,
+    quote = null,
+  } = options;
   const body = document.createElement("div");
   body.id = "chat-panel-body";
   body.className = "chat-body";
@@ -36,7 +48,7 @@ export async function renderChatPanel(
     panel.dataset.sheet = open ? "open" : "closed";
     toggle.setAttribute("aria-expanded", String(open));
   };
-  setOpen(openChatId !== null);
+  setOpen(openChatId !== null || quote !== null);
   // Opening the sheet moves focus to the question box; Escape closes it again.
   toggle.addEventListener("click", () => {
     setOpen(panel.dataset.sheet !== "open");
@@ -84,7 +96,13 @@ export async function renderChatPanel(
   questionLabel.append(question);
   const ask = button("Ask");
   ask.type = "submit";
-  form.append(questionLabel, ask);
+  let attached = quote;
+  const quoted = quoteBox(quote, () => {
+    attached = null;
+    quoted.remove();
+    question.focus();
+  });
+  form.append(quoted, questionLabel, ask);
   body.append(controls, history, messages, progress, failure, form);
   panel.className = "chat-panel";
   panel.setAttribute("aria-label", "Chat");
@@ -169,12 +187,23 @@ export async function renderChatPanel(
       if (thisShow !== latestShown) return;
       chat = current;
       onChatOpened?.(current.id);
-      const answer = await api.askChat(current.id, text, (search) => {
-        if (thisShow !== latestShown) return;
-        progress.textContent = `Searched ${search.window}: ${itemCount(search.count)}.`;
-      });
+      const sent = attached ?? undefined;
+      const answer = await api.askChat(
+        current.id,
+        text,
+        (search) => {
+          if (thisShow !== latestShown) return;
+          progress.textContent = `Searched ${search.window}: ${itemCount(search.count)}.`;
+        },
+        sent,
+      );
       if (thisShow !== latestShown) return;
       progress.textContent = "";
+      // The quote went with this question; the next one is asked without it.
+      if (sent !== undefined) {
+        attached = null;
+        quoted.remove();
+      }
       messages.append(messageRow(answer));
       void listChats();
     } catch (error) {
@@ -194,10 +223,29 @@ export async function renderChatPanel(
     }
   }
 
+  if (quote !== null) question.focus();
   await Promise.all([
     listChats(),
     openChatId === null ? Promise.resolve() : choose(openChatId),
   ]);
+}
+
+function quoteBox(quote: ChatQuote | null, onRemove: () => void): HTMLElement {
+  const box = document.createElement("figure");
+  box.className = "chat-quote";
+  box.hidden = quote === null;
+  if (quote === null) return box;
+  box.setAttribute("aria-label", "Asking about");
+  const text = document.createElement("blockquote");
+  text.textContent = quote.text;
+  const origin = document.createElement("figcaption");
+  origin.textContent = `From ${quote.origin}`;
+  const remove = button("Remove");
+  remove.setAttribute("aria-label", "Remove the quote");
+  remove.addEventListener("click", onRemove);
+  origin.append(" ", remove);
+  box.append(text, origin);
+  return box;
 }
 
 function questionRow(text: string): HTMLLIElement {
@@ -214,6 +262,7 @@ function answerRow(
 ): HTMLLIElement {
   const row = document.createElement("li");
   row.className = "chat-answer";
+  offerSelection(row, "a Chat answer");
   const intro = document.createElement("p");
   intro.textContent = message.text;
   row.append(intro);
