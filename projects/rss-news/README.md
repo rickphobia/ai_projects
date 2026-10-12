@@ -78,7 +78,9 @@ Needs `git`, `docker` (your user can run it without sudo) and `flock` (already o
    # rss-news: proxied to the container on homelab_default.
    location = /ai-projects/rss-news { return 301 https://$host$uri/; }
 
-   location /ai-projects/rss-news/ {
+   # ^~ stops default.conf's regex location for paths ending in / or .html from taking these
+   # requests and serving them as static files (a 404 for /ai-projects/rss-news/).
+   location ^~ /ai-projects/rss-news/ {
        # Resolve per request, so a missing container is a 502 here, not an nginx that won't start.
        resolver 127.0.0.11 valid=10s;
        set $rss_news_upstream rss-news:8000;
