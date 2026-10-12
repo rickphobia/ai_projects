@@ -12,6 +12,12 @@ import type {
   WrittenBriefing,
 } from "../src/api/briefings";
 import type {
+  Chat,
+  ChatMessage,
+  ChatSearch,
+  ChatSummary,
+} from "../src/api/chats";
+import type {
   ApiClient,
   Folder,
   Health,
@@ -258,6 +264,66 @@ export class FakeApiClient implements ApiClient {
       await new Promise<void>((resolve) => {
         this.releaseWrite = resolve;
       });
+    }
+    return settle(answer.result);
+  }
+
+  // Every saved Chat, newest used first, as chats() gives it.
+  chatsAnswer: ChatSummary[] | Error = [];
+  // Saved Chats by id; one that isn't here is refused as the server would.
+  savedChats = new Map<number, Chat>();
+  // The answer to each askChat call in turn: its searches, then its result.
+  chatAnswers: { searches: ChatSearch[]; result: ChatMessage | Error }[] = [];
+  // Each question asked, as [chatId, question].
+  questions: [number, string][] = [];
+  chatsCreated = 0;
+
+  chats(): Promise<ChatSummary[]> {
+    return settle(this.chatsAnswer);
+  }
+
+  createChat(): Promise<Chat> {
+    this.chatsCreated += 1;
+    const created: Chat = {
+      id: 100 + this.chatsCreated,
+      title: "New Chat",
+      createdAt: "2026-10-12T09:00:00+00:00",
+      updatedAt: "2026-10-12T09:00:00+00:00",
+      costUsd: "0.00",
+      messages: [],
+    };
+    this.savedChats.set(created.id, created);
+    return Promise.resolve(created);
+  }
+
+  chat(chatId: number): Promise<Chat> {
+    return settle(
+      this.savedChats.get(chatId) ?? new Error("That Chat doesn't exist."),
+    );
+  }
+
+  askChat(
+    chatId: number,
+    question: string,
+    onSearched: (search: ChatSearch) => void,
+  ): Promise<ChatMessage> {
+    this.questions.push([chatId, question]);
+    const answer = this.chatAnswers.shift();
+    if (!answer) throw new Error("the test set no askChat answer");
+    answer.searches.forEach(onSearched);
+    // Like the backend, an answered turn is saved with its question; a failed one isn't.
+    const saved = this.savedChats.get(chatId);
+    if (saved && !(answer.result instanceof Error)) {
+      saved.messages.push(
+        {
+          id: answer.result.id - 1,
+          role: "owner",
+          createdAt: answer.result.createdAt,
+          text: question,
+          items: [],
+        },
+        answer.result,
+      );
     }
     return settle(answer.result);
   }

@@ -173,6 +173,92 @@ describe("the app shell", () => {
     expect(screen.getByRole("link", { name: "A story" })).toBeTruthy();
   });
 
+  describe("the Chat in the Inbox", () => {
+    beforeEach(() => {
+      api.items = [
+        {
+          id: 7,
+          title: "Bank Negara holds rates",
+          url: "https://news.example/7",
+          source: "The Star",
+          folder: { id: 1, name: "Malaysia" },
+          publishedAt: "2026-10-12T04:00:00+00:00",
+          importance: 5,
+          summary: "Malaysia's central bank kept its policy rate at 2.75%.",
+          read: false,
+          imageUrl: null,
+        },
+      ];
+      api.chatAnswers = [
+        {
+          searches: [],
+          result: {
+            id: 2,
+            role: "assistant",
+            createdAt: "2026-10-12T09:05:00+00:00",
+            text: "In the last 24 hours, 1 Item mentions Malaysia.",
+            items: [
+              {
+                id: 7,
+                title: "Bank Negara holds rates",
+                source: "The Star",
+                summary: "Rates held at 2.75%.",
+              },
+            ],
+          },
+        },
+      ];
+    });
+
+    async function askInInbox(): Promise<void> {
+      await renderShell(root, api, () => undefined);
+      screen.getByRole("button", { name: "Inbox" }).click();
+      const box = await screen.findByRole("textbox", {
+        name: "Ask about your news",
+      });
+      (box as HTMLTextAreaElement).value = "What happened in Malaysia?";
+      screen.getByRole("button", { name: "Ask" }).click();
+      await screen.findByText("Rates held at 2.75%.", { exact: false });
+    }
+
+    it("opens an answer's Item from its Source button and comes back to the Chat", async () => {
+      await askInInbox();
+
+      screen
+        .getByRole("button", { name: "The Star: Bank Negara holds rates" })
+        .click();
+      await waitFor(() => {
+        expect(
+          screen.getByRole("heading", { name: "Bank Negara holds rates" }),
+        ).toBeTruthy();
+      });
+      expect(api.itemsOpened).toEqual([7]);
+
+      screen.getByRole("button", { name: "Back to Inbox" }).click();
+      await waitFor(() => {
+        expect(screen.getByText("What happened in Malaysia?")).toBeTruthy();
+      });
+    });
+
+    it("offers a Briefing of exactly an answer's Items from Brief these", async () => {
+      await askInInbox();
+
+      const chatPanel = screen.getByRole("complementary", { name: "Chat" });
+      within(chatPanel)
+        .getByRole("button", { name: "Brief these (1)" })
+        .click();
+
+      await waitFor(() => {
+        expect(api.estimateRequests).toContainEqual({ itemIds: [7] });
+      });
+      expect(
+        screen
+          .getByRole("button", { name: "Home" })
+          .getAttribute("aria-current"),
+      ).toBe("page");
+    });
+  });
+
   it("opens the sidebar drawer from Menu and closes it again", async () => {
     await renderShell(root, api, () => undefined);
     const menu = screen.getByRole("button", { name: "Menu" });

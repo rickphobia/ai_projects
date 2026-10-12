@@ -102,6 +102,8 @@ export async function renderShell(
       pickedItemIds,
     );
   };
+  // The Chat open in the Inbox, so it is still there after going to an Item and back.
+  let openChatId: number | null = null;
   const showInbox = (
     entry: HTMLButtonElement = toInbox,
     folderId?: number,
@@ -120,6 +122,12 @@ export async function renderShell(
       },
       (itemIds) => void showHome(itemIds),
       folderId,
+      {
+        openChatId,
+        onChatOpened: (chatId) => {
+          openChatId = chatId;
+        },
+      },
     );
   };
   const showBriefings = (): Promise<void> => {

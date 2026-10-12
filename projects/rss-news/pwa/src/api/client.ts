@@ -23,6 +23,17 @@ import {
   type EstimateJson,
   type WrittenBriefing,
 } from "./briefings";
+import {
+  chatAnswerEvent,
+  chatFromJson,
+  chatSummaryFromJson,
+  type Chat,
+  type ChatJson,
+  type ChatMessage,
+  type ChatSearch,
+  type ChatSummary,
+  type ChatSummaryJson,
+} from "./chats";
 import { readEvents } from "./event-stream";
 
 export interface Health {
@@ -167,6 +178,18 @@ export interface ApiClient {
   subscribePush(subscription: DeviceSubscription): Promise<void>;
   unsubscribePush(endpoint: string): Promise<void>;
   sendTestAlert(): Promise<TestAlertReport>;
+  // Every saved Chat, the most recently used first.
+  chats(): Promise<ChatSummary[]>;
+  createChat(): Promise<Chat>;
+  chat(chatId: number): Promise<Chat>;
+  // Asks a question in a Chat and resolves with the saved answer; onSearched sees each search
+  // the model makes on the way. Rejects with RefusedError, saying why, when the answer failed
+  // or this month's spending limit is reached.
+  askChat(
+    chatId: number,
+    question: string,
+    onSearched: (search: ChatSearch) => void,
+  ): Promise<ChatMessage>;
 }
 
 export class ApiError extends Error {
@@ -406,6 +429,50 @@ export class HttpApiClient implements ApiClient {
     return (await response.json()) as TestAlertReport;
   }
 
+  async chats(): Promise<ChatSummary[]> {
+    const response = await this.sendWithSession("GET", "api/chats");
+    const body = (await response.json()) as { chats: ChatSummaryJson[] };
+    return body.chats.map(chatSummaryFromJson);
+  }
+
+  async createChat(): Promise<Chat> {
+    const response = await this.sendWithSession("POST", "api/chats");
+    const body = (await response.json()) as { chat: ChatJson };
+    return chatFromJson(body.chat);
+  }
+
+  async chat(chatId: number): Promise<Chat> {
+    const response = await this.sendWithSession(
+      "GET",
+      `api/chats/${String(chatId)}`,
+    );
+    const body = (await response.json()) as { chat: ChatJson };
+    return chatFromJson(body.chat);
+  }
+
+  async askChat(
+    chatId: number,
+    question: string,
+    onSearched: (search: ChatSearch) => void,
+  ): Promise<ChatMessage> {
+    const path = `api/chats/${String(chatId)}/messages`;
+    const response = await this.sendWithSession("POST", path, {
+      text: question,
+    });
+    if (response.body === null) {
+      throw new ApiError(`POST ${path} answered without a body`);
+    }
+    for await (const message of readEvents(response.body)) {
+      const answer = chatAnswerEvent(message.event, JSON.parse(message.data));
+      if (answer?.kind === "searched") onSearched(answer.search);
+      if (answer?.kind === "message") return answer.message;
+      if (answer?.kind === "failed") {
+        throw new RefusedError(answer.detail ?? "The Chat couldn't answer.");
+      }
+    }
+    throw new ApiError("The Chat stream ended before the answer arrived");
+  }
+
   // For every call except login: a 401 means the session is gone, so go to login.
   private async sendWithSession(
     method: string,
@@ -418,7 +485,7 @@ export class HttpApiClient implements ApiClient {
       throw new SignedOutError(`${method} ${path} needs a session`);
     }
     // 502 is Reader view failing to extract the original page; 422 includes nothing to brief;
-    // 429 is a Briefing refused because the monthly spending limit is reached; 409 includes
+    // 429 is a Briefing or a Chat refused because the monthly spending limit is reached; 409 includes
     // Alerts not set up on the server.
     if ([404, 409, 422, 429, 502].includes(response.status)) {
       const body: unknown = await response.json().catch(() => null);

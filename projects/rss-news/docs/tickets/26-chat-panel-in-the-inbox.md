@@ -4,15 +4,15 @@
 
 **Blocked by:** 13 (Chat answers from Items)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** pwa/chat, pwa/inbox, pwa/api
 
 **Effort:** medium
 
-- [ ] `ApiClient` gains `chats`, `createChat`, `chat` and `askChat` (reading the `searched`, `message` and `failed` events from `POST /api/chats/{id}/messages`); a 429 shows the spending limit's message
-- [ ] PWA Chat panel in the Inbox: a side panel from 900px, a bottom sheet below, styled in `styles.css`
-- [ ] Each answer shows its intro, its Items with Source buttons opening the Item view, and "Brief these" opening the home screen with those Items picked
-- [ ] The list of earlier Chats, newest used first; choosing one shows its messages and continues it
-- [ ] Vitest tests cover a Source button opening the Item, "Brief these", a failed answer and the list of Chats
-- [ ] README updated
+- [x] `ApiClient` gains `chats`, `createChat`, `chat` and `askChat` (reading the `searched`, `message` and `failed` events from `POST /api/chats/{id}/messages`); a 429 shows the spending limit's message
+- [x] PWA Chat panel in the Inbox: a side panel from 900px, a bottom sheet below, styled in `styles.css`
+- [x] Each answer shows its intro, its Items with Source buttons opening the Item view, and "Brief these" opening the home screen with those Items picked
+- [x] The list of earlier Chats, newest used first; choosing one shows its messages and continues it
+- [x] Vitest tests cover a Source button opening the Item, "Brief these", a failed answer and the list of Chats
+- [x] README updated
