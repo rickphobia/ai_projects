@@ -4,16 +4,16 @@
 
 **Blocked by:** 21 (Letters from the Children)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** rules, config/tuning, content/family-text, content/app-text, adapters/app-overlay, adapters/letters
 
 **Effort:** low
 
-- [ ] Buying a call home costs Labour Points (tuning price), takes the Worker off the Generator for the call's length (tuning), and growth halts during it
-- [ ] The rules emit a "call home" Family event whose call id follows the latest letter received
-- [ ] The call shows as a card of the Children's lines, not in The App's style
-- [ ] The App's monitoring line cites a source only if one supports it; otherwise it is reworded so it makes no claim
-- [ ] Refused with the reason after a missed Quota, in Debt, in a Study Session, or when unaffordable
-- [ ] The content test covers call scripts the same way as letters
-- [ ] GUT tests through Farm and tuning validation tests
+- [x] Buying a call home costs Labour Points (tuning price), takes the Worker off the Generator for the call's length (tuning), and growth halts during it
+- [x] The rules emit a "call home" Family event whose call id follows the latest letter received
+- [x] The call shows as a card of the Children's lines, not in The App's style
+- [x] The App's monitoring line cites a source only if one supports it; otherwise it is reworded so it makes no claim
+- [x] Refused with the reason after a missed Quota, in Debt, in a Study Session, or when unaffordable
+- [x] The content test covers call scripts the same way as letters
+- [x] GUT tests through Farm and tuning validation tests

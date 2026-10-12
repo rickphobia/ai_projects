@@ -33,6 +33,8 @@ extends RefCounted
 ## Every few Shifts a letter from the Worker's Children arrives (see Letters), as a Family
 ## event apart from the App messages. A school-fees Bill that leaves a shortfall stops the
 ## letters until the Debt is cleared; letters that came due meanwhile are lost.
+## Labour Points also buy a call home: it takes him off the Generator for its length, so crops
+## halt, and sends a Family event whose call follows the latest letter received.
 ## to_save() gives the whole Farm as plain data and restore() takes it back, so a restored Farm
 ## plays on exactly as the saved one would have.
 
@@ -46,6 +48,8 @@ const NOT_WITHERED := &"not_withered"
 ## He is still at a slow plant, pick or clear (Exhaustion above the slow threshold).
 const WORKER_BUSY := &"worker_busy"
 const RESTING := &"resting"
+## He is on a call home: no field work, no Generator, no other Privilege until it ends.
+const ON_A_CALL := &"on_a_call"
 ## A missed Quota took every Privilege away for this Shift.
 const PRIVILEGES_TAKEN_AWAY := &"privileges_taken_away"
 ## The Worker owes the Farm, so he can buy neither Privileges nor Upgrades.
@@ -55,6 +59,7 @@ const NOT_ENOUGH_LABOUR_POINTS := &"not_enough_labour_points"
 const FULLY_UPGRADED := &"fully_upgraded"
 ## The Privileges buy_privilege() sells.
 const REST_HOUR := &"rest_hour"
+const CALL_HOME := &"call_home"
 ## buy_privilege() was given a Privilege the Farm does not sell.
 const NO_SUCH_PRIVILEGE := &"no_such_privilege"
 ## The Upgrades buy_upgrade() sells.
@@ -67,6 +72,7 @@ const STORE_REFUSALS: Array[StringName] = [
 	IN_STUDY_SESSION,
 	PRIVILEGES_TAKEN_AWAY,
 	RESTING,
+	ON_A_CALL,
 	IN_DEBT,
 	NOT_ENOUGH_LABOUR_POINTS,
 	FULLY_UPGRADED,
@@ -78,9 +84,10 @@ const STORE_REFUSALS: Array[StringName] = [
 ## restores with nothing earned and no laps run yet this Shift. Version 5 added the school
 ## fees; an older save restores with them paid up and due school_fees_every_shifts Shifts after
 ## its own. Version 6 added the letters; an older save restores with none received and no
-## letter Shifts passed.
-const SAVE_VERSION := 6
-const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, SAVE_VERSION]
+## letter Shifts passed. Version 7 added the call home; an older save restores with none under
+## way.
+const SAVE_VERSION := 7
+const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, SAVE_VERSION]
 ## The lowest balance a save can hold: Debt can grow, but not without end.
 const LEAST_SAVED_BALANCE := -1000000000
 
@@ -114,6 +121,8 @@ const AWAY_SUMMARY := &"away_summary"
 const REST_STARTED := &"rest_started"
 ## A rest hour ran its course. A Study Session cuts one short without this.
 const REST_ENDED := &"rest_ended"
+## A call home was bought: values price, minutes (rounded up).
+const CALL_STARTED := &"call_started"
 ## An exhausted pick dropped its cotton: nothing counted, nothing earned.
 const COTTON_DROPPED := &"cotton_dropped"
 ## A Generator tier was bought: values tier (from 1), price, multiplier (growth against no
@@ -146,6 +155,7 @@ const MESSAGE_KEYS: Array[StringName] = [
 	AWAY_SUMMARY,
 	REST_STARTED,
 	REST_ENDED,
+	CALL_STARTED,
 	COTTON_DROPPED,
 	GENERATOR_UPGRADED,
 	TOOLS_UPGRADED,
@@ -161,6 +171,22 @@ const LETTER_ARRIVED := &"letter_arrived"
 const LETTERS_STOPPED := &"letters_stopped"
 ## The Debt that stopped the letters was cleared, so the next letter Shift brings one again.
 const LETTERS_STARTED_AGAIN := &"letters_started_again"
+## The Worker called home: id is one of CALL_IDS.
+const CALLED_HOME := &"called_home"
+## Every call home the Family text table must have lines for, in the order the Children's tone
+## changes. The first is for a call before any letter has come.
+const CALL_IDS: Array[StringName] = [&"call_01", &"call_02", &"call_03", &"call_04"]
+## The call that follows each letter, so a call sounds like the latest letter received.
+const LETTER_CALLS: Dictionary[StringName, StringName] = {
+	&"letter_01": &"call_01",
+	&"letter_02": &"call_01",
+	&"letter_03": &"call_02",
+	&"letter_04": &"call_02",
+	&"letter_05": &"call_03",
+	&"letter_06": &"call_03",
+	&"letter_07": &"call_04",
+	&"letter_08": &"call_04",
+}
 ## Every letter, in the order they arrive; the Family text table must have text for each. Their
 ## tone moves from warm and homesick to distant and full of school slogans. Saves hold these
 ## ids, and one that holds an unknown id is damaged, so add new letters at the end and never
@@ -207,6 +233,8 @@ var _family_events: Array[FamilyEvent] = []
 var _busy_left := 0.0
 ## Seconds left of a rest hour; 0 when he isn't resting.
 var _rest_left := 0.0
+## Seconds left of a call home; 0 when he isn't on one.
+var _call_left := 0.0
 ## Set by a missed Quota for the whole of the next Shift.
 var _privileges_taken_away := false
 ## Returns a number from 0 to 1 each call; a pick drops its cotton when it comes up under the
@@ -296,8 +324,9 @@ func clear(index: int) -> CommandResult:
 func run_generator() -> CommandResult:
 	if in_study_session():
 		return CommandResult.refused(IN_STUDY_SESSION)
-	if _resting():
-		return CommandResult.refused(RESTING)
+	var unable := _away_from_work()
+	if unable != &"":
+		return CommandResult.refused(unable)
 	_toil.send()
 	return CommandResult.done()
 
@@ -334,17 +363,42 @@ func debug_add_labour_points(points: int) -> void:
 	_note_paid_in(_ledger.credit(points), were_stopped)
 
 
-## Buys a Privilege with Labour Points. The only one so far is REST_HOUR.
+## Buys a Privilege with Labour Points: REST_HOUR or CALL_HOME.
 func buy_privilege(privilege: StringName) -> CommandResult:
 	if privilege == REST_HOUR:
 		return _buy_rest_hour()
+	if privilege == CALL_HOME:
+		return _buy_call_home()
 	return CommandResult.refused(NO_SUCH_PRIVILEGE)
+
+
+## The call home: it costs Labour Points and takes the Worker off the Generator while the
+## Shift counts on. Unlike a rest it takes no Exhaustion away.
+func _buy_call_home() -> CommandResult:
+	var refusal := _privilege_refusal(_call_home_price())
+	if refusal != &"":
+		return CommandResult.refused(refusal)
+	_ledger.spend(_call_home_price())
+	_call_left = _tuning.call_home_seconds
+	_toil.bring_back()
+	var values := {"price": _call_home_price(), "minutes": ceili(_call_left / 60.0)}
+	_messages.append(AppMessage.new(CALL_STARTED, values))
+	_family_events.append(FamilyEvent.new(CALLED_HOME, _call_id()))
+	return CommandResult.done()
+
+
+## The call that follows the latest letter received, or the first call before any letter.
+func _call_id() -> StringName:
+	var received := _letters.received()
+	if received.is_empty():
+		return CALL_IDS[0]
+	return LETTER_CALLS.get(received.back(), CALL_IDS[0])
 
 
 ## The rest hour, the first Privilege: it costs Labour Points and takes the Worker off the
 ## Generator, lowering his Exhaustion towards its floor while the Shift counts on.
 func _buy_rest_hour() -> CommandResult:
-	var refusal := _rest_hour_refusal()
+	var refusal := _privilege_refusal(_rest_hour_price())
 	if refusal != &"":
 		return CommandResult.refused(refusal)
 	var price := _rest_hour_price()
@@ -376,10 +430,12 @@ func advance(seconds: float) -> Array[StringName]:
 			var worked := minf(minf(remaining, shift_left), _toil.seconds_until_turn())
 			worked = minf(worked, _crops.seconds_until_wither(growth_rate))
 			worked = minf(worked, _rest_left if _resting() else INF)
+			worked = minf(worked, _call_left if _on_a_call() else INF)
 			var overseer_event := _toil.pass_time(worked)
 			if overseer_event != Toil.NO_EVENT:
 				overseer_events.append(overseer_event)
 			_rest(worked)
+			_call_left = maxf(0.0, _call_left - worked)
 			var withered := _crops.tend(worked, growth_rate)
 			remaining -= worked
 			if worked >= shift_left:
@@ -394,9 +450,10 @@ func advance(seconds: float) -> Array[StringName]:
 
 ## Moves the Farm on by some seconds offline: crops grow at the offline rate whatever the
 ## Worker was doing, and a Study Session counts down, but the Shift waits and the Worker stays
-## where he was: a rest hour waits for his return, like the Shift. Exhaustion recovers at the
-## offline rate, never below its floor. A wrong clock can't break the Farm: negative time
-## counts as zero and a long absence is cut to the tuning's cap; the report says which.
+## where he was: a rest hour or a call home waits for his return, like the Shift. Exhaustion
+## recovers at the offline rate, never below its floor. A wrong clock can't break the Farm:
+## negative time counts as zero and a long absence is cut to the tuning's cap; the report says
+## which.
 func resume_offline(seconds: float) -> AwayReport:
 	var counted := clampf(seconds, 0.0, _tuning.offline_cap_seconds)
 	var problem := &""
@@ -456,6 +513,7 @@ func to_save() -> Dictionary:
 		"misses_in_a_row": _misses_in_a_row,
 		"busy_left": _busy_left,
 		"rest_left": _rest_left,
+		"call_left": _call_left,
 		# Named before every Privilege was taken away, not only the rest hour; kept for old saves.
 		"rest_taken_away": _privileges_taken_away,
 		"crops": _crops.to_save(),
@@ -507,6 +565,9 @@ func restore(save: Dictionary) -> Array[String]:
 	var misses_in_a_row := reader.whole("misses_in_a_row")
 	var busy_left := minf(reader.number("busy_left"), _tuning.slow_action_seconds)
 	var rest_left := minf(reader.number("rest_left"), _tuning.rest_hour_seconds)
+	var call_left := 0.0
+	if version >= 7:
+		call_left = minf(reader.number("call_left"), _tuning.call_home_seconds)
 	var privileges_taken_away := reader.flag("rest_taken_away")
 	var store := Store.new(_tuning.generator_tiers, _tuning.tools_tiers)
 	var shift_upgrade_rise := 0
@@ -527,6 +588,7 @@ func restore(save: Dictionary) -> Array[String]:
 	_misses_in_a_row = misses_in_a_row
 	_busy_left = busy_left
 	_rest_left = rest_left
+	_call_left = call_left
 	_privileges_taken_away = privileges_taken_away
 	_store = store
 	_shift_upgrade_rise = shift_upgrade_rise
@@ -616,6 +678,19 @@ func _resting() -> bool:
 	return _rest_left > 0.0
 
 
+func _on_a_call() -> bool:
+	return _call_left > 0.0
+
+
+## Seconds left of a call home under way; 0 when he isn't on one.
+func call_home_seconds_left() -> float:
+	return _call_left
+
+
+func _call_home_price() -> int:
+	return roundi(_tuning.call_home_price)
+
+
 ## Its price, the seconds left of one under way, and whether a missed Quota took it away.
 func rest_hour() -> RestHourView:
 	return RestHourView.new(_rest_hour_price(), _rest_left, _privileges_taken_away)
@@ -625,17 +700,18 @@ func _rest_hour_price() -> int:
 	return roundi(_tuning.rest_hour_price)
 
 
-## Why the rest hour can't be bought right now, or &"" when it can.
-func _rest_hour_refusal() -> StringName:
+## Why a Privilege costing `price` can't be bought right now, or &"" when it can.
+func _privilege_refusal(price: int) -> StringName:
 	if in_study_session():
 		return IN_STUDY_SESSION
 	if _privileges_taken_away:
 		return PRIVILEGES_TAKEN_AWAY
-	if _resting():
-		return RESTING
+	var away := _away_from_work()
+	if away != &"":
+		return away
 	if _ledger.in_debt():
 		return IN_DEBT
-	if not _ledger.can_afford(_rest_hour_price()):
+	if not _ledger.can_afford(price):
 		return NOT_ENOUGH_LABOUR_POINTS
 	return &""
 
@@ -681,10 +757,15 @@ func store() -> Array[StoreItemView]:
 		tools_next.work_share if tools_next != null else 0.0,
 		_store.work_share()
 	)
+	var rest_price := _rest_hour_price()
 	var rest_hour := StoreItemView.new(
-		REST_HOUR, StoreItemView.Kind.PRIVILEGE, _rest_hour_price(), _rest_hour_refusal()
+		REST_HOUR, StoreItemView.Kind.PRIVILEGE, rest_price, _privilege_refusal(rest_price)
 	)
-	return [generator, tools, rest_hour]
+	var call_price := _call_home_price()
+	var call_home := StoreItemView.new(
+		CALL_HOME, StoreItemView.Kind.PRIVILEGE, call_price, _privilege_refusal(call_price)
+	)
+	return [generator, tools, rest_hour, call_home]
 
 
 ## The store's view of an Upgrade. Fully upgraded (`next` null), it shows the owned tier's
@@ -801,10 +882,11 @@ func _log_negligence(withered_plots: Array[int]) -> void:
 	_begin_study_session(maxf(_study_left, _tuning.negligence_study_session_seconds))
 
 
-## Takes the Worker off the Generator and cuts any rest hour short.
+## Takes the Worker off the Generator and cuts any rest hour or call home short.
 func _begin_study_session(seconds: float) -> void:
 	_study_left = seconds
 	_rest_left = 0.0
+	_call_left = 0.0
 	_toil.bring_back()
 	var values := {
 		"seconds": _study_left,
@@ -849,10 +931,20 @@ func _pick_refusal(index: int) -> StringName:
 
 ## Why the Worker can't do field work right now, or &"" when he can.
 func _unable_to_work() -> StringName:
-	if _resting():
-		return RESTING
+	var away := _away_from_work()
+	if away != &"":
+		return away
 	if _busy_left > 0.0:
 		return WORKER_BUSY
+	return &""
+
+
+## Why a Privilege under way keeps him from work, or &"" when none does.
+func _away_from_work() -> StringName:
+	if _resting():
+		return RESTING
+	if _on_a_call():
+		return ON_A_CALL
 	return &""
 
 

@@ -1,6 +1,7 @@
 class_name FamilyText
 extends RefCounted
-## The Children's words: every letter the rules can send (Farm.LETTER_IDS). This is their voice,
+## The Children's words: every letter the rules can send (Farm.LETTER_IDS) and every call home
+## (Farm.CALL_IDS), each call sounding like the letters it follows. This is their voice,
 ## never The App's, so it is kept apart from AppText; tests/content/test_family_text.gd checks
 ## it the same way. A letter that makes a factual claim cites its source by id from the sources
 ## register; the rest is written as the Child's own experience, not as claims.
@@ -114,11 +115,99 @@ static func letters() -> Dictionary[StringName, FamilyLetter]:
 	}
 
 
+## The lines of every call home, by id. Each follows the letters before it (Farm.LETTER_CALLS):
+## warm and homesick, then Mandarin with a teacher listening, then scripted, then distant.
+static func calls() -> Dictionary[StringName, FamilyCall]:
+	return {
+		&"call_01":
+		(
+			FamilyCall
+			. new(
+				_lines(
+					[
+						[&"aygul", "Dada? Dada, is that you? Erkin, come quick, it's Dada!"],
+						[&"erkin", "Dada! When are you coming? I kept some bread for you."],
+						[
+							&"aygul",
+							"We are all right. Are you eating? We have to go, the line is short."
+						],
+					]
+				)
+			)
+		),
+		&"call_02":
+		(
+			FamilyCall
+			. new(
+				_lines(
+					[
+						[
+							&"aygul",
+							"Hello, Dada. We talk in Mandarin on the phone too. Teacher is here."
+						],
+						[
+							&"erkin",
+							"Teacher Mama says you are studying too. Are you nearly finished?"
+						],
+						[&"aygul", "I miss you. I'm saying it quickly, before the time runs out."],
+					]
+				),
+				["zenz-2019"]
+			)
+		),
+		&"call_03":
+		(
+			FamilyCall
+			. new(
+				_lines(
+					[
+						[&"aygul", "Hello, Father. We are well. We are studying hard."],
+						[&"erkin", "I learned a new song. I am a useful person now."],
+						[&"aygul", "Goodbye, Father. Work hard."],
+					]
+				)
+			)
+		),
+		&"call_04":
+		(
+			FamilyCall
+			. new(
+				_lines(
+					[
+						[
+							&"aygul",
+							"Greetings, Father. The school takes good care of us. Do not worry."
+						],
+						[&"erkin", "Be grateful to the Party! Obey the Party! Follow the Party!"],
+						[&"aygul", "Study well. Goodbye."],
+					]
+				),
+				["zenz-2019"]
+			)
+		),
+	}
+
+
+## Call lines from [child, text] pairs, to keep the table above short.
+static func _lines(pairs: Array) -> Array[FamilyCall.Line]:
+	var call_lines: Array[FamilyCall.Line] = []
+	for pair: Array in pairs:
+		var child: StringName = pair[0]
+		var text: String = pair[1]
+		call_lines.append(FamilyCall.Line.new(child, text))
+	return call_lines
+
+
+## The name of the Child with this key, or "" for no known Child.
+static func name_of(child: StringName) -> String:
+	var known: Dictionary = CHILDREN.get(child, {})
+	var name: String = known.get("name", "")
+	return name
+
+
 ## The name of the Child who wrote this letter, or "" for no known Child.
 static func child_name(letter: FamilyLetter) -> String:
-	var child: Dictionary = CHILDREN.get(letter.child, {})
-	var name: String = child.get("name", "")
-	return name
+	return name_of(letter.child)
 
 
 ## Everything wrong with the letters: an id the rules can send with no words, a letter by no
@@ -139,4 +228,26 @@ static func problems(
 		for source_id in letter.source_ids:
 			if not known_source_ids.has(source_id):
 				found.append("letter %s cites unknown source %s" % [id, source_id])
+	return found
+
+
+## Everything wrong with the calls home: an id the rules can send with no lines, a line by no
+## known Child, and a cited source that isn't in the register.
+static func call_problems(
+	sent_ids: Array[StringName],
+	family_calls: Dictionary[StringName, FamilyCall],
+	known_source_ids: Array[String]
+) -> Array[String]:
+	var found: Array[String] = []
+	for id in sent_ids:
+		if not family_calls.has(id) or family_calls[id].lines.is_empty():
+			found.append("call %s has no lines" % id)
+	for id: StringName in family_calls:
+		var call: FamilyCall = family_calls[id]
+		for line in call.lines:
+			if not CHILDREN.has(line.child):
+				found.append("call %s has a line from no known Child (%s)" % [id, line.child])
+		for source_id in call.source_ids:
+			if not known_source_ids.has(source_id):
+				found.append("call %s cites unknown source %s" % [id, source_id])
 	return found

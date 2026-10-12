@@ -23,6 +23,12 @@ func test_while_he_rests_the_store_button_shows_the_time_left() -> void:
 	assert_eq(_overlay.store_button().text, "Resting  ·  0:45 left")
 
 
+func test_on_a_call_home_the_store_button_shows_the_time_left() -> void:
+	_overlay.show_resting(0.0, 30.0)
+
+	assert_eq(_overlay.store_button().text, "On a call home  ·  0:30 left")
+
+
 func test_the_store_is_closed_until_its_button_is_pressed() -> void:
 	assert_false(_overlay.is_store_open())
 
