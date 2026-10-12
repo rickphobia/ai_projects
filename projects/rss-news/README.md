@@ -135,7 +135,7 @@ Logs: `docker logs rss-news-<tag>-<n>`, or Dozzle.
 
 ### Try a PR before merging
 
-`scripts/try-pr.sh <PR number>` (at the repo root) checks the PR out in its own worktree, builds the PWA and runs the backend on `localhost:8000` with a throwaway database. The Beelink preview timer (`scripts/previews.sh`) does this for every open rss-news PR and links it in the PR body. The app answers both at `/` and under `/ai-projects/rss-news/`.
+`scripts/try-pr.sh <PR number>` (at the repo root) checks the PR out in its own worktree, builds the PWA and runs the backend on `localhost:8000` with a throwaway database. The Beelink preview timer (`scripts/previews.sh`) does this for every open rss-news PR and links it in the PR body. The app answers both at `/` and under `/ai-projects/rss-news/`. A preview signs in with the password `preview` (set `TRY_PR_RSS_NEWS_PASSWORD` to change it), not the real site's.
 
 ## Configuration
 
