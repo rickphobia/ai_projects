@@ -1,0 +1,41 @@
+name: ascii-sky
+
+on:
+  push:
+    paths:
+      - "projects/ascii-sky/**"
+      - ".github/workflows/ascii-sky.yml"
+  pull_request:
+    paths:
+      - "projects/ascii-sky/**"
+      - ".github/workflows/ascii-sky.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ascii-sky-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: projects/ascii-sky
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: projects/ascii-sky/.nvmrc
+          cache: npm
+          cache-dependency-path: projects/ascii-sky/package-lock.json
+      - run: npm ci
+      # Lint, format check, type check and tests; the list lives in package.json.
+      - run: npm run check
+      # The build reads VITE_* vars at build time; use the example values so it always has them.
+      - run: cp .env.example .env && npm run build
+      # The server deploy scripts. shellcheck comes preinstalled on the runner.
+      - run: shellcheck deploy/*.sh
