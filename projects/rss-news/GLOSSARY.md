@@ -53,7 +53,7 @@ Text the owner selected and saved, with an optional comment and a link back to w
 _Avoid_: Highlight, bookmark, clip
 
 **Alert**:
-A push notification about one Item, sent because the Item mentions a Holding or Watchlist stock or has Importance 5.
+A push notification about one Item, sent because the Item mentions a Watchlist stock or has Importance 5.
 _Avoid_: Notification, ping, breaking news
 
 **Test Alert**:
@@ -65,10 +65,6 @@ _Avoid_: Device, registration, token
 
 ### The owner's stocks
 
-**Holding**:
-A stock the owner owns.
-_Avoid_: Position, portfolio entry
-
 **Watchlist**:
-The stocks the owner follows but doesn't own.
-_Avoid_: Wishlist
+The stocks the owner follows, whether they own them or not.
+_Avoid_: Wishlist, Holdings, portfolio

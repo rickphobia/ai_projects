@@ -15,14 +15,14 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 - **Briefings on request:** when the owner presses a button, a stronger model writes a Briefing for the scope they chose: all Sources or one Folder over 24 hours, 7 days or 30 days, or a set of Items picked by hand. Each point links to its Items.
 - **Inbox and Chat:** the Inbox lists every Item. A Chat docked in the Inbox answers questions such as "what happened in Malaysia" with matching Items, each with a one-line summary, a Source button that opens the Item, and a button to turn them into a Briefing.
 - **Selecting text:** a popup offers Ask AI (opens the Chat with the selection), Note, or a short Dictionary definition.
-- **Alerts:** push notifications to the owner's Android phone for Items about their Holdings or Watchlist, and for Importance 5 Items.
+- **Alerts:** push notifications to the owner's Android phone for Items about their Watchlist stocks, and for Importance 5 Items.
 - **Spending:** every AI call is logged with its cost, and a monthly spending limit protects the budget.
 
 ## User Stories
 
 ### Signing in
 
-1. As the owner, I want to sign in with one password, so that nobody else can read my Holdings or spend my API budget.
+1. As the owner, I want to sign in with one password, so that nobody else can read my Watchlist or spend my API budget.
 2. As the owner, I want to stay signed in on my phone for weeks, so that I don't type the password every morning.
 3. As the owner, I want repeated wrong passwords to be slowed down, so that the public login page can't be brute-forced.
 4. As the owner, I want every page and API call except the login page and the health check to need a signed-in session, so that nothing leaks.
@@ -46,20 +46,20 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 16. As the owner, I want each newsletter sender to become its own Source automatically, so that I can put each newsletter in a Folder.
 17. As the owner, I want new newsletter Sources to land in a "Newsletters" Folder until I move them, so that nothing gets lost.
 
-### Holdings, Watchlist and ticker news
+### Watchlist and ticker news
 
-18. As the owner, I want my Holdings read daily from an IBKR Flex Query, so that I never type them in.
+18. As the owner, I want to put the stocks I own on the Watchlist myself, so that no brokerage token is stored on the server.
 19. As the owner, I want to add and remove Watchlist stocks in the app, so that I can follow stocks I don't own.
 20. As the owner, I want both US tickers and Bursa `.KL` tickers to work, so that I can buy Malaysian stocks later.
-21. As the owner, I want each Holding and Watchlist stock to get its own ticker-news Source in the Stocks Folder automatically, so that I get company news without setting it up.
-22. As the owner, I want a sold stock's ticker Source to stop when it leaves both my Holdings and my Watchlist, so that old stocks don't clutter my Inbox.
+21. As the owner, I want each Watchlist stock to get its own ticker-news Source in the Stocks Folder automatically, so that I get company news without setting it up.
+22. As the owner, I want a sold stock's ticker Source to stop when it leaves my Watchlist, so that old stocks don't clutter my Inbox.
 
 ### Importance and one-line summaries
 
 23. As the owner, I want every new Item to get an Importance from 1 to 5, so that I can see what matters first.
 24. As the owner, I want every new Item to get a one-line summary in English, so that I can scan the Inbox quickly.
 25. As the owner, I want Malay-language Items summarised in English with a link to the original, so that I can follow Malaysian news.
-26. As the owner, I want each Item marked with the Holding or Watchlist stocks it mentions, so that stock news is easy to find and can trigger Alerts.
+26. As the owner, I want each Item marked with the Watchlist stocks it mentions, so that stock news is easy to find and can trigger Alerts.
 27. As the owner, I want scoring to use the cheapest model in batches, so that it costs a few dollars a month.
 
 ### Inbox
@@ -119,7 +119,7 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 
 ### Alerts
 
-65. As the owner, I want a push Alert when an Item mentions one of my Holdings or Watchlist stocks, so that I hear about my money quickly.
+65. As the owner, I want a push Alert when an Item mentions one of my Watchlist stocks, so that I hear about my money quickly.
 66. As the owner, I want a push Alert when an Item scores Importance 5, so that I hear about wars, disasters, Fed decisions or big model releases quickly.
 67. As the owner, I want no Alerts during quiet hours (23:00 to 07:00 by default), so that I can sleep.
 68. As the owner, I want at most 10 Alerts a day by default, so that a busy news day can't flood my phone.
@@ -169,7 +169,7 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 - One Docker container. A Python backend built with uv and FastAPI serves a JSON API, the built PWA and `/healthz`. SQLite lives in one file on a mounted volume, and an in-process scheduler runs the tick. This follows court-booker's decision 0001.
 - The PWA is TypeScript with Vite in strict mode. It is built in the Docker image and served by the backend under the path prefix (decision 0002).
 - The host nginx forwards `/ai-projects/rss-news/` to the container. Deploy follows `projects/pawn-swarm/deploy/` and court-booker, and the project is added to `scripts/try-pr.sh` for PR previews.
-- The business logic does not know about FastAPI, SQLite, Anthropic, IMAP, IBKR or Web Push. It talks to them through small interfaces (ports) passed in when the app starts.
+- The business logic does not know about FastAPI, SQLite, Anthropic, IMAP or Web Push. It talks to them through small interfaces (ports) passed in when the app starts.
 
 ### Ports (the outside world)
 
@@ -179,7 +179,6 @@ These are the only places that touch the network or the system. Each has one rea
 - **FeedFetcher:** a conditional GET of a URL. It returns not-modified, a body with caching headers, rate-limited with a retry delay, or a failure that includes the step and detail.
 - **LanguageModel:** one operation per job: score Items, write a Briefing section, run a Chat turn with tools, and define a word. Each returns the result plus usage (model, input and output tokens, web searches, duration). The real adapter uses the Anthropic SDK with timeouts and retries with backoff. Scoring sends batches of Items in ordinary Messages API calls, not the Batch API (decision 0003).
 - **Mailbox:** reads new messages from the newsletter Gmail inbox over IMAP and marks them handled.
-- **HoldingsReport:** fetches the IBKR Flex Query and returns a list of tickers.
 - **PushSender:** sends a Web Push message to a stored subscription and reports gone subscriptions.
 - **ArticleExtractor:** turns a fetched HTML page into clean text for Reader view and for giving Briefings the full text of selected Items. It uses trafilatura.
 
@@ -187,7 +186,7 @@ These are the only places that touch the network or the system. Each has one rea
 
 - **sources:** Folders and Sources, the starter set, deciding which Sources are due, and the polite fetch queue. All requests to one host go one at a time. Reddit requests are spaced 60 seconds apart, with each subreddit checked at most every 60 minutes, and any retry delay the site gives is honoured. Errors back off exponentially, and Sources are never disabled automatically. Parsing turns a feed body into Items and strips tracking parameters, so duplicate Items can be spotted by their cleaned URL.
 - **newsletters:** turns Mailbox messages into Items, creating one Source per sender in the "Newsletters" Folder.
-- **stocks:** Holdings (synced daily from HoldingsReport), the Watchlist (edited in the app), and keeping one ticker-news Source per stock in the Stocks Folder. Ticker symbols are validated to accept US and `.KL` formats.
+- **stocks:** the Watchlist (edited in the app) and keeping one ticker-news Source per stock in the Stocks Folder. Ticker symbols are validated to accept US and `.KL` formats.
 - **scoring:** gives new Items an Importance, a one-line English summary and the owner's stocks they mention. It sends unscored Items in batches to the scoring model and stores the results. Items that fail scoring are retried on a later tick and never block the Inbox.
 - **items:** the Inbox (filter by Folder, Importance and unread), read state, keyword search using SQLite FTS over title, excerpt and one-line summary, and deleting Items older than 90 days.
 - **briefings:** a Briefing request is a scope and an optional window, either `{all Sources | one Folder} × {24h | 7d | 30d}` or `picked Items`.
@@ -205,7 +204,7 @@ These are the only places that touch the network or the system. Each has one rea
 - **dictionary:** one cheap-model call with the selected word or phrase and the text around it, returning a short definition.
 - **notes:** Notes (selection, optional comment, link back to a Briefing, Item or Chat), listing, editing, deleting and exporting as Markdown.
 - **alerts:**
-  - **When:** after a tick scores new Items, an Item qualifies if it mentions a Holding or Watchlist stock, or has Importance 5.
+  - **When:** after a tick scores new Items, an Item qualifies if it mentions a Watchlist stock, or has Importance 5.
   - **Limits:** each Item gets at most one Alert, none are sent during quiet hours, and at most 10 are sent per day. Quiet hours and the daily cap are set in config.
   - **What happens to blocked Alerts:** an Alert blocked by quiet hours or the cap is not sent later. The Item still shows in the Inbox.
   - **Push subscriptions** are stored. Gone subscriptions are removed, and a test Alert can be sent.
@@ -214,10 +213,9 @@ These are the only places that touch the network or the system. Each has one rea
 - **tick:** one function the scheduler calls every minute, which runs in order:
   1. fetch due Sources
   2. read the Mailbox
-  3. sync Holdings (once a day)
-  4. score new Items
-  5. send Alerts
-  6. delete old Items
+  3. score new Items
+  4. send Alerts
+  5. delete old Items
 
   It records the time of the last successful tick for `/healthz`. Each step's failure is logged and doesn't stop the later steps.
 
@@ -227,7 +225,6 @@ One config module validates every setting at startup and fails with a clear mess
 
 - the Anthropic API key
 - the Gmail address and app password
-- the IBKR Flex token and query ID
 - the VAPID private key for Web Push (the public key is worked out from it). It is optional: without it Alerts are off and say so, and the rest of the app runs (decision 0005)
 - the session secret
 - the password hash
@@ -263,7 +260,7 @@ The monthly limit defaults to 100 USD.
 |---|---|
 | Session | login, logout |
 | Folders, Sources | list, create, update, delete. Source health is included when listing |
-| Stocks | Holdings (read), Watchlist (list, add, remove) |
+| Stocks | Watchlist (list, add, remove) |
 | Inbox | list with filters and paging, search, mark read |
 | Items | show one; Reader view (fetches and extracts when the Item is opened) |
 | Briefings | latest, estimate, create (returns progress as server-sent events; a `regenerate` flag writes a new one even when today's is saved), list, show |
@@ -303,13 +300,12 @@ The monthly limit defaults to 100 USD.
 
 - **What makes a good test:** it drives the app through its public surface and checks what the owner would see: API responses, saved Briefings, Alerts sent through the fake PushSender, and ledger totals. It never checks private functions or SQL. A refactor that keeps behaviour the same must not break a test. Bugs get a failing test that reproduces them first.
 - **Seam 1, the backend HTTP API (most tests):**
-  - **Setup:** the app is built with real SQLite in a temporary folder and fakes for Clock, FeedFetcher, LanguageModel, Mailbox, HoldingsReport, PushSender and ArticleExtractor. Tests drive it through FastAPI's `TestClient` and call the tick directly. Prior art is court-booker's `tests/support.py`, `tests/web/test_app.py` and `tests/scheduler/`.
+  - **Setup:** the app is built with real SQLite in a temporary folder and fakes for Clock, FeedFetcher, LanguageModel, Mailbox, PushSender and ArticleExtractor. Tests drive it through FastAPI's `TestClient` and call the tick directly. Prior art is court-booker's `tests/support.py`, `tests/web/test_app.py` and `tests/scheduler/`.
   - **Fake model:** it returns scripted results and usage, so the spending ledger and limits can be tested exactly.
-  - **Covers:** fetching and duplicates, Reddit spacing and retry delays, newsletters, Holdings sync, scoring retries, Inbox filters and search, Briefing scopes, selection, cost estimate, reuse and failure, Chat window defaults, Item ID checking and web search policy, Notes, Alert rules, quiet hours and the daily cap, the spending limit, deleting old Items, auth and `/healthz`.
+  - **Covers:** fetching and duplicates, Reddit spacing and retry delays, newsletters, scoring retries, Inbox filters and search, Briefing scopes, selection, cost estimate, reuse and failure, Chat window defaults, Item ID checking and web search policy, Notes, Alert rules, quiet hours and the daily cap, the spending limit, deleting old Items, auth and `/healthz`.
 - **Seam 2, the real adapters, against saved files only:**
   - **Feed parsing:** saved RSS, Atom and Reddit feeds, including one from each starter Source family.
   - **Mailbox:** a saved newsletter email.
-  - **HoldingsReport:** a saved Flex report.
   - **LanguageModel:** saved Anthropic responses, covering scoring, a Briefing section, a Chat turn with tool use, web search results and a refusal.
   - **ArticleExtractor:** a saved article page.
   - No test touches the live network. Prior art is court-booker's `tests/adapters/picktime_browser/` with its saved HTML page.
@@ -330,7 +326,7 @@ The monthly limit defaults to 100 USD.
 - More than one user or account.
 - Briefings written on a schedule. Briefings are only written when the owner asks.
 - Storing full article text, and full-text search over article bodies.
-- Reading the Watchlist from IBKR.
+- Reading stocks from a broker such as IBKR. The owner adds the stocks they own to the Watchlist by hand (dropped on 2026-10-13, so no brokerage token sits on the server).
 - Sending Notes to RickNotes.
 - Importing or exporting OPML.
 - Translating whole articles. Only the one-line summaries and Briefings are in English.
@@ -338,7 +334,6 @@ The monthly limit defaults to 100 USD.
 ## Further Notes
 
 - **Cost estimate** for about 500 new Items a day: scoring about $3 a month, Briefings $0.15 to $0.40 each, and Chat $0.05 to $0.10 per question at Opus 5.5 prices ($4 / $20 per million tokens). Haiku 5.5 costs $0.10 / $0.50 per million tokens up to 100K-token prompts and 5× that above, so scoring batches must stay under 100K tokens per request. Prices are from the API reference as cached on 2026-10-06, and they live in config.
-- **IBKR Flex Web Service** is the plan for Holdings because it needs only a token, with no gateway and no daily login. This is from memory, so confirm it in the stocks ticket before building.
 - **Starter Sources:** `docs/starter-sources.md` lists the approved starter Sources and the gaps found while testing them: Anthropic, The Star, BLS and AAAS have no usable feed.
 - **Reddit:** anonymous RSS works but is rate-limited (with 10 seconds between requests most were refused with 429; 60 seconds lets a dozen subreddits through each round), and the JSON API returns 403 without OAuth. If RSS access stops working, the fallback is a Reddit OAuth app behind the same FeedFetcher port.
 - **Chrome on Android doesn't support widgets for PWAs.** That's why the widget waits for the Trusted Web Activity ticket.

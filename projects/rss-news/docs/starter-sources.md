@@ -54,7 +54,7 @@ The first set of Sources, grouped by Folder. Every feed below returned HTTP 200 
 
 | Source | Feed |
 |---|---|
-| Ticker news, one Source per Holding or Watchlist stock | `https://feeds.finance.yahoo.com/rss/2.0/headline?s=<TICKER>&region=US&lang=en-US`. Bursa tickers use `.KL` (e.g. `1155.KL`) and return fewer entries |
+| Ticker news, one Source per Watchlist stock | `https://feeds.finance.yahoo.com/rss/2.0/headline?s=<TICKER>&region=US&lang=en-US`. Bursa tickers use `.KL` (e.g. `1155.KL`) and return fewer entries |
 | CNBC Markets | https://www.cnbc.com/id/15839069/device/rss/rss.html |
 | Seeking Alpha market news | https://seekingalpha.com/market_currents.xml |
 | r/stocks, r/investing | `https://www.reddit.com/r/<sub>/top/.rss?t=day` |
