@@ -33,6 +33,8 @@ ITEMS = [
     UnscoredItem(103, "My laptop running a 70B model", "x" * 5000, "r/LocalLLaMA", 0),
 ]
 
+STOCKS = ["NVDA", "1155.KL"]
+
 type Answer = Callable[[httpx2.Request], httpx2.Response]
 
 
@@ -67,7 +69,7 @@ def model(answer: Answer, *, max_attempts: int = 3) -> tuple[AnthropicLanguageMo
 def test_a_saved_scoring_answer_gives_scores_and_usage() -> None:
     language_model, _ = model(ok)
 
-    result = language_model.score_items(ITEMS)
+    result = language_model.score_items(ITEMS, STOCKS)
 
     assert result.scores == [
         ItemScore(
@@ -75,17 +77,20 @@ def test_a_saved_scoring_answer_gives_scores_and_usage() -> None:
             5,
             "The US Federal Reserve cut interest rates by half a point, more than markets "
             "expected.",
+            (),
         ),
         ItemScore(
             102,
             3,
             "Bank Negara Malaysia kept the overnight policy rate at 2.75% and said inflation "
             "stays moderate.",
+            ("1155.KL",),
         ),
         ItemScore(
             103,
             1,
             "A user shares a meme about local language models running slowly on old laptops.",
+            ("nvda",),
         ),
     ]
     assert result.usage.model == "claude-haiku-5-5"
@@ -98,7 +103,7 @@ def test_usage_names_the_model_asked_for_even_if_the_answer_names_a_snapshot() -
     dated["model"] = "claude-haiku-5-5-20261001"
     language_model, _ = model(lambda request: httpx2.Response(200, json=dated))
 
-    assert language_model.score_items(ITEMS).usage.model == "claude-haiku-5-5"
+    assert language_model.score_items(ITEMS, STOCKS).usage.model == "claude-haiku-5-5"
 
 
 def test_the_request_asks_the_scoring_model_for_english_scores_as_json() -> None:
@@ -109,7 +114,7 @@ def test_the_request_asks_the_scoring_model_for_english_scores_as_json() -> None
         return ok(request)
 
     language_model, _ = model(answer)
-    language_model.score_items(ITEMS)
+    language_model.score_items(ITEMS, STOCKS)
 
     (body,) = seen
     assert body["model"] == "claude-haiku-5-5"
@@ -117,7 +122,10 @@ def test_the_request_asks_the_scoring_model_for_english_scores_as_json() -> None
     assert body["output_config"]["format"]["type"] == "json_schema"
     assert "English even when the Item is in Malay" in body["system"]
     prompt = body["messages"][0]["content"]
-    listed = json.loads(prompt[prompt.index("[") :])
+    stocks_line, items_heading, items_json = prompt.split("\n", 2)
+    assert stocks_line == 'The reader\'s stocks: ["NVDA", "1155.KL"]'
+    assert items_heading == "Score these Items:"
+    listed = json.loads(items_json)
     assert [item["id"] for item in listed] == [101, 102, 103]
     assert listed[1]["title"] == "BNM kekalkan OPR pada 2.75 peratus"
     assert len(listed[2]["excerpt"]) == EXCERPT_CHARACTERS
@@ -138,7 +146,7 @@ def test_an_overloaded_answer_is_retried_with_backoff_and_logged(
 
     language_model, sleeps = model(answer)
     with caplog.at_level(logging.WARNING):
-        result = language_model.score_items(ITEMS)
+        result = language_model.score_items(ITEMS, STOCKS)
 
     assert len(result.scores) == 3
     assert len(sleeps) == 2
@@ -155,7 +163,7 @@ def test_a_rate_limit_waits_as_long_as_retry_after_says() -> None:
         return next(answers, None) or ok(request)
 
     language_model, sleeps = model(answer)
-    language_model.score_items(ITEMS)
+    language_model.score_items(ITEMS, STOCKS)
 
     assert sleeps == [20.0]
 
@@ -172,7 +180,7 @@ def test_a_network_error_is_retried() -> None:
 
     language_model, _ = model(answer)
 
-    assert len(language_model.score_items(ITEMS).scores) == 3
+    assert len(language_model.score_items(ITEMS, STOCKS).scores) == 3
     assert calls == 2
 
 
@@ -183,7 +191,7 @@ def test_giving_up_after_the_last_attempt_means_the_model_is_unavailable() -> No
     language_model, sleeps = model(answer, max_attempts=3)
 
     with pytest.raises(ScoringUnavailable, match="HTTP 503"):
-        language_model.score_items(ITEMS)
+        language_model.score_items(ITEMS, STOCKS)
 
     assert len(sleeps) == 2
 
@@ -200,7 +208,7 @@ def test_a_bad_request_is_not_retried_and_counts_against_the_items() -> None:
     language_model, _ = model(answer)
 
     with pytest.raises(ScoringFailed, match="HTTP 400"):
-        language_model.score_items(ITEMS)
+        language_model.score_items(ITEMS, STOCKS)
     assert calls == 1
 
 
@@ -212,7 +220,7 @@ def test_a_bad_api_key_is_not_retried_and_means_the_model_is_unavailable() -> No
     language_model, sleeps = model(answer)
 
     with pytest.raises(ScoringUnavailable, match="HTTP 401"):
-        language_model.score_items(ITEMS)
+        language_model.score_items(ITEMS, STOCKS)
     assert sleeps == []
 
 
@@ -225,7 +233,7 @@ def test_a_refusal_fails_but_reports_the_tokens_it_cost() -> None:
     language_model, _ = model(lambda request: httpx2.Response(200, json=refused))
 
     with pytest.raises(ScoringFailed, match=r"refusal \(cyber\)") as failure:
-        language_model.score_items(ITEMS)
+        language_model.score_items(ITEMS, STOCKS)
     assert failure.value.usage is not None
     assert failure.value.usage.input_tokens == 1180
 
@@ -237,5 +245,5 @@ def test_an_answer_that_is_not_the_scores_json_fails_with_its_usage() -> None:
     language_model, _ = model(lambda request: httpx2.Response(200, json=garbled))
 
     with pytest.raises(ScoringFailed, match="not the scores JSON") as failure:
-        language_model.score_items(ITEMS)
+        language_model.score_items(ITEMS, STOCKS)
     assert failure.value.usage is not None

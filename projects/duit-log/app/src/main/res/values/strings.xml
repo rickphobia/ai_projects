@@ -5,7 +5,6 @@
   <string name="share_log">Share log</string>
   <string name="share_log_chooser">Send the log file</string>
   <string name="back">Back</string>
-  <string name="cancel">Cancel</string>
 
   <!-- First-run notification access guide -->
   <string name="guide_title">Let duit-log see your Wallet notifications</string>
@@ -28,7 +27,7 @@
   <string name="guide_done">Done</string>
   <string name="open_guide">Notification access guide</string>
 
-  <!-- Home screen banner -->
+  <!-- Banner on the Daily tab -->
   <string name="banner_access_missing">duit-log can\'t see notifications, so it isn\'t recording your Wallet payments. Turn notification access back on.</string>
   <string name="banner_turn_on">Turn on</string>
 
@@ -53,4 +52,28 @@
     <item quantity="one">This deletes the %d recorded notification from this phone.</item>
     <item quantity="other">This deletes all %d recorded notifications from this phone.</item>
   </plurals>
+  <string name="menu">Menu</string>
+
+  <!-- Daily tab -->
+  <string name="previous_month">Previous Month</string>
+  <string name="next_month">Next Month</string>
+  <string name="income">Income</string>
+  <string name="expenses">Expenses</string>
+  <string name="total">Total</string>
+  <string name="empty_month">Nothing this Month yet. Tap + to add a Transaction.</string>
+  <string name="month_unreadable">Couldn\'t read this Month. Send the log from ⋮ → Share log.</string>
+  <string name="add_transaction">Add a Transaction</string>
+
+  <!-- Add by hand -->
+  <string name="expense">Expense</string>
+  <string name="amount">Amount</string>
+  <string name="merchant">Merchant</string>
+  <string name="category">Category</string>
+  <string name="note">Note (optional)</string>
+  <string name="cancel">Cancel</string>
+  <string name="save">Save</string>
+  <string name="problem_amount">Type an amount above zero, like 12.30</string>
+  <string name="problem_merchant">Type who the money went to or came from</string>
+  <string name="problem_category">Pick a Category</string>
+  <string name="problem_storage">Couldn\'t save. Send the log from ⋮ → Share log.</string>
 </resources>

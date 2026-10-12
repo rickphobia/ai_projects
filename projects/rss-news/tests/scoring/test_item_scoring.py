@@ -107,8 +107,8 @@ def test_a_batch_stays_under_the_prompt_token_limit(
     tmp_path: Path, clock: FakeClock, fetcher: FakeFeedFetcher, language_model: FakeLanguageModel
 ) -> None:
     # Each Item is about 270 estimated tokens (the 500-character excerpt the feed parser keeps,
-    # at 2 per token), and the instructions about 930: two Items fit under 1,600, three don't.
-    settings = load_settings(app_env(tmp_path, RSS_NEWS_SCORING_PROMPT_TOKEN_LIMIT="1600"))
+    # at 2 per token), and the instructions about 1,110: two Items fit under 1,800, three don't.
+    settings = load_settings(app_env(tmp_path, RSS_NEWS_SCORING_PROMPT_TOKEN_LIMIT="1800"))
     wiring = make_wiring(
         settings,
         clock,

@@ -42,6 +42,14 @@ import {
 } from "./dictionary";
 import { readEvents } from "./event-stream";
 import { noteFromJson, type NewNote, type Note, type NoteJson } from "./notes";
+import {
+  stocksFromJson,
+  watchedFromJson,
+  type OwnerStocks,
+  type OwnerStocksJson,
+  type WatchedStock,
+  type WatchedStockJson,
+} from "./stocks";
 
 export interface Health {
   status: "ok" | "failing";
@@ -69,6 +77,8 @@ export interface InboxItem {
   read: boolean;
   // An http(s) image link from the feed, or null when the feed gives none.
   imageUrl: string | null;
+  // The owner's tickers the Item mentions; empty until it is scored.
+  stocks: string[];
 }
 
 // The article as the server extracted it just now; nothing is kept.
@@ -208,6 +218,13 @@ export interface ApiClient {
   deleteNote(noteId: number): Promise<void>;
   // Every Note as one Markdown file.
   exportNotes(): Promise<string>;
+  // The Holdings and the Watchlist.
+  stocks(): Promise<OwnerStocks>;
+  // Rejects with RefusedError, saying why, when the ticker isn't a US or Bursa .KL one or is
+  // on the Watchlist already. The server gives the stock its ticker-news Source.
+  watchStock(ticker: string): Promise<WatchedStock>;
+  // Its ticker-news Source goes too, unless it is a Holding.
+  unwatchStock(ticker: string): Promise<void>;
 }
 
 export class ApiError extends Error {
@@ -532,6 +549,27 @@ export class HttpApiClient implements ApiClient {
     return response.text();
   }
 
+  async stocks(): Promise<OwnerStocks> {
+    const response = await this.sendWithSession("GET", "api/stocks");
+    return stocksFromJson((await response.json()) as OwnerStocksJson);
+  }
+
+  async watchStock(ticker: string): Promise<WatchedStock> {
+    const response = await this.sendWithSession(
+      "POST",
+      "api/stocks/watchlist",
+      { ticker },
+    );
+    return watchedFromJson((await response.json()) as WatchedStockJson);
+  }
+
+  async unwatchStock(ticker: string): Promise<void> {
+    await this.sendWithSession(
+      "DELETE",
+      `api/stocks/watchlist/${encodeURIComponent(ticker)}`,
+    );
+  }
+
   // For every call except login: a 401 means the session is gone, so go to login.
   private async sendWithSession(
     method: string,
@@ -590,6 +628,7 @@ interface ItemJson {
   summary: string | null;
   read: boolean;
   image_url: string | null;
+  stocks: string[];
 }
 
 interface InboxPageJson {
@@ -609,6 +648,7 @@ function itemFromJson(item: ItemJson): InboxItem {
     summary: item.summary,
     read: item.read,
     imageUrl: item.image_url,
+    stocks: item.stocks,
   };
 }
 

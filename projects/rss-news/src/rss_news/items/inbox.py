@@ -55,6 +55,8 @@ class InboxItem:
     # True once the owner has opened the Item.
     read: bool = False
     image_url: str | None = None
+    # The owner's tickers the Item mentions; empty until it is scored.
+    stocks: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

@@ -15,7 +15,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.rickphobia.duitlog.R
 
-/** Shown on the home screen while notification access is off, e.g. after a battery optimiser. */
+/** Shown on the Daily tab while notification access is off, e.g. after a battery optimiser. */
 @Composable
 fun AccessMissingBanner(onFix: () -> Unit) {
     Card(

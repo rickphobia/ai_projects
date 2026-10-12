@@ -23,6 +23,7 @@ from rss_news.items.reading import ItemReading
 from rss_news.notes.notes import Notes
 from rss_news.sources.managing import SourceManagement
 from rss_news.spending.limit import SpendingLimit
+from rss_news.stocks.owner_stocks import Stocks
 from rss_news.web.alerts import alerts_router
 from rss_news.web.auth import Access, public_router, require_session, session_router
 from rss_news.web.briefings import briefings_router
@@ -33,6 +34,7 @@ from rss_news.web.items import items_router
 from rss_news.web.notes import notes_router
 from rss_news.web.sources import sources_router
 from rss_news.web.spending import spending_router
+from rss_news.web.stocks import stocks_router
 
 
 class DatabaseHealth(Protocol):
@@ -60,6 +62,7 @@ def create_app(
     inbox: Inbox,
     item_reading: ItemReading,
     source_management: SourceManagement,
+    stocks: Stocks,
     briefings: Briefings,
     chats: Chats,
     dictionary: Dictionary,
@@ -107,6 +110,7 @@ def create_app(
     app.state.inbox = inbox
     app.state.item_reading = item_reading
     app.state.source_management = source_management
+    app.state.stocks = stocks
     app.state.briefings = briefings
     app.state.chats = chats
     app.state.dictionary = dictionary
@@ -138,6 +142,7 @@ def create_app(
         inbox_router,
         items_router,
         sources_router,
+        stocks_router,
         briefings_router,
         chats_router,
         dictionary_router,

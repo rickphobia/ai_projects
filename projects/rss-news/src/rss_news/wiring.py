@@ -20,6 +20,7 @@ from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
 from rss_news.adapters.sqlite.notes import SqliteNotes
 from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.adapters.sqlite.spending import SqliteSpending
+from rss_news.adapters.sqlite.stocks import SqliteStocks
 from rss_news.alerts.push import AlertPush, PushSender
 from rss_news.briefings.briefing import BriefingModel
 from rss_news.briefings.writing import Briefings
@@ -38,6 +39,7 @@ from rss_news.sources.managing import SourceManagement
 from rss_news.sources.polite_queue import FetchPacing
 from rss_news.spending.ledger import SpendingLedger
 from rss_news.spending.limit import SpendingLimit
+from rss_news.stocks.owner_stocks import Stocks
 from rss_news.tick import Tick, TickLoop, TickStep
 from rss_news.web.app import create_app
 
@@ -54,6 +56,7 @@ class Wiring:
     # Tests run it by hand; `rss-news serve` runs it every minute in the background.
     tick: Tick
     ledger: SpendingLedger
+    stocks: Stocks
 
 
 def build_app(
@@ -75,6 +78,9 @@ def build_app(
     sources = SqliteSources(database)
     items = SqliteItems(database, clock)
     load_starter_sources(sources, starter_folders)
+    stocks = Stocks(SqliteStocks(database), clock)
+    # Puts back a ticker Source the owner deleted by hand, so each stock always has one.
+    stocks.keep_ticker_sources()
     fetching = SourceFetching(
         sources=sources,
         items=items,
@@ -99,6 +105,7 @@ def build_app(
     scoring = ItemScoring(
         store=items,
         model=language_model,
+        owner_tickers=stocks,
         ledger=ledger,
         clock=clock,
         batch_size=settings.scoring_batch_size,
@@ -124,6 +131,7 @@ def build_app(
         inbox=inbox,
         item_reading=ItemReading(items=items, extractor=article_extractor, clock=clock),
         source_management=SourceManagement(sources=sources, fetcher=feed_fetcher),
+        stocks=stocks,
         briefings=Briefings(
             store=SqliteBriefings(database),
             model=language_model,
@@ -153,4 +161,4 @@ def build_app(
         tick=tick,
         background=(TickLoop(tick, TICK_INTERVAL),) if run_tick_loop else (),
     )
-    return Wiring(app=app, tick=tick, ledger=ledger)
+    return Wiring(app=app, tick=tick, ledger=ledger, stocks=stocks)

@@ -2,9 +2,11 @@ import { SignedOutError, type ApiClient, type InboxItem } from "../api/client";
 import { showInReadingColumn } from "./reading-column";
 import { offerSelection } from "./selection";
 import { shownTime } from "./shown-time";
+import { stockTags } from "./stock-tags";
 
-// One Item: its summary, Source, time and Importance at once, a link to the original page,
-// and Reader view loading underneath straight away. Opening it marks it read.
+// One Item: its summary, Source, time, Importance and the owner's stocks it mentions at once, a
+// link to the original page, and Reader view loading underneath straight away. Opening it marks
+// it read.
 export async function renderItem(
   root: HTMLElement,
   api: ApiClient,
@@ -56,6 +58,8 @@ function itemHeader(item: InboxItem): HTMLElement {
       : `Importance ${String(item.importance)}`;
   details.textContent = `${item.source} · ${shownTime.format(new Date(item.publishedAt))} · ${importance}`;
   header.append(title, details);
+  const tags = stockTags(item.stocks);
+  if (tags) header.append(tags);
   if (item.summary !== null) {
     const summary = document.createElement("p");
     summary.className = "item-summary";

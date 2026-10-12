@@ -15,6 +15,8 @@ export interface ChatPanelOptions {
   // A selection the owner chose Ask AI for: the panel opens with it attached to the next
   // question.
   quote?: ChatQuote | null;
+  // Start with the panel open even without a Chat or quote, as the Chat shortcut does.
+  open?: boolean;
 }
 
 // The Chat docked in the Inbox: a side panel on a wide screen, a bottom sheet opened from its
@@ -35,6 +37,7 @@ export async function renderChatPanel(
     onChatOpened,
     openChatId = null,
     quote = null,
+    open = false,
   } = options;
   const body = document.createElement("div");
   body.id = "chat-panel-body";
@@ -48,7 +51,7 @@ export async function renderChatPanel(
     panel.dataset.sheet = open ? "open" : "closed";
     toggle.setAttribute("aria-expanded", String(open));
   };
-  setOpen(openChatId !== null || quote !== null);
+  setOpen(open || openChatId !== null || quote !== null);
   // Opening the sheet moves focus to the question box; Escape closes it again.
   toggle.addEventListener("click", () => {
     setOpen(panel.dataset.sheet !== "open");

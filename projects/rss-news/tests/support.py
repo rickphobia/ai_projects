@@ -158,6 +158,8 @@ class FakeLanguageModel:
 
     def __init__(self) -> None:
         self.calls: list[list[UnscoredItem]] = []
+        # The owner's tickers each scoring call was given.
+        self.tickers_given: list[list[str]] = []
         self.answer: ScoringAnswer = self.score_all
         # Items whose title contains one of these make their whole call fail.
         self.failing_titles: set[str] = set()
@@ -213,8 +215,9 @@ class FakeLanguageModel:
         duration=timedelta(seconds=4),
     )
 
-    def score_items(self, items: Sequence[UnscoredItem]) -> ScoringResult:
+    def score_items(self, items: Sequence[UnscoredItem], stocks: Sequence[str]) -> ScoringResult:
         self.calls.append(list(items))
+        self.tickers_given.append(list(stocks))
         if self.unavailable:
             raise ScoringUnavailable("scripted outage")
         if any(word in item.title for item in items for word in self.failing_titles):

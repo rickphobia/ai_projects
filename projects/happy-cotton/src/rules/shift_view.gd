@@ -22,6 +22,10 @@ var seconds_left: float:
 var hand_in_open: bool:
 	get:
 		return _hand_in_open
+## The Shift's Disaster: none, warned of or striking.
+var disaster: DisasterView:
+	get:
+		return _disaster
 ## The Shift whose end charges the next school fees.
 var school_fees_shift: int:
 	get:
@@ -33,6 +37,7 @@ var _picked: int
 var _seconds_left: float
 var _school_fees_shift: int
 var _hand_in_open: bool
+var _disaster: DisasterView
 
 
 func _init(
@@ -41,7 +46,8 @@ func _init(
 	shift_picked: int,
 	shift_left: float,
 	fees_shift: int,
-	hand_in_is_open := false
+	hand_in_is_open := false,
+	shift_disaster: DisasterView = null
 ) -> void:
 	_number = shift_number
 	_quota = shift_quota
@@ -49,3 +55,4 @@ func _init(
 	_seconds_left = shift_left
 	_school_fees_shift = fees_shift
 	_hand_in_open = hand_in_is_open
+	_disaster = shift_disaster if shift_disaster != null else DisasterView.new()

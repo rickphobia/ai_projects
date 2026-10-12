@@ -37,6 +37,7 @@ describe("the app shell", () => {
         summary: "Malaysia's central bank kept its policy rate at 2.75%.",
         read: false,
         imageUrl: null,
+        stocks: [],
       },
     ];
 
@@ -47,6 +48,45 @@ describe("the app shell", () => {
     ).toBeTruthy();
     expect(api.itemsOpened).toEqual([7]);
     expect(screen.getByRole("button", { name: "Back to Home" })).toBeTruthy();
+  });
+
+  it("the Brief me (24h) shortcut briefs the last 24 hours at once", async () => {
+    api.writeAnswers = [
+      { progress: [], result: new Error("The AI provider is down.") },
+    ];
+
+    await renderShell(root, api, () => undefined, { shortcut: "brief" });
+
+    await waitFor(() => {
+      expect(api.writeScopes).toEqual([{ window: "24h" }]);
+    });
+    // Not a regenerate: today's saved Briefing is shown if there is one.
+    expect(api.writeRequests).toEqual([false]);
+  });
+
+  it("the Chat shortcut opens the Inbox with its Chat open", async () => {
+    await renderShell(root, api, () => undefined, { shortcut: "chat" });
+
+    expect(
+      screen
+        .getByRole("button", { name: "Inbox" })
+        .getAttribute("aria-current"),
+    ).toBe("page");
+    expect(
+      screen
+        .getByRole("button", { name: "Chat" })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+  });
+
+  it("the Notes shortcut opens the Notes", async () => {
+    await renderShell(root, api, () => undefined, { shortcut: "notes" });
+
+    expect(
+      screen
+        .getByRole("button", { name: "Notes" })
+        .getAttribute("aria-current"),
+    ).toBe("page");
   });
 
   it("Ask AI on an Item's text opens the Inbox Chat with the quote", async () => {
@@ -62,6 +102,7 @@ describe("the app shell", () => {
         summary: "Malaysia's central bank kept its policy rate at 2.75%.",
         read: false,
         imageUrl: null,
+        stocks: [],
       },
     ];
     Range.prototype.getBoundingClientRect = () => new DOMRect(0, 0, 10, 10);
@@ -140,6 +181,7 @@ describe("the app shell", () => {
         summary: "Something happened.",
         read: false,
         imageUrl: null,
+        stocks: [],
       },
     ];
 
@@ -169,6 +211,7 @@ describe("the app shell", () => {
         summary: null,
         read: false,
         imageUrl: null,
+        stocks: [],
       },
     ];
 
@@ -193,6 +236,7 @@ describe("the app shell", () => {
         summary: "Something happened.",
         read: false,
         imageUrl: null,
+        stocks: [],
       },
     ];
     await renderShell(root, api, () => undefined);
@@ -226,6 +270,7 @@ describe("the app shell", () => {
           summary: "Malaysia's central bank kept its policy rate at 2.75%.",
           read: false,
           imageUrl: null,
+          stocks: [],
         },
       ];
       api.chatAnswers = [
@@ -341,6 +386,16 @@ describe("the app shell", () => {
     screen.getByRole("button", { name: "Settings" }).click();
 
     expect(current()).toEqual(["Settings"]);
+  });
+
+  it("opens the Stocks screen from the sidebar", async () => {
+    await renderShell(root, api, () => undefined);
+
+    screen.getByRole("button", { name: "Stocks" }).click();
+
+    expect(
+      await screen.findByRole("form", { name: "Add to the Watchlist" }),
+    ).toBeTruthy();
   });
 
   it("opens the Inbox of a Folder chosen in the sidebar", async () => {

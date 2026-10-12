@@ -6,7 +6,8 @@ extends CanvasLayer
 ## The App: the bright, state-issued overlay over the grim field. A top bar with the Quota bar, the
 ## Shift's time left, the Worker's Exhaustion, the crop counter (with a "+1" rising from the Plot
 ## at each counted pick) and Labour Points (or his Debt, in red); the Hand-in card from the end of
-## a Shift's time until he hands in (see HandInCard); the Mascot
+## a Shift's time until he hands in (see HandInCard); the Disaster countdown under the bar
+## (see DisasterBanner); the Mascot
 ## with a speech bubble at the bottom; the Store button at the bottom right, which opens the store
 ## over the field (see StorePanel) and shows the rest time left while he rests; the supplies bar
 ## above it (see SuppliesBar); the pay slip card at
@@ -59,6 +60,7 @@ var _crop_counter: Label
 var _balance: BalanceBadge
 var _exhaustion_label: Label
 var _on_watch_label: Label
+var _disaster_banner: DisasterBanner
 var _store_button: Button
 var _supplies_bar: SuppliesBar
 var _store: StorePanel
@@ -87,6 +89,9 @@ func _ready() -> void:
 	_root.add_child(_study_room)
 	var top_bar := _build_top_bar()
 	_root.add_child(top_bar)
+	_disaster_banner = DisasterBanner.new()
+	_disaster_banner.name = "DisasterBanner"
+	_root.add_child(_disaster_banner)
 	var mascot_corner := _build_mascot_corner()
 	_root.add_child(mascot_corner)
 	_store_button = _build_store_button()
@@ -112,7 +117,14 @@ func _ready() -> void:
 	_store.savings_pressed.connect(savings_pressed.emit)
 	_root.add_child(_store)
 	_powered_parts = [
-		top_bar, mascot_corner, _store_button, _supplies_bar, _pay_slip, _hand_in, _store
+		top_bar,
+		_disaster_banner,
+		mascot_corner,
+		_store_button,
+		_supplies_bar,
+		_pay_slip,
+		_hand_in,
+		_store
 	]
 	_confetti = Confetti.new()
 	add_child(_confetti)
@@ -149,7 +161,8 @@ func is_powered() -> bool:
 ## Shows the Shift's Quota progress and crop counter (both the cotton in hand), time left and
 ## when the next school fees are due, the Hand-in card while it is open, and the Worker's Labour
 ## Points, or his Debt in red in their place while he owes any.
-## `watch_shifts_left` above 0 shows "Harmony Support" and the Shifts left on watch.
+## `watch_shifts_left` above 0 shows "Harmony Support" and the Shifts left on watch. The
+## Shift's Disaster, once warned of, shows under the bar with its countdown.
 func show_shift(shift: ShiftView, labour_points: int, debt := 0, watch_shifts_left := 0) -> void:
 	_quota_bar.max_value = shift.quota
 	_quota_bar.value = mini(shift.picked, shift.quota)
@@ -162,6 +175,7 @@ func show_shift(shift: ShiftView, labour_points: int, debt := 0, watch_shifts_le
 	_balance.show_balance(labour_points, debt)
 	_on_watch_label.visible = watch_shifts_left > 0
 	_on_watch_label.text = AppText.ON_WATCH.format({"shifts": watch_shifts_left})
+	_disaster_banner.show_disaster(shift.disaster)
 
 
 ## A "+1" rises from `at`, a point on the screen over the Plot just picked.

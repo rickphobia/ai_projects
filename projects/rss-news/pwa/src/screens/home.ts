@@ -18,12 +18,14 @@ const WINDOW_TEXT: Record<BriefingWindow, string> = {
 // The home screen: the latest Briefing, and Brief me with a scope (all Sources or one
 // Folder), a window and the estimated cost. Pressing it again the same day shows the saved
 // Briefing with a Regenerate button. Given `pickedItemIds` (from the Inbox's "Brief these"),
-// it offers a Briefing of exactly those Items instead.
+// it offers a Briefing of exactly those Items instead. Given `briefNow` (the Brief me (24h)
+// shortcut), it presses Brief me for the default scope as soon as the estimate is in.
 export async function renderHome(
   root: HTMLElement,
   api: ApiClient,
   onOpenItem: (itemId: number) => void,
   pickedItemIds?: number[],
+  briefNow = false,
 ): Promise<void> {
   const picked = pickedItemIds !== undefined && pickedItemIds.length > 0;
   const briefMe = button(picked ? "Brief these" : "Brief me");
@@ -143,7 +145,9 @@ export async function renderHome(
 
   const [latest] = await Promise.allSettled([
     api.latestBriefing(),
-    refreshEstimate(),
+    refreshEstimate().then(() => {
+      if (briefNow && !briefMe.disabled) void write(false);
+    }),
     picked ? Promise.resolve() : fillFolders(api, scopeSelect),
   ]);
   if (isSignedOut(latest)) return;

@@ -13,6 +13,7 @@ from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
 from rss_news.adapters.sqlite.notes import SqliteNotes
 from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.adapters.sqlite.spending import SqliteSpending
+from rss_news.adapters.sqlite.stocks import SqliteStocks
 from rss_news.alerts.push import AlertPush
 from rss_news.briefings.writing import Briefings
 from rss_news.chat.chatting import Chats
@@ -24,6 +25,7 @@ from rss_news.notes.notes import Notes
 from rss_news.sources.managing import SourceManagement
 from rss_news.spending.ledger import SpendingLedger
 from rss_news.spending.limit import SpendingLimit
+from rss_news.stocks.owner_stocks import Stocks
 from rss_news.web.app import create_app
 from rss_news.wiring import Wiring
 from tests.support import (
@@ -107,6 +109,7 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
             source_management=SourceManagement(
                 sources=SqliteSources(database), fetcher=FakeFeedFetcher()
             ),
+            stocks=Stocks(SqliteStocks(database), clock),
             briefings=Briefings(
                 store=SqliteBriefings(database),
                 model=FakeLanguageModel(),

@@ -1,5 +1,6 @@
 """Items in SQLite: storing each clean URL once, the Inbox query, read state and scores."""
 
+import json
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
@@ -12,7 +13,7 @@ from rss_news.scoring.item_scoring import ItemScore, UnscoredItem
 _INBOX_SELECT = (
     "SELECT items.id, items.title, items.url, sources.name, folders.id, folders.name, "
     "items.published_at, items.importance, items.summary, items.read_at IS NOT NULL, "
-    "items.image_url FROM items JOIN sources ON sources.id = items.source_id "
+    "items.image_url, items.stocks FROM items JOIN sources ON sources.id = items.source_id "
     "JOIN folders ON folders.id = sources.folder_id"
 )
 
@@ -30,6 +31,7 @@ def _inbox_item(row: tuple[Any, ...]) -> InboxItem:
         summary=row[8],
         read=bool(row[9]),
         image_url=row[10],
+        stocks=tuple(json.loads(row[11])),
     )
 
 
@@ -136,10 +138,16 @@ class SqliteItems:
     def save_scores(self, scores: Sequence[ItemScore], *, at: datetime) -> None:
         with self._database.connection() as connection:
             connection.executemany(
-                "UPDATE items SET importance = ?, summary = ?, scored_at = ?, "
+                "UPDATE items SET importance = ?, summary = ?, stocks = ?, scored_at = ?, "
                 "score_retry_at = NULL WHERE id = ?",
                 [
-                    (score.importance, score.summary, to_db_time(at), score.item_id)
+                    (
+                        score.importance,
+                        score.summary,
+                        json.dumps(score.stocks),
+                        to_db_time(at),
+                        score.item_id,
+                    )
                     for score in scores
                 ],
             )

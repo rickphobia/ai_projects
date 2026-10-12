@@ -1,0 +1,32 @@
+-- Expense and Income Categories are separate lists (kind 'EXPENSE' or 'INCOME'), each shown in
+-- position order. The defaults below are inserted when the database is created, i.e. on first run.
+CREATE TABLE category (
+  id INTEGER NOT NULL PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('EXPENSE', 'INCOME')),
+  name TEXT NOT NULL,
+  position INTEGER NOT NULL,
+  UNIQUE (kind, name)
+);
+
+INSERT INTO category(kind, name, position) VALUES
+  ('EXPENSE', 'Transport', 1),
+  ('EXPENSE', 'F&B', 2),
+  ('EXPENSE', 'Groceries', 3),
+  ('EXPENSE', 'Shopping', 4),
+  ('EXPENSE', 'Bills', 5),
+  ('EXPENSE', 'Entertainment', 6),
+  ('EXPENSE', 'Education', 7),
+  ('EXPENSE', 'Tech', 8),
+  ('EXPENSE', 'Health', 9),
+  ('EXPENSE', 'Transfers', 10),
+  ('EXPENSE', 'Other', 11),
+  ('INCOME', 'Salary', 1),
+  ('INCOME', 'Allowance', 2),
+  ('INCOME', 'Transfers', 3),
+  ('INCOME', 'Other', 4);
+
+ofKind:
+SELECT id, kind, name FROM category WHERE kind = ? ORDER BY position;
+
+byId:
+SELECT id, kind, name FROM category WHERE id = ?;

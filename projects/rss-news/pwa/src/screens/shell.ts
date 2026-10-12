@@ -1,6 +1,7 @@
 import type { ChatQuote } from "../api/chats";
 import { SignedOutError, type ApiClient } from "../api/client";
 import { noDevicePush, type DevicePush } from "../pwa/device-push";
+import type { Shortcut } from "../pwa/shortcut";
 import { renderBriefings } from "./briefings";
 import { renderHome } from "./home";
 import { renderInbox } from "./inbox";
@@ -9,24 +10,31 @@ import { renderNoteBriefing, renderNotes } from "./notes";
 import { installSelectionPopup } from "./selection";
 import { renderSettings, spendingBanner } from "./settings";
 import { renderSources } from "./sources";
+import { renderStocks } from "./stocks";
 
 export interface ShellOptions {
   // This browser's push subscription, for the Alerts opt-in in Settings.
   devicePush?: DevicePush;
   // Open this Item instead of the home screen, as tapping an Alert does.
   openItemId?: number | null;
+  // Open the screen an app icon shortcut names instead of the home screen.
+  shortcut?: Shortcut | null;
 }
 
 // The app shell for a signed-in owner: a header with the name and whether the backend is up,
 // a sidebar with the screens and the Folders (a drawer opened from the header's Menu button on
 // a phone), a spending warning from 80% of the monthly limit, and the page: the home screen
 // (the latest Briefing), the Inbox (all of it or one Folder), an Item, the saved Briefings,
-// the Notes, the Sources or the Settings screen.
+// the Notes, the Sources, the Stocks or the Settings screen.
 export async function renderShell(
   root: HTMLElement,
   api: ApiClient,
   onSignedOut: () => void,
-  { devicePush = noDevicePush, openItemId = null }: ShellOptions = {},
+  {
+    devicePush = noDevicePush,
+    openItemId = null,
+    shortcut = null,
+  }: ShellOptions = {},
 ): Promise<void> {
   const heading = document.createElement("h1");
   heading.textContent = "rss-news";
@@ -50,6 +58,7 @@ export async function renderShell(
   const toBriefings = navButton("Briefings");
   const toNotes = navButton("Notes");
   const toSources = navButton("Sources");
+  const toStocks = navButton("Stocks");
   const toSettings = navButton("Settings");
   const folderHeading = document.createElement("p");
   folderHeading.className = "sidebar-heading";
@@ -65,6 +74,7 @@ export async function renderShell(
     toBriefings,
     toNotes,
     toSources,
+    toStocks,
     toSettings,
     folderHeading,
     folderList,
@@ -90,7 +100,10 @@ export async function renderShell(
     current.setAttribute("aria-current", "page");
     drawer.close();
   };
-  const showHome = (pickedItemIds?: number[]): Promise<void> => {
+  const showHome = (
+    pickedItemIds?: number[],
+    briefNow = false,
+  ): Promise<void> => {
     showing(toHome);
     return renderHome(
       page,
@@ -105,6 +118,7 @@ export async function renderShell(
         );
       },
       pickedItemIds,
+      briefNow,
     );
   };
   // The Chat open in the Inbox, so it is still there after going to an Item and back.
@@ -113,6 +127,7 @@ export async function renderShell(
     entry: HTMLButtonElement = toInbox,
     folderId?: number,
     quote: ChatQuote | null = null,
+    openChat = false,
   ): Promise<void> => {
     showing(entry);
     return renderInbox(
@@ -131,6 +146,7 @@ export async function renderShell(
       {
         openChatId,
         quote,
+        open: openChat,
         onChatOpened: (chatId) => {
           openChatId = chatId;
         },
@@ -198,6 +214,12 @@ export async function renderShell(
     showing(toSources);
     void renderSources(page, api, () => void listFolders());
   });
+  // Adding or removing a stock adds or removes its ticker-news Source, which the Folders
+  // don't show, so the sidebar needs no refresh.
+  toStocks.addEventListener("click", () => {
+    showing(toStocks);
+    void renderStocks(page, api);
+  });
   toSettings.addEventListener("click", () => {
     showing(toSettings);
     void renderSettings(page, api, devicePush);
@@ -214,7 +236,7 @@ export async function renderShell(
     showSpendingWarning(api, warning),
     listFolders(),
     openItemId === null
-      ? showHome()
+      ? showFirstScreen()
       : renderItem(
           page,
           api,
@@ -223,6 +245,19 @@ export async function renderShell(
           "Back to Home",
         ),
   ]);
+
+  function showFirstScreen(): Promise<void> {
+    switch (shortcut) {
+      case "brief":
+        return showHome(undefined, true);
+      case "chat":
+        return showInbox(toInbox, undefined, null, true);
+      case "notes":
+        return showNotes();
+      case null:
+        return showHome();
+    }
+  }
 }
 
 interface Drawer {

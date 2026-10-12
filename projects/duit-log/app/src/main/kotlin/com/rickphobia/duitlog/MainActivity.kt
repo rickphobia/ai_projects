@@ -27,8 +27,9 @@ import com.rickphobia.duitlog.onboarding.FirstRun
 import com.rickphobia.duitlog.onboarding.GuideState
 import com.rickphobia.duitlog.onboarding.NotificationAccess
 import com.rickphobia.duitlog.onboarding.NotificationAccessGuide
+import com.rickphobia.duitlog.screens.AccessBanner
+import com.rickphobia.duitlog.screens.DuitLogApp
 import com.rickphobia.duitlog.screens.DuitLogTheme
-import com.rickphobia.duitlog.screens.HomeScreen
 import java.io.File
 import java.io.IOException
 import java.time.ZoneId
@@ -68,11 +69,11 @@ class MainActivity : ComponentActivity() {
                     }
 
                     Destination.HOME -> {
-                        HomeScreen(
+                        DuitLogApp(
+                            ledger = (application as DuitLogApplication).ledger,
                             versionName = BuildConfig.VERSION_NAME,
                             buildNumber = BuildConfig.VERSION_CODE,
-                            accessGranted = accessGranted,
-                            onFixAccess = { NotificationAccess.openSettings(this) },
+                            access = AccessBanner(accessGranted, onFix = { NotificationAccess.openSettings(this) }),
                             onOpenRecorder = { destination = Destination.RECORDER },
                             onOpenGuide = { destination = Destination.GUIDE },
                             onShareLog = ::shareLog,

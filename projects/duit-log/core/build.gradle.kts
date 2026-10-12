@@ -14,7 +14,7 @@ kotlin {
 }
 
 dependencies {
-    // api: StorageCheck and the generated DuitLogDatabase take a SqlDriver from the app.
+    // api: the generated DuitLogDatabase takes a SqlDriver from the app.
     api(libs.sqldelight.runtime)
     testImplementation(libs.junit)
     testImplementation(libs.sqldelight.sqlite.driver)

@@ -4,12 +4,12 @@
 
 **Blocked by:** 16 (Notes), 19 (Installable app), 26 (Chat panel in the Inbox)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** pwa/manifest
 
 **Effort:** low
 
-- [ ] Manifest shortcuts for "Brief me (24h)", "Chat" and "Notes", with icons
-- [ ] Each shortcut's URL opens the right screen and, for "Brief me (24h)", starts the Briefing (or shows today's saved one)
-- [ ] A Vitest test covers each shortcut URL routing to its screen
+- [x] Manifest shortcuts for "Brief me (24h)", "Chat" and "Notes", with icons
+- [x] Each shortcut's URL opens the right screen and, for "Brief me (24h)", starts the Briefing (or shows today's saved one)
+- [x] A Vitest test covers each shortcut URL routing to its screen

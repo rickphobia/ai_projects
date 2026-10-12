@@ -40,6 +40,7 @@ const SAMPLE_VALUES := {
 	"held": 2,
 	"next_price": 6,
 	"kind": &"fertiliser",
+	"seconds": 20.0,
 }
 
 
@@ -178,3 +179,13 @@ func test_every_spray_refusal_has_text_citing_only_registered_sources() -> void:
 	)
 
 	assert_eq(problems, [] as Array[String])
+
+
+func test_every_disaster_has_a_name() -> void:
+	assert_has(AppText.DISASTER_NAMES, Farm.SANDSTORM)
+
+
+func test_the_sandstorm_warning_counts_whole_seconds() -> void:
+	var warned := AppMessage.new(Farm.SANDSTORM_WARNED, {"kind": Farm.SANDSTORM, "seconds": 20.0})
+
+	assert_string_contains(AppText.render(warned), "in 20 seconds")
