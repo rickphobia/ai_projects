@@ -4,16 +4,16 @@
 
 **Blocked by:** 04 (Feeds arrive in the Inbox)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** sources/catalog, web/sources, pwa/sources, pwa/shell
 
 **Effort:** low
 
-- [ ] API to list, create, update and delete Folders and Sources; listing includes last success and last error
-- [ ] Adding a feed URL checks it once and refuses a URL that isn't a feed, with a clear message
-- [ ] Adding a subreddit by name builds its feed URL
-- [ ] Deleting a Folder that still has Sources is refused with a clear message
-- [ ] Paused Sources are not fetched; removed Sources' Items leave the Inbox
-- [ ] PWA Sources and Folders screen
-- [ ] API tests cover each action and the refusals; a Vitest test covers adding a subreddit
+- [x] API to list, create, update and delete Folders and Sources; listing includes last success and last error
+- [x] Adding a feed URL checks it once and refuses a URL that isn't a feed, with a clear message
+- [x] Adding a subreddit by name builds its feed URL
+- [x] Deleting a Folder that still has Sources is refused with a clear message
+- [x] Paused Sources are not fetched; removed Sources' Items leave the Inbox
+- [x] PWA Sources and Folders screen
+- [x] API tests cover each action and the refusals; a Vitest test covers adding a subreddit

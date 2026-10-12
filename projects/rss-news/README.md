@@ -4,7 +4,7 @@ A personal news briefing for one owner: it reads many Sources (RSS and Atom feed
 
 ## Status
 
-`in progress`: feeds arrive in the Inbox. On first run the starter Sources from [`docs/starter-sources.md`](docs/starter-sources.md) are loaded; every minute the server fetches the Sources that are due and stores new Items once each. The owner signs in with one password and sees the Inbox, newest first, with a Folder filter. It installs to the home screen from Chrome, and its service worker caches the app shell (never API answers). Deployable to the Beelink. No Source management, polite fetching or AI yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
+`in progress`: feeds arrive in the Inbox. On first run the starter Sources from [`docs/starter-sources.md`](docs/starter-sources.md) are loaded; every minute the server fetches the Sources that are due and stores new Items once each. The owner signs in with one password and sees the Inbox, newest first, with a Folder filter, and manages Sources and Folders: add a feed URL or a subreddit, create, rename and delete Folders, move, pause or remove a Source, and see each Source's last success and last error. It installs to the home screen from Chrome, and its service worker caches the app shell (never API answers). Deployable to the Beelink. No polite fetching or AI yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
 
 ## Requirements
 
@@ -165,7 +165,8 @@ Settings come from environment variables, checked at startup (`src/rss_news/conf
 - **The tick** (`src/rss_news/tick.py`) runs in a background thread: once at start, then every minute. Its steps run in order; a failing step is logged as `tick step failed` and doesn't stop the later ones, but then the tick doesn't count for `/healthz`. Today it has one step, fetching due Sources.
 - **Fetching** (`src/rss_news/sources/fetching.py`): a Source is due when it was never fetched or `RSS_NEWS_FETCH_INTERVAL_MINUTES` have passed since its last try, successful or not. The FeedFetcher (`src/rss_news/adapters/feed_fetcher.py`, httpx) makes a conditional GET with the ETag and Last-Modified from last time. `feedparser` reads RSS, RDF and Atom (Reddit's too) in `sources/feed_parsing.py`. Each entry's link is cleaned of tracking parameters (`sources/clean_url.py`: `utm_*`, `fbclid`, BBC's `at_*` and others), and an Item whose clean URL is already stored is dropped, so the same story from two Sources appears once. An undated or future-dated entry counts as arriving at fetch time. One Source failing (network, HTTP status, not a feed, or a bug) is logged with the Source and step and the next Source carries on.
 - **The Inbox API**: `GET /api/inbox?folder=<id>&cursor=<next_cursor>&limit=<1-200>` lists Items newest first with their Source and Folder, 50 to a page. Paging is by cursor (the last Item's time and id), so Items arriving while you scroll don't shift the next page. `GET /api/folders` lists the Folders for the filter.
-- The PWA (`pwa/`) is TypeScript built with Vite. Every backend call goes through the `ApiClient` in `pwa/src/api/client.ts`; screens get one passed in, and tests pass a fake. On any 401 the client sends the owner to the login screen. At start it asks `/api/session` and shows either login or the shell, which says whether the server is up, has a Sign out button, and shows the Inbox (`pwa/src/screens/inbox.ts`): Items newest first linking to the original page, a Folder filter and a Load more button.
+- **Managing Sources and Folders** (`sources/managing.py`, API in `web/sources.py`): `POST/PATCH/DELETE /api/folders[/<id>]` and `GET/POST/PATCH/DELETE /api/sources[/<id>]`. `GET /api/sources` includes each Source's `paused`, `last_success_at`, `last_error_at` and `last_error`. A new feed URL (`{"folder_id", "url", "name"?}`) is fetched once and refused with 422 if it doesn't answer with a feed; a subreddit (`{"folder_id", "subreddit"}`, `r/` optional) becomes `https://www.reddit.com/r/<name>/top/.rss?t=day` without a check, since Reddit often answers a lone request with 429. Deleting a Folder that still has Sources, or adding a URL twice, answers 409; an unknown id 404. Each refusal's `detail` is shown to the owner as is. Paused Sources are skipped by the tick; removing a Source deletes its Items.
+- The PWA (`pwa/`) is TypeScript built with Vite. Every backend call goes through the `ApiClient` in `pwa/src/api/client.ts`; screens get one passed in, and tests pass a fake. On any 401 the client sends the owner to the login screen. At start it asks `/api/session` and shows either login or the shell, which says whether the server is up, has a Sign out button, and shows the Inbox (`pwa/src/screens/inbox.ts`): Items newest first linking to the original page, a Folder filter and a Load more button. The Sources button opens `pwa/src/screens/sources.ts`.
 
 ## Folder layout
 
@@ -178,13 +179,13 @@ src/rss_news/
   wiring.py          puts the stores, features and tick together over the adapters
   tick.py            the steps run every minute, and the background loop running them
   auth/              password hashes, signed session cookies, lockout
-  sources/           Folders and Sources, the starter set, fetching due Sources,
+  sources/           Folders and Sources, the starter set, the owner's changes, fetching due Sources,
                      feed parsing and tracking-parameter cleaning
   items/             Items and the Inbox query with its paging cursor
   web/app.py         the FastAPI app: /healthz, the API routers and the PWA
   web/auth.py        login, logout, the session check and the guard on /api
   web/inbox.py       GET /api/inbox
-  web/sources.py     GET /api/folders
+  web/sources.py     /api/folders and /api/sources
   adapters/feed_fetcher.py  the FeedFetcher over HTTP (httpx)
   adapters/sqlite/   the database file, its migrations, login failures, Sources, Items
 tests/               mirrors src/rss_news/; tests/sources/feeds/ holds saved real feeds
