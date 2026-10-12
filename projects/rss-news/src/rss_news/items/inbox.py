@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 DEFAULT_PAGE_SIZE = 50
@@ -88,16 +88,18 @@ class Inbox:
         return InboxPage(items=shown, next_cursor=next_cursor)
 
 
+# Cursors are "<microseconds since 1970 UTC>-<item id>": only digits and a dash, so a cursor
+# pasted into a URL by hand needs no escaping.
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+
 def _encode(position: InboxPosition) -> str:
-    return f"{position.published_at.isoformat()}~{position.item_id}"
+    microseconds = (position.published_at - _EPOCH) // timedelta(microseconds=1)
+    return f"{microseconds}-{position.item_id}"
 
 
 def _decode(cursor: str) -> InboxPosition:
-    published, _, item_id = cursor.rpartition("~")
-    try:
-        moment = datetime.fromisoformat(published)
-        if moment.utcoffset() is None:
-            raise ValueError("no time zone")
-        return InboxPosition(moment, int(item_id))
-    except ValueError:
-        raise InvalidCursor(f"not an Inbox cursor: {cursor!r}") from None
+    microseconds, _, item_id = cursor.partition("-")
+    if not (microseconds.isdigit() and item_id.isdigit()):
+        raise InvalidCursor(f"not an Inbox cursor: {cursor!r}")
+    return InboxPosition(_EPOCH + timedelta(microseconds=int(microseconds)), int(item_id))

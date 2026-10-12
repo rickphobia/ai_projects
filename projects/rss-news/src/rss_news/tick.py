@@ -55,7 +55,7 @@ class TickLoop:
         # web server.
         self._thread = threading.Thread(target=self._loop, name="tick", daemon=True)
         self._thread.start()
-        logger.info("tick loop started", extra={"interval_seconds": self._interval.seconds})
+        logger.info("tick loop started", extra={"interval_seconds": self._interval.total_seconds()})
 
     def stop(self) -> None:
         """Ask the loop to stop and wait a few seconds for a tick in progress."""

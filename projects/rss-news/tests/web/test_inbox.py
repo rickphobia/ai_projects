@@ -303,6 +303,21 @@ def test_paging_by_folder_stays_in_the_folder(
     assert titles(first) + titles(second) == ["World 1", "World 3"]
 
 
+def test_a_cursor_works_pasted_into_a_url_by_hand(
+    client: TestClient, wiring: Wiring, clock: FakeClock, fetcher: FakeFeedFetcher
+) -> None:
+    fetcher.answers[WORLD_FEED] = rss(
+        ("First", "https://world.example/1", hours_ago(clock, 1)),
+        ("Second", "https://world.example/2", hours_ago(clock, 2)),
+    )
+    wiring.tick.run()
+    cursor = client.get(INBOX, params={"limit": 1}).json()["next_cursor"]
+
+    second = client.get(f"{INBOX}?limit=1&cursor={cursor}").json()
+
+    assert titles(second) == ["Second"]
+
+
 def test_a_cursor_the_inbox_did_not_hand_out_is_refused(client: TestClient) -> None:
     response = client.get(INBOX, params={"cursor": "not-a-cursor"})
 

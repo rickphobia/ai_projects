@@ -75,11 +75,11 @@ class SourceFetching:
             except Exception as error:
                 # A bug or a database error for one Source: log it, keep going with the rest,
                 # and try this one again next interval instead of every minute.
-                logger.exception(
-                    "source fetch crashed",
-                    extra={"source_id": source.id, "source": source.name, "step": "store"},
-                )
-                self._fail(source, f"store: {error}")
+                logger.exception("source fetch crashed", extra=_context(source))
+                try:
+                    self._fail(source, "unexpected", str(error))
+                except Exception:
+                    logger.exception("source failure not recorded", extra=_context(source))
 
     def _fetch(self, source: Source) -> None:
         result = self._fetcher.fetch(FeedRequest(source.url, source.etag, source.last_modified))
@@ -88,11 +88,7 @@ class SourceFetching:
                 self._succeed(source, etag=source.etag, last_modified=source.last_modified)
                 logger.debug("source not modified", extra=_context(source))
             case FetchFailed(step=step, detail=detail):
-                logger.warning(
-                    "source fetch failed",
-                    extra={**_context(source), "step": step, "detail": detail},
-                )
-                self._fail(source, f"{step}: {detail}")
+                self._report_failure(source, step, detail)
             case Fetched():
                 self._store(source, result)
 
@@ -100,11 +96,7 @@ class SourceFetching:
         try:
             entries = parse_feed(fetched.body, content_type=fetched.content_type)
         except NotAFeed as error:
-            logger.warning(
-                "source fetch failed",
-                extra={**_context(source), "step": "parse", "detail": str(error)},
-            )
-            self._fail(source, f"parse: {error}")
+            self._report_failure(source, "parse", str(error))
             return
         now = self._clock.now()
         new_items = [_new_item(source, entry, now) for entry in entries]
@@ -125,10 +117,16 @@ class SourceFetching:
             last_modified=last_modified,
         )
 
-    def _fail(self, source: Source, error: str) -> None:
+    def _report_failure(self, source: Source, step: str, detail: str) -> None:
+        logger.warning(
+            "source fetch failed", extra={**_context(source), "step": step, "detail": detail}
+        )
+        self._fail(source, step, detail)
+
+    def _fail(self, source: Source, step: str, detail: str) -> None:
         now = self._clock.now()
         self._sources.record_failure(
-            source.id, at=now, next_fetch_at=now + self._interval, error=error
+            source.id, at=now, next_fetch_at=now + self._interval, error=f"{step}: {detail}"
         )
 
 
