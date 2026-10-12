@@ -93,9 +93,10 @@ const STORE_REFUSALS: Array[StringName] = [
 ## fees; an older save restores with them paid up and due school_fees_every_shifts Shifts after
 ## its own. Version 6 added the letters; an older save restores with none received and no
 ## letter Shifts passed. Version 7 added the call home; an older save restores with none under
-## way. Version 8 added land; an older save restores with the first land's Plots only.
-const SAVE_VERSION := 8
-const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, SAVE_VERSION]
+## way. Version 8 added land; an older save restores with the first land's Plots only. Version 9
+## added longer laps; an older save's lap in progress takes lap_seconds.
+const SAVE_VERSION := 9
+const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, SAVE_VERSION]
 ## The lowest balance a save can hold: Debt can grow, but not without end.
 const LEAST_SAVED_BALANCE := -1000000000
 
@@ -242,7 +243,7 @@ func _init(tuning: Tuning, roll: Callable = Callable()) -> void:
 	_land = _new_land()
 	_crops = Crops.new(tuning.grow_seconds, tuning.wither_seconds, _land.plot_count())
 	_exhaustion = Exhaustion.new(tuning)
-	_toil = Toil.new(tuning, _exhaustion)
+	_toil = Toil.new(tuning, _exhaustion, _lap_seconds(_land))
 	_store = Store.new(tuning.generator_tiers, tuning.tools_tiers)
 	if roll.is_valid():
 		_roll = roll
@@ -359,6 +360,7 @@ func buy_plot() -> CommandResult:
 	_ledger.spend(price)
 	var plot := _land.buy()
 	_crops.add_plot()
+	_toil.set_next_lap_seconds(_lap_seconds(_land))
 	var values := {"plot": plot + 1, "price": price, "quota_rise": _land.quota_rise_per_plot()}
 	_messages.append(AppMessage.new(PLOT_BOUGHT, values))
 	return CommandResult.done()
@@ -543,8 +545,8 @@ func restore(save: Dictionary) -> Array[String]:
 	crops.restore(reader.section("crops"))
 	var exhaustion := Exhaustion.new(_tuning)
 	exhaustion.restore(reader.section("exhaustion"))
-	var toil := Toil.new(_tuning, exhaustion)
-	toil.restore(reader.section("toil"), version >= 4)
+	var toil := Toil.new(_tuning, exhaustion, _lap_seconds(land))
+	toil.restore(reader.section("toil"), version >= 4, version >= 9)
 	var shift_number := reader.whole("shift_number", 1)
 	var shift_elapsed := reader.number("shift_elapsed")
 	var picked := reader.whole("picked")
@@ -687,7 +689,9 @@ func worker() -> WorkerView:
 		activity = WorkerView.Activity.BREATHING
 	elif _toil.is_running():
 		activity = WorkerView.Activity.RUNNING
-	return WorkerView.new(activity, _toil.laps_left(), _exhaustion.level(), _toil.lap_progress())
+	return WorkerView.new(
+		activity, _toil.laps_left(), _exhaustion.level(), _toil.lap_progress(), _toil.lap_seconds()
+	)
 
 
 ## From 0 (rested) to Exhaustion.MOST (spent).
@@ -880,6 +884,19 @@ func _log_negligence(withered_plots: Array[int]) -> void:
 
 
 ## The land at the tuning's first size, able to grow to its largest.
+## How long a lap of the track round this land takes: each column or row beyond the first
+## land's lengthens it by lap_seconds_per_strip.
+func _lap_seconds(land: Land) -> float:
+	var view := land.view()
+	var strips := (
+		view.columns
+		- roundi(_tuning.first_land_columns)
+		+ view.rows
+		- roundi(_tuning.first_land_rows)
+	)
+	return _tuning.lap_seconds + strips * _tuning.lap_seconds_per_strip
+
+
 func _new_land() -> Land:
 	return Land.new(
 		Vector2i(roundi(_tuning.first_land_columns), roundi(_tuning.first_land_rows)),

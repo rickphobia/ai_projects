@@ -4,15 +4,15 @@
 
 **Blocked by:** 27 (Buy a Plot: the fence moves out)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** rules, config/tuning, adapters/field
 
 **Effort:** low
 
-- [ ] A lap takes lap_seconds on the first Farm plus a set number of seconds (tuning) for each new column or row, chosen so the shipped pace stays the same
-- [ ] The new length starts with the Worker's next lap; the lap in progress keeps its length
-- [ ] Exhaustion from running is charged per second at the first Farm's rate, so a longer lap adds more
-- [ ] Laps before a breath don't change
-- [ ] The Worker view shows the current lap length, and the field's runner and power tiles follow the longer track
-- [ ] GUT tests through Farm cover lap length, when it changes, and Exhaustion per second
+- [x] A lap takes lap_seconds on the first Farm plus a set number of seconds (tuning) for each new column or row, chosen so the shipped pace stays the same
+- [x] The new length starts with the Worker's next lap; the lap in progress keeps its length
+- [x] Exhaustion from running is charged per second at the first Farm's rate, so a longer lap adds more
+- [x] Laps before a breath don't change
+- [x] The Worker view shows the current lap length, and the field's runner and power tiles follow the longer track
+- [x] GUT tests through Farm cover lap length, when it changes, and Exhaustion per second

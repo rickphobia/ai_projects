@@ -244,6 +244,7 @@ func test_plots_bought_and_their_crops_survive_a_save() -> void:
 func test_a_save_from_before_land_carries_on_with_the_first_plots() -> void:
 	var save := _through_json(_farm.to_save())
 	save["version"] = 7
+	OldSaves.before_longer_laps(save)
 	save.erase("plots_bought")
 	_buy()
 

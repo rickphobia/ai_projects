@@ -71,6 +71,7 @@ func test_letters_stopped_by_unpaid_fees_stay_stopped_after_a_save() -> void:
 func test_a_save_from_before_the_letters_restores_with_none() -> void:
 	var save := _through_json(_played(FastTuning.table(), 2).to_save())
 	save["version"] = 5
+	OldSaves.before_longer_laps(save)
 	save.erase("letters")
 	var restored := Farm.new(FastTuning.table())
 

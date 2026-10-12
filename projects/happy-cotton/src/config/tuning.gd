@@ -16,6 +16,7 @@ const LIMITS: Dictionary = {
 	"study_session_cap_seconds": [1.0, 604800.0],
 	"lap_seconds": [0.5, 600.0],
 	"laps_before_breath": [1.0, 1000.0],
+	"lap_seconds_per_strip": [0.0, 600.0],
 	"whistle_after_seconds": [0.5, 600.0],
 	"whip_after_seconds": [0.5, 600.0],
 	"offline_growth_rate": [0.01, 1.0],
@@ -109,6 +110,9 @@ const MOST_TIER_QUOTA_RISE := 10000.0
 ## How many laps the Worker runs on the Generator before he stops to breathe. Leaving the
 ## Generator doesn't rest him: the laps since his last breath carry over.
 @export var laps_before_breath: float = NAN
+## Seconds each column or row beyond the first land adds to a lap: the track grows by two
+## plot spacings, and this keeps his pace the same over it.
+@export var lap_seconds_per_strip: float = NAN
 ## How long he stands bent over on the Generator, breathing, before the Overseer blows his
 ## whistle. Crops halt meanwhile.
 @export var whistle_after_seconds: float = NAN

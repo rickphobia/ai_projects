@@ -28,7 +28,8 @@ extends RefCounted
 ## home costs 5 Labour Points (one pick) and lasts 10 seconds.
 ## The Farm starts as 2 × 2 Plots (4) and can grow to 3 × 3; with_land() starts it at another size.
 ## The first Plot bought costs 10 Labour Points and each one after costs 5 more; each raises the
-## Quota by 1 and should yield 2 picks a Shift.
+## Quota by 1 and should yield 2 picks a Shift. Each column or row the Farm grows adds 5 seconds
+## to a lap.
 
 const GROW_SECONDS := 30.0
 const SHIFT_SECONDS := 100.0
@@ -38,6 +39,7 @@ const LABOUR_POINTS_PER_PICK := 5
 const STUDY_SESSION_SECONDS := 20.0
 const STUDY_SESSION_CAP_SECONDS := 50.0
 const LAP_SECONDS := 10.0
+const LAP_SECONDS_PER_STRIP := 5.0
 const LAPS_BEFORE_BREATH := 10
 const WHISTLE_AFTER_SECONDS := 3.0
 const WHIP_AFTER_SECONDS := 2.0
@@ -96,6 +98,7 @@ static func table() -> Tuning:
 	tuning.study_session_seconds = STUDY_SESSION_SECONDS
 	tuning.study_session_cap_seconds = STUDY_SESSION_CAP_SECONDS
 	tuning.lap_seconds = LAP_SECONDS
+	tuning.lap_seconds_per_strip = LAP_SECONDS_PER_STRIP
 	tuning.laps_before_breath = LAPS_BEFORE_BREATH
 	tuning.whistle_after_seconds = WHISTLE_AFTER_SECONDS
 	tuning.whip_after_seconds = WHIP_AFTER_SECONDS
