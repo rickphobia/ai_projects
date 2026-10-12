@@ -49,8 +49,7 @@ func show_supplies(items: Array[StoreItemView]) -> bool:
 		if not _buttons.has(item.id):
 			_add_button(item.id)
 			added = true
-		var supply_name: String = AppText.STORE_NAMES.get(item.id, String(item.id))
-		var values := {"name": supply_name, "held": item.held}
+		var values := {"name": _name_of(item.id), "held": item.held}
 		_buttons[item.id].text = AppText.fill(AppText.SUPPLY_BUTTON, values)
 	return added
 
@@ -87,8 +86,7 @@ func _add_button(id: StringName) -> void:
 	supply_button.name = "Supply_%s" % id
 	supply_button.add_theme_font_size_override("font_size", FONT_SIZE)
 	supply_button.add_theme_color_override("font_color", TEXT)
-	for state: String in ["normal", "hover", "pressed", "focus"]:
-		supply_button.add_theme_stylebox_override(state, _rounded(BUTTON_COLOUR))
+	_paint(supply_button, BUTTON_COLOUR)
 	supply_button.pressed.connect(choose.bind(id))
 	_row.add_child(supply_button)
 	_buttons[id] = supply_button
@@ -96,13 +94,19 @@ func _add_button(id: StringName) -> void:
 
 func _show_chosen() -> void:
 	for id in _buttons:
-		var colour := CHOSEN_COLOUR if id == _chosen else BUTTON_COLOUR
-		for state: String in ["normal", "hover", "pressed", "focus"]:
-			_buttons[id].add_theme_stylebox_override(state, _rounded(colour))
+		_paint(_buttons[id], CHOSEN_COLOUR if id == _chosen else BUTTON_COLOUR)
 	_hint.visible = _chosen != &""
 	if _hint.visible:
-		var supply_name: String = AppText.STORE_NAMES.get(_chosen, String(_chosen))
-		_hint.text = AppText.fill(AppText.SUPPLY_CHOSEN, {"name": supply_name})
+		_hint.text = AppText.fill(AppText.SUPPLY_CHOSEN, {"name": _name_of(_chosen)})
+
+
+func _name_of(id: StringName) -> String:
+	return AppText.STORE_NAMES.get(id, String(id))
+
+
+func _paint(supply_button: Button, colour: Color) -> void:
+	for state: String in ["normal", "hover", "pressed", "focus"]:
+		supply_button.add_theme_stylebox_override(state, _rounded(colour))
 
 
 func _rounded(colour: Color) -> StyleBoxFlat:

@@ -42,11 +42,15 @@ func is_resting() -> bool:
 	return _rest_left > 0.0
 
 
+func is_on_a_call() -> bool:
+	return _call_left > 0.0
+
+
 ## RESTING or ON_A_CALL while one keeps him from work, or &"" when none does.
 func away_reason() -> StringName:
 	if is_resting():
 		return RESTING
-	if _call_left > 0.0:
+	if is_on_a_call():
 		return ON_A_CALL
 	return &""
 
@@ -66,7 +70,7 @@ func start(rest: bool) -> float:
 func seconds_until_end() -> float:
 	if is_resting():
 		return _rest_left
-	if _call_left > 0.0:
+	if is_on_a_call():
 		return _call_left
 	return INF
 

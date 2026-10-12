@@ -212,3 +212,15 @@ func test_a_save_with_a_bad_supply_count_is_damaged() -> void:
 	var problems := _farm.restore(_through_json(save))
 
 	assert_has(problems, "supplies.held.fertiliser is below 0.0")
+
+
+func test_supplies_are_refused_in_debt() -> void:
+	var tuning := FastTuning.table()
+	tuning.first_quota = 0
+	tuning.rent_per_shift = FastTuning.RENT_PER_SHIFT
+	_farm = _new_farm(tuning)
+	HandingIn.advance(_farm, FastTuning.SHIFT_SECONDS)
+	assert_gt(_farm.debt(), 0)
+
+	assert_eq(_farm.buy_supply(Farm.FERTILISER).reason, Farm.IN_DEBT)
+	assert_eq(_fertiliser().refusal, Farm.IN_DEBT)
