@@ -4,7 +4,7 @@ An Android money log that turns e-wallet payment notifications (Touch 'n Go eWal
 
 ## Status
 
-`in progress`: ticket 01 (walking skeleton). The app installs on Android 10 and later and shows its version and a "Share log" button; nothing is captured yet. On start it runs a storage check (the database schema in an in-memory SQLite database) and logs the result. Every merge to `main` that raises the version name is released on GitHub, and every pull request gets a separate Preview app.
+`in progress`: ticket 02 (recorder). The app installs on Android 10 and later. On first run a guide explains and requests notification access; after that it records every notification from Touch 'n Go eWallet, Grab and Shopee (and nothing else) on the Recorder screen, where they can be shared as a text file or cleared. No Transactions are made yet. On start it runs a storage check (the database schema in an in-memory SQLite database) and logs the result. Every merge to `main` that raises the version name is released on GitHub, and every pull request gets a separate Preview app.
 
 ## Requirements
 
@@ -80,6 +80,42 @@ Open the "▶ Try this version" link in the PR on the phone; it downloads the AP
 
 A debug build is signed with this machine's debug key, so it won't install over duit-log from Releases; uninstall first, which deletes the app's data.
 
+## Notification access
+
+duit-log reads Wallet payments from notifications, so it needs notification access. The first-run guide walks through these steps (the home screen's "Notification access guide" button opens it again):
+
+1. **Android 13 and later: allow restricted settings.** Android blocks notification access for apps installed outside the Play Store. Open duit-log's App info, tap ⋮ in the top corner, then **Allow restricted settings**, and confirm. The option often appears only after Android has blocked step 2 once; on some phones, or after an install through Obtainium, it never appears because nothing is restricted.
+2. **Turn on notification access** for duit-log (Settings → Notifications → Device & app notifications / Notification access, depending on the phone).
+3. **Android 12 and later: switch other apps off.** On duit-log's notification access page, open **Apps** (or **See all apps**) and switch off every app except Touch 'n Go eWallet, Grab and Shopee. Android then doesn't pass their notifications to duit-log at all.
+4. **Android 13 and later: allow duit-log's own notifications**, for the Category Prompt in later versions.
+
+If access is turned off later (an update, a battery optimiser), the home screen shows a banner with a button to the settings page.
+
+## Privacy
+
+Notification access hands the app every notification on the phone; Android has nothing narrower (decision [0003](docs/decisions/0003-notification-access-with-a-wallet-allowlist.md)). Two rules make that acceptable:
+
+- **Anything not posted by a Wallet app is dropped at once.** The Notification Reader's first step ([`core/.../reader/NotificationReader.kt`](core/src/main/kotlin/com/rickphobia/duitlog/core/reader/NotificationReader.kt)) decides "Not a Wallet" from the posting app's package name alone, and the listener ([`app/.../capture/WalletNotificationListener.kt`](app/src/main/kotlin/com/rickphobia/duitlog/capture/WalletNotificationListener.kt)) returns straight away for those: nothing saved, logged or counted. `NotificationReaderTest` checks that a WhatsApp message and a bank alert are dropped whatever they say.
+- **The AI only ever sees a Merchant name, an amount and the Category names** (from ticket 15).
+
+The log records listener start and stop and each recorded Wallet notification's Wallet and time, never its text. The recordings stay on the phone (left out of Android's backup) until you share them.
+
+## Wallet apps
+
+The app accepts notifications from these packages only (`WalletApps.DEFAULT` in core, mirrored in the manifest's `<queries>` so the Recorder screen can check them):
+
+| Wallet | Package | Confirmed on the owner's phone |
+|--------|---------|--------------------------------|
+| Touch 'n Go eWallet | `my.com.tngdigital.ewallet` | not yet |
+| Grab | `com.grabtaxi.passenger` | not yet |
+| Shopee (Malaysia) | `com.shopee.my` | not yet |
+
+The Recorder screen lists them with "installed" or "not found on this phone". If an app you have shows "not found", its package name is different: find it in the app's Play Store link (`...details?id=<package>`) and change both `WalletApps.DEFAULT` and the manifest (`WalletAppQueriesTest` fails if they differ).
+
+## Recorder
+
+Milestone 1 collects the Wallets' real wording so the Notification Reader can be written from it. Home → **Recorder** lists every recorded Wallet notification, newest first (app, time, title, text, expanded text). **Share** sends them all as a text file through the share menu; blank out names and amounts before passing it on. **Clear** deletes them after a confirm. A notification posted again with the same words (Wallets update notifications in place) is recorded once. The recordings live in `files/recordings/recordings.tsv` in the app's private storage, capped at 5 MB; past that, new ones are dropped and the log says "the recordings are full".
+
 ## Signing key
 
 Android installs an update only if it is signed with the same key as the installed app, so every duit-log and Preview APK is signed with one release key. Losing it means everyone has to uninstall duit-log (losing their data unless they exported it) to install a build signed with a new one.
@@ -151,8 +187,8 @@ The app requires API 29 (Android 10) and targets API 37. Android lint's "newer v
 
 Two Gradle modules:
 
-- **`core`**: plain Kotlin on the JVM with no Android code. It will hold all the rules (the Ledger, the Notification Reader, the Daily Sort). Today it has the database schema (`src/main/sqldelight/`, compiled by SQLDelight against Android 10's SQLite; decision [0004](docs/decisions/0004-sqldelight-for-storage.md)) and `storage/StorageCheck`, which writes a row and reads it back. The schema's only table, `storage_probe`, is a placeholder that ticket 03 replaces with the Ledger's tables; it is only ever created in memory, so no phone has it on disk. A build check (`:core:checkNoAndroidDependencies`, part of `lintAll`) fails if an Android library or an `android`/`androidx` import gets into `core`.
-- **`app`**: the Android app. `DuitLogApplication` starts the log and runs `storage/PhoneStorageCheck` (the same check, on the phone's SQLite) once per process. `MainActivity` only wires the home screen to "Share log".
+- **`core`**: plain Kotlin on the JVM with no Android code. It will hold all the rules (the Ledger, the Notification Reader, the Daily Sort). Today it has the Notification Reader's first step (`reader/`: a notification from an app that isn't a Wallet app is "Not a Wallet"), and the database schema (`src/main/sqldelight/`, compiled by SQLDelight against Android 10's SQLite; decision [0004](docs/decisions/0004-sqldelight-for-storage.md)) and `storage/StorageCheck`, which writes a row and reads it back. The schema's only table, `storage_probe`, is a placeholder that ticket 03 replaces with the Ledger's tables; it is only ever created in memory, so no phone has it on disk. A build check (`:core:checkNoAndroidDependencies`, part of `lintAll`) fails if an Android library or an `android`/`androidx` import gets into `core`.
+- **`app`**: the Android app. `DuitLogApplication` starts the log and runs `storage/PhoneStorageCheck` (the same check, on the phone's SQLite) once per process. `MainActivity` only wires the screens together: the first-run guide (`onboarding/`), the home screen with its notification access banner, and the Recorder (`capture/`). `capture/WalletNotificationListener` is the notification listener: it runs each notification through the Reader, drops "Not a Wallet" ones, and hands Wallet ones to `capture/RecordingStore`.
 
 Logging goes through `logging/AppLog`, which writes every line to logcat (tag `DuitLog`) and to a rolling file in the app's private storage (`files/logs/`): `logging/RollingLogFile` moves `duit-log.log` to `duit-log.1.log` when it would pass 1 MB, so the log never takes more than 2 MB. "Share log" copies both into one file in the cache and sends it through the Android share menu with a `FileProvider`. The file leaves the phone, so it holds steps, outcomes, counts and errors only: never notification text, Merchant names or Notes. The log folder is left out of Android's backup (`res/xml/data_extraction_rules.xml`, and `backup_rules.xml` for Android 10 and 11).
 
@@ -161,11 +197,14 @@ Logging goes through `logging/AppLog`, which writes every line to logcat (tag `D
 ```
 core/src/main/sqldelight/  the database schema and queries (.sq files)
 core/src/main/kotlin/com/rickphobia/duitlog/core/
+  reader/              the Notification Reader and the Wallet apps it accepts
   storage/             StorageCheck: proves the schema runs on a driver
 core/src/test/kotlin/  JUnit tests, mirroring core's packages
 app/src/main/kotlin/com/rickphobia/duitlog/
   DuitLogApplication.kt  process start: the log and the storage check
   MainActivity.kt      entrypoint: wiring only
+  capture/             the notification listener and the recorder (store and screen)
+  onboarding/          the first-run notification access guide and the access-missing banner
   logging/             AppLog, the rolling log file behind "Share log", crash recording
   screens/             Compose screens and the theme
   storage/             the storage check on the phone's SQLite
@@ -182,6 +221,8 @@ docs/                  spec, tickets, decisions
 
 - The app logs to logcat with the tag `DuitLog` (`adb logcat -s DuitLog`) and to the rolling log file that "Share log" sends.
 - **The app crashes:** the crash is written to the log before the app closes (`logging/CrashRecorder`). Reopen the app, tap "Share log", and look for "crashed on thread": the full stack trace follows it.
+- **Nothing is recorded:** check the home screen for the "can't see notifications" banner, and the log for "notification listener started". Android sometimes doesn't reconnect a listener after an update; switching duit-log's notification access off and on again restarts it ("notification listener stopped", then "started"). If the listener is running but a Wallet's notifications don't appear, check its package name on the Recorder screen ([Wallet apps](#wallet-apps)) and, on Android 12+, that the Wallet isn't switched off on duit-log's notification access page.
+- **"Allow restricted settings" is missing:** Android shows it in App info's ⋮ menu only after it has blocked the notification access switch once. Try step 2 of the guide first.
 - **"storage check failed" in the log:** the phone's SQLite refused the schema or a query; the stack trace follows. A `.sq` change that only newer SQLite understands should have failed the build (decision 0004), so this points at a difference between SQLite versions; reproduce it on an Android 10 emulator.
 - **`SDK location not found`:** run `scripts/setup-android-sdk.sh`, or set `ANDROID_HOME`.
 - **`Release signing is not configured: set ...`:** a release or Preview build needs the named variables; see [Signing key](#signing-key). In CI, a missing `DUITLOG_KEYSTORE_BASE64` secret fails the signing step with its own message.
