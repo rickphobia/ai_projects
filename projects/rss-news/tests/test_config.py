@@ -46,7 +46,7 @@ def test_defaults_apply_when_only_the_pwa_folder_and_secrets_are_set(pwa_dir: Pa
         login_max_failures=5,
         login_lockout=timedelta(minutes=15),
         fetch_interval=timedelta(minutes=15),
-        reddit_gap=timedelta(seconds=10),
+        reddit_gap=timedelta(seconds=60),
         reddit_interval=timedelta(minutes=60),
         fetch_max_backoff=timedelta(hours=24),
         fetch_timeout=timedelta(seconds=20),
@@ -69,7 +69,7 @@ def test_defaults_apply_when_only_the_pwa_folder_and_secrets_are_set(pwa_dir: Pa
         web_search_price_usd=Decimal("0.01"),
         monthly_limit_usd=Decimal("100"),
         vapid_key=None,
-        vapid_subject="https://rickphobia.com/ai-projects/rss-news/",
+        vapid_subject="https://rickphobia.com",
     )
 
 
@@ -202,7 +202,10 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         ("RSS_NEWS_WEB_SEARCH_PRICE_USD", "-0.01", "must be zero or more"),
         ("RSS_NEWS_MONTHLY_LIMIT_USD", "lots", "RSS_NEWS_MONTHLY_LIMIT_USD must be an"),
         ("RSS_NEWS_VAPID_PRIVATE_KEY", "abc", "not a key from `rss-news vapid-key`"),
-        ("RSS_NEWS_VAPID_SUBJECT", "owner@example.com", "must be a mailto: or https:// URL"),
+        ("RSS_NEWS_VAPID_SUBJECT", "owner@example.com", "must be a mailto: address or an https://"),
+        # Push signing refuses a URL with a path, so every send would fail.
+        ("RSS_NEWS_VAPID_SUBJECT", "https://rickphobia.com/ai-projects/rss-news/", "no path"),
+        ("RSS_NEWS_VAPID_SUBJECT", "mailto:owner", "must be a mailto: address or an https://"),
     ],
 )
 def test_a_bad_value_is_rejected_naming_the_variable(
