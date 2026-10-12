@@ -2,6 +2,9 @@
 // Built to sw.js at the root of the build (see vite.config.ts), so its scope is the path prefix.
 // Each build gets a new __BUILD_ID__, so the browser sees a changed worker on the next open,
 // installs it straight away and drops the previous release's cache.
+// It is a classic script, so it can't load chunks: import only modules the app doesn't import,
+// or the build splits them out into an `import` that stops the worker from starting.
+import { alertFromPushData, alertPageUrl } from "./alert-message";
 import { cacheName, cachePolicy, isOldShellCache } from "./shell-cache";
 
 declare const self: ServiceWorkerGlobalScope;
@@ -43,6 +46,36 @@ self.addEventListener("fetch", (event) => {
   if (policy === "page") event.respondWith(networkFirst(event.request));
   if (policy === "shell-file") event.respondWith(cacheFirst(event.request));
 });
+
+// An Alert from the server: show it, remembering the page that tapping it opens.
+self.addEventListener("push", (event) => {
+  const alert = alertFromPushData(event.data?.text() ?? null);
+  event.waitUntil(
+    self.registration.showNotification(alert.title, {
+      body: alert.body,
+      icon: "icons/icon-192.png",
+      data: { url: alertPageUrl(alert.itemId, self.registration.scope) },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const { url } = event.notification.data as { url: string };
+  event.waitUntil(openPage(url));
+});
+
+// Reuses an open window of the app when there is one, so the phone doesn't stack copies.
+async function openPage(url: string): Promise<void> {
+  const windows = await self.clients.matchAll({ type: "window" });
+  const open = windows[0];
+  if (open) {
+    const moved = await open.navigate(url);
+    await (moved ?? open).focus();
+    return;
+  }
+  await self.clients.openWindow(url);
+}
 
 async function networkFirst(request: Request): Promise<Response> {
   const cache = await caches.open(shellCache);

@@ -2,6 +2,13 @@
 // and tests pass a fake.
 
 import {
+  pushSetupFromJson,
+  type DeviceSubscription,
+  type PushSetup,
+  type PushSetupJson,
+  type TestAlertReport,
+} from "./alerts";
+import {
   briefingFromJson,
   estimateParams,
   scopeBody,
@@ -151,6 +158,13 @@ export interface ApiClient {
   ): Promise<WrittenBriefing>;
   // This month's AI cost so far, by feature, against the monthly limit.
   spending(): Promise<SpendingSummary>;
+  // Whether the server can send Alerts, and the key a phone subscribes with.
+  pushSetup(): Promise<PushSetup>;
+  // The calls below reject with RefusedError when Alerts aren't set up on the server, or, for
+  // the test Alert, when no phone has them on.
+  subscribePush(subscription: DeviceSubscription): Promise<void>;
+  unsubscribePush(endpoint: string): Promise<void>;
+  sendTestAlert(): Promise<TestAlertReport>;
 }
 
 export class ApiError extends Error {
@@ -372,6 +386,24 @@ export class HttpApiClient implements ApiClient {
     };
   }
 
+  async pushSetup(): Promise<PushSetup> {
+    const response = await this.sendWithSession("GET", "api/push");
+    return pushSetupFromJson((await response.json()) as PushSetupJson);
+  }
+
+  async subscribePush(subscription: DeviceSubscription): Promise<void> {
+    await this.sendWithSession("POST", "api/push/subscriptions", subscription);
+  }
+
+  async unsubscribePush(endpoint: string): Promise<void> {
+    await this.sendWithSession("POST", "api/push/unsubscribe", { endpoint });
+  }
+
+  async sendTestAlert(): Promise<TestAlertReport> {
+    const response = await this.sendWithSession("POST", "api/push/test");
+    return (await response.json()) as TestAlertReport;
+  }
+
   // For every call except login: a 401 means the session is gone, so go to login.
   private async sendWithSession(
     method: string,
@@ -384,7 +416,8 @@ export class HttpApiClient implements ApiClient {
       throw new SignedOutError(`${method} ${path} needs a session`);
     }
     // 502 is Reader view failing to extract the original page; 422 includes nothing to brief;
-    // 429 is a Briefing refused because the monthly spending limit is reached.
+    // 429 is a Briefing refused because the monthly spending limit is reached; 409 includes
+    // Alerts not set up on the server.
     if ([404, 409, 422, 429, 502].includes(response.status)) {
       const body: unknown = await response.json().catch(() => null);
       const detail = detailIn(body);
