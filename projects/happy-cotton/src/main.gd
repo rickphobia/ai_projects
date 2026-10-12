@@ -2,10 +2,9 @@ extends Node
 ## Entry scene: logs which build is running, loads and checks the tuning table, continues the
 ## saved Farm (or starts a new one) and wires it to the field, The App and its store, the
 ## Children's letters (see LettersView), the hidden savings tin (see SavingsTin) and the wall
-## clock, and adds the debug controls (Skip
-## time, +100 Labour Points) in debug mode. It puts the player's settings into effect and opens
-## the Settings screen from The App. It
-## autosaves after every command, when a Shift's Hand-in opens, when the player leaves (see
+## clock, and adds the debug controls (Skip time, +100 Labour Points) in debug mode. It puts
+## the player's settings into effect and opens the Settings screen from The App. It autosaves
+## after every command, when a Shift's Hand-in opens, when the player leaves (see
 ## LeavingWatch), and every AUTOSAVE_SECONDS of play.
 ## Kept thin: no game rules here.
 

@@ -81,7 +81,7 @@ func refusal(id: StringName, pay_with: Ledger.PayWith) -> StringName:
 ## Everything the store sells, Upgrades first, then land, then Privileges, each with its price
 ## and why it can't be bought right now with Labour Points, and with hidden savings.
 func items() -> Array[StoreItemView]:
-	var pays := Ledger.PayWith.LABOUR_POINTS
+	var with_points := Ledger.PayWith.LABOUR_POINTS
 	var generator_next := _store.next_generator_tier()
 	var generator := StoreItemView.next_tier(
 		GENERATOR,
@@ -89,7 +89,7 @@ func items() -> Array[StoreItemView]:
 		generator_next,
 		generator_next.growth_multiplier if generator_next != null else 0.0,
 		_store.growth_multiplier(),
-		refusal(GENERATOR, pays)
+		refusal(GENERATOR, with_points)
 	)
 	var tools_next := _store.next_tools_tier()
 	var tools := StoreItemView.next_tier(
@@ -98,18 +98,18 @@ func items() -> Array[StoreItemView]:
 		tools_next,
 		tools_next.work_share if tools_next != null else 0.0,
 		_store.work_share(),
-		refusal(TOOLS, pays)
+		refusal(TOOLS, with_points)
 	)
 	var land := StoreItemView.land(LAND, 0, 0, true, FULLY_BOUGHT)
 	if not _land.is_fully_bought():
 		var rise := _land.quota_rise_per_plot()
-		land = StoreItemView.land(LAND, plot_price(), rise, false, refusal(LAND, pays))
+		land = StoreItemView.land(LAND, plot_price(), rise, false, refusal(LAND, with_points))
 	var privilege := StoreItemView.Kind.PRIVILEGE
 	var rest_hour := StoreItemView.new(
-		REST_HOUR, privilege, rest_hour_price(), refusal(REST_HOUR, pays)
+		REST_HOUR, privilege, rest_hour_price(), refusal(REST_HOUR, with_points)
 	)
 	var call_home := StoreItemView.new(
-		CALL_HOME, privilege, call_home_price(), refusal(CALL_HOME, pays)
+		CALL_HOME, privilege, call_home_price(), refusal(CALL_HOME, with_points)
 	)
 	var all_items: Array[StoreItemView] = [generator, tools, land, rest_hour, call_home]
 	for item in all_items:

@@ -122,7 +122,7 @@ static func land(
 	return view
 
 
-## Only the Farm calls this, as it builds the view.
+## Only the rules call this, as they build the view (see StoreFront).
 func set_savings_refusal(why_not: StringName) -> void:
 	_savings_refusal = why_not
 
