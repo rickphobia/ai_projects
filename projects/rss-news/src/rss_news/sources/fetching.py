@@ -7,7 +7,7 @@ from typing import Protocol
 
 from rss_news.clock import Clock
 from rss_news.items.inbox import ItemStore, NewItem
-from rss_news.sources.catalog import Source, SourceStore
+from rss_news.sources.catalog import FetchSchedule, Source
 from rss_news.sources.clean_url import clean_url
 from rss_news.sources.feed_parsing import FeedEntry, NotAFeed, parse_feed
 from rss_news.sources.polite_queue import FetchPacing, PoliteQueue
@@ -63,7 +63,7 @@ class SourceFetching:
     def __init__(
         self,
         *,
-        sources: SourceStore,
+        sources: FetchSchedule,
         items: ItemStore,
         fetcher: FeedFetcher,
         clock: Clock,

@@ -6,6 +6,9 @@ import type {
   InboxPage,
   InboxQuery,
   LoginResult,
+  NewSource,
+  SourceChange,
+  SourceInfo,
 } from "../src/api/client";
 
 // A stand-in ApiClient: each answer is set per test, and calls are recorded.
@@ -21,6 +24,11 @@ export class FakeApiClient implements ApiClient {
   inboxError: Error | null = null;
   pageSize = 50;
   inboxQueries: InboxQuery[] = [];
+  sourcesAnswer: SourceInfo[] = [];
+  // When set, the next change is refused with it.
+  changeError: Error | null = null;
+  // Every change asked for, in order, as [call, ...arguments].
+  changes: unknown[][] = [];
 
   health(): Promise<Health> {
     return settle(this.healthAnswer);
@@ -61,6 +69,42 @@ export class FakeApiClient implements ApiClient {
       items: matching.slice(start, end),
       nextCursor: end < matching.length ? String(end) : null,
     });
+  }
+
+  // Changes are only recorded; the lists stay as the test set them.
+  sources(): Promise<SourceInfo[]> {
+    return Promise.resolve(this.sourcesAnswer);
+  }
+
+  addFolder(name: string): Promise<Folder> {
+    return this.change<Folder>(["addFolder", name], { id: 99, name });
+  }
+
+  renameFolder(folderId: number, name: string): Promise<void> {
+    return this.change(["renameFolder", folderId, name], undefined);
+  }
+
+  deleteFolder(folderId: number): Promise<void> {
+    return this.change(["deleteFolder", folderId], undefined);
+  }
+
+  addSource(source: NewSource): Promise<SourceInfo> {
+    return this.change(["addSource", source], {} as SourceInfo);
+  }
+
+  changeSource(sourceId: number, change: SourceChange): Promise<SourceInfo> {
+    return this.change(["changeSource", sourceId, change], {} as SourceInfo);
+  }
+
+  removeSource(sourceId: number): Promise<void> {
+    return this.change(["removeSource", sourceId], undefined);
+  }
+
+  private change<T>(call: unknown[], answer: T): Promise<T> {
+    this.changes.push(call);
+    const error = this.changeError;
+    this.changeError = null;
+    return settle(error ?? answer);
   }
 }
 

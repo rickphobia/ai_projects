@@ -57,6 +57,9 @@ MIGRATIONS: tuple[str, ...] = (
         done_at TEXT NOT NULL
     );
     """,
+    """
+    ALTER TABLE sources ADD COLUMN paused INTEGER NOT NULL DEFAULT 0;
+    """,
 )
 
 
