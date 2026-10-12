@@ -37,6 +37,9 @@ const SAMPLE_VALUES := {
 	"income_recovered": 24,
 	"watch_shifts": 3,
 	"times_caught": 1,
+	"held": 2,
+	"next_price": 6,
+	"kind": &"fertiliser",
 }
 
 
@@ -66,6 +69,14 @@ func test_every_line_fills_all_its_slots_from_the_rules_values() -> void:
 func test_every_store_refusal_has_text_citing_only_registered_sources() -> void:
 	var problems := AppText.problems(
 		Farm.STORE_REFUSALS, AppText.store_refusals(), AppText.DOUBLESPEAK, _register_ids()
+	)
+
+	assert_eq(problems, [] as Array[String])
+
+
+func test_every_fertilise_refusal_has_text_citing_only_registered_sources() -> void:
+	var problems := AppText.problems(
+		Farm.FERTILISE_REFUSALS, AppText.fertilise_refusals(), AppText.DOUBLESPEAK, _register_ids()
 	)
 
 	assert_eq(problems, [] as Array[String])

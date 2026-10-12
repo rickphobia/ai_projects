@@ -62,6 +62,10 @@ const LIMITS: Dictionary = {
 	"on_watch_shifts": [1.0, 1000.0],
 	"on_watch_chance_factor": [1.0, 100.0],
 	"caught_study_session_seconds": [1.0, 604800.0],
+	"fertiliser_first_price": [1.0, 1000000.0],
+	"fertiliser_price_rise": [1.0, 1000000.0],
+	"fertiliser_growth_factor": [1.0, 10.0],
+	"most_supplies_held": [1.0, 100.0],
 }
 ## Fields that count things (picks, points), so they must be whole numbers.
 const WHOLE_NUMBERS: Array[String] = [
@@ -88,6 +92,9 @@ const WHOLE_NUMBERS: Array[String] = [
 	"hidden_savings_per_kept_pick",
 	"audit_memory_shifts",
 	"on_watch_shifts",
+	"fertiliser_first_price",
+	"fertiliser_price_rise",
+	"most_supplies_held",
 ]
 ## What a Generator tier's growth multiplier is measured against: no Upgrade at all.
 const NO_UPGRADE_GROWTH := 1.0
@@ -237,6 +244,16 @@ const MOST_TIER_QUOTA_RISE := 10000.0
 ## How long the Study Session for being caught lasts. Longer than Negligence's, so being caught
 ## is always the heaviest punishment; it replaces a missed Quota's in the same Shift.
 @export var caught_study_session_seconds: float = NAN
+## Labour Points Fertiliser costs in the first Shift; every Shift after it costs
+## fertiliser_price_rise more, and the price never falls.
+@export var fertiliser_first_price: float = NAN
+@export var fertiliser_price_rise: float = NAN
+## How much faster a fertilised crop grows, online and offline, from the moment it is spread
+## until the crop leaves the Plot; it multiplies the Generator Upgrade's growth. More than 1.
+@export var fertiliser_growth_factor: float = NAN
+## The most of each supply the Worker can hold, so he can't hoard Fertiliser before its price
+## rises.
+@export var most_supplies_held: float = NAN
 ## The Generator Upgrade's tiers, bought in order: each one's price, growth per second of
 ## running, and Quota rise. At least one tier.
 @export var generator_tiers: Array[GeneratorTier] = []
@@ -295,6 +312,9 @@ func problems() -> Array[String]:
 		)
 		found.append(savings_problem % [hidden_savings_per_kept_pick, labour_points_per_pick])
 	found.append_array(_audit_problems())
+	if fertiliser_growth_factor <= 1.0:
+		var factor_problem := "fertiliser_growth_factor is %s, but it must be more than 1"
+		found.append(factor_problem % fertiliser_growth_factor)
 	found.append_array(_generator_tier_problems())
 	found.append_array(_tools_tier_problems())
 	return found

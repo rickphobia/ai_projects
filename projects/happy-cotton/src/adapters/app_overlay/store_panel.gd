@@ -1,14 +1,16 @@
 class_name StorePanel
 extends Control
-## The App's store: a bright card over the field, in three sections, Upgrades, Land and
-## Privileges, each item a StoreRow. It covers the whole screen while open so a tap meant for
+## The App's store: a bright card over the field, in four sections, Upgrades, Land, Supplies
+## and Privileges, each item a StoreRow. It covers the whole screen while open so a tap meant for
 ## it never reaches the field. It shows what it is given and only asks: the rules decide each
 ## purchase.
 ## Close sits at the bottom of the card, clear of debug mode's buttons at the top right.
 
-## A buy button was pressed: an Upgrade or a Privilege, by its Farm id, or the next Plot.
+## A buy button was pressed: an Upgrade, a supply or a Privilege, by its Farm id, or the next
+## Plot.
 signal upgrade_pressed(id: StringName)
 signal privilege_pressed(id: StringName)
+signal supply_pressed(id: StringName)
 signal land_pressed
 ## An item's tin button was pressed: buy it with hidden savings, by its Farm id.
 signal savings_pressed(id: StringName)
@@ -25,6 +27,7 @@ const MARGIN := 24
 
 var _upgrades: VBoxContainer
 var _land: VBoxContainer
+var _supplies: VBoxContainer
 var _privileges: VBoxContainer
 var _rows: Dictionary[StringName, StoreRow] = {}
 
@@ -61,6 +64,7 @@ func _ready() -> void:
 	scroll.add_child(sections)
 	_upgrades = _section(sections, AppText.STORE_UPGRADES)
 	_land = _section(sections, AppText.STORE_LAND)
+	_supplies = _section(sections, AppText.STORE_SUPPLIES)
 	_privileges = _section(sections, AppText.STORE_PRIVILEGES)
 	column.add_child(_build_close_button())
 
@@ -92,6 +96,9 @@ func _add_row(item: StoreItemView) -> void:
 	elif item.kind == StoreItemView.Kind.LAND:
 		new_row.buy_pressed.connect(func(_id: StringName) -> void: land_pressed.emit())
 		_land.add_child(new_row)
+	elif item.kind == StoreItemView.Kind.SUPPLY:
+		new_row.buy_pressed.connect(supply_pressed.emit)
+		_supplies.add_child(new_row)
 	else:
 		new_row.buy_pressed.connect(privilege_pressed.emit)
 		_privileges.add_child(new_row)

@@ -153,6 +153,7 @@ func _begin(farm: Farm) -> void:
 	_app.upgrade_pressed.connect(_on_upgrade_pressed)
 	_app.privilege_pressed.connect(_on_privilege_pressed)
 	_app.land_pressed.connect(_on_land_pressed)
+	_app.supply_pressed.connect(_on_supply_pressed)
 	_app.hand_in_pressed.connect(_on_hand_in_pressed)
 	_app.savings_pressed.connect(_on_savings_pressed)
 	_save("start")
@@ -188,10 +189,13 @@ func _process(delta: float) -> void:
 
 ## A tap on an empty plot plants it, on a Withered one clears it, and on any other plot it
 ## tries to pick. The rules decide whether that happens, and a command that happens brings the
-## Worker back to the field; an unripe plot shows its time left instead.
+## Worker back to the field; an unripe plot shows its time left instead. With a supply picked
+## on the supplies bar, the tap spreads it instead, and the tap after works as normal.
 func _on_plot_tapped(index: int) -> void:
 	var stage := _farm.plot(index).stage
-	if stage == PlotView.Stage.EMPTY:
+	if _app.supplies_bar().take_chosen() == Farm.FERTILISER:
+		_fertilise(index)
+	elif stage == PlotView.Stage.EMPTY:
 		_log_command("plant", index, _farm.plant(index))
 	elif stage == PlotView.Stage.WITHERED:
 		_log_command("clear", index, _farm.clear(index))
@@ -208,7 +212,22 @@ func _on_plot_tapped(index: int) -> void:
 	_show_farm()
 
 
+## Spreads Fertiliser on the plot, or has The App say plainly why not. Supplies used are logged
+## by kind and plot.
+func _fertilise(index: int) -> void:
+	var result := _farm.fertilise(index)
+	if result.happened:
+		GameLog.info("supply used", {"kind": Farm.FERTILISER, "plot": index})
+		return
+	_log_command("fertilise", index, result)
+	var refusal := AppText.render_fertilise_refusal(result.reason)
+	if not refusal.is_empty():
+		_app.say(refusal)
+
+
+## A supply picked on the bar is for the next tap, so tapping the Generator puts it back.
 func _on_generator_tapped() -> void:
+	_app.supplies_bar().take_chosen()
 	var result := _farm.run_generator()
 	if result.happened:
 		GameLog.debug("run generator")
@@ -248,12 +267,24 @@ func _on_land_pressed(pay_with := Farm.PAY_LABOUR_POINTS) -> void:
 	_after_purchase(Farm.LAND, item, result, pay_with)
 
 
+## The rules decide whether he gets one more of the supply. Supplies bought are logged by kind
+## and price.
+func _on_supply_pressed(id: StringName, pay_with := Farm.PAY_LABOUR_POINTS) -> void:
+	var item := _store_item(id)
+	var result := _farm.buy_supply(id, pay_with)
+	if result.happened:
+		GameLog.info("supply bought", {"kind": id, "price": item.price})
+	_after_purchase(id, item, result, pay_with)
+
+
 ## The tin's button on a store item: the same purchase, paid with hidden savings.
 func _on_savings_pressed(id: StringName) -> void:
 	if id == Farm.GENERATOR or id == Farm.TOOLS:
 		_on_upgrade_pressed(id, Farm.PAY_HIDDEN_SAVINGS)
 	elif id == Farm.LAND:
 		_on_land_pressed(Farm.PAY_HIDDEN_SAVINGS)
+	elif id in Farm.SUPPLIES:
+		_on_supply_pressed(id, Farm.PAY_HIDDEN_SAVINGS)
 	else:
 		_on_privilege_pressed(id, Farm.PAY_HIDDEN_SAVINGS)
 
@@ -413,6 +444,7 @@ func _show_app() -> void:
 				Farm.GENERATOR_UPGRADED,
 				Farm.TOOLS_UPGRADED,
 				Farm.PLOT_BOUGHT,
+				Farm.SUPPLY_BOUGHT,
 				Farm.REST_STARTED,
 			]
 		):

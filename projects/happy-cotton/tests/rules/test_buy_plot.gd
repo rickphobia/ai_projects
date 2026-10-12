@@ -73,12 +73,15 @@ func test_the_store_sells_the_next_plot_with_its_price_and_quota_rise() -> void:
 	assert_eq(item.refusal, Farm.NOT_ENOUGH_LABOUR_POINTS)
 
 
-func test_land_comes_after_the_upgrades_and_before_the_privileges() -> void:
+func test_land_comes_after_the_upgrades_and_before_the_supplies_and_privileges() -> void:
 	var ids: Array[StringName] = []
 	for item in _farm.store():
 		ids.append(item.id)
 
-	assert_eq(ids, [Farm.GENERATOR, Farm.TOOLS, Farm.LAND, Farm.REST_HOUR, Farm.CALL_HOME])
+	assert_eq(
+		ids,
+		[Farm.GENERATOR, Farm.TOOLS, Farm.LAND, Farm.FERTILISER, Farm.REST_HOUR, Farm.CALL_HOME]
+	)
 
 
 func test_buying_a_plot_spends_its_price_and_adds_a_plot() -> void:

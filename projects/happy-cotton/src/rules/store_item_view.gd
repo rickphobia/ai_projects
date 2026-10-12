@@ -3,10 +3,10 @@ extends RefCounted
 ## A read-only snapshot of one item in the store, for The App to show. Changing the Farm never
 ## changes a view already handed out; ask the Farm for a new one.
 
-enum Kind { UPGRADE, LAND, PRIVILEGE }
+enum Kind { UPGRADE, LAND, SUPPLY, PRIVILEGE }
 
-## Which item: an Upgrade (Farm.GENERATOR, Farm.TOOLS), land (Farm.LAND) or a Privilege
-## (Farm.REST_HOUR, Farm.CALL_HOME).
+## Which item: an Upgrade (Farm.GENERATOR, Farm.TOOLS), land (Farm.LAND), a supply
+## (Farm.FERTILISER) or a Privilege (Farm.REST_HOUR, Farm.CALL_HOME).
 var id: StringName:
 	get:
 		return _id
@@ -40,6 +40,17 @@ var current_effect: float:
 var quota_rise: int:
 	get:
 		return _quota_rise
+## A supply's price in the next Shift; 0 for anything else.
+var next_price: int:
+	get:
+		return _next_price
+## How many of the supply he holds, and the most he can; 0 for anything else.
+var held: int:
+	get:
+		return _held
+var most_held: int:
+	get:
+		return _most_held
 ## Why it can't be bought right now with Labour Points (one of Farm's reason keys), or &""
 ## when it can.
 var refusal: StringName:
@@ -61,6 +72,9 @@ var _quota_rise := 0
 var _refusal: StringName
 var _savings_refusal: StringName
 var _fully_bought := false
+var _next_price := 0
+var _held := 0
+var _most_held := 0
 
 
 func _init(item_id: StringName, item_kind: Kind, item_price: int, why_not: StringName) -> void:
@@ -119,6 +133,18 @@ static func land(
 	var view := StoreItemView.new(item_id, Kind.LAND, item_price, why_not)
 	view._quota_rise = rise
 	view._fully_bought = fully_bought
+	return view
+
+
+## A view of a supply: today's price and the next Shift's, how many he holds and the most he
+## can.
+static func supply(
+	item_id: StringName, prices: Vector2i, stock: Vector2i, why_not: StringName
+) -> StoreItemView:
+	var view := StoreItemView.new(item_id, Kind.SUPPLY, prices.x, why_not)
+	view._next_price = prices.y
+	view._held = stock.x
+	view._most_held = stock.y
 	return view
 
 

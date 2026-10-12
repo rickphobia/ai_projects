@@ -1,15 +1,17 @@
 class_name StoreFront
 extends RefCounted
 ## What the store sells right now: each item's price and why it can't be bought, with Labour
-## Points and with hidden savings. It reads the Ledger, the Upgrades owned (Store), the land and
-## the tuning table, and is told what else holds the Worker up; it changes nothing. Farm makes
+## Points and with hidden savings. It reads the Ledger, the Upgrades owned (Store), the land, the
+## supplies held, the Shift number and the tuning table, and is told what else holds the Worker
+## up; it changes nothing. Farm makes
 ## one whenever it needs it and keeps its own names for the ids; tested through Farm, not on its
 ## own.
 
-## The store's items: the Upgrades, the land, and the Privileges.
+## The store's items: the Upgrades, the land, the supplies (see Supplies), and the Privileges.
 const GENERATOR := &"generator"
 const TOOLS := &"tools"
 const LAND := &"land"
+const FERTILISER := Supplies.FERTILISER
 const REST_HOUR := &"rest_hour"
 const CALL_HOME := &"call_home"
 ## The Upgrade has no tier left to buy.
@@ -21,6 +23,8 @@ var _tuning: Tuning
 var _ledger: Ledger
 var _store: Store
 var _land: Land
+var _supplies: Supplies
+var _shift_number: int
 var _held_up: StringName
 var _privileges_blocked: StringName
 
@@ -33,6 +37,8 @@ func _init(
 	ledger: Ledger,
 	store: Store,
 	land: Land,
+	supplies: Supplies,
+	shift_number: int,
 	held_up: StringName,
 	privileges_blocked: StringName
 ) -> void:
@@ -40,6 +46,8 @@ func _init(
 	_ledger = ledger
 	_store = store
 	_land = land
+	_supplies = supplies
+	_shift_number = shift_number
 	_held_up = held_up
 	_privileges_blocked = privileges_blocked
 
@@ -47,6 +55,11 @@ func _init(
 ## The next Plot's price: the first Plot's, and a rise for every one bought since.
 func plot_price() -> int:
 	return roundi(_tuning.first_plot_price + _land.plots_bought() * _tuning.plot_price_rise)
+
+
+## Fertiliser's price today, which rises every Shift.
+func fertiliser_price() -> int:
+	return _supplies.fertiliser_price(_shift_number)
 
 
 func rest_hour_price() -> int:
@@ -58,28 +71,20 @@ func call_home_price() -> int:
 
 
 ## Why the item `id` can't be bought with `pay_with` right now, or &"" when it can. Sold out
-## comes first, then whatever holds the Worker up, then what pays.
+## (or a full stock) comes first, then whatever holds the Worker up, then what pays.
 func refusal(id: StringName, pay_with: Ledger.PayWith) -> StringName:
-	if id == GENERATOR or id == TOOLS:
-		var tier: Resource = (
-			_store.next_generator_tier() if id == GENERATOR else _store.next_tools_tier()
-		)
-		if tier == null:
-			return FULLY_UPGRADED
-		var tier_price: float = tier.get("price")
-		return _purchase_refusal(roundi(tier_price), pay_with)
-	if id == LAND:
-		if _land.is_fully_bought():
-			return FULLY_BOUGHT
-		return _purchase_refusal(plot_price(), pay_with)
-	if _held_up == &"" and _privileges_blocked != &"":
+	var sold_out := _sold_out(id)
+	if sold_out != &"":
+		return sold_out
+	var privilege := id == REST_HOUR or id == CALL_HOME
+	if privilege and _held_up == &"" and _privileges_blocked != &"":
 		return _privileges_blocked
-	var price := rest_hour_price() if id == REST_HOUR else call_home_price()
-	return _purchase_refusal(price, pay_with)
+	return _purchase_refusal(_price(id), pay_with)
 
 
-## Everything the store sells, Upgrades first, then land, then Privileges, each with its price
-## and why it can't be bought right now with Labour Points, and with hidden savings.
+## Everything the store sells, Upgrades first, then land, then supplies, then Privileges, each
+## with its price and why it can't be bought right now with Labour Points, and with hidden
+## savings.
 func items() -> Array[StoreItemView]:
 	var with_points := Ledger.PayWith.LABOUR_POINTS
 	var generator_next := _store.next_generator_tier()
@@ -104,6 +109,12 @@ func items() -> Array[StoreItemView]:
 	if not _land.is_fully_bought():
 		var rise := _land.quota_rise_per_plot()
 		land = StoreItemView.land(LAND, plot_price(), rise, false, refusal(LAND, with_points))
+	var fertiliser := StoreItemView.supply(
+		FERTILISER,
+		Vector2i(fertiliser_price(), _supplies.fertiliser_price(_shift_number + 1)),
+		Vector2i(_supplies.held(FERTILISER), _supplies.most_held()),
+		refusal(FERTILISER, with_points)
+	)
 	var privilege := StoreItemView.Kind.PRIVILEGE
 	var rest_hour := StoreItemView.new(
 		REST_HOUR, privilege, rest_hour_price(), refusal(REST_HOUR, with_points)
@@ -111,10 +122,38 @@ func items() -> Array[StoreItemView]:
 	var call_home := StoreItemView.new(
 		CALL_HOME, privilege, call_home_price(), refusal(CALL_HOME, with_points)
 	)
-	var all_items: Array[StoreItemView] = [generator, tools, land, rest_hour, call_home]
+	var all_items: Array[StoreItemView] = [generator, tools, land, fertiliser, rest_hour, call_home]
 	for item in all_items:
 		item.set_savings_refusal(refusal(item.id, Ledger.PayWith.HIDDEN_SAVINGS))
 	return all_items
+
+
+## Why the item `id` is sold out (FULLY_UPGRADED, FULLY_BOUGHT, or a full stock), or &"".
+func _sold_out(id: StringName) -> StringName:
+	if id == GENERATOR and _store.next_generator_tier() == null:
+		return FULLY_UPGRADED
+	if id == TOOLS and _store.next_tools_tier() == null:
+		return FULLY_UPGRADED
+	if id == LAND and _land.is_fully_bought():
+		return FULLY_BOUGHT
+	if id == FERTILISER and _supplies.is_full(id):
+		return Supplies.STOCK_FULL
+	return &""
+
+
+## What the item `id` costs now. Callers check it isn't sold out first.
+func _price(id: StringName) -> int:
+	if id == GENERATOR or id == TOOLS:
+		var tier: Resource = (
+			_store.next_generator_tier() if id == GENERATOR else _store.next_tools_tier()
+		)
+		var tier_price: float = tier.get("price")
+		return roundi(tier_price)
+	if id == LAND:
+		return plot_price()
+	if id == FERTILISER:
+		return fertiliser_price()
+	return rest_hour_price() if id == REST_HOUR else call_home_price()
 
 
 ## Whatever holds the Worker up, then whether `pay_with` covers `price`.

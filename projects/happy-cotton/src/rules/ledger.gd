@@ -19,6 +19,8 @@ enum PayWith { LABOUR_POINTS, HIDDEN_SAVINGS }
 const IN_DEBT := &"in_debt"
 const NOT_ENOUGH_LABOUR_POINTS := &"not_enough_labour_points"
 const NOT_ENOUGH_HIDDEN_SAVINGS := &"not_enough_hidden_savings"
+## The lowest balance a save can hold: Debt can grow, but not without end.
+const LEAST_SAVED_BALANCE := -1000000000
 
 var _balance := 0
 ## Labour Points earned by work this Shift, for the pay slip.
@@ -47,6 +49,38 @@ func _init(
 	_fees_unpaid = fees_unpaid
 	_fees_unpaid_in_a_row = fees_unpaid_in_a_row
 	_savings = maxi(savings, 0)
+
+
+## The Ledger from the top level of a Farm save at `version`. One from before the Bills
+## (version 3 or older) has nothing earned this Shift; one from before the school fees (4 or
+## older) has them paid up and next due at the end of Shift `fees_shift`; one from before hidden
+## savings (10 or older) has none. A negative balance restores as Debt.
+static func restored(reader: SaveReader, version: int, fees_shift: int) -> Ledger:
+	var balance := reader.whole("labour_points", LEAST_SAVED_BALANCE)
+	var earned_this_shift := reader.whole("shift_earned") if version >= 4 else 0
+	var savings := reader.whole("hidden_savings") if version >= 11 else 0
+	if version < 5:
+		return Ledger.new(balance, earned_this_shift, fees_shift, false, 0, savings)
+	return Ledger.new(
+		balance,
+		earned_this_shift,
+		reader.whole("school_fees_shift", 1),
+		reader.flag("school_fees_unpaid"),
+		reader.whole("school_fees_unpaid_in_a_row"),
+		savings
+	)
+
+
+## Its part of the Farm's save, at the save's top level.
+func to_save() -> Dictionary:
+	return {
+		"labour_points": _balance,
+		"hidden_savings": _savings,
+		"shift_earned": _earned,
+		"school_fees_shift": _next_fees_shift,
+		"school_fees_unpaid": _fees_unpaid,
+		"school_fees_unpaid_in_a_row": _fees_unpaid_in_a_row,
+	}
 
 
 ## Labour Points and Debt as one number: negative when in Debt.

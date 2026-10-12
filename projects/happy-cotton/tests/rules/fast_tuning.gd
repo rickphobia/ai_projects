@@ -35,6 +35,8 @@ extends RefCounted
 ## share of a quarter pass, and its tell starts 20 seconds before the Shift's end. Being caught
 ## starts a 120-second Study Session, longer than Negligence's 80, and puts him on watch for 2
 ## Shifts, when the chance doubles.
+## Fertiliser first costs 5 Labour Points and 2 more every Shift after the first; it doubles a
+## crop's growth. He holds at most 2 of each supply.
 
 const GROW_SECONDS := 30.0
 const SHIFT_SECONDS := 100.0
@@ -99,6 +101,10 @@ const AUDIT_TELL_SECONDS := 20.0
 const ON_WATCH_SHIFTS := 2
 const ON_WATCH_CHANCE_FACTOR := 2.0
 const CAUGHT_STUDY_SESSION_SECONDS := 120.0
+const FERTILISER_FIRST_PRICE := 5
+const FERTILISER_PRICE_RISE := 2
+const FERTILISER_GROWTH_FACTOR := 2.0
+const MOST_SUPPLIES_HELD := 2
 
 
 static func table() -> Tuning:
@@ -158,6 +164,10 @@ static func table() -> Tuning:
 	tuning.on_watch_shifts = ON_WATCH_SHIFTS
 	tuning.on_watch_chance_factor = ON_WATCH_CHANCE_FACTOR
 	tuning.caught_study_session_seconds = CAUGHT_STUDY_SESSION_SECONDS
+	tuning.fertiliser_first_price = FERTILISER_FIRST_PRICE
+	tuning.fertiliser_price_rise = FERTILISER_PRICE_RISE
+	tuning.fertiliser_growth_factor = FERTILISER_GROWTH_FACTOR
+	tuning.most_supplies_held = MOST_SUPPLIES_HELD
 	var tiers: Array[GeneratorTier] = []
 	for index in GENERATOR_PRICES.size():
 		tiers.append(
