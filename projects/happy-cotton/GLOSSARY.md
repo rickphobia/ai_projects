@@ -26,6 +26,10 @@ _Avoid_: relatives, home (as a character)
 The Worker's children, held at a state boarding school far away and present only through letters and calls.
 _Avoid_: kids, sons, daughters (unless naming one)
 
+**Letter**:
+A handwritten letter from one of the Children, arriving every few Shifts. It is their voice, never The App's; letters stop while school fees go unpaid, and those missed are lost.
+_Avoid_: message, mail, notification
+
 **Mascot**:
 The smiling cotton boll that speaks for The App.
 _Avoid_: helper, guide, tutorial character

@@ -1,8 +1,9 @@
 extends Node
 ## Entry scene: logs which build is running, loads and checks the tuning table, continues the
-## saved Farm (or starts a new one) and wires it to the field, The App and its store, and the
-## wall clock, and adds the debug controls (Skip time, +100 Labour Points) in debug mode. It
-## puts the player's settings into effect and opens the Settings screen from The App. It
+## saved Farm (or starts a new one) and wires it to the field, The App and its store, the
+## Children's letters (see LettersView) and the wall clock, and adds the debug controls (Skip
+## time, +100 Labour Points) in debug mode. It puts the player's settings into effect and opens
+## the Settings screen from The App. It
 ## autosaves after every command, at the end of each Shift, when the player leaves (see
 ## LeavingWatch), and every AUTOSAVE_SECONDS of play.
 ## Kept thin: no game rules here.
@@ -25,6 +26,7 @@ var _worker_activity := WorkerView.Activity.IN_FIELD
 var _since_autosave := 0.0
 ## False when a damaged save couldn't be moved aside: saving would overwrite it.
 var _can_save := true
+var _letters: LettersView
 
 @onready var _field: Field = $Field
 @onready var _app: AppOverlay = $AppOverlay
@@ -42,6 +44,10 @@ func _ready() -> void:
 		return
 	_tuning = tuning
 	GameLog.info("tuning loaded", {"path": TUNING_PATH})
+	_letters = LettersView.new()
+	_letters.name = "LettersView"
+	_letters.layer = _app.layer + 1
+	add_child(_letters)
 	_add_settings_screen()
 	_clock = WallClock.new(Time.get_unix_time_from_system)
 	_open_save()
@@ -56,10 +62,11 @@ func _ready() -> void:
 		add_child(debug_panel)
 
 
-## Adds the Settings screen above The App, hidden until The App's Settings button opens it.
+## Adds the Settings screen above The App and the letters, hidden until The App's Settings
+## button opens it.
 func _add_settings_screen() -> void:
 	var layer := CanvasLayer.new()
-	layer.layer = _app.layer + 1
+	layer.layer = _letters.layer + 1
 	var panel := SettingsPanel.new()
 	panel.name = "SettingsPanel"
 	panel.store = settings_store
@@ -74,6 +81,7 @@ func _add_settings_screen() -> void:
 func _apply_settings(settings: PlayerSettings) -> void:
 	SettingsEffects.apply_volume(settings)
 	_app.scale_text(settings.text_scale)
+	_letters.scale_text(settings.text_scale)
 	_app.set_reduced_motion(settings.reduced_motion)
 	_field.set_reduced_motion(settings.reduced_motion)
 
@@ -288,6 +296,22 @@ func _show_farm() -> void:
 	_field.show_plots(_farm.plots())
 	_show_worker()
 	_show_app()
+	_show_family()
+
+
+## Opens each letter that has just arrived and keeps the box up to date. Logs the letters
+## arriving, stopping and starting again, by id only: never their words.
+func _show_family() -> void:
+	for event in _farm.take_family_events():
+		if event.kind == Farm.LETTER_ARRIVED:
+			GameLog.info("letter arrived", {"id": event.id, "shift": _farm.shift().number})
+			if not _letters.open_letter(event.id):
+				GameLog.warning("letter has no text", {"id": event.id})
+		elif event.kind == Farm.LETTERS_STOPPED:
+			GameLog.info("letters stopped", {"shift": _farm.shift().number})
+		elif event.kind == Farm.LETTERS_STARTED_AGAIN:
+			GameLog.info("letters started again", {"shift": _farm.shift().number})
+	_letters.show_letters(_farm.letters_received())
 
 
 ## Shows the Worker and logs each change in what he is doing, such as stopping to breathe.
