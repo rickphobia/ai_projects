@@ -49,5 +49,5 @@ jobs:
       - run: npm run check
         working-directory: projects/rss-news/pwa
       # shellcheck comes preinstalled on the runner.
-      - run: shellcheck -x scripts/*.sh
+      - run: shellcheck -x scripts/*.sh deploy/*.sh
       - run: scripts/docker-smoke-test.sh

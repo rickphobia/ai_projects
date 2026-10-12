@@ -27,7 +27,7 @@ usage() {
 }
 
 # The projects build_web knows. scripts/previews.sh reads this list through --projects.
-web_projects=(happy-cotton my-piggy pawn-swarm)
+web_projects=(happy-cotton my-piggy pawn-swarm rss-news)
 
 # Builds the project in the current folder and prints the folder to serve. Each web project's
 # build steps come from its README. $2 names the build ("PR #41 · 1ae5b74").
@@ -45,6 +45,11 @@ build_web() {
       npm ci >&2
       npm run build >&2
       echo dist
+      ;;
+    rss-news)
+      uv sync --locked >&2
+      (cd pwa && npm ci && npm run build) >&2
+      echo pwa/dist
       ;;
     *) die "don't know how to build '$1'; add it to build_web and web_projects in $0" ;;
   esac
@@ -115,7 +120,19 @@ main() {
     url="http://localhost:$port/ (this machine only: browsers block Godot over plain http from other devices)"
   fi
   printf '\nPR #%s is at %s. Ctrl+C to stop.\n' "$pr" "$url"
-  python3 -m http.server --bind 127.0.0.1 --directory "$site" "$port"
+  serve_web "$project" "$site" "$port"
+}
+
+# Serves the built site on localhost:$3 until stopped. Projects with a backend run it instead of a
+# static file server, with a throwaway database inside the PR's checkout.
+serve_web() {
+  case $1 in
+    rss-news)
+      RSS_NEWS_PORT=$3 RSS_NEWS_PWA_DIR=$2 RSS_NEWS_DATABASE_PATH=data/try-pr.sqlite3 \
+        uv run rss-news serve
+      ;;
+    *) python3 -m http.server --bind 127.0.0.1 --directory "$2" "$3" ;;
+  esac
 }
 
 main "$@"

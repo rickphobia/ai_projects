@@ -198,6 +198,12 @@ use_collision = true
 size = Vector3(0.8, 0.9, 4.0)
 material = ExtResource("3_plaster")
 
+[node name="DoorCounter" type="CSGBox3D" parent="Walkable/Furniture"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7, 0.45, -17.6)
+use_collision = true
+size = Vector3(1.4, 0.9, 0.6)
+material = ExtResource("3_plaster")
+
 [node name="Bin" type="CSGBox3D" parent="Walkable/Furniture"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 0.35, -23.6)
 use_collision = true
@@ -334,13 +340,13 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.0, 0, -17.0)
 [node name="MumRoute" type="Node3D" parent="Markers"]
 
 [node name="Point1" type="Marker3D" parent="Markers/MumRoute"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0, -18.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.0, 0, -19.0)
 
 [node name="Point2" type="Marker3D" parent="Markers/MumRoute"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 0, -22.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.0, 0, -22.8)
 
 [node name="Point3" type="Marker3D" parent="Markers/MumRoute"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0, -19.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 0, -22.8)
 
 [node name="Point4" type="Marker3D" parent="Markers/MumRoute"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -10.5)

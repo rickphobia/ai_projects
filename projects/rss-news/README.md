@@ -4,7 +4,7 @@ A personal news briefing for one owner: it reads many Sources (RSS and Atom feed
 
 ## Status
 
-`in progress`: walking skeleton with sign-in. The backend answers `/healthz` and serves the PWA under the path prefix, locally and in Docker. The owner signs in with one password; the only screen after that says whether the server is up. No feeds or AI yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
+`in progress`: walking skeleton with sign-in. The backend answers `/healthz` and serves the PWA under the path prefix, locally and in Docker. Deployable to the Beelink. The owner signs in with one password; the only screen after that says whether the server is up. No feeds or AI yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
 
 ## Requirements
 
@@ -46,7 +46,7 @@ uv run ruff check && uv run ruff format --check && uv run mypy && uv run pytest 
 
 A single file: `uv run pytest tests/web/test_app.py`, or `npx vitest run tests/screens/shell.test.ts` in `pwa/`. `uv run ruff format` and `npm run format` fix formatting.
 
-CI (`.github/workflows/rss-news.yml`) runs the same commands, `shellcheck` on `scripts/`, and the Docker smoke test below.
+CI (`.github/workflows/rss-news.yml`) runs the same commands, `shellcheck` on `scripts/` and `deploy/`, and the Docker smoke test below.
 
 ## Docker
 
@@ -58,7 +58,82 @@ scripts/docker-smoke-test.sh   # builds, starts with dummy settings, checks /hea
 
 The image is built in two stages ([decision 0002](docs/decisions/0002-python-api-with-typescript-pwa.md)): a Node stage builds the PWA, and the Python stage runs `rss-news serve` and serves the built files from `/app/pwa`. The database lives in `/app/data`; mount a volume there so it survives new containers. The image runs as an unprivileged user and has a Docker `HEALTHCHECK` on `/healthz`.
 
-The smoke test fails if `/healthz`, the page or its script don't answer under the prefix, if the database isn't written to the mounted folder, if `/api/session` doesn't answer 401 without a session or the dummy password doesn't sign in, or if the container uses 300MB of RAM or more (the spec's budget). Deploying to the Beelink is ticket 02.
+The smoke test fails if `/healthz`, the page or its script don't answer under the prefix, if the database isn't written to the mounted folder, if `/api/session` doesn't answer 401 without a session or the dummy password doesn't sign in, or if the container uses 300MB of RAM or more (the spec's budget).
+
+## Deploy
+
+The app runs as a Docker container on the Beelink, on the shared `homelab_default` network, behind the host nginx (`portfolio-nginx`) at `https://rickphobia.com/ai-projects/rss-news/`. GitHub can't reach the home network, so the server pulls: you run one script there. The scripts are the same as court-booker's.
+
+`deploy/update-site.sh` fetches `main` into `~/homelab/dev/ai_slops`, builds the image `rss-news:<commit>`, loads `deploy/settings.sh` again from that commit, starts a new container with the env file and the data folder mounted at `/app/data` (where the SQLite file lives), and waits up to 60 seconds for `/healthz`. Only then does it give the new container the network name `rss-news` (which nginx proxies to) and remove the old one. If any step fails, the script exits non-zero, names the step, and the old container keeps serving. If `main` hasn't moved and its container is running, it does nothing. The settings both scripts share are in `deploy/settings.sh`.
+
+### One-time setup (on the Beelink)
+
+Needs `git`, `docker` (your user can run it without sudo) and `flock` (already on Ubuntu).
+
+1. **Env file** (the secrets file), outside the repo: `mkdir -p ~/homelab/env && cp projects/rss-news/.env.example ~/homelab/env/rss-news.env && chmod 600 ~/homelab/env/rss-news.env`. The deploy forces `RSS_NEWS_HOST`, `RSS_NEWS_DATABASE_PATH` and `RSS_NEWS_PWA_DIR` to the container's values, so leave the rest as is, except the two sign-in secrets: set `RSS_NEWS_PASSWORD_HASH` to the output of `docker run --rm -it rss-news:<commit> rss-news hash-password` (or `uv run rss-news hash-password` in a checkout) and `RSS_NEWS_SESSION_SECRET` to `openssl rand -hex 32`. Without them the container won't start. Later tickets add more secrets (AI and push keys) to the Configuration table below; put them in this file and never commit them.
+2. **Data folder** (the SQLite file, kept across deploys and rollbacks): `mkdir -p ~/homelab/data/rss-news`. The container runs as your user, so it can write there.
+3. **nginx.** Save this as `~/homelab/nginx/projects/rss-news.conf` (included inside the existing server block), then check and reload: `docker exec portfolio-nginx nginx -t && docker exec portfolio-nginx nginx -s reload`.
+
+   ```nginx
+   # rss-news: proxied to the container on homelab_default.
+   location = /ai-projects/rss-news { return 301 https://$host$uri/; }
+
+   location /ai-projects/rss-news/ {
+       # Resolve per request, so a missing container is a 502 here, not an nginx that won't start.
+       resolver 127.0.0.11 valid=10s;
+       set $rss_news_upstream rss-news:8000;
+       # No URI part: the app gets the full /ai-projects/rss-news/... path and handles the prefix.
+       proxy_pass http://$rss_news_upstream;
+       proxy_set_header Host $host;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-Proto https;
+   }
+   ```
+
+4. **First deploy:** if `~/homelab/dev/ai_slops` doesn't exist yet, `mkdir -p ~/homelab/dev && git clone https://github.com/rickphobia/ai_slops.git ~/homelab/dev/ai_slops`; then `~/homelab/dev/ai_slops/projects/rss-news/deploy/update-site.sh`.
+5. **Uptime Kuma:** add an HTTP(s) monitor on `https://rickphobia.com/ai-projects/rss-news/healthz`, expecting status 200, every 60 seconds.
+
+### Update
+
+```bash
+~/homelab/dev/ai_slops/projects/rss-news/deploy/update-site.sh
+```
+
+To redeploy even though `main` hasn't changed: `RSS_NEWS_FORCE=1 ~/homelab/dev/ai_slops/projects/rss-news/deploy/update-site.sh`.
+
+Settings are environment variables with defaults; the scripts do not read `.env`:
+
+| Variable | Default |
+|----------|---------|
+| `RSS_NEWS_ENV_FILE` | `~/homelab/env/rss-news.env` |
+| `RSS_NEWS_DATA_DIR` | `~/homelab/data/rss-news` |
+| `RSS_NEWS_NETWORK` | `homelab_default` |
+| `RSS_NEWS_SRC_DIR` | `~/homelab/dev/ai_slops` |
+| `RSS_NEWS_REPO_URL` | `https://github.com/rickphobia/ai_slops.git` |
+| `RSS_NEWS_BRANCH` | `main` |
+| `RSS_NEWS_FORCE` | `0` |
+
+### Roll back
+
+```bash
+~/homelab/dev/ai_slops/projects/rss-news/deploy/rollback.sh
+```
+
+Starts the previous image (recorded in `~/homelab/dev/rss-news.previous-tag`) the same way, health check and data folder included. Run it again to undo. The next `update-site.sh` run puts `main` back, so fix `main` first. Old images stay until you prune them; a pruned previous image can't be rolled back to.
+
+### Check that it worked
+
+```bash
+curl -I https://rickphobia.com/ai-projects/rss-news/healthz   # expect HTTP 200
+cat ~/homelab/dev/rss-news.deployed-tag                      # the commit that is live
+docker ps --filter name=rss-news-                            # one container, healthy
+```
+
+Logs: `docker logs rss-news-<tag>-<n>`, or Dozzle.
+
+### Try a PR before merging
+
+`scripts/try-pr.sh <PR number>` (at the repo root) checks the PR out in its own worktree, builds the PWA and runs the backend on `localhost:8000` with a throwaway database. The Beelink preview timer (`scripts/previews.sh`) does this for every open rss-news PR and links it in the PR body. The app answers both at `/` and under `/ai-projects/rss-news/`.
 
 ## Configuration
 
@@ -105,6 +180,7 @@ pwa/
   src/screens/       one module per screen
   tests/             Vitest + Testing Library, against a fake ApiClient
 scripts/docker-smoke-test.sh
+deploy/              update-site.sh, rollback.sh and their shared settings.sh
 docs/                spec, tickets, decisions
 ```
 

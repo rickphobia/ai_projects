@@ -162,11 +162,12 @@ Godot adapters (thin, smoke-tested):
 - **Urge:** 0–100, rises 4 per second at rest, 6 while trotting. Warning signs start at 70; outburst at 100. After an outburst the urge drops to 30.
 - **Resisting makes it worse:** each suppressed outburst raises the urge rise rate by 10% for the rest of the space.
 - **Suppress:** while held at or above 100 urge, the outburst waits; movement drops to 25% speed. Each second held adds 15% to the next outburst's loudness. If held past 6 seconds, the outburst happens anyway at that raised loudness.
-- **Give in:** takes 3 seconds at a give-in spot, drops the urge to 0, and makes a quiet noise (radius 2 m). Each give-in spot can be used once per checkpoint.
+- **Give in:** takes 2 seconds at a give-in spot, drops the urge to 0, and makes a quiet noise (radius 2 m). Each give-in spot can be used once per checkpoint.
 - **Noise radii (heard distance before muffling):** creep 0 m, walk 3 m, trot 9 m, door push 2–8 m by speed, snort outburst 12 m, squeal outburst 22 m. Each closed door or wall between the noise and Mum cuts the radius by 40%.
 - **Mum:** walks at 1.4 m/s on her route, 2.0 m/s when investigating, 3.6 m/s when chasing (the Piggy trots at 3.2 m/s, so you can't simply outrun her). Torch cone 35°, 10 m range. She searches for 20 seconds before going back to her route; after losing sight in a chase she searches the last seen spot.
 - **Caught:** Mum within 1 m of the Piggy while chasing.
 - **After being caught:** the checkpoint does not keep Mum. She comes back unaware, walking her route, at least 8 m from the Piggy on foot and not seeing them, with nothing remembered of where they were; she hunts again only if the Piggy makes a noise she hears or steps into her torch beam. None of her route points is within 3 m of where a space's checkpoint is taken.
+- **Getting into the kitchen:** each loop of her route she spends at least 8 seconds in the kitchen with her torch off the doorway and the first metre inside it (she walks to the back wall), and just inside the doorway there is cover (a counter) her torch never finds on her route.
 
 ### Content and assets
 
