@@ -40,6 +40,7 @@ const LIMITS: Dictionary = {
 	"rent_per_shift": [0.0, 10000.0],
 	"school_fees": [0.0, 100000.0],
 	"school_fees_every_shifts": [1.0, 1000.0],
+	"letter_every_shifts": [1.0, 1000.0],
 }
 ## Fields that count things (picks, points), so they must be whole numbers.
 const WHOLE_NUMBERS: Array[String] = [
@@ -53,6 +54,7 @@ const WHOLE_NUMBERS: Array[String] = [
 	"rent_per_shift",
 	"school_fees",
 	"school_fees_every_shifts",
+	"letter_every_shifts",
 ]
 ## What a Generator tier's growth multiplier is measured against: no Upgrade at all.
 const NO_UPGRADE_GROWTH := 1.0
@@ -150,6 +152,9 @@ const MOST_TIER_QUOTA_RISE := 10000.0
 @export var school_fees: float = NAN
 ## How many Shifts apart the school fees come; the first are due at the end of this Shift.
 @export var school_fees_every_shifts: float = NAN
+## How many Shifts apart the Children's letters come: one arrives at the start of every Shift
+## whose number divides by this, unless the letters have stopped.
+@export var letter_every_shifts: float = NAN
 ## The Generator Upgrade's tiers, bought in order: each one's price, growth per second of
 ## running, and Quota rise. At least one tier.
 @export var generator_tiers: Array[GeneratorTier] = []

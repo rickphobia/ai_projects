@@ -93,6 +93,26 @@ func test_school_fees_must_come_at_least_every_shift() -> void:
 	assert_string_contains(problems[0], "school_fees_every_shifts")
 
 
+func test_letters_must_come_a_whole_number_of_shifts_apart() -> void:
+	var tuning := _good_table()
+	tuning.letter_every_shifts = 1.5
+
+	assert_eq(
+		tuning.problems(),
+		["letter_every_shifts is 1.5, but it must be a whole number"] as Array[String]
+	)
+
+
+func test_letters_must_come_at_least_every_shift() -> void:
+	var tuning := _good_table()
+	tuning.letter_every_shifts = 0.0
+
+	var problems := tuning.problems()
+
+	assert_eq(problems.size(), 1)
+	assert_string_contains(problems[0], "letter_every_shifts")
+
+
 func test_a_quota_that_does_not_rise_is_reported() -> void:
 	var tuning := _good_table()
 	tuning.quota_rise = 0.0

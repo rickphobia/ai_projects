@@ -30,6 +30,9 @@ extends RefCounted
 ## run that Shift, then rent, shown as a pay slip. A Bill the Labour Points can't cover becomes
 ## Debt, which earnings pay down first; while it lasts no Privilege or Upgrade can be bought.
 ## A missed Quota takes away every Privilege for the next Shift.
+## Every few Shifts a letter from the Worker's Children arrives (see Letters), as a Family
+## event apart from the App messages. A school-fees Bill that leaves a shortfall stops the
+## letters until the Debt is cleared; letters that came due meanwhile are lost.
 ## to_save() gives the whole Farm as plain data and restore() takes it back, so a restored Farm
 ## plays on exactly as the saved one would have.
 
@@ -74,9 +77,10 @@ const STORE_REFUSALS: Array[StringName] = [
 ## tools; a version 2 save restores with none. Version 4 added the Bills; a version 3 save
 ## restores with nothing earned and no laps run yet this Shift. Version 5 added the school
 ## fees; an older save restores with them paid up and due school_fees_every_shifts Shifts after
-## its own.
-const SAVE_VERSION := 5
-const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, SAVE_VERSION]
+## its own. Version 6 added the letters; an older save restores with none received and no
+## letter Shifts passed.
+const SAVE_VERSION := 6
+const SAVE_VERSIONS_READ: Array[int] = [1, 2, 3, 4, 5, SAVE_VERSION]
 ## The lowest balance a save can hold: Debt can grow, but not without end.
 const LEAST_SAVED_BALANCE := -1000000000
 
@@ -150,6 +154,25 @@ const MESSAGE_KEYS: Array[StringName] = [
 	DEBT_CLEARED,
 	CHILDREN_AT_SCHOOL,
 ]
+## Family events (FamilyEvent kinds), the Children's side, never App text. A letter arrived at
+## the start of a Shift: id is one of LETTER_IDS.
+const LETTER_ARRIVED := &"letter_arrived"
+## A school-fees Bill left a shortfall, so no letters come until the Debt is cleared.
+const LETTERS_STOPPED := &"letters_stopped"
+## The Debt that stopped the letters was cleared, so the next letter Shift brings one again.
+const LETTERS_STARTED_AGAIN := &"letters_started_again"
+## Every letter, in the order they arrive; the Family text table must have text for each. Their
+## tone moves from warm and homesick to distant and full of school slogans.
+const LETTER_IDS: Array[StringName] = [
+	&"letter_01",
+	&"letter_02",
+	&"letter_03",
+	&"letter_04",
+	&"letter_05",
+	&"letter_06",
+	&"letter_07",
+	&"letter_08",
+]
 ## Overseer events, for the field and its sounds; never App text. He blew his whistle at the
 ## Worker stopped to breathe.
 const OVERSEER_WHISTLE := Toil.WHISTLE
@@ -176,6 +199,8 @@ var _study_left := 0.0
 ## Quotas missed since the last met one; it sets the next Study Session's length.
 var _misses_in_a_row := 0
 var _messages: Array[AppMessage] = []
+var _letters := Letters.new(LETTER_IDS)
+var _family_events: Array[FamilyEvent] = []
 ## Seconds left of a slow field action; he can do no other field work until it is 0.
 var _busy_left := 0.0
 ## Seconds left of a rest hour; 0 when he isn't resting.
@@ -244,7 +269,7 @@ func pick(index: int) -> CommandResult:
 		_messages.append(AppMessage.new(COTTON_DROPPED, {}))
 	else:
 		_picked += 1
-		_note_debt_cleared(_ledger.earn(roundi(_tuning.labour_points_per_pick)))
+		_pay_in(roundi(_tuning.labour_points_per_pick), true)
 	return CommandResult.done()
 
 
@@ -302,7 +327,7 @@ func buy_upgrade(upgrade: StringName) -> CommandResult:
 ## Only the debug wiring calls this, so players can never use it: it adds Labour Points
 ## without work, to reach the store's dearer items quickly.
 func debug_add_labour_points(points: int) -> void:
-	_note_debt_cleared(_ledger.credit(points))
+	_pay_in(points, false)
 
 
 ## Buys a Privilege with Labour Points. The only one so far is REST_HOUR.
@@ -422,6 +447,7 @@ func to_save() -> Dictionary:
 		"school_fees_shift": _ledger.next_fees_shift(),
 		"school_fees_unpaid": _ledger.fees_unpaid(),
 		"school_fees_unpaid_in_a_row": _ledger.fees_unpaid_in_a_row(),
+		"letters": {"letter_shifts": _letters.letter_shifts(), "received": _letters.received()},
 		"study_left": _study_left,
 		"misses_in_a_row": _misses_in_a_row,
 		"busy_left": _busy_left,
@@ -465,6 +491,14 @@ func restore(save: Dictionary) -> Array[String]:
 		fees_shift = reader.whole("school_fees_shift", 1)
 		fees_unpaid = reader.flag("school_fees_unpaid")
 		fees_unpaid_in_a_row = reader.whole("school_fees_unpaid_in_a_row")
+	var letters := Letters.new(LETTER_IDS)
+	if version >= 6:
+		var letters_section := reader.section("letters")
+		letters = Letters.new(
+			LETTER_IDS,
+			letters_section.whole("letter_shifts"),
+			letters_section.ids("received", LETTER_IDS)
+		)
 	var study_left := reader.number("study_left")
 	var misses_in_a_row := reader.whole("misses_in_a_row")
 	var busy_left := minf(reader.number("busy_left"), _tuning.slow_action_seconds)
@@ -484,6 +518,7 @@ func restore(save: Dictionary) -> Array[String]:
 	_shift_elapsed = shift_elapsed
 	_picked = picked
 	_ledger = Ledger.new(balance, shift_earned, fees_shift, fees_unpaid, fees_unpaid_in_a_row)
+	_letters = letters
 	_study_left = study_left
 	_misses_in_a_row = misses_in_a_row
 	_busy_left = busy_left
@@ -492,6 +527,7 @@ func restore(save: Dictionary) -> Array[String]:
 	_store = store
 	_shift_upgrade_rise = shift_upgrade_rise
 	_messages = []
+	_family_events = []
 	return []
 
 
@@ -520,6 +556,16 @@ func school_fees_unpaid() -> bool:
 ## School-fees Bills in a row that left a shortfall; a covered one resets the count.
 func school_fees_unpaid_in_a_row() -> int:
 	return _ledger.fees_unpaid_in_a_row()
+
+
+## The letters received so far, oldest first.
+func letters_received() -> Array[StringName]:
+	return _letters.received()
+
+
+## Set while unpaid school fees keep the letters from coming; cleared with the Debt.
+func letters_stopped() -> bool:
+	return _ledger.fees_unpaid()
 
 
 ## Labour Points to spend; 0 while in Debt.
@@ -663,6 +709,13 @@ func take_messages() -> Array[AppMessage]:
 	return taken
 
 
+## What the Family sent since the last call, oldest first. Empties the queue.
+func take_family_events() -> Array[FamilyEvent]:
+	var taken := _family_events
+	_family_events = []
+	return taken
+
+
 ## The Quota only ever rises: a fixed step every Shift, met or missed, and the rise of every
 ## Upgrade bought before this Shift began.
 func _quota() -> int:
@@ -674,6 +727,10 @@ func _start_shift() -> void:
 	_picked = 0
 	_shift_upgrade_rise = _store.quota_rise()
 	_messages.append(AppMessage.new(SHIFT_STARTED, {"shift": _shift_number, "quota": _quota()}))
+	var every := roundi(_tuning.letter_every_shifts)
+	var letter := _letters.start_shift(_shift_number, every, letters_stopped())
+	if letter != &"":
+		_family_events.append(FamilyEvent.new(LETTER_ARRIVED, letter))
 
 
 ## Checks the Quota, charges the Bills, raises the Exhaustion floor and starts the next Shift.
@@ -699,16 +756,24 @@ func _end_shift() -> void:
 ## The pay slip, and word of the Worker falling into Debt if the Bills put him there.
 func _charge_bills() -> void:
 	var was_in_debt := _ledger.in_debt()
+	var were_stopped := letters_stopped()
 	var slip := _ledger.settle_shift(_shift_number, _toil.take_laps_run(), _tuning)
 	_messages.append(AppMessage.new(PAY_SLIP, slip))
 	if _ledger.in_debt() and not was_in_debt:
 		_messages.append(AppMessage.new(FELL_INTO_DEBT, {"debt": _ledger.debt()}))
+	if letters_stopped() and not were_stopped:
+		_family_events.append(FamilyEvent.new(LETTERS_STOPPED))
 
 
-## Says so when Labour Points just paid off the last of the Debt.
-func _note_debt_cleared(cleared: bool) -> void:
+## Adds Labour Points, as wages for work (counted on the pay slip) or not. Says so when they
+## paid off the last of the Debt, and when that starts the letters again.
+func _pay_in(points: int, wages: bool) -> void:
+	var were_stopped := letters_stopped()
+	var cleared := _ledger.earn(points) if wages else _ledger.credit(points)
 	if cleared:
 		_messages.append(AppMessage.new(DEBT_CLEARED, {"points": _ledger.labour_points()}))
+	if were_stopped and not letters_stopped():
+		_family_events.append(FamilyEvent.new(LETTERS_STARTED_AGAIN))
 
 
 func _fees_every() -> int:
