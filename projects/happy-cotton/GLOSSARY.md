@@ -158,11 +158,11 @@ _Avoid_: tax, cost, expense, fee (alone)
 
 **Hand-in**:
 The end of a Shift, when The App asks the Worker to hand in his cotton. Only what he hands in counts towards the Quota and earns Labour Points. The Farm waits until he does.
+_Avoid_: delivery, submission, weigh-in
 
 **Crop counter**:
 The number of crops the Worker has picked this Shift without dropping them, and so the cotton in hand for the Hand-in. It goes back to zero when the next Shift starts.
 _Avoid_: score, harvest count
-_Avoid_: delivery, submission, weigh-in
 
 **Keeping back**:
 Holding some of the Worker's cotton back at the Hand-in, to sell on the side for his Family. The App calls it theft, and only when it catches him.

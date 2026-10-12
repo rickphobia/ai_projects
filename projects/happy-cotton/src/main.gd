@@ -243,7 +243,9 @@ func _on_land_pressed() -> void:
 func _on_hand_in_pressed() -> void:
 	var result := _farm.hand_in()
 	if not result.happened:
-		GameLog.debug("hand in refused", {"reason": result.reason})
+		# The card shows only while a Hand-in is open, so this is odd.
+		GameLog.warning("hand in refused", {"reason": result.reason})
+		return
 	_save("shift_end")
 	_show_farm()
 
