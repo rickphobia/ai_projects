@@ -45,6 +45,7 @@ private val timeFormat = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm:ss")
 fun RecorderScreen(
     walletApps: List<WalletAppOnPhone>,
     recordings: List<Recording>,
+    full: Boolean,
     zone: ZoneId,
     onShare: () -> Unit,
     onClear: () -> Unit,
@@ -81,6 +82,9 @@ fun RecorderScreen(
                     pluralStringResource(R.plurals.recorder_count, recordings.size, recordings.size),
                     style = MaterialTheme.typography.titleMedium,
                 )
+                if (full) {
+                    Text(stringResource(R.string.recorder_full), color = MaterialTheme.colorScheme.error)
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = onShare, enabled = recordings.isNotEmpty()) {
                         Text(stringResource(R.string.recorder_share))
@@ -158,6 +162,7 @@ private fun RecorderScreenPreview() {
                         "",
                     ),
                 ),
+            full = false,
             zone = ZoneId.of("Asia/Kuala_Lumpur"),
             onShare = {},
             onClear = {},

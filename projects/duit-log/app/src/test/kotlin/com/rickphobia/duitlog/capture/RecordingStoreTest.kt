@@ -72,8 +72,23 @@ class RecordingStoreTest {
         val store = store(maxBytes = 150)
         store.record(recording(key = "a"))
 
+        assertFalse(store.full.value)
+
         assertEquals(RecordOutcome.FULL, store.record(recording(key = "b")))
         assertEquals(1, store().recordings.value.size)
+        assertTrue(store.full.value)
+    }
+
+    @Test
+    fun `clearing a full store makes room again`() {
+        val store = store(maxBytes = 150)
+        store.record(recording(key = "a"))
+        store.record(recording(key = "b"))
+
+        store.clear()
+
+        assertFalse(store.full.value)
+        assertEquals(RecordOutcome.RECORDED, store.record(recording(key = "b")))
     }
 
     @Test

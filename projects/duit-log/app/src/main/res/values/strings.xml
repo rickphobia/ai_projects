@@ -44,6 +44,7 @@
     <item quantity="one">%d notification recorded</item>
     <item quantity="other">%d notifications recorded</item>
   </plurals>
+  <string name="recorder_full">The recordings are full, so new notifications aren\'t being recorded. Share them, then clear them.</string>
   <string name="recorder_share">Share</string>
   <string name="recorder_share_chooser">Send the recordings</string>
   <string name="recorder_clear">Clear</string>

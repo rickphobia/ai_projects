@@ -1,6 +1,7 @@
 package com.rickphobia.duitlog.onboarding
 
 import android.os.Build
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -87,8 +88,8 @@ fun NotificationAccessGuide(
 @Composable
 private fun GuideStep(
     number: Int,
-    title: Int,
-    body: Int,
+    @StringRes title: Int,
+    @StringRes body: Int,
     action: @Composable () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

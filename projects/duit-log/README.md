@@ -89,13 +89,13 @@ duit-log reads Wallet payments from notifications, so it needs notification acce
 3. **Android 12 and later: switch other apps off.** On duit-log's notification access page, open **Apps** (or **See all apps**) and switch off every app except Touch 'n Go eWallet, Grab and Shopee. Android then doesn't pass their notifications to duit-log at all.
 4. **Android 13 and later: allow duit-log's own notifications**, for the Category Prompt in later versions.
 
-If access is turned off later (an update, a battery optimiser), the home screen shows a banner with a button to the settings page.
+If access is turned off later (an update, a battery optimiser), the home screen shows a banner with a button to the settings page. If access is on but Android has stopped the listener, opening the app asks Android to reconnect it (the log says "asking Android to rebind it").
 
 ## Privacy
 
 Notification access hands the app every notification on the phone; Android has nothing narrower (decision [0003](docs/decisions/0003-notification-access-with-a-wallet-allowlist.md)). Two rules make that acceptable:
 
-- **Anything not posted by a Wallet app is dropped at once.** The Notification Reader's first step ([`core/.../reader/NotificationReader.kt`](core/src/main/kotlin/com/rickphobia/duitlog/core/reader/NotificationReader.kt)) decides "Not a Wallet" from the posting app's package name alone, and the listener ([`app/.../capture/WalletNotificationListener.kt`](app/src/main/kotlin/com/rickphobia/duitlog/capture/WalletNotificationListener.kt)) returns straight away for those: nothing saved, logged or counted. `NotificationReaderTest` checks that a WhatsApp message and a bank alert are dropped whatever they say.
+- **Anything not posted by a Wallet app is dropped at once.** The Notification Reader's first step ([`core/.../reader/NotificationReader.kt`](core/src/main/kotlin/com/rickphobia/duitlog/core/reader/NotificationReader.kt)) decides "Not a Wallet" from the posting app's package name alone and only then asks for the notification's text, so the listener ([`app/.../capture/WalletNotificationListener.kt`](app/src/main/kotlin/com/rickphobia/duitlog/capture/WalletNotificationListener.kt)) drops those without reading, saving, logging or counting them. `NotificationReaderTest` checks that a WhatsApp message and a bank alert are dropped whatever they say, and that their text is never read.
 - **The AI only ever sees a Merchant name, an amount and the Category names** (from ticket 15).
 
 The log records listener start and stop and each recorded Wallet notification's Wallet and time, never its text. The recordings stay on the phone (left out of Android's backup) until you share them.
@@ -114,7 +114,7 @@ The Recorder screen lists them with "installed" or "not found on this phone". If
 
 ## Recorder
 
-Milestone 1 collects the Wallets' real wording so the Notification Reader can be written from it. Home → **Recorder** lists every recorded Wallet notification, newest first (app, time, title, text, expanded text). **Share** sends them all as a text file through the share menu; blank out names and amounts before passing it on. **Clear** deletes them after a confirm. A notification posted again with the same words (Wallets update notifications in place) is recorded once. The recordings live in `files/recordings/recordings.tsv` in the app's private storage, capped at 5 MB; past that, new ones are dropped and the log says "the recordings are full".
+Milestone 1 collects the Wallets' real wording so the Notification Reader can be written from it. Home → **Recorder** lists every recorded Wallet notification, newest first (app, time, title, text, expanded text). **Share** sends them all as a text file through the share menu; blank out names and amounts before passing it on. **Clear** deletes them after a confirm. A notification posted again with the same words (Wallets update notifications in place) is recorded once. The recordings live in `files/recordings/recordings.tsv` in the app's private storage, capped at 5 MB; past that, new ones are dropped, the Recorder screen says the recordings are full, and so does the log.
 
 ## Signing key
 

@@ -9,6 +9,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -18,6 +19,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.content.FileProvider
 import com.rickphobia.duitlog.capture.RecorderScreen
+import com.rickphobia.duitlog.capture.RecordingsNotClearedException
+import com.rickphobia.duitlog.capture.WalletNotificationListener
 import com.rickphobia.duitlog.capture.walletAppsOnPhone
 import com.rickphobia.duitlog.logging.AppLog
 import com.rickphobia.duitlog.onboarding.FirstRun
@@ -37,6 +40,8 @@ class MainActivity : ComponentActivity() {
     // Re-read on every resume: the user grants these in Android's settings, outside the app.
     private var accessGranted by mutableStateOf(false)
     private var notificationsAllowed by mutableStateOf(false)
+
+    private val recordings get() = (application as DuitLogApplication).recordings
 
     private val askToPostNotifications =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -84,9 +89,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        accessGranted = NotificationAccess.isGranted(this)
+        val granted = NotificationAccess.isGranted(this)
+        if (granted != accessGranted) AppLog.i("notification access is ${if (granted) "on" else "off"}")
+        accessGranted = granted
         notificationsAllowed = NotificationAccess.canPostNotifications(this)
-        if (!accessGranted) AppLog.w("notification access is off")
+        if (granted && !WalletNotificationListener.connected) WalletNotificationListener.rebind(this)
     }
 
     @Composable
@@ -106,12 +113,13 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun Recorder(onBack: () -> Unit) {
-        val store = (application as DuitLogApplication).recordings
-        val recordings by store.recordings.collectAsState()
+        val recorded by recordings.recordings.collectAsState()
+        val full by recordings.full.collectAsState()
         val walletApps = remember { walletAppsOnPhone(packageManager) }
         RecorderScreen(
             walletApps = walletApps,
-            recordings = recordings,
+            recordings = recorded,
+            full = full,
             zone = ZoneId.systemDefault(),
             onShare = ::shareRecordings,
             onClear = ::clearRecordings,
@@ -133,28 +141,27 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun shareRecordings() {
-        val store = (application as DuitLogApplication).recordings
         try {
-            store.exportTo(recordingsCopy(), ZoneId.systemDefault())
+            recordings.exportTo(recordingsCopy(), ZoneId.systemDefault())
         } catch (e: IOException) {
             AppLog.e("writing the recordings for sharing failed", e)
             return
         }
-        AppLog.i("sharing ${store.recordings.value.size} recordings")
+        AppLog.i("sharing ${recordings.recordings.value.size} recordings")
         share(recordingsCopy(), R.string.recorder_share_chooser)
     }
 
     private fun clearRecordings() {
-        val store = (application as DuitLogApplication).recordings
-        val count = store.recordings.value.size
+        val count = recordings.recordings.value.size
         try {
-            store.clear()
-        } catch (e: IllegalStateException) {
+            recordings.clear()
+        } catch (e: RecordingsNotClearedException) {
             AppLog.e("clearing the recordings failed", e)
             return
         }
         // The shared copy holds the same notification text, so it goes too.
-        recordingsCopy().delete()
+        val copy = recordingsCopy()
+        if (copy.exists() && !copy.delete()) AppLog.w("couldn't delete the shared copy of the recordings")
         AppLog.i("cleared $count recordings")
     }
 
@@ -162,7 +169,7 @@ class MainActivity : ComponentActivity() {
 
     private fun share(
         file: File,
-        chooserTitle: Int,
+        @StringRes chooserTitle: Int,
     ) {
         val uri = FileProvider.getUriForFile(this, "$packageName.files", file)
         val send =

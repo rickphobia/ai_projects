@@ -7,41 +7,38 @@ import java.time.Instant
 class NotificationReaderTest {
     private val reader = NotificationReader(WalletApps.DEFAULT)
 
-    private fun notification(
-        packageName: String,
+    private fun content(
         title: String = "Payment successful",
         text: String = "You have paid RM12.50 to Nasi Kandar Pelita",
-        expandedText: String = "You have paid RM12.50 to Nasi Kandar Pelita using your eWallet balance",
-    ) = RawNotification(
-        packageName = packageName,
+    ) = NotificationContent(
         title = title,
         text = text,
-        expandedText = expandedText,
+        expandedText = "$text using your eWallet balance",
         postedAt = Instant.parse("2026-10-12T04:30:00Z"),
     )
 
     @Test
     fun `a WhatsApp message is Not a Wallet even when it reads like a payment`() {
-        val whatsApp = notification("com.whatsapp", title = "Ali", text = "You have paid RM12.50 to Touch 'n Go")
+        val whatsApp = content(title = "Ali", text = "You have paid RM12.50 to Touch 'n Go")
 
-        assertEquals(Reading.NotAWallet, reader.read(whatsApp))
+        assertEquals(Reading.NotAWallet, reader.read("com.whatsapp") { whatsApp })
     }
 
     @Test
     fun `a bank alert is Not a Wallet even when it mentions a Wallet and an amount`() {
-        val bank =
-            notification(
-                "com.maybank2u.life",
-                title = "Transfer successful",
-                text = "RM50.00 transferred to TNG eWallet. TAC 123456",
-            )
+        val bank = content(title = "Transfer successful", text = "RM50.00 transferred to TNG eWallet. TAC 123456")
 
-        assertEquals(Reading.NotAWallet, reader.read(bank))
+        assertEquals(Reading.NotAWallet, reader.read("com.maybank2u.life") { bank })
+    }
+
+    @Test
+    fun `a notification from another app is dropped without its text being read`() {
+        reader.read("com.whatsapp") { throw AssertionError("read the text of a notification that isn't a Wallet's") }
     }
 
     @Test
     fun `an app whose package name only starts like a Wallet's is Not a Wallet`() {
-        assertEquals(Reading.NotAWallet, reader.read(notification("my.com.tngdigital.ewallet.fake")))
+        assertEquals(Reading.NotAWallet, reader.read("my.com.tngdigital.ewallet.fake") { content() })
     }
 
     @Test
@@ -54,8 +51,7 @@ class NotificationReaderTest {
             )
 
         expected.forEach { (packageName, wallet) ->
-            val raw = notification(packageName)
-            assertEquals(Reading.FromWallet(wallet, raw), reader.read(raw))
+            assertEquals(Reading.FromWallet(wallet, content()), reader.read(packageName) { content() })
         }
     }
 

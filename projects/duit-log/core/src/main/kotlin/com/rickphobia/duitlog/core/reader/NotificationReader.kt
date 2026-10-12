@@ -2,9 +2,8 @@ package com.rickphobia.duitlog.core.reader
 
 import java.time.Instant
 
-/** A notification as Android posted it, before anything has been decided about it. */
-data class RawNotification(
-    val packageName: String,
+/** What a posted notification says, and when it was posted. */
+data class NotificationContent(
     val title: String,
     val text: String,
     val expandedText: String,
@@ -25,19 +24,23 @@ sealed interface Reading {
      */
     data class FromWallet(
         val wallet: Wallet,
-        val notification: RawNotification,
+        val content: NotificationContent,
     ) : Reading
 }
 
 /**
  * Turns a posted notification into a [Reading]. Its first step decides "Not a Wallet" from the
- * posting app alone, so no text from any other app is ever looked at.
+ * posting app alone; the content is only fetched after that, so no text from any other app is
+ * ever read.
  */
 class NotificationReader(
     private val walletApps: WalletApps,
 ) {
-    fun read(notification: RawNotification): Reading {
-        val wallet = walletApps.walletFor(notification.packageName) ?: return Reading.NotAWallet
-        return Reading.FromWallet(wallet, notification)
+    fun read(
+        packageName: String,
+        content: () -> NotificationContent,
+    ): Reading {
+        val wallet = walletApps.walletFor(packageName) ?: return Reading.NotAWallet
+        return Reading.FromWallet(wallet, content())
     }
 }
