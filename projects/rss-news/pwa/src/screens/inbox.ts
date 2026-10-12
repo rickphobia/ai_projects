@@ -4,7 +4,10 @@ import {
   type InboxItem,
   type InboxQuery,
 } from "../api/client";
+import { renderChatPanel, type ChatPanelOptions } from "./chat";
 import { relativeTime, shownTime } from "./shown-time";
+
+export type InboxChat = Pick<ChatPanelOptions, "openChatId" | "onChatOpened">;
 
 const ALL_FOLDERS = "";
 const ANY_IMPORTANCE = "";
@@ -12,13 +15,16 @@ const ANY_IMPORTANCE = "";
 // The Inbox: every Item newest first or most important first, a keyword search, filters by
 // Folder and Importance, and a button for the next page. Unread Items are marked; choosing one calls
 // onOpen with its id. Items can be ticked, and "Brief these" calls onBriefThese with their ids.
-// Given folderId (a Folder picked in the sidebar), it opens filtered to that Folder.
+// Given folderId (a Folder picked in the sidebar), it opens filtered to that Folder. The Chat
+// panel sits beside it, its Source buttons and "Brief these" going to the same callbacks; it
+// reopens chat.openChatId and reports the Chat it shows.
 export async function renderInbox(
   root: HTMLElement,
   api: ApiClient,
   onOpen: (itemId: number) => void,
   onBriefThese: (itemIds: number[]) => void,
   folderId?: number,
+  chat: InboxChat = { openChatId: null },
 ): Promise<void> {
   const filter = document.createElement("select");
   filter.append(new Option("All folders", ALL_FOLDERS));
@@ -86,7 +92,9 @@ export async function renderInbox(
   const actions = document.createElement("div");
   actions.className = "toolbar";
   actions.append(briefThese);
-  root.replaceChildren(
+  const column = document.createElement("div");
+  column.className = "inbox-column";
+  column.append(
     searchForm,
     filters,
     actions,
@@ -95,6 +103,11 @@ export async function renderInbox(
     status,
     loadMore,
   );
+  const chatPanel = document.createElement("aside");
+  const layout = document.createElement("div");
+  layout.className = "inbox-layout";
+  layout.append(column, chatPanel);
+  root.replaceChildren(layout);
 
   let query: InboxQuery = folderId === undefined ? {} : { folderId };
   let nextCursor: string | null = null;
@@ -159,6 +172,11 @@ export async function renderInbox(
       if (folderId !== undefined) filter.value = String(folderId);
     }),
     load(false),
+    renderChatPanel(chatPanel, api, {
+      onOpenItem: onOpen,
+      onBriefThese,
+      ...chat,
+    }),
   ]);
 }
 
