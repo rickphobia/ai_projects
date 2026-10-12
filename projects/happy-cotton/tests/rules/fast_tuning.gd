@@ -37,6 +37,9 @@ extends RefCounted
 ## Shifts, when the chance doubles.
 ## Fertiliser first costs 5 Labour Points and 2 more every Shift after the first; it doubles a
 ## crop's growth. He holds at most 2 of each supply.
+## Bollworms never come in table(): their chance is 0. with_bollworms() makes them come on every
+## growing Plot at each check, every 10 seconds; they eat a crop after 25 seconds, and picking
+## them off takes 3 seconds and adds 5 Exhaustion.
 
 const GROW_SECONDS := 30.0
 const SHIFT_SECONDS := 100.0
@@ -105,6 +108,10 @@ const FERTILISER_FIRST_PRICE := 5
 const FERTILISER_PRICE_RISE := 2
 const FERTILISER_GROWTH_FACTOR := 2.0
 const MOST_SUPPLIES_HELD := 2
+const BOLLWORM_CHECK_SECONDS := 10.0
+const BOLLWORM_EAT_SECONDS := 25.0
+const BOLLWORM_PICK_OFF_SECONDS := 3.0
+const BOLLWORM_PICK_OFF_EXHAUSTION := 5.0
 
 
 static func table() -> Tuning:
@@ -168,6 +175,11 @@ static func table() -> Tuning:
 	tuning.fertiliser_price_rise = FERTILISER_PRICE_RISE
 	tuning.fertiliser_growth_factor = FERTILISER_GROWTH_FACTOR
 	tuning.most_supplies_held = MOST_SUPPLIES_HELD
+	tuning.bollworm_check_seconds = BOLLWORM_CHECK_SECONDS
+	tuning.bollworm_chance = 0.0
+	tuning.bollworm_eat_seconds = BOLLWORM_EAT_SECONDS
+	tuning.bollworm_pick_off_seconds = BOLLWORM_PICK_OFF_SECONDS
+	tuning.bollworm_pick_off_exhaustion = BOLLWORM_PICK_OFF_EXHAUSTION
 	var tiers: Array[GeneratorTier] = []
 	for index in GENERATOR_PRICES.size():
 		tiers.append(
@@ -218,4 +230,10 @@ static func with_land(tuning: Tuning, columns: int, rows: int) -> Tuning:
 	tuning.first_land_rows = rows
 	tuning.largest_land_columns = columns
 	tuning.largest_land_rows = rows
+	return tuning
+
+
+## A table where every growing Plot without Bollworms gets them at each check.
+static func with_bollworms(tuning: Tuning) -> Tuning:
+	tuning.bollworm_chance = 1.0
 	return tuning

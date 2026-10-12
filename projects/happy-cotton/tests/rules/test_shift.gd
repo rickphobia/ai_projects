@@ -270,5 +270,7 @@ func test_every_key_the_rules_emit_is_listed() -> void:
 		Farm.CAUGHT_AGAIN,
 		Farm.ON_WATCH_ENDED,
 		Farm.SUPPLY_BOUGHT,
+		Farm.BOLLWORMS_ARRIVED,
+		Farm.CROP_EATEN,
 	]
 	assert_eq(Farm.MESSAGE_KEYS, emitted)

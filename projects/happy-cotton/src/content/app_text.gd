@@ -280,6 +280,22 @@ static func lines() -> Dictionary[StringName, AppLine]:
 				+ " {next_price}. Prices rise with our prosperity!"
 			)
 		),
+		# The pest is the Worker's job: he is told to tap, not that anyone will help.
+		Farm.BOLLWORMS_ARRIVED:
+		AppLine.new(
+			(
+				"Alert! Bollworms on {plots} of your Plots. Tap to pick them off before they"
+				+ " eat the people's cotton!"
+			)
+		),
+		# Eaten or Withered, the state books the loss as the Worker's offence.
+		Farm.CROP_EATEN:
+		AppLine.new(
+			(
+				"Negligence logged: Bollworms ate {plots} cotton on your watch. {points} Labour"
+				+ " Points have been deducted. Vigilance is everyone's duty!"
+			)
+		),
 	}
 
 

@@ -107,7 +107,7 @@ A Disaster that makes every lap on the Generator tire the Worker faster while it
 _Avoid_: heat, hot spell
 
 **Bollworm**:
-The real cotton pest that appears on growing Plots. Left too long, Bollworms eat the crop, and The App logs it as Negligence.
+The real cotton pest that appears on growing Plots while the game is open. Tapping the Plot picks them off, which takes time and adds Exhaustion. Left too long, Bollworms eat the crop, the Plot empties, and The App logs it as Negligence.
 _Avoid_: worm (alone), bug, pest
 
 **Supplies**:

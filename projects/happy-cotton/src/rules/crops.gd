@@ -184,6 +184,15 @@ func view(index: int, growth_rate := 1.0) -> PlotView:
 	return PlotView.new(GROWING[stage_index], seconds_left, fertilised)
 
 
+## Plots with a crop still growing: planted, not yet ripe.
+func growing() -> Array[int]:
+	var plots: Array[int] = []
+	for index in _living():
+		if _grown[index] < _grow_seconds:
+			plots.append(index)
+	return plots
+
+
 ## Plots with a crop that hasn't Withered.
 func _living() -> Array[int]:
 	var living: Array[int] = []

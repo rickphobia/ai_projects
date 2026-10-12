@@ -10,6 +10,8 @@ extends RefCounted
 ## A fertilised Plot gets a mark on its soil (see fertiliser_mark()): a dark, damp ring round the
 ## plant strewn with pale blue granules, the chemical fertiliser's colour, so it reads apart
 ## from bare soil whatever the crop's stage.
+## A Plot with Bollworms gets fat pink caterpillars crawling round the plant and up into it (see
+## bollworm_mark()), big and bright enough against the dust and leaves to spot across the field.
 
 const LEAF_COLOUR := Color(0.36, 0.4, 0.27)
 const FLOWER_COLOUR := Color(0.85, 0.8, 0.62)
@@ -19,11 +21,20 @@ const WITHERED_COLOUR := Color(0.62, 0.52, 0.36)
 const SHRIVELLED_BOLL_COLOUR := Color(0.5, 0.46, 0.4)
 const DAMP_SOIL_COLOUR := Color(0.2, 0.15, 0.11)
 const GRANULE_COLOUR := Color(0.72, 0.84, 0.95)
+## The pink bollworm's larva: pinkish brown.
+const BOLLWORM_COLOUR := Color(0.88, 0.5, 0.45)
 ## The fertiliser mark's ring, in metres: inside a 2 m Plot, around the plant's stem.
 const DAMP_RING_RADIUS := 0.8
 const GRANULE_RADIUS := 0.04
 ## How many granules lie on the ring, evenly round it.
 const GRANULE_COUNT := 12
+## The bollworm mark's caterpillars, in metres: each a row of round segments, laid round the
+## stem at alternate reaches and heights so some sit on the soil and some in the plant.
+const BOLLWORM_COUNT := 6
+const BOLLWORM_SEGMENTS := 4
+const BOLLWORM_SEGMENT_RADIUS := 0.09
+const BOLLWORM_REACHES: Array[float] = [0.45, 0.7]
+const BOLLWORM_HEIGHTS: Array[float] = [0.05, 0.6]
 ## How a Withered bush slumps: squashed to this share of its height and leaning over.
 const WITHERED_SLUMP := 0.65
 const WITHERED_LEAN_DEGREES := 18.0
@@ -47,6 +58,7 @@ const BUD_SPOTS: Array[Vector3] = [
 var cotton := _material(COTTON_COLOUR)
 var withered := _material(WITHERED_COLOUR)
 var granule := _material(GRANULE_COLOUR)
+var bollworm := _material(BOLLWORM_COLOUR)
 
 var _leaf := _material(LEAF_COLOUR)
 var _flower := _material(FLOWER_COLOUR)
@@ -97,6 +109,32 @@ func fertiliser_mark() -> Node3D:
 		instance.mesh = pellet
 		instance.position = Vector3(cos(angle) * reach, 0.02, sin(angle) * reach)
 		mark.add_child(instance)
+	return mark
+
+
+## A new node showing Bollworms on a Plot, standing on y = 0.
+func bollworm_mark() -> Node3D:
+	var mark := Node3D.new()
+	var segment := SphereMesh.new()
+	segment.radius = BOLLWORM_SEGMENT_RADIUS
+	segment.height = BOLLWORM_SEGMENT_RADIUS * 2.0
+	segment.radial_segments = 8
+	segment.rings = 4
+	segment.material = bollworm
+	for index in BOLLWORM_COUNT:
+		var caterpillar := Node3D.new()
+		var angle := TAU * index / BOLLWORM_COUNT
+		var reach := BOLLWORM_REACHES[index % BOLLWORM_REACHES.size()]
+		var height := BOLLWORM_HEIGHTS[index % BOLLWORM_HEIGHTS.size()] + BOLLWORM_SEGMENT_RADIUS
+		caterpillar.position = Vector3(cos(angle) * reach, height, sin(angle) * reach)
+		# Crawling round the stem rather than towards it.
+		caterpillar.rotation.y = -angle
+		for part in BOLLWORM_SEGMENTS:
+			var instance := MeshInstance3D.new()
+			instance.mesh = segment
+			instance.position.z = (part - BOLLWORM_SEGMENTS / 2.0) * BOLLWORM_SEGMENT_RADIUS * 1.5
+			caterpillar.add_child(instance)
+		mark.add_child(caterpillar)
 	return mark
 
 
