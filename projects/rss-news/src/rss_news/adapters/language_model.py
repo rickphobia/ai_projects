@@ -6,15 +6,18 @@ import random
 import time
 from collections.abc import Callable, Sequence
 from datetime import timedelta
-from typing import Any
+from typing import Any, TypeVar
 
 import anthropic
 from anthropic.types import Message
+from anthropic.types.beta import BetaMessage
 
 from rss_news.adapters.anthropic_chat import (
     ANSWER_SCHEMA,
     SEARCH_ITEMS_TOOL,
+    WEB_SEARCH_TOOL,
     chat_input,
+    chat_usage,
     search_calls,
 )
 from rss_news.briefings.briefing import (
@@ -56,6 +59,11 @@ _SECTION_MAX_TOKENS = 16_000
 # Room for a Chat answer or a search call plus the model's thinking.
 _CHAT_MAX_TOKENS = 16_000
 _MAX_RETRY_DELAY_SECONDS = 60.0
+# Times a Chat call is resumed after the API paused a long web search loop.
+_CHAT_RESUMES = 3
+_COMPACTION_BETA = "compact-2026-01-12"
+
+_Reply = TypeVar("_Reply")
 
 _SCORES_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -121,6 +129,7 @@ class AnthropicLanguageModel:
         briefing_effort: Effort,
         chat_model: str,
         chat_effort: Effort,
+        chat_compaction_tokens: int,
         timeout: timedelta,
         max_attempts: int,
         http_client: anthropic.DefaultHttpxClient | None = None,
@@ -139,6 +148,7 @@ class AnthropicLanguageModel:
         self._briefing_effort = briefing_effort
         self._chat_model = chat_model
         self._chat_effort = chat_effort
+        self._chat_compaction_tokens = chat_compaction_tokens
         self._max_attempts = max_attempts
         self._sleep = sleep
 
@@ -183,55 +193,96 @@ class AnthropicLanguageModel:
 
     def continue_chat(self, context: str, given: ChatInput) -> ChatStep:
         """`context` is the Messages API conversation as JSON. The full assistant content,
-        thinking included, goes back into it after each call, as tool use needs."""
+        thinking, web searches and compaction included, goes back into it after each call, as
+        tool use and compaction need."""
         messages: list[dict[str, Any]] = json.loads(context) if context else []
         messages.append({"role": "user", "content": chat_input(given)})
         last = not isinstance(given, OwnerQuestion) and given.last
         started = time.monotonic()
-        try:
-            message = self._create(
-                "continue chat",
-                model=self._chat_model,
-                max_tokens=_CHAT_MAX_TOKENS,
-                system=CHAT_INSTRUCTIONS,
-                messages=messages,
-                tools=[SEARCH_ITEMS_TOOL],
-                # After the last allowed search the model must answer.
-                tool_choice={"type": "none"} if last else {"type": "auto"},
-                # Follow-ups and searches resend the conversation; caching makes that cheap.
-                cache_control={"type": "ephemeral"},
-                output_config={
-                    "effort": self._chat_effort,
-                    "format": {"type": "json_schema", "schema": ANSWER_SCHEMA},
-                },
-            )
-        except _CallFailed as error:
-            raise ChatFailed(str(error)) from error
-        usage = _usage(message, self._chat_model, timedelta(seconds=time.monotonic() - started))
-        messages.append(
-            {"role": "assistant", "content": [block.to_dict() for block in message.content]}
-        )
+        message = self._chat_call(messages, last=last, spent=None)
+        usage = self._chat_usage(message, started, before=None)
+        resumes = 0
+        # A long web search loop pauses; sending the conversation back resumes it.
+        while message.stop_reason == "pause_turn" and resumes < _CHAT_RESUMES:
+            resumes += 1
+            logger.info("chat call resumed after pause_turn", extra={"model": self._chat_model})
+            message = self._chat_call(messages, last=last, spent=usage)
+            usage = self._chat_usage(message, started, before=usage)
         updated = json.dumps(messages, ensure_ascii=False)
         if message.stop_reason == "tool_use":
             return ChatStep(updated, usage, search_calls(message, usage), None)
         return ChatStep(updated, usage, [], _parse_answer(message, usage))
 
+    def _chat_usage(
+        self, message: BetaMessage, started: float, *, before: AiUsage | None
+    ) -> AiUsage:
+        duration = timedelta(seconds=time.monotonic() - started)
+        return chat_usage(message, self._chat_model, duration, before=before)
+
+    def _chat_call(
+        self, messages: list[dict[str, Any]], *, last: bool, spent: AiUsage | None
+    ) -> BetaMessage:
+        """One call; its whole answer is appended to `messages`."""
+        params: dict[str, Any] = {
+            "betas": [_COMPACTION_BETA],
+            "model": self._chat_model,
+            "max_tokens": _CHAT_MAX_TOKENS,
+            "system": CHAT_INSTRUCTIONS,
+            "messages": messages,
+            "tools": [SEARCH_ITEMS_TOOL, WEB_SEARCH_TOOL],
+            # After the last allowed search the model must answer.
+            "tool_choice": {"type": "none"} if last else {"type": "auto"},
+            # Follow-ups and searches resend the conversation; caching makes that cheap.
+            "cache_control": {"type": "ephemeral"},
+            # Past the threshold the API summarises older turns into a compaction block.
+            "context_management": {
+                "edits": [
+                    {
+                        "type": "compact_20260112",
+                        "trigger": {"type": "input_tokens", "value": self._chat_compaction_tokens},
+                    }
+                ]
+            },
+            "output_config": {
+                "effort": self._chat_effort,
+                "format": {"type": "json_schema", "schema": ANSWER_SCHEMA},
+            },
+        }
+        try:
+            message: BetaMessage = self._retrying(
+                "continue chat",
+                self._chat_model,
+                lambda: self._client.beta.messages.create(**params),
+            )
+        except _CallFailed as error:
+            # A resumed call that fails still leaves the paused calls' cost.
+            raise ChatFailed(str(error), spent) from error
+        messages.append(
+            {"role": "assistant", "content": [block.to_dict() for block in message.content]}
+        )
+        return message
+
     def close(self) -> None:
         self._client.close()
 
     def _create(self, operation: str, **params: Any) -> Message:
+        message: Message = self._retrying(
+            operation, params["model"], lambda: self._client.messages.create(**params)
+        )
+        return message
+
+    def _retrying(self, operation: str, model: str, call: Callable[[], _Reply]) -> _Reply:
         """One Messages API call, tried again with backoff on network errors, 429 and 5xx."""
         for attempt in range(1, self._max_attempts + 1):
             try:
-                message: Message = self._client.messages.create(**params)
-                return message
+                return call()
             except (anthropic.APIConnectionError, anthropic.APIStatusError) as error:
                 if not _is_retryable(error) or attempt == self._max_attempts:
                     logger.error(
                         "ai call failed",
                         extra={
                             "operation": operation,
-                            "model": params["model"],
+                            "model": model,
                             "attempts": attempt,
                             "detail": _detail(error),
                         },
@@ -245,7 +296,7 @@ class AnthropicLanguageModel:
                     "ai call retried",
                     extra={
                         "operation": operation,
-                        "model": params["model"],
+                        "model": model,
                         "attempt": attempt,
                         "delay_seconds": round(delay, 1),
                         "detail": _detail(error),
@@ -285,7 +336,7 @@ def _section_prompt(section: SectionRequest) -> str:
     )
 
 
-def _parse_answer(message: Message, usage: AiUsage) -> ModelAnswer:
+def _parse_answer(message: Message | BetaMessage, usage: AiUsage) -> ModelAnswer:
     if (stopped := _stop_detail(message)) is not None:
         raise ChatFailed(f"no answer: {stopped}", usage)
     try:
@@ -316,7 +367,7 @@ def _usage(message: Message, model: str, duration: timedelta) -> AiUsage:
     )
 
 
-def _stop_detail(message: Message) -> str | None:
+def _stop_detail(message: Message | BetaMessage) -> str | None:
     """Why the model stopped, when it isn't a finished answer."""
     if message.stop_reason == "end_turn":
         return None
@@ -326,7 +377,7 @@ def _stop_detail(message: Message) -> str | None:
     return detail
 
 
-def _answer_text(message: Message) -> str:
+def _answer_text(message: Message | BetaMessage) -> str:
     return "".join(block.text for block in message.content if block.type == "text")
 
 

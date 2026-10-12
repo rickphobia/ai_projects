@@ -166,6 +166,8 @@ class FakeLanguageModel:
         # failure. Every call is recorded with the context it was given.
         self.chat_script: list[list[ItemSearch] | ModelAnswer | ChatFailed] = []
         self.chat_calls: list[tuple[str, ChatInput]] = []
+        # What each Chat call reports it used; tests change it to add web searches.
+        self.chat_usage = self.CHAT_USAGE
 
     def continue_chat(self, context: str, given: ChatInput) -> ChatStep:
         self.chat_calls.append((context, given))
@@ -177,9 +179,9 @@ class FakeLanguageModel:
         # The context grows by one mark per call, so tests can see it carried between turns.
         context += f"[{len(self.chat_calls)}]"
         if isinstance(step, ModelAnswer):
-            return ChatStep(context, self.CHAT_USAGE, [], step)
+            return ChatStep(context, self.chat_usage, [], step)
         searches = [SearchCall(f"call-{n}", search) for n, search in enumerate(step)]
-        return ChatStep(context, self.CHAT_USAGE, searches, None)
+        return ChatStep(context, self.chat_usage, searches, None)
 
     CHAT_USAGE = AiUsage(
         model="claude-opus-5-5",

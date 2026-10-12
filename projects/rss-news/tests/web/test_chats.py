@@ -1,8 +1,9 @@
 """Chat: searching the owner's Items with the window the question names (24 hours by default,
 at most 90 days), checking the Item ids in answers, remembering earlier turns, saving and
-listing Chats, and the spending limit."""
+listing Chats, the spending limit, and when web search is offered."""
 
 import json
+from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -368,3 +369,67 @@ def test_an_empty_question_is_refused(client: TestClient) -> None:
     chat_id = new_chat(client)
 
     assert client.post(f"{CHATS}/{chat_id}/messages", json={"text": "   "}).status_code == 422
+
+
+def test_web_search_is_not_offered_while_the_items_answer(
+    client: TestClient, model: FakeLanguageModel
+) -> None:
+    model.chat_script = [[EVERYTHING], answer("Three Items.")]
+
+    ask(client, new_chat(client), "what happened today?")
+
+    question = model.chat_calls[0][1]
+    assert isinstance(question, OwnerQuestion)
+    assert question.web_searches_left == 0
+    assert searched_with(model).web_searches_left == 0
+
+
+def test_web_search_is_offered_when_the_owner_asks_for_it(
+    client: TestClient, model: FakeLanguageModel
+) -> None:
+    model.chat_script = [answer("From the web.")]
+
+    ask(client, new_chat(client), "Search the web for the KLCI close")
+
+    question = model.chat_calls[0][1]
+    assert isinstance(question, OwnerQuestion)
+    assert question.web_searches_left == 5
+
+
+def test_web_search_is_offered_when_search_items_finds_nothing(
+    client: TestClient, model: FakeLanguageModel
+) -> None:
+    nothing = ItemSearch(folder=None, since=None, keyword="cricket", min_importance=None)
+    model.chat_script = [[nothing], answer("Nothing in your Items.")]
+
+    ask(client, new_chat(client), "any cricket scores?")
+
+    assert searched_with(model).web_searches_left == 5
+
+
+def test_web_searches_are_capped_at_5_per_question(
+    client: TestClient, model: FakeLanguageModel
+) -> None:
+    nothing = ItemSearch(folder=None, since=None, keyword="cricket", min_importance=None)
+    model.chat_usage = replace(model.CHAT_USAGE, web_searches=3)
+    model.chat_script = [[nothing], [nothing], [nothing], answer("Nothing.")]
+
+    ask(client, new_chat(client), "search online for cricket scores")
+
+    assert [searched_with(model, call).web_searches_left for call in (1, 2, 3)] == [2, 0, 0]
+
+
+def test_an_answer_that_searched_the_web_is_flagged_and_its_searches_paid_for(
+    client: TestClient, model: FakeLanguageModel, wiring: Wiring
+) -> None:
+    model.chat_usage = replace(model.CHAT_USAGE, web_searches=2)
+    model.chat_script = [answer("The KLCI closed higher.")]
+    chat_id = new_chat(client)
+
+    events = ask(client, chat_id, "check the web for the KLCI close")
+
+    assert events[-1][1]["text"] == "Searched the web. The KLCI closed higher."
+    (call,) = [call for call in wiring.ledger.calls() if call.feature is Feature.CHAT]
+    assert call.usage.web_searches == 2
+    # $0.03 for the tokens and 2 searches at $0.01.
+    assert client.get(f"{CHATS}/{chat_id}").json()["chat"]["cost_usd"] == "0.05"

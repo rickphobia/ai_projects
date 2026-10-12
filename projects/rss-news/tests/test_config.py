@@ -64,6 +64,7 @@ def test_defaults_apply_when_only_the_pwa_folder_and_secrets_are_set(pwa_dir: Pa
         briefing_importance_cutoff=3,
         chat_model="claude-opus-5-5",
         chat_effort="low",
+        chat_compaction_tokens=70_000,
         model_prices=DEFAULT_PRICES,
         web_search_price_usd=Decimal("0.01"),
         monthly_limit_usd=Decimal("100"),
@@ -105,6 +106,7 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
             "RSS_NEWS_BRIEFING_IMPORTANCE_CUTOFF": "4",
             "RSS_NEWS_CHAT_MODEL": "claude-sonnet-5-5",
             "RSS_NEWS_CHAT_EFFORT": "high",
+            "RSS_NEWS_CHAT_COMPACTION_TOKENS": "100000",
             "RSS_NEWS_MODEL_PRICES": "claude-sonnet-5-5=2.5/12, claude-haiku-5-5=0.1/0.5",
             "RSS_NEWS_WEB_SEARCH_PRICE_USD": "0.02",
             "RSS_NEWS_MONTHLY_LIMIT_USD": "25.50",
@@ -146,6 +148,7 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         briefing_importance_cutoff=4,
         chat_model="claude-sonnet-5-5",
         chat_effort="high",
+        chat_compaction_tokens=100_000,
         model_prices={
             "claude-sonnet-5-5": ModelPrice(Decimal("2.5"), Decimal(12)),
             "claude-haiku-5-5": ModelPrice(Decimal("0.1"), Decimal("0.5")),

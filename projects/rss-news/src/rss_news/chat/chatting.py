@@ -2,6 +2,7 @@
 the `search_items` searches the model asks for in between."""
 
 import logging
+import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
@@ -39,6 +40,12 @@ LONGEST_WINDOW = timedelta(days=90)
 ITEMS_PER_SEARCH = 40
 # Model calls that may search before the model must answer, so a question can't loop.
 SEARCHING_CALLS = 4
+# Web searches one question may use, across all its model calls.
+WEB_SEARCHES_PER_QUESTION = 5
+# Words that mean the owner asked for the web, not just their Items.
+_ASKS_FOR_WEB = re.compile(r"\b(web|internet|online|google)\b", re.IGNORECASE)
+# Put before an answer's intro when the model searched the web for it.
+WEB_SEARCH_FLAG = "Searched the web."
 
 
 @dataclass(frozen=True)
@@ -91,10 +98,13 @@ class Chats:
         chat_id = chat.summary.id
         logger.info("chat question", extra={"chat_id": chat_id, "turn": len(chat.messages) // 2})
         cost = Decimal(0)
+        web_offered = asks_for_web(question)
+        web_searches = 0
         given: ChatInput = OwnerQuestion(
             question,
             self._clock.now().astimezone(self._timezone),
             [name for _, name in self._store.folders()],
+            WEB_SEARCHES_PER_QUESTION if web_offered else 0,
         )
         context = chat.context
         answer: ModelAnswer | None = None
@@ -102,6 +112,12 @@ class Chats:
             step = self._call(chat_id, context, given)
             cost += self._ledger.record(Feature.CHAT, step.usage).cost_usd
             context = step.context
+            if step.usage.web_searches and not web_offered:
+                logger.warning(
+                    "chat searched the web without being offered it",
+                    extra={"chat_id": chat_id, "web_searches": step.usage.web_searches},
+                )
+            web_searches += step.usage.web_searches
             if step.answer is not None:
                 answer = step.answer
                 break
@@ -111,11 +127,19 @@ class Chats:
                 if result.error is None:
                     yield ChatSearched(result.window, result.count)
                 results.append((call.call_id, result))
-            given = SearchResults(results, last=searching_call + 1 == SEARCHING_CALLS)
+            # Nothing in the Items: the web may have it.
+            if all(result.error is None and result.count == 0 for _, result in results):
+                web_offered = True
+            web_left = max(WEB_SEARCHES_PER_QUESTION - web_searches, 0) if web_offered else 0
+            given = SearchResults(
+                results, last=searching_call + 1 == SEARCHING_CALLS, web_searches_left=web_left
+            )
         if answer is None:
             logger.error("chat failed", extra={"chat_id": chat_id, "detail": "no answer"})
             raise ChatFailed("the model kept searching instead of answering")
         checked = self._checked(answer)
+        if web_searches:
+            checked = _CheckedAnswer(f"{WEB_SEARCH_FLAG} {checked.intro}", checked.items)
         saved = self._store.add_turn(
             chat_id,
             question=question,
@@ -127,7 +151,12 @@ class Chats:
         )
         logger.info(
             "chat answered",
-            extra={"chat_id": chat_id, "items": len(saved.items), "cost_usd": str(cost)},
+            extra={
+                "chat_id": chat_id,
+                "items": len(saved.items),
+                "web_searches": web_searches,
+                "cost_usd": str(cost),
+            },
         )
         yield saved
 
@@ -208,6 +237,10 @@ class Chats:
             listed.add(item.id)
             items.append(AnswerItem(item.id, item.title, item.source_name, entry.summary))
         return _CheckedAnswer(answer.intro, items)
+
+
+def asks_for_web(question: str) -> bool:
+    return _ASKS_FOR_WEB.search(question) is not None
 
 
 @dataclass(frozen=True)
