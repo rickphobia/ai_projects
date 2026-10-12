@@ -2,7 +2,7 @@
 
 **What to build:** A Chat docked in the Inbox (side panel on desktop, bottom sheet on the phone). The owner asks "what happened in Malaysia" and gets an intro line naming the window and Item count, then the matching Items, each with a one-line summary and a Source button that opens the Item, plus a "Brief these" button. Follow-ups remember the conversation and earlier Chats are saved. Spec user stories 49–53, 55, 57.
 
-**Blocked by:** 12 (Spending limit and page)
+**Blocked by:** 12 (Spending limit and page), 24 (Look and feel)
 
 **Status:** ready
 

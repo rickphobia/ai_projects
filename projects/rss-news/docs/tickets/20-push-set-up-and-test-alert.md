@@ -2,7 +2,7 @@
 
 **What to build:** The owner turns on Alerts for their phone in Settings and sends a test Alert. Tapping an Alert opens its Item. The README explains the Honor battery setting that lets Alerts arrive on time. Spec user stories 69, 71, 74.
 
-**Blocked by:** 12 (Spending limit and page), 19 (Installable app)
+**Blocked by:** 12 (Spending limit and page), 19 (Installable app), 24 (Look and feel)
 
 **Status:** ready
 

@@ -154,6 +154,14 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 85. As the owner, I want to deploy with the same `deploy/update-site.sh` and `deploy/rollback.sh` pattern as my other projects, so that releases work the same everywhere.
 86. As the owner, I want the README to take a new machine from clone to running, so that I can rebuild the server.
 
+### Look and feel
+
+87. As the owner, I want a clean, calm design like oksskolten's (a Folder sidebar, a tidy Inbox list, a centred reading column), so that the app is pleasant to open every day.
+88. As the owner, I want light and dark themes that follow my phone's setting, so that reading at night doesn't glare.
+89. As the owner, I want the layout to work one-handed on my phone, with the Folder sidebar as a drawer, and to use the extra room on a wide screen, so that it suits both.
+90. As the owner, I want each Inbox row to show the title, the one-line summary, the Source, the time and the Importance at a glance, so that I can skim without opening Items.
+91. As the owner, I want a small thumbnail on Inbox rows when the feed provides one, so that I can recognise stories faster.
+
 ## Implementation Decisions
 
 ### Shape
@@ -278,6 +286,7 @@ The monthly limit defaults to 100 USD.
   - Sources and Folders
   - Stocks
   - Settings (Alerts, quiet hours display, spending)
+- **Design:** one shared stylesheet of colour, spacing and type tokens with a light and a dark set picked by `prefers-color-scheme`; every screen uses it. No UI framework: the PWA stays plain TypeScript. oksskolten's screenshots are the visual reference. Thumbnails are the image link the feed itself gives (no page fetch); the picture loads from the original site and is never stored.
 - **Selection popup:** appears on selected text in Briefings, Items and Chat answers.
 - **Service worker:** caches the app shell, receives push messages and opens the Item when an Alert is tapped.
 - **Manifest:** installable, with app shortcuts for "Brief me (24h)", "Chat" and "Notes".
