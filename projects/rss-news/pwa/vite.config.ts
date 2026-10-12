@@ -9,6 +9,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/healthz": { target: backend, changeOrigin: true },
+      "/api": { target: backend, changeOrigin: true },
     },
   },
   test: {

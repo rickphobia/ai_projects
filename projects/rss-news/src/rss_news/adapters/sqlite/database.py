@@ -9,8 +9,16 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Each entry moves the schema one version up; PRAGMA user_version records how far a file got.
-# Append new migrations; never edit one that has shipped. The first feature ticket adds one.
-MIGRATIONS: tuple[str, ...] = ()
+# Append new migrations; never edit one that has shipped.
+MIGRATIONS: tuple[str, ...] = (
+    """
+    CREATE TABLE login_failures (
+        id INTEGER PRIMARY KEY,
+        failed_at TEXT NOT NULL  -- UTC, ISO 8601
+    );
+    CREATE INDEX login_failures_failed_at ON login_failures (failed_at);
+    """,
+)
 
 
 class DatabaseError(Exception):

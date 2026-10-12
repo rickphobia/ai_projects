@@ -4,9 +4,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from rss_news.adapters.sqlite.database import SqliteDatabase
+from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
 from rss_news.config import load_settings
 from rss_news.web.app import create_app
-from tests.support import PREFIX, PWA_INDEX, app_env
+from tests.support import PREFIX, PWA_INDEX, FakeClock, app_env
 
 
 class UnreachableDatabase:
@@ -19,7 +20,14 @@ def client(tmp_path: Path) -> TestClient:
     settings = load_settings(app_env(tmp_path))
     database = SqliteDatabase(settings.database_path)
     database.migrate()
-    return TestClient(create_app(settings, database=database))
+    return TestClient(
+        create_app(
+            settings,
+            database=database,
+            login_failures=SqliteLoginFailures(database),
+            clock=FakeClock(),
+        )
+    )
 
 
 def test_healthz_answers_ok_under_the_path_prefix(client: TestClient) -> None:
@@ -30,8 +38,14 @@ def test_healthz_answers_ok_under_the_path_prefix(client: TestClient) -> None:
 
 
 def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
+    settings = load_settings(app_env(tmp_path))
     client = TestClient(
-        create_app(load_settings(app_env(tmp_path)), database=UnreachableDatabase())
+        create_app(
+            settings,
+            database=UnreachableDatabase(),
+            login_failures=SqliteLoginFailures(SqliteDatabase(settings.database_path)),
+            clock=FakeClock(),
+        )
     )
 
     response = client.get(f"{PREFIX}/healthz")

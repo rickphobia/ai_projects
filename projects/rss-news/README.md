@@ -4,14 +4,14 @@ A personal news briefing for one owner: it reads many Sources (RSS and Atom feed
 
 ## Status
 
-`in progress`: walking skeleton. The backend answers `/healthz` and serves an empty PWA under the path prefix, locally and in Docker. No feeds, sign-in or AI yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
+`in progress`: walking skeleton with sign-in. The backend answers `/healthz` and serves the PWA under the path prefix, locally and in Docker. The owner signs in with one password; the only screen after that says whether the server is up. No feeds or AI yet; those are the tickets in [`docs/tickets/`](docs/tickets/).
 
 ## Requirements
 
 - [uv](https://docs.astral.sh/uv/) 0.9 or later. It installs the pinned Python (3.13, see `.python-version`) by itself.
 - Node.js 24.18 (see `pwa/.nvmrc`; `nvm use` picks it up) and npm, for the PWA.
 - Docker, for the image the server runs.
-- No accounts or API keys yet.
+- No accounts or API keys yet; you pick the sign-in password at setup.
 
 ## Setup
 
@@ -19,8 +19,12 @@ A personal news briefing for one owner: it reads many Sources (RSS and Atom feed
 cd projects/rss-news
 uv sync                          # creates .venv with the locked Python dependencies
 (cd pwa && npm ci && npm run build)   # installs the PWA's locked dependencies and builds it into pwa/dist
-cp .env.example .env             # every value is a working default for local runs
+cp .env.example .env
+uv run rss-news hash-password    # asks for the password twice; paste the output into RSS_NEWS_PASSWORD_HASH
+openssl rand -hex 32             # paste into RSS_NEWS_SESSION_SECRET
 ```
+
+For a local run over plain http, also set `RSS_NEWS_SECURE_COOKIES=false` in `.env`, or the browser won't send the session cookie back. Every other value is a working default.
 
 ## Run
 
@@ -29,9 +33,9 @@ uv run --env-file .env rss-news serve
 curl http://127.0.0.1:8000/ai-projects/rss-news/healthz   # {"status":"ok","database":"ok"}
 ```
 
-Then open <http://127.0.0.1:8000/ai-projects/rss-news/>. The backend serves whatever is in `pwa/dist`, so run `npm run build` in `pwa/` again after changing the PWA.
+Then open <http://127.0.0.1:8000/ai-projects/rss-news/> and sign in. The backend serves whatever is in `pwa/dist`, so run `npm run build` in `pwa/` again after changing the PWA.
 
-While working on the PWA, run the backend as above and `npm run dev` in `pwa/` alongside it: Vite serves the PWA with live reload at <http://127.0.0.1:5173/> and forwards `/healthz` to the backend.
+While working on the PWA, run the backend as above and `npm run dev` in `pwa/` alongside it: Vite serves the PWA with live reload at <http://127.0.0.1:5173/> and forwards `/healthz` and `/api` to the backend.
 
 ## Test
 
@@ -48,13 +52,13 @@ CI (`.github/workflows/rss-news.yml`) runs the same commands, `shellcheck` on `s
 
 ```bash
 docker build --tag rss-news .
-docker run --rm --publish 127.0.0.1:8000:8000 --volume "$PWD/data:/app/data" rss-news
-scripts/docker-smoke-test.sh   # builds, starts with dummy settings, checks /healthz, the PWA and memory use
+docker run --rm --publish 127.0.0.1:8000:8000 --volume "$PWD/data:/app/data" --env-file .env rss-news
+scripts/docker-smoke-test.sh   # builds, starts with dummy settings, checks /healthz, the PWA, sign-in and memory use
 ```
 
 The image is built in two stages ([decision 0002](docs/decisions/0002-python-api-with-typescript-pwa.md)): a Node stage builds the PWA, and the Python stage runs `rss-news serve` and serves the built files from `/app/pwa`. The database lives in `/app/data`; mount a volume there so it survives new containers. The image runs as an unprivileged user and has a Docker `HEALTHCHECK` on `/healthz`.
 
-The smoke test fails if `/healthz`, the page or its script don't answer under the prefix, if the database isn't written to the mounted folder, or if the container uses 300MB of RAM or more (the spec's budget). Deploying to the Beelink is ticket 02.
+The smoke test fails if `/healthz`, the page or its script don't answer under the prefix, if the database isn't written to the mounted folder, if `/api/session` doesn't answer 401 without a session or the dummy password doesn't sign in, or if the container uses 300MB of RAM or more (the spec's budget). Deploying to the Beelink is ticket 02.
 
 ## Configuration
 
@@ -69,12 +73,19 @@ Settings come from environment variables, checked at startup (`src/rss_news/conf
 | `RSS_NEWS_DATABASE_PATH` | no (`data/rss-news.sqlite3`) | The SQLite file; its folder is created if missing. The image uses `/app/data/rss-news.sqlite3` |
 | `RSS_NEWS_PWA_DIR` | no (`pwa/dist`) | The built PWA; must contain `index.html`. The image uses `/app/pwa` |
 | `RSS_NEWS_TIMEZONE` | no (`Asia/Kuala_Lumpur`) | The owner's time zone, as an IANA name |
+| `RSS_NEWS_PASSWORD_HASH` | **yes** | The owner password's hash, from `rss-news hash-password` |
+| `RSS_NEWS_SESSION_SECRET` | **yes** | Signs the session cookie; at least 32 characters (`openssl rand -hex 32`). Changing it signs out every device |
+| `RSS_NEWS_SESSION_DAYS` | no (`60`) | How long a sign-in lasts on a device |
+| `RSS_NEWS_SECURE_COOKIES` | no (`true`) | Send the cookie over https only; `false` for local runs over plain http |
+| `RSS_NEWS_LOGIN_MAX_FAILURES` | no (`5`) | Wrong passwords within the lockout time that lock sign-in |
+| `RSS_NEWS_LOGIN_LOCKOUT_MINUTES` | no (`15`) | How long sign-in stays locked |
 
 ## How it works
 
 - `rss-news serve` (`src/rss_news/cli.py`) loads the settings, sets up JSON logging, creates or migrates the SQLite file, and starts uvicorn.
-- The FastAPI app (`src/rss_news/web/app.py`) answers `/healthz` with whether the database answers a query (200, or 503 when it doesn't) and serves the built PWA for every other path under the prefix. It needs no login.
-- The PWA (`pwa/`) is TypeScript built with Vite. Every backend call goes through the `ApiClient` in `pwa/src/api/client.ts`; screens get one passed in, and tests pass a fake. For now its only screen shows whether the server is up.
+- The FastAPI app (`src/rss_news/web/app.py`) answers `/healthz` with whether the database answers a query (200, or 503 when it doesn't) and serves the built PWA for every other path under the prefix. Neither needs a session: the PWA's files hold no data, and they include the login screen.
+- Sign-in follows court-booker's auth (`src/rss_news/auth/`, `src/rss_news/web/auth.py`). `POST /api/login` with `{"password": …}` checks the scrypt hash and sets a signed, HttpOnly, SameSite=Strict cookie under the prefix (204), or answers 401 (wrong password) or 429 with `minutes_left` (locked out). Every other `/api` route sits behind the `require_session` dependency and answers 401 without the cookie; add new routers to the app with that dependency. Failed attempts are kept in the `login_failures` table, so a restart doesn't reset a lockout. The cookie's signature covers the password hash, so a new password signs out every device. No CSRF tokens: a SameSite=Strict cookie isn't sent on cross-site requests, and the API only takes JSON.
+- The PWA (`pwa/`) is TypeScript built with Vite. Every backend call goes through the `ApiClient` in `pwa/src/api/client.ts`; screens get one passed in, and tests pass a fake. On any 401 the client sends the owner to the login screen. At start it asks `/api/session` and shows either login or the shell, which says whether the server is up and has a Sign out button.
 
 ## Folder layout
 
@@ -82,9 +93,12 @@ Settings come from environment variables, checked at startup (`src/rss_news/conf
 src/rss_news/
   config.py          settings from the environment, validated at startup
   json_logging.py    JSON-lines logs on stdout
-  cli.py             the entrypoint: `rss-news serve`
-  web/app.py         the FastAPI app: /healthz and the PWA
-  adapters/sqlite/   the database file and its migrations
+  clock.py           the current time, faked in tests
+  cli.py             the entrypoint: `rss-news serve` and `rss-news hash-password`
+  auth/              password hashes, signed session cookies, lockout
+  web/app.py         the FastAPI app: /healthz, the API routers and the PWA
+  web/auth.py        login, logout, the session check and the guard on /api
+  adapters/sqlite/   the database file, its migrations, login failures
 tests/               mirrors src/rss_news/
 pwa/
   src/api/client.ts  the one module that talks to the backend
@@ -100,6 +114,8 @@ docs/                spec, tickets, decisions
 - `serve` exits with code 2 and an `invalid configuration` log line naming the variable when a setting is bad, and with `database unusable` when the SQLite file or its folder can't be opened or written (often a volume owned by another user).
 - `RSS_NEWS_PWA_DIR ... index.html is missing`: the PWA isn't built. Run `npm run build` in `pwa/`.
 - The page loads but says "Can't reach the server": `/healthz` didn't answer with a health report; check the backend is running and the prefix matches.
+- Signing in works but the next screen goes straight back to login: the browser dropped the cookie. Over plain http set `RSS_NEWS_SECURE_COOKIES=false`.
+- Sign-ins log `owner signed in` (info), `sign-in failed: wrong password` and `sign-in refused: locked out…` (warning) with the client address; never the password. To lift a lockout early, delete the rows: `sqlite3 data/rss-news.sqlite3 'DELETE FROM login_failures'`.
 
 ## Decisions
 
