@@ -30,11 +30,11 @@ const PAY_SLIP_SCHOOL_FEES := "School fees: −{school_fees}. An investment in y
 const PAY_SLIP_LEFT := "Yours to keep: {points} Labour Points"
 const PAY_SLIP_DEBT := "Owed to the Farm: {debt} Labour Points. We will settle it together!"
 const PAY_SLIP_CLOSE := "Thank you!"
-## The Hand-in card: a title, the cotton in hand against the Quota, and the button that hands
-## it all in.
+## The Hand-in card: a title, how much of the cotton in hand the slider hands in against the
+## Quota, and the button that hands it in.
 const HAND_IN_TITLE := "Hand-in  ·  Shift {shift}"
-const HAND_IN_COTTON := "Cotton in hand: {in_hand}  ·  Quota: {quota}"
-const HAND_IN_BUTTON := "Hand in everything"
+const HAND_IN_COTTON := "Handing in {handed_in} of {in_hand} cotton  ·  Quota: {quota}"
+const HAND_IN_BUTTON := "Hand in"
 ## The crop counter beside the Labour Points, and what rises from a Plot at each counted pick.
 const CROP_COUNTER := "{picked} cotton"
 const CROP_COUNTED := "+1"

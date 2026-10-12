@@ -138,3 +138,21 @@ func test_a_line_using_a_term_without_citing_its_source_is_reported() -> void:
 
 	var expected: Array[String] = ["line tip uses Harmony but doesn't cite aspi-2020"]
 	assert_eq(problems, expected)
+
+
+func test_the_app_never_mentions_hidden_savings() -> void:
+	var texts: Array[String] = []
+	var constants := (load("res://src/content/app_text.gd") as GDScript).get_script_constant_map()
+	for constant: Variant in constants.values():
+		if constant is String:
+			texts.append(constant)
+	for line: AppLine in AppText.lines().values():
+		texts.append(line.text)
+	for line: AppLine in AppText.store_refusals().values():
+		texts.append(line.text)
+	texts.append_array(AppText.STORE_NAMES.values())
+	texts.append_array(AppText.STORE_BLURBS.values())
+	var tin := RegEx.create_from_string("(?i)saving|mattress|\\btin\\b")
+
+	for text in texts:
+		assert_null(tin.search(text), "The App never mentions hidden savings: %s" % text)

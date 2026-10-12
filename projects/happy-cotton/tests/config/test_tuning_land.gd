@@ -1,5 +1,6 @@
 extends GutTest
-## Tuning validation for the Farm's first and largest land, and the Plots sold to grow it.
+## Tuning validation for the Farm's first and largest land, the Plots sold to grow it, and the
+## hidden savings that cotton kept back off that land sells for.
 
 
 func _good_table() -> Tuning:
@@ -100,3 +101,31 @@ func test_each_plot_costs_more_than_the_last() -> void:
 
 	assert_eq(problems.size(), 1)
 	assert_string_contains(problems[0], "plot_price_rise is 0")
+
+
+func test_hidden_savings_per_kept_pick_must_be_more_than_labour_points_per_pick() -> void:
+	var tuning := _good_table()
+	tuning.hidden_savings_per_kept_pick = FastTuning.LABOUR_POINTS_PER_PICK
+
+	assert_eq(
+		tuning.problems(),
+		(
+			[
+				(
+					"hidden_savings_per_kept_pick is 5, but it must be more than"
+					+ " labour_points_per_pick (5)"
+				)
+			]
+			as Array[String]
+		)
+	)
+
+
+func test_hidden_savings_per_kept_pick_must_be_whole() -> void:
+	var tuning := _good_table()
+	tuning.hidden_savings_per_kept_pick = 8.5
+
+	assert_eq(
+		tuning.problems(),
+		["hidden_savings_per_kept_pick is 8.5, but it must be a whole number"] as Array[String]
+	)

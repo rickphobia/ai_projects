@@ -45,7 +45,7 @@ func test_the_hand_in_card_shows_only_while_the_hand_in_is_open() -> void:
 	_overlay.show_shift(ShiftView.new(2, 12, 9, 0.0, 3, true), 30)
 
 	assert_true(_card().visible)
-	assert_eq(_card().cotton_text(), "Cotton in hand: 9  ·  Quota: 12")
+	assert_eq(_card().cotton_text(), "Handing in 9 of 9 cotton  ·  Quota: 12")
 
 
 func test_the_hand_in_button_asks_to_hand_in() -> void:
@@ -56,3 +56,49 @@ func test_the_hand_in_button_asks_to_hand_in() -> void:
 	button.pressed.emit()
 
 	assert_signal_emitted(_overlay, "hand_in_pressed")
+
+
+func test_the_slider_starts_at_all_the_cotton_in_hand() -> void:
+	_overlay.show_shift(ShiftView.new(2, 12, 9, 0.0, 3, true), 30)
+
+	assert_eq(_card().amount(), 9)
+	assert_eq(_card().slider().max_value, 9.0)
+
+
+func test_moving_the_slider_compares_what_is_handed_in_with_the_quota() -> void:
+	_overlay.show_shift(ShiftView.new(2, 12, 9, 0.0, 3, true), 30)
+
+	_card().slider().value = 4
+
+	assert_eq(_card().amount(), 4)
+	assert_eq(_card().cotton_text(), "Handing in 4 of 9 cotton  ·  Quota: 12")
+
+
+func test_the_slider_keeps_its_place_while_the_hand_in_stays_open() -> void:
+	_overlay.show_shift(ShiftView.new(2, 12, 9, 0.0, 3, true), 30)
+	_card().slider().value = 4
+
+	_overlay.show_shift(ShiftView.new(2, 12, 9, 0.0, 3, true), 30)
+
+	assert_eq(_card().amount(), 4)
+
+
+func test_the_next_shifts_hand_in_starts_at_everything_again() -> void:
+	_overlay.show_shift(ShiftView.new(2, 12, 9, 0.0, 3, true), 30)
+	_card().slider().value = 4
+	_overlay.show_shift(ShiftView.new(3, 14, 0, 100.0, 3), 30)
+
+	_overlay.show_shift(ShiftView.new(3, 14, 9, 0.0, 3, true), 30)
+
+	assert_eq(_card().amount(), 9)
+
+
+func test_the_hand_in_button_asks_to_hand_in_the_slider_amount() -> void:
+	_overlay.show_shift(ShiftView.new(2, 12, 9, 0.0, 3, true), 30)
+	_card().slider().value = 6
+	watch_signals(_overlay)
+
+	var button: Button = _overlay.find_child("HandInButton", true, false)
+	button.pressed.emit()
+
+	assert_signal_emitted_with_parameters(_overlay, "hand_in_pressed", [6])

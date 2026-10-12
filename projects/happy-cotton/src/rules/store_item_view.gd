@@ -40,10 +40,15 @@ var current_effect: float:
 var quota_rise: int:
 	get:
 		return _quota_rise
-## Why it can't be bought right now (one of Farm's reason keys), or &"" when it can.
+## Why it can't be bought right now with Labour Points (one of Farm's reason keys), or &""
+## when it can.
 var refusal: StringName:
 	get:
 		return _refusal
+## Why it can't be bought right now with hidden savings, or &"" when it can.
+var savings_refusal: StringName:
+	get:
+		return _savings_refusal
 
 var _id: StringName
 var _kind: Kind
@@ -54,6 +59,7 @@ var _effect := 0.0
 var _current_effect := 0.0
 var _quota_rise := 0
 var _refusal: StringName
+var _savings_refusal: StringName
 var _fully_bought := false
 
 
@@ -114,6 +120,11 @@ static func land(
 	view._quota_rise = rise
 	view._fully_bought = fully_bought
 	return view
+
+
+## Only the rules call this, as they build the view (see StoreFront).
+func set_savings_refusal(why_not: StringName) -> void:
+	_savings_refusal = why_not
 
 
 func is_fully_upgraded() -> bool:

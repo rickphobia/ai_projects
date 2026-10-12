@@ -184,7 +184,7 @@ func test_handing_in_pays_labour_points_for_the_cotton_handed_in() -> void:
 	assert_eq(_farm.labour_points(), earned)
 	var messages := _farm.take_messages()
 	var handed_in := _message(Farm.HANDED_IN, messages)
-	assert_eq(handed_in.values, {"shift": 1, "handed_in": 2, "earned": earned})
+	assert_eq(handed_in.values, {"shift": 1, "handed_in": 2, "kept": 0, "earned": earned})
 	var slip := _message(Farm.PAY_SLIP, messages)
 	var slip_earned: int = slip.values["earned"]
 	assert_eq(slip_earned, earned, "the pay slip shows the wages")

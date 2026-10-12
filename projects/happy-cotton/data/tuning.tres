@@ -87,5 +87,6 @@ first_plot_price = 50.0
 plot_price_rise = 10.0
 plot_quota_rise = 1.0
 plot_yield_per_shift = 2.0
+hidden_savings_per_kept_pick = 3.0
 generator_tiers = Array[ExtResource("2_generator_tier")]([SubResource("GeneratorTier_1"), SubResource("GeneratorTier_2"), SubResource("GeneratorTier_3")])
 tools_tiers = Array[ExtResource("3_tools_tier")]([SubResource("ToolsTier_1"), SubResource("ToolsTier_2"), SubResource("ToolsTier_3")])

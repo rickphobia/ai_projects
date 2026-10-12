@@ -1,10 +1,10 @@
 extends Node
 ## Entry scene: logs which build is running, loads and checks the tuning table, continues the
 ## saved Farm (or starts a new one) and wires it to the field, The App and its store, the
-## Children's letters (see LettersView) and the wall clock, and adds the debug controls (Skip
-## time, +100 Labour Points) in debug mode. It puts the player's settings into effect and opens
-## the Settings screen from The App. It
-## autosaves after every command, when a Shift's Hand-in opens, when the player leaves (see
+## Children's letters (see LettersView), the hidden savings tin (see SavingsTin) and the wall
+## clock, and adds the debug controls (Skip time, +100 Labour Points) in debug mode. It puts
+## the player's settings into effect and opens the Settings screen from The App. It autosaves
+## after every command, when a Shift's Hand-in opens, when the player leaves (see
 ## LeavingWatch), and every AUTOSAVE_SECONDS of play.
 ## Kept thin: no game rules here.
 
@@ -27,6 +27,7 @@ var _since_autosave := 0.0
 ## False when a damaged save couldn't be moved aside: saving would overwrite it.
 var _can_save := true
 var _letters: LettersView
+var _tin: SavingsTin
 
 @onready var _field: Field = $Field
 @onready var _app: AppOverlay = $AppOverlay
@@ -48,6 +49,11 @@ func _ready() -> void:
 	_letters.name = "LettersView"
 	_letters.layer = _app.layer + 1
 	add_child(_letters)
+	_tin = SavingsTin.new()
+	_tin.name = "SavingsTin"
+	# Under The App, so the store and the Study Session room cover it.
+	_tin.layer = _app.layer - 1
+	add_child(_tin)
 	_add_settings_screen()
 	_clock = WallClock.new(Time.get_unix_time_from_system)
 	_open_save()
@@ -146,6 +152,7 @@ func _begin(farm: Farm) -> void:
 	_app.privilege_pressed.connect(_on_privilege_pressed)
 	_app.land_pressed.connect(_on_land_pressed)
 	_app.hand_in_pressed.connect(_on_hand_in_pressed)
+	_app.savings_pressed.connect(_on_savings_pressed)
 	_save("start")
 	_show_farm()
 
@@ -211,37 +218,48 @@ func _on_generator_tapped() -> void:
 
 ## The rules decide whether he gets the next tier. A purchase closes the store, so the Mascot's
 ## celebration shows; a refusal is explained by the Mascot.
-func _on_upgrade_pressed(id: StringName) -> void:
+func _on_upgrade_pressed(id: StringName, pay_with := Farm.PAY_LABOUR_POINTS) -> void:
 	var item := _store_item(id)
-	var result := _farm.buy_upgrade(id)
+	var result := _farm.buy_upgrade(id, pay_with)
 	if result.happened:
 		GameLog.info("upgrade bought", {"item": id, "tier": item.tier + 1, "price": item.price})
-	_after_purchase(id, item, result)
+	_after_purchase(id, item, result, pay_with)
 
 
 ## The rules decide whether he gets the Privilege, as for an Upgrade.
-func _on_privilege_pressed(id: StringName) -> void:
+func _on_privilege_pressed(id: StringName, pay_with := Farm.PAY_LABOUR_POINTS) -> void:
 	var item := _store_item(id)
-	var result := _farm.buy_privilege(id)
+	var result := _farm.buy_privilege(id, pay_with)
 	if result.happened:
 		GameLog.info("privilege bought", {"item": id, "price": item.price})
-	_after_purchase(id, item, result)
+	_after_purchase(id, item, result, pay_with)
 
 
 ## The rules decide whether he gets the next Plot; a new one grows the field round it.
-func _on_land_pressed() -> void:
+func _on_land_pressed(pay_with := Farm.PAY_LABOUR_POINTS) -> void:
 	var item := _store_item(Farm.LAND)
-	var result := _farm.buy_plot()
+	var result := _farm.buy_plot(pay_with)
 	if result.happened:
 		var bought := {"plot": _farm.land().plot_count(), "price": item.price}
 		GameLog.info("plot bought", bought)
 		_field.show_land(_farm.land())
-	_after_purchase(Farm.LAND, item, result)
+	_after_purchase(Farm.LAND, item, result, pay_with)
 
 
-## Hands in the cotton; the rest of the Shift end follows, and the next Shift starts.
-func _on_hand_in_pressed() -> void:
-	var result := _farm.hand_in()
+## The tin's button on a store item: the same purchase, paid with hidden savings.
+func _on_savings_pressed(id: StringName) -> void:
+	if id == Farm.GENERATOR or id == Farm.TOOLS:
+		_on_upgrade_pressed(id, Farm.PAY_HIDDEN_SAVINGS)
+	elif id == Farm.LAND:
+		_on_land_pressed(Farm.PAY_HIDDEN_SAVINGS)
+	else:
+		_on_privilege_pressed(id, Farm.PAY_HIDDEN_SAVINGS)
+
+
+## Hands in what the slider says; the rest is kept back. The rest of the Shift end follows,
+## and the next Shift starts.
+func _on_hand_in_pressed(amount: int) -> void:
+	var result := _farm.hand_in(amount)
 	if not result.happened:
 		# The card shows only while a Hand-in is open, so this is odd.
 		GameLog.warning("hand in refused", {"reason": result.reason})
@@ -250,13 +268,21 @@ func _on_hand_in_pressed() -> void:
 	_show_farm()
 
 
-func _after_purchase(id: StringName, item: StoreItemView, result: CommandResult) -> void:
+## Hidden savings spent are logged by item and amount. A refusal The App has no words for
+## (not enough hidden savings) is only logged: the tin's button already says so.
+func _after_purchase(
+	id: StringName, item: StoreItemView, result: CommandResult, pay_with: Ledger.PayWith
+) -> void:
 	if result.happened:
+		if pay_with == Farm.PAY_HIDDEN_SAVINGS:
+			GameLog.info("hidden savings spent", {"item": id, "amount": item.price})
 		_app.store_panel().hide()
 	else:
 		GameLog.debug("purchase refused", {"item": id, "reason": result.reason})
 		var values := {"price": item.price if item else 0, "points": _farm.labour_points()}
-		_app.say(AppText.render_store_refusal(result.reason, values))
+		var refusal := AppText.render_store_refusal(result.reason, values)
+		if not refusal.is_empty():
+			_app.say(refusal)
 	_save("command")
 	_show_farm()
 
@@ -393,7 +419,8 @@ func _show_app() -> void:
 	_app.show_exhaustion(_farm.exhaustion())
 	_app.show_resting(_farm.rest_hour().seconds_left, _farm.call_home_seconds_left())
 	var store := _farm.store()
-	_app.show_store(store, _farm.labour_points())
+	_app.show_store(store, _farm.labour_points(), _farm.hidden_savings())
+	_tin.show_savings(_farm.hidden_savings())
 	for item in store:
 		if item.id == Farm.GENERATOR:
 			_field.show_generator_tier(item.tier)
@@ -429,20 +456,24 @@ func _log_message(message: AppMessage) -> void:
 		GameLog.info("handed in", message.values)
 
 
-## One line per Bill in the order charged, with whether the balance covered it.
+## One line per Bill in the order charged, with whether Labour Points and hidden savings
+## covered it and how much the savings paid.
 func _log_bills(slip: Dictionary) -> void:
 	var shift: int = slip["shift"]
 	var electricity := {"shift": shift, "bill": "electricity", "amount": slip["electricity"]}
 	electricity["laps"] = slip["laps"]
 	electricity["covered"] = slip["electricity_covered"]
+	electricity["from_savings"] = slip["electricity_from_savings"]
 	GameLog.info("bill charged", electricity)
 	var rent := {"shift": shift, "bill": "rent", "amount": slip["rent"]}
 	rent["covered"] = slip["rent_covered"]
+	rent["from_savings"] = slip["rent_from_savings"]
 	GameLog.info("bill charged", rent)
 	var school_fees: int = slip["school_fees"]
 	if school_fees > 0:
 		var fees := {"shift": shift, "bill": "school fees", "amount": school_fees}
 		fees["covered"] = slip["school_fees_covered"]
+		fees["from_savings"] = slip["school_fees_from_savings"]
 		GameLog.info("bill charged", fees)
 
 

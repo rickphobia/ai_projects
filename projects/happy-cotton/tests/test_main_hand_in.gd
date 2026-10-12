@@ -63,12 +63,12 @@ func test_the_end_of_a_shifts_time_opens_the_hand_in_and_the_farm_waits_for_it()
 	var quota := roundi(tuning.first_quota)
 	assert_has(_lines, "[info] hand-in opened shift=1 in_hand=0 quota=%d" % quota)
 	assert_true(_card(app).visible)
-	assert_eq(_card(app).cotton_text(), "Cotton in hand: 0  ·  Quota: %d" % quota)
+	assert_eq(_card(app).cotton_text(), "Handing in 0 of 0 cotton  ·  Quota: %d" % quota)
 	assert_false(_lines.any(func(line: String) -> bool: return line.contains("quota checked")))
 
 	_hand_in(main)
 
-	assert_has(_lines, "[info] handed in shift=1 handed_in=0 earned=0")
+	assert_has(_lines, "[info] handed in shift=1 handed_in=0 kept=0 earned=0")
 	assert_false(_card(app).visible)
 
 

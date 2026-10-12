@@ -135,9 +135,15 @@ func test_the_end_of_a_shift_logs_each_bill_shows_the_pay_slip_and_the_debt() ->
 	main.call("_process", tuning.shift_seconds)
 	_hand_in(main)
 
-	var electricity := '[info] bill charged shift=1 bill="electricity" amount=0 laps=0 covered=true'
+	var electricity := (
+		'[info] bill charged shift=1 bill="electricity" amount=0 laps=0 covered=true'
+		+ " from_savings=0"
+	)
 	assert_has(_lines, electricity)
-	assert_has(_lines, '[info] bill charged shift=1 bill="rent" amount=%d covered=false' % rent)
+	assert_has(
+		_lines,
+		'[info] bill charged shift=1 bill="rent" amount=%d covered=false from_savings=0' % rent
+	)
 	assert_has(_lines, "[info] debt incurred debt=%d" % rent)
 	assert_true((app.find_child("PaySlipCard", true, false) as PaySlipCard).visible)
 	assert_true((app.find_child("BalanceBadge", true, false) as BalanceBadge).shows_debt())

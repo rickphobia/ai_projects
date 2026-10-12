@@ -20,8 +20,11 @@ extends CanvasLayer
 signal upgrade_pressed(id: StringName)
 signal privilege_pressed(id: StringName)
 signal land_pressed
-## The Hand-in card's button was pressed; the rules decide what handing in does.
-signal hand_in_pressed
+## A store item's tin button was pressed, to pay with hidden savings; the rules decide.
+signal savings_pressed(id: StringName)
+## The Hand-in card's button was pressed, to hand in `amount` of the cotton in hand; the rules
+## decide what handing in does.
+signal hand_in_pressed(amount: int)
 ## The Settings button was pressed.
 signal settings_pressed
 
@@ -93,6 +96,7 @@ func _ready() -> void:
 	_store.upgrade_pressed.connect(upgrade_pressed.emit)
 	_store.privilege_pressed.connect(privilege_pressed.emit)
 	_store.land_pressed.connect(land_pressed.emit)
+	_store.savings_pressed.connect(savings_pressed.emit)
 	_root.add_child(_store)
 	_powered_parts = [top_bar, mascot_corner, _store_button, _pay_slip, _hand_in, _store]
 	_confetti = Confetti.new()
@@ -171,8 +175,9 @@ func show_resting(rest_seconds_left: float, call_seconds_left := 0.0) -> void:
 
 
 ## Shows what the store sells now, whether it is open or not, so it is ready when opened.
-func show_store(items: Array[StoreItemView], labour_points: int) -> void:
-	if _store.show_items(items, labour_points):
+## `hidden_savings` only decides whether the tin's buttons show: The App never shows the amount.
+func show_store(items: Array[StoreItemView], labour_points: int, hidden_savings := 0) -> void:
+	if _store.show_items(items, labour_points, hidden_savings):
 		SettingsEffects.scale_text(_store, _text_scale)
 
 
