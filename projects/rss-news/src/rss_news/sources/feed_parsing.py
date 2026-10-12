@@ -26,6 +26,8 @@ class FeedEntry:
     excerpt: str
     # None when the feed gives no date.
     published_at: datetime | None
+    # An http(s) image link the feed gives for the entry; None when it gives none.
+    image_url: str | None = None
 
 
 def parse_feed(body: bytes, *, content_type: str | None) -> list[FeedEntry]:
@@ -57,6 +59,7 @@ def parse_feed(body: bytes, *, content_type: str | None) -> list[FeedEntry]:
                 url=url,
                 excerpt=_preview(_plain_text(_summary_html(raw))),
                 published_at=_date(raw.get("published_parsed") or raw.get("updated_parsed")),
+                image_url=_image_url(raw),
             )
         )
     return entries
@@ -68,6 +71,28 @@ def _summary_html(raw: Any) -> str:
         return str(summary)
     content = raw.get("content") or []
     return str(content[0].get("value", "")) if content else ""
+
+
+def _image_url(raw: Any) -> str | None:
+    """The first image the feed itself names: a media thumbnail, then an image in media
+    content, then an image enclosure. Images inside the summary HTML are not looked at."""
+    candidates = [thumbnail.get("url") for thumbnail in raw.get("media_thumbnail") or []]
+    candidates += [
+        media.get("url")
+        for media in raw.get("media_content") or []
+        if media.get("medium") == "image" or str(media.get("type", "")).startswith("image/")
+    ]
+    candidates += [
+        enclosure.get("href")
+        for enclosure in raw.get("enclosures") or []
+        if str(enclosure.get("type", "")).startswith("image/")
+    ]
+    for candidate in candidates:
+        link = str(candidate or "").strip()
+        # Only web links: a javascript: or data: link must never reach an <img>.
+        if link.lower().startswith(("http://", "https://")):
+            return link
+    return None
 
 
 def _date(parsed: struct_time | None) -> datetime | None:

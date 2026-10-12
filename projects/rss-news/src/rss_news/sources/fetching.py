@@ -186,6 +186,7 @@ def _new_item(source: Source, entry: FeedEntry, now: datetime) -> NewItem:
         clean_url=clean_url(entry.url),
         excerpt=entry.excerpt,
         published_at=published,
+        image_url=entry.image_url,
     )
 
 

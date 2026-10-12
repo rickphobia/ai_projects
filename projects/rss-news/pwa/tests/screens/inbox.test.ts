@@ -24,6 +24,7 @@ function item(
     importance,
     summary: importance === null ? null : `Summary of ${title}`,
     read: false,
+    imageUrl: null,
   };
 }
 
@@ -285,5 +286,36 @@ describe("the Inbox", () => {
     expect(
       screen.getByRole("button", { name: /^Brief these/ }).textContent,
     ).toBe("Brief these (0)");
+  });
+
+  it("shows a lazy thumbnail only on rows whose Item has an image", async () => {
+    api.items[0] = {
+      ...api.items[0],
+      imageUrl: "https://img.example/3.jpg",
+    } as InboxItem;
+    await renderInbox(root, api, onOpen, onBriefThese);
+
+    const thumbnails = root.querySelectorAll("img");
+    expect(thumbnails).toHaveLength(1);
+    const [thumbnail] = thumbnails;
+    expect(thumbnail?.src).toBe("https://img.example/3.jpg");
+    expect(thumbnail?.loading).toBe("lazy");
+    expect(thumbnail?.closest("li")?.textContent).toContain(
+      "Newest world story",
+    );
+  });
+
+  it("drops a thumbnail that fails to load", async () => {
+    api.items[0] = {
+      ...api.items[0],
+      imageUrl: "https://img.example/broken.jpg",
+    } as InboxItem;
+    await renderInbox(root, api, onOpen, onBriefThese);
+
+    const thumbnail = root.querySelector("img");
+    thumbnail?.dispatchEvent(new Event("error"));
+
+    expect(root.querySelector("img")).toBeNull();
+    expect(root.querySelector(".has-thumbnail")).toBeNull();
   });
 });

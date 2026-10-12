@@ -189,6 +189,10 @@ def test_saved_feeds_from_each_family_arrive_in_the_inbox(
     assert len(items) == 9
     bbc = [item for item in items if item["source"] == "World News"]
     assert all("at_medium" in item["url"] for item in bbc)
+    assert all(item["image_url"].startswith("https://ichef.bbci.co.uk/") for item in bbc)
+    simon = [item for item in items if item["source"] == "Tech News"]
+    assert simon
+    assert all(item["image_url"] is None for item in simon)
 
 
 def test_sources_are_not_fetched_again_until_the_interval_has_passed(

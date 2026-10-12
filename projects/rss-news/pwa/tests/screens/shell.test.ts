@@ -36,6 +36,7 @@ describe("the app shell", () => {
         importance: 5,
         summary: "Malaysia's central bank kept its policy rate at 2.75%.",
         read: false,
+        imageUrl: null,
       },
     ];
 
@@ -99,6 +100,7 @@ describe("the app shell", () => {
         importance: 4,
         summary: "Something happened.",
         read: false,
+        imageUrl: null,
       },
     ];
 
@@ -127,6 +129,7 @@ describe("the app shell", () => {
         importance: null,
         summary: null,
         read: false,
+        imageUrl: null,
       },
     ];
 
@@ -150,6 +153,7 @@ describe("the app shell", () => {
         importance: 4,
         summary: "Something happened.",
         read: false,
+        imageUrl: null,
       },
     ];
     await renderShell(root, api, () => undefined);
