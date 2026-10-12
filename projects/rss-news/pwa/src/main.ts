@@ -1,3 +1,4 @@
+import "./styles.css";
 import { HttpApiClient, SignedOutError } from "./api/client";
 import { registerServiceWorker } from "./pwa/register";
 import { renderLogin } from "./screens/login";

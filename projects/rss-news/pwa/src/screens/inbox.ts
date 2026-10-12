@@ -4,7 +4,7 @@ import {
   type InboxItem,
   type InboxQuery,
 } from "../api/client";
-import { shownTime } from "./shown-time";
+import { relativeTime, shownTime } from "./shown-time";
 
 const ALL_FOLDERS = "";
 const ANY_IMPORTANCE = "";
@@ -12,11 +12,13 @@ const ANY_IMPORTANCE = "";
 // The Inbox: every Item newest first or most important first, a keyword search, filters by
 // Folder and Importance, and a button for the next page. Unread Items are marked; choosing one calls
 // onOpen with its id. Items can be ticked, and "Brief these" calls onBriefThese with their ids.
+// Given folderId (a Folder picked in the sidebar), it opens filtered to that Folder.
 export async function renderInbox(
   root: HTMLElement,
   api: ApiClient,
   onOpen: (itemId: number) => void,
   onBriefThese: (itemIds: number[]) => void,
+  folderId?: number,
 ): Promise<void> {
   const filter = document.createElement("select");
   filter.append(new Option("All folders", ALL_FOLDERS));
@@ -46,12 +48,14 @@ export async function renderInbox(
   searchButton.textContent = "Search";
   searchForm.append(searchLabel, searchButton);
   const filters = document.createElement("div");
+  filters.className = "toolbar";
   filters.append(
     labelled("Folder", filter),
     labelled("Importance", importanceFilter),
     labelled("Sort", order),
   );
   const list = document.createElement("ul");
+  list.className = "inbox-list";
   const folderError = document.createElement("p");
   folderError.setAttribute("role", "alert");
   const status = document.createElement("p");
@@ -60,6 +64,7 @@ export async function renderInbox(
   const loadMore = document.createElement("button");
   loadMore.type = "button";
   loadMore.textContent = "Load more";
+  loadMore.className = "load-more";
   loadMore.hidden = true;
   // Ticks stay while the filters change, so Items from several searches can be briefed.
   const picked = new Set<number>();
@@ -78,17 +83,20 @@ export async function renderInbox(
     else picked.delete(itemId);
     showPicked();
   };
+  const actions = document.createElement("div");
+  actions.className = "toolbar";
+  actions.append(briefThese);
   root.replaceChildren(
     searchForm,
     filters,
-    briefThese,
+    actions,
     folderError,
     list,
     status,
     loadMore,
   );
 
-  let query: InboxQuery = {};
+  let query: InboxQuery = folderId === undefined ? {} : { folderId };
   let nextCursor: string | null = null;
   // Each load gets a number; an answer that arrives after a newer load started is dropped,
   // so a slow page can't land under a different Folder.
@@ -146,7 +154,12 @@ export async function renderInbox(
     void load(true);
   });
 
-  await Promise.all([fillFolders(api, filter, folderError), load(false)]);
+  await Promise.all([
+    fillFolders(api, filter, folderError).then(() => {
+      if (folderId !== undefined) filter.value = String(folderId);
+    }),
+    load(false),
+  ]);
 }
 
 async function fillFolders(
@@ -189,6 +202,7 @@ function itemRow(
   onPick: (itemId: number, ticked: boolean) => void,
 ): HTMLLIElement {
   const row = document.createElement("li");
+  row.className = item.read ? "inbox-row" : "inbox-row unread";
   const pick = document.createElement("input");
   pick.type = "checkbox";
   pick.checked = ticked;
@@ -196,24 +210,10 @@ function itemRow(
   pick.addEventListener("change", () => {
     onPick(item.id, pick.checked);
   });
-  row.append(pick, " ");
-  if (!item.read) {
-    const unread = document.createElement("span");
-    unread.textContent = "●";
-    unread.setAttribute("aria-label", "Unread");
-    row.append(unread, " ");
-  }
-  const importance = document.createElement("span");
-  // Unscored Items wait for the next scoring run; they show a dash until then.
-  importance.textContent =
-    item.importance === null ? "–" : String(item.importance);
-  importance.setAttribute(
-    "aria-label",
-    item.importance === null
-      ? "Not scored yet"
-      : `Importance ${String(item.importance)}`,
-  );
+  const body = document.createElement("div");
+  body.className = "inbox-row-body";
   const link = document.createElement("a");
+  link.className = "inbox-row-title";
   // A real link, so it can be focused and read out; the Item view opens in the app.
   link.href = `#items/${String(item.id)}`;
   link.textContent = item.title;
@@ -221,13 +221,44 @@ function itemRow(
     event.preventDefault();
     onOpen(item.id);
   });
-  const details = document.createElement("small");
-  details.textContent = ` ${item.source} · ${shownTime.format(new Date(item.publishedAt))}`;
-  row.append(importance, " ", link, details);
+  if (!item.read) {
+    const unread = document.createElement("span");
+    unread.className = "unread-dot";
+    unread.textContent = "●";
+    unread.setAttribute("aria-label", "Unread");
+    body.append(unread);
+  }
+  body.append(link);
   if (item.summary !== null) {
     const summary = document.createElement("p");
+    summary.className = "inbox-row-summary";
     summary.textContent = item.summary;
-    row.append(summary);
+    body.append(summary);
   }
+  const published = new Date(item.publishedAt);
+  const time = document.createElement("time");
+  time.dateTime = item.publishedAt;
+  time.title = shownTime.format(published);
+  time.textContent = relativeTime(published, new Date());
+  const details = document.createElement("small");
+  details.className = "inbox-row-meta";
+  details.append(`${item.source} · `, time);
+  body.append(details);
+  row.append(pick, body, importanceMarker(item.importance));
   return row;
+}
+
+function importanceMarker(importance: number | null): HTMLSpanElement {
+  const marker = document.createElement("span");
+  marker.className = "importance";
+  // Unscored Items wait for the next scoring run; they show a dash until then.
+  if (importance === null) {
+    marker.textContent = "–";
+    marker.setAttribute("aria-label", "Not scored yet");
+  } else {
+    marker.textContent = String(importance);
+    marker.dataset.level = String(importance);
+    marker.setAttribute("aria-label", `Importance ${String(importance)}`);
+  }
+  return marker;
 }

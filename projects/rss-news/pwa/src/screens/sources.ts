@@ -14,10 +14,12 @@ const shownTime = new Intl.DateTimeFormat(undefined, {
 });
 
 // Sources and Folders: add a feed URL or subreddit, make, rename and delete Folders, and
-// move, pause or remove each Source, seeing when it last fetched and its last error.
+// move, pause or remove each Source, seeing when it last fetched and its last error. After every
+// change it calls onChanged, so the sidebar can list the Folders as they are now.
 export async function renderSources(
   root: HTMLElement,
   api: ApiClient,
+  onChanged: () => void = () => undefined,
 ): Promise<void> {
   const problem = document.createElement("p");
   problem.setAttribute("role", "alert");
@@ -34,14 +36,18 @@ export async function renderSources(
   addFolderForm.append(labelled(folderName), submit("Add Folder"));
   const folderList = document.createElement("ul");
   folderList.setAttribute("aria-label", "Folders");
+  folderList.className = "rows";
   const sourceList = document.createElement("ul");
   sourceList.setAttribute("aria-label", "Sources");
+  sourceList.className = "rows";
   root.replaceChildren(
+    sectionHeading("Sources"),
     problem,
     addSourceForm,
+    sourceList,
+    sectionHeading("Folders"),
     addFolderForm,
     folderList,
-    sourceList,
   );
 
   // Every change reloads both lists, so the screen always shows what the server holds.
@@ -55,6 +61,7 @@ export async function renderSources(
         error instanceof Error ? error.message : String(error);
     }
     await reload();
+    onChanged();
   }
 
   async function reload(): Promise<void> {
@@ -173,6 +180,13 @@ function healthOf(source: SourceInfo): string {
     new Date(source.lastErrorAt) > new Date(source.lastSuccessAt);
   const error = `${failing ? "Failing" : "Last error"} ${shownTime.format(new Date(source.lastErrorAt))}: ${source.lastError}`;
   return `${success} · ${error}`;
+}
+
+function sectionHeading(text: string): HTMLHeadingElement {
+  const heading = document.createElement("h2");
+  heading.className = "section-heading";
+  heading.textContent = text;
+  return heading;
 }
 
 function folderOptions(folders: Folder[]): HTMLOptionElement[] {

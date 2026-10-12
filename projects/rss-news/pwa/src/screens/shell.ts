@@ -6,9 +6,11 @@ import { renderItem } from "./item";
 import { renderSettings, spendingBanner } from "./settings";
 import { renderSources } from "./sources";
 
-// The app shell for a signed-in owner: the name, whether the backend is up, sign out, and
-// a spending warning from 80% of the monthly limit, and the home screen (the latest
-// Briefing), the Inbox, an Item, the saved Briefings, the Sources or the Settings screen below.
+// The app shell for a signed-in owner: a header with the name and whether the backend is up,
+// a sidebar with the screens and the Folders (a drawer opened from the header's Menu button on
+// a phone), a spending warning from 80% of the monthly limit, and the page: the home screen
+// (the latest Briefing), the Inbox (all of it or one Folder), an Item, the saved Briefings,
+// the Sources or the Settings screen.
 export async function renderShell(
   root: HTMLElement,
   api: ApiClient,
@@ -20,9 +22,8 @@ export async function renderShell(
   status.setAttribute("role", "status");
   status.setAttribute("aria-label", "Server");
   status.textContent = "Checking the server…";
-  const signOut = document.createElement("button");
-  signOut.type = "button";
-  signOut.textContent = "Sign out";
+  const signOut = navButton("Sign out");
+  signOut.classList.add("sign-out");
   signOut.addEventListener("click", () => {
     api.logout().then(onSignedOut, (error: unknown) => {
       // A 401 already sent the owner to login.
@@ -37,10 +38,47 @@ export async function renderShell(
   const toBriefings = navButton("Briefings");
   const toSources = navButton("Sources");
   const toSettings = navButton("Settings");
-  const nav = document.createElement("nav");
-  nav.append(toHome, toInbox, toBriefings, toSources, toSettings);
-  const showHome = (pickedItemIds?: number[]): Promise<void> =>
-    renderHome(
+  const folderHeading = document.createElement("p");
+  folderHeading.className = "sidebar-heading";
+  folderHeading.textContent = "Folders";
+  const folderList = document.createElement("ul");
+  folderList.setAttribute("aria-label", "Folders");
+  const sidebar = document.createElement("nav");
+  sidebar.id = "sidebar";
+  sidebar.className = "sidebar";
+  sidebar.append(
+    toHome,
+    toInbox,
+    toBriefings,
+    toSources,
+    toSettings,
+    folderHeading,
+    folderList,
+    signOut,
+  );
+  const warning = document.createElement("div");
+  const main = document.createElement("main");
+  main.className = "page";
+  main.append(warning, page);
+  // The shell's own element, so the login screen that replaces it inherits none of its layout.
+  const app = document.createElement("div");
+  app.className = "app";
+  const drawer = drawerControls(app, sidebar, main);
+  const header = document.createElement("header");
+  header.className = "app-header";
+  header.append(drawer.menuButton, heading, status);
+
+  // Marks the screen being shown in the sidebar and closes the drawer.
+  const showing = (current: HTMLButtonElement): void => {
+    for (const entry of sidebar.querySelectorAll("button")) {
+      entry.removeAttribute("aria-current");
+    }
+    current.setAttribute("aria-current", "page");
+    drawer.close();
+  };
+  const showHome = (pickedItemIds?: number[]): Promise<void> => {
+    showing(toHome);
+    return renderHome(
       page,
       api,
       (itemId) => {
@@ -54,17 +92,30 @@ export async function renderShell(
       },
       pickedItemIds,
     );
-  const showInbox = (): Promise<void> =>
-    renderInbox(
+  };
+  const showInbox = (
+    entry: HTMLButtonElement = toInbox,
+    folderId?: number,
+  ): Promise<void> => {
+    showing(entry);
+    return renderInbox(
       page,
       api,
       (itemId) => {
-        void renderItem(page, api, itemId, () => void showInbox());
+        void renderItem(
+          page,
+          api,
+          itemId,
+          () => void showInbox(entry, folderId),
+        );
       },
       (itemIds) => void showHome(itemIds),
+      folderId,
     );
-  const showBriefings = (): Promise<void> =>
-    renderBriefings(page, api, (itemId) => {
+  };
+  const showBriefings = (): Promise<void> => {
+    showing(toBriefings);
+    return renderBriefings(page, api, (itemId) => {
       void renderItem(
         page,
         api,
@@ -73,6 +124,11 @@ export async function renderShell(
         "Back to Briefings",
       );
     });
+  };
+  const listFolders = (): Promise<void> =>
+    showFolders(api, folderList, (entry, folderId) =>
+      showInbox(entry, folderId),
+    );
   toHome.addEventListener("click", () => {
     void showHome();
   });
@@ -83,19 +139,105 @@ export async function renderShell(
     void showBriefings();
   });
   toSources.addEventListener("click", () => {
-    void renderSources(page, api);
+    showing(toSources);
+    void renderSources(page, api, () => void listFolders());
   });
   toSettings.addEventListener("click", () => {
+    showing(toSettings);
     void renderSettings(page, api);
   });
-  const warning = document.createElement("div");
-  root.replaceChildren(heading, status, signOut, warning, nav, page);
+  app.append(header, sidebar, drawer.backdrop, main);
+  root.replaceChildren(app);
 
   await Promise.all([
     showHealth(api, status),
     showSpendingWarning(api, warning),
+    listFolders(),
     showHome(),
   ]);
+}
+
+interface Drawer {
+  menuButton: HTMLButtonElement;
+  backdrop: HTMLButtonElement;
+  close: () => void;
+}
+
+// The sidebar as a drawer on a narrow screen: the Menu button opens it and moves focus into it,
+// and the backdrop, the Escape key or choosing a screen closes it. While it is open the page
+// behind is inert, so the keyboard stays in the drawer. On a wide screen the stylesheet always
+// shows the sidebar and hides the button and the backdrop.
+function drawerControls(
+  app: HTMLElement,
+  sidebar: HTMLElement,
+  behind: HTMLElement,
+): Drawer {
+  const menuButton = navButton("☰");
+  menuButton.className = "menu-button";
+  menuButton.setAttribute("aria-label", "Menu");
+  menuButton.setAttribute("aria-controls", sidebar.id);
+  const backdrop = navButton("");
+  backdrop.className = "drawer-backdrop";
+  backdrop.setAttribute("aria-label", "Close menu");
+  // Escape closes it from the keyboard, so the backdrop needn't be a tab stop.
+  backdrop.tabIndex = -1;
+  const isOpen = (): boolean => app.dataset.drawer === "open";
+  const setOpen = (open: boolean): void => {
+    app.dataset.drawer = open ? "open" : "closed";
+    menuButton.setAttribute("aria-expanded", String(open));
+    backdrop.hidden = !open;
+    behind.inert = open;
+  };
+  setOpen(false);
+  menuButton.addEventListener("click", () => {
+    setOpen(!isOpen());
+    if (isOpen()) sidebar.querySelector("button")?.focus();
+  });
+  backdrop.addEventListener("click", () => {
+    setOpen(false);
+  });
+  app.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !isOpen()) return;
+    setOpen(false);
+    menuButton.focus();
+  });
+  return {
+    menuButton,
+    backdrop,
+    close: () => {
+      setOpen(false);
+    },
+  };
+}
+
+// The Folders in the sidebar, each opening the Inbox filtered to it.
+async function showFolders(
+  api: ApiClient,
+  folderList: HTMLElement,
+  showInbox: (entry: HTMLButtonElement, folderId: number) => Promise<void>,
+): Promise<void> {
+  try {
+    const folders = await api.folders();
+    folderList.replaceChildren(
+      ...folders.map((folder) => {
+        const entry = navButton(folder.name);
+        entry.addEventListener("click", () => {
+          void showInbox(entry, folder.id);
+        });
+        const row = document.createElement("li");
+        row.append(entry);
+        return row;
+      }),
+    );
+  } catch (error) {
+    // A 401 already sent the owner to login.
+    if (error instanceof SignedOutError) return;
+    // The screens still work without the Folder list.
+    const problem = document.createElement("li");
+    const detail = error instanceof Error ? error.message : String(error);
+    problem.textContent = `Couldn't load the Folders: ${detail}`;
+    folderList.replaceChildren(problem);
+  }
 }
 
 async function showHealth(api: ApiClient, status: HTMLElement): Promise<void> {

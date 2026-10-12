@@ -57,6 +57,9 @@ export function renderLogin(
     password.focus();
   }
 
-  root.replaceChildren(heading, form);
+  const card = document.createElement("div");
+  card.className = "login";
+  card.append(heading, form);
+  root.replaceChildren(card);
   password.focus();
 }
