@@ -4,7 +4,7 @@ An Android money log that turns e-wallet payment notifications (Touch 'n Go eWal
 
 ## Status
 
-`in progress`: ticket 01 (walking skeleton). The app installs on Android 10 and later and shows its version and a "Share log" button; nothing is captured yet. On start it runs a storage check (the database schema in an in-memory SQLite database) and logs the result. Every merge to `main` that raises the version name is released on GitHub, and every pull request gets a separate Preview app.
+`in progress`: tickets 01 (walking skeleton) and 03 (Daily tab). The app installs on Android 10 and later and opens on the Daily tab: the Month's Income, Expenses and Total, its Transactions grouped by day, and arrows or a swipe to move between Months. The + button adds an Expense or Income by hand. Nothing is captured from notifications yet. The version and "Share log" are in the ⋮ menu. Every merge to `main` that raises the version name is released on GitHub, and every pull request gets a separate Preview app.
 
 ## Requirements
 
@@ -59,7 +59,7 @@ CI (`.github/workflows/duit-log.yml`) runs shellcheck, the script tests and `./g
 - **On `main`:** a signed duit-log APK as the GitHub Release `duit-log-v<version name>`, marked latest, but only when that release doesn't exist yet. The version name is `duitlog.versionName` in `gradle.properties`: raise it (`0.1.0` → `0.2.0`) in the PR that should reach users. A merge that doesn't raise it is checked and built but not released (the run says so in a notice).
 - **On a pull request:** a signed Preview APK as the prerelease `duit-log-pr-<PR>`, replaced on every green run, and a "▶ Try this version" link to the APK on the PR body's second line. Closing or merging the PR deletes the prerelease and its tag. PRs from forks get no secrets, so they get no Preview.
 
-The `versionCode` is CI's run number (`DUITLOG_BUILD_NUMBER`, 1 for a local build), so every build installs over the one before. The home screen shows both: "Version 0.1.0 (build 42)". A Preview's version name ends in `-preview.<build>`.
+The `versionCode` is CI's run number (`DUITLOG_BUILD_NUMBER`, 1 for a local build), so every build installs over the one before. The ⋮ menu on the Daily tab shows both: "Version 0.1.0 (build 42)". A Preview's version name ends in `-preview.<build>`.
 
 ## Install on the phone
 
@@ -151,8 +151,8 @@ The app requires API 29 (Android 10) and targets API 37. Android lint's "newer v
 
 Two Gradle modules:
 
-- **`core`**: plain Kotlin on the JVM with no Android code. It will hold all the rules (the Ledger, the Notification Reader, the Daily Sort). Today it has the database schema (`src/main/sqldelight/`, compiled by SQLDelight against Android 10's SQLite; decision [0004](docs/decisions/0004-sqldelight-for-storage.md)) and `storage/StorageCheck`, which writes a row and reads it back. The schema's only table, `storage_probe`, is a placeholder that ticket 03 replaces with the Ledger's tables; it is only ever created in memory, so no phone has it on disk. A build check (`:core:checkNoAndroidDependencies`, part of `lintAll`) fails if an Android library or an `android`/`androidx` import gets into `core`.
-- **`app`**: the Android app. `DuitLogApplication` starts the log and runs `storage/PhoneStorageCheck` (the same check, on the phone's SQLite) once per process. `MainActivity` only wires the home screen to "Share log".
+- **`core`**: plain Kotlin on the JVM with no Android code. It holds all the rules. `ledger/Ledger` is the seam the app talks to: it lists Categories, adds a Transaction by hand (refusing a bad one with a `LedgerException`) and builds a Month's summary. It takes the database and a `java.time.Clock`, whose time zone decides which day and Month a Transaction falls in. `summary/` groups a Month's Transactions by day with subtotals; `ledger/Ringgit` formats and reads amounts. Money is whole sen in a `Long`, never floating point. The database schema is in `src/main/sqldelight/` (`category` with the default Categories inserted on first run, and `ledger_transaction`), compiled by SQLDelight against Android 10's SQLite (decision [0004](docs/decisions/0004-sqldelight-for-storage.md)). Times are stored as epoch milliseconds, so changing the phone's time zone moves Transactions between days, never in time. The tests run on a real in-memory database with a stopped clock. A build check (`:core:checkNoAndroidDependencies`, part of `lintAll`) fails if an Android library or an `android`/`androidx` import gets into `core`.
+- **`app`**: the Android app. `DuitLogApplication` starts the log and holds the one `Ledger`, on the database `storage/PhoneDatabase` opens (`databases/duit-log.db`, backed up by Android's backup) and on `storage/PhoneClock`, which follows the phone's current time zone. The file is opened by the first query, which runs off the main thread, and the log records the SQLite version then. `screens/DuitLogApp` switches between the Daily tab and the add screen and runs every Ledger call on a background thread. `MainActivity` only wires that to "Share log".
 
 Logging goes through `logging/AppLog`, which writes every line to logcat (tag `DuitLog`) and to a rolling file in the app's private storage (`files/logs/`): `logging/RollingLogFile` moves `duit-log.log` to `duit-log.1.log` when it would pass 1 MB, so the log never takes more than 2 MB. "Share log" copies both into one file in the cache and sends it through the Android share menu with a `FileProvider`. The file leaves the phone, so it holds steps, outcomes, counts and errors only: never notification text, Merchant names or Notes. The log folder is left out of Android's backup (`res/xml/data_extraction_rules.xml`, and `backup_rules.xml` for Android 10 and 11).
 
@@ -161,14 +161,15 @@ Logging goes through `logging/AppLog`, which writes every line to logcat (tag `D
 ```
 core/src/main/sqldelight/  the database schema and queries (.sq files)
 core/src/main/kotlin/com/rickphobia/duitlog/core/
-  storage/             StorageCheck: proves the schema runs on a driver
+  ledger/              the Ledger, Transactions, Categories, ringgit amounts
+  summary/             a Month's totals and day groups
 core/src/test/kotlin/  JUnit tests, mirroring core's packages
 app/src/main/kotlin/com/rickphobia/duitlog/
-  DuitLogApplication.kt  process start: the log and the storage check
+  DuitLogApplication.kt  process start: the log and the Ledger
   MainActivity.kt      entrypoint: wiring only
   logging/             AppLog, the rolling log file behind "Share log", crash recording
-  screens/             Compose screens and the theme
-  storage/             the storage check on the phone's SQLite
+  screens/             Compose screens (Daily tab, add by hand, Month bar, ⋮ menu) and the theme
+  storage/             the phone's database and clock
 app/src/test/kotlin/   JUnit tests for app code that runs on the JVM
 app/src/preview/res/   the Preview app's label
 config/detekt.yml      detekt rules on top of the defaults
@@ -181,8 +182,9 @@ docs/                  spec, tickets, decisions
 ## Debugging
 
 - The app logs to logcat with the tag `DuitLog` (`adb logcat -s DuitLog`) and to the rolling log file that "Share log" sends.
-- **The app crashes:** the crash is written to the log before the app closes (`logging/CrashRecorder`). Reopen the app, tap "Share log", and look for "crashed on thread": the full stack trace follows it.
-- **"storage check failed" in the log:** the phone's SQLite refused the schema or a query; the stack trace follows. A `.sq` change that only newer SQLite understands should have failed the build (decision 0004), so this points at a difference between SQLite versions; reproduce it on an Android 10 emulator.
+- **The app crashes:** the crash is written to the log before the app closes (`logging/CrashRecorder`). Reopen the app, tap ⋮ → "Share log", and look for "crashed on thread": the full stack trace follows it.
+- **The app crashes with an `SQLiteException`:** the phone's SQLite refused the schema or a query; the crash report in the log has the stack trace, and "database opened on SQLite <version>" just before it gives the version. A `.sq` change that only newer SQLite understands should have failed the build (decision 0004), so this points at a difference between SQLite versions; reproduce it on an Android 10 emulator.
+- **Save on the add screen does nothing but show a message:** the Ledger refused the entry (no Category, an amount that isn't above zero, no Merchant); the log says "add by hand refused: <reason>". A saved one logs "added EXPENSE <id> by hand".
 - **`SDK location not found`:** run `scripts/setup-android-sdk.sh`, or set `ANDROID_HOME`.
 - **`Release signing is not configured: set ...`:** a release or Preview build needs the named variables; see [Signing key](#signing-key). In CI, a missing `DUITLOG_KEYSTORE_BASE64` secret fails the signing step with its own message.
 - **A merge to `main` made no release:** the version name wasn't raised; the `release` job's notice says so. Raise `duitlog.versionName` in `gradle.properties` in a PR.

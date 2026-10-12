@@ -7,8 +7,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.content.FileProvider
 import com.rickphobia.duitlog.logging.AppLog
+import com.rickphobia.duitlog.screens.DuitLogApp
 import com.rickphobia.duitlog.screens.DuitLogTheme
-import com.rickphobia.duitlog.screens.HomeScreen
 import java.io.File
 import java.io.IOException
 
@@ -19,7 +19,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             DuitLogTheme {
-                HomeScreen(
+                DuitLogApp(
+                    ledger = (application as DuitLogApplication).ledger,
                     versionName = BuildConfig.VERSION_NAME,
                     buildNumber = BuildConfig.VERSION_CODE,
                     onShareLog = ::shareLog,

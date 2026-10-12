@@ -4,16 +4,18 @@
 
 **Blocked by:** 01 (Walking skeleton)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core/ledger, core/summary, app/screens
 
 **Effort:** medium
 
-- [ ] Ledger in `core` with storage on SQLite; tests run on a real in-memory database with a fake clock
-- [ ] Amounts held as whole sen, never floating point; shown as RM with two decimals
-- [ ] Default Expense Categories (Transport, F&B, Groceries, Shopping, Bills, Entertainment, Education, Tech, Health, Transfers, Other) and Income Categories (Salary, Allowance, Transfers, Other) created on first run
-- [ ] Add by hand: Expense or Income with every field; the Category list matches the kind
-- [ ] Month summary: Income, Expenses, Total, day groups with subtotals; Months follow the phone's time zone; tests cover a Transaction at 23:59 on the last day of a Month and at 00:00 on the first
-- [ ] Daily tab with the Month header and Month switching
+- [x] Ledger in `core` with storage on SQLite; tests run on a real in-memory database with a fake clock
+- [x] Amounts held as whole sen, never floating point; shown as RM with two decimals
+- [x] Default Expense Categories (Transport, F&B, Groceries, Shopping, Bills, Entertainment, Education, Tech, Health, Transfers, Other) and Income Categories (Salary, Allowance, Transfers, Other) created on first run
+- [x] Add by hand: Expense or Income with every field; the Category list matches the kind
+- [x] Month summary: Income, Expenses, Total, day groups with subtotals; Months follow the phone's time zone; tests cover a Transaction at 23:59 on the last day of a Month and at 00:00 on the first
+- [x] Daily tab with the Month header and Month switching
 - [ ] On-phone check: add three Transactions across two days and two Months and see the totals and grouping right
+
+**Owner steps:** the on-phone check, in the Preview app from the PR (no emulator or phone was available to the session).
