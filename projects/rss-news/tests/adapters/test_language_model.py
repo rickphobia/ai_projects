@@ -50,6 +50,8 @@ def model(answer: Answer, *, max_attempts: int = 3) -> tuple[AnthropicLanguageMo
     language_model = AnthropicLanguageModel(
         api_key="sk-ant-test",
         scoring_model="claude-haiku-5-5",
+        briefing_model="claude-opus-5-5",
+        briefing_effort="low",
         timeout=timedelta(seconds=5),
         max_attempts=max_attempts,
         http_client=anthropic.DefaultHttpxClient(transport=httpx2.MockTransport(answer)),

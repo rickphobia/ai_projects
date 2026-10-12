@@ -19,6 +19,7 @@ class Feature(StrEnum):
     """What an AI call was made for; the spending page totals by it."""
 
     SCORING = "scoring"
+    BRIEFINGS = "briefings"
 
 
 @dataclass(frozen=True)
@@ -78,7 +79,7 @@ class SpendingLedger:
 
     def record(self, feature: Feature, usage: AiUsage) -> AiCall:
         """Store one AI call with its cost, and log it."""
-        call = AiCall(self._clock.now(), feature, usage, self._cost(usage))
+        call = AiCall(self._clock.now(), feature, usage, self.cost(usage))
         self._store.add(call)
         logger.info(
             "ai call",
@@ -98,7 +99,8 @@ class SpendingLedger:
         """Every recorded call, oldest first."""
         return self._store.calls()
 
-    def _cost(self, usage: AiUsage) -> Decimal:
+    def cost(self, usage: AiUsage) -> Decimal:
+        """What a call with this usage costs at the configured prices; also used for estimates."""
         price = self._prices.get(usage.model)
         if price is None:
             # Config checks every configured model has a price, but the provider may answer

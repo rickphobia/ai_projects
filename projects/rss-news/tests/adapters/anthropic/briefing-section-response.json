@@ -1,0 +1,28 @@
+{
+  "id": "msg_01BriefingSectionExample4c2e",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "EqQBCkYIBxgCKkBexampleSignatureNotReal"
+    },
+    {
+      "type": "text",
+      "text": "{\"points\":[{\"text\":\"The Fed cut rates by half a point, more than expected, and signalled more cuts if jobs keep weakening.\",\"item_ids\":[101]},{\"text\":\"Bank Negara held the OPR at 2.75%,  saying inflation stays moderate.\",\"item_ids\":[102,104]}]}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 9120,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 412,
+    "server_tool_use": null,
+    "service_tier": "standard"
+  }
+}

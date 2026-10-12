@@ -6,6 +6,12 @@ from pathlib import Path
 
 from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.auth.passwords import hash_password
+from rss_news.briefings.briefing import (
+    BriefingFailed,
+    SectionRequest,
+    SectionResult,
+    WrittenPoint,
+)
 from rss_news.config import Settings
 from rss_news.items.reading import ExtractionFailed, ReaderView
 from rss_news.scoring.item_scoring import (
@@ -101,6 +107,7 @@ class FakeArticleExtractor:
 
 
 type ScoringAnswer = Callable[[Sequence[UnscoredItem]], ScoringResult]
+type SectionAnswer = Callable[[SectionRequest], SectionResult]
 
 
 class FakeLanguageModel:
@@ -122,6 +129,10 @@ class FakeLanguageModel:
         self.failing_titles: set[str] = set()
         # When set, every call fails as if the API were down.
         self.unavailable = False
+        self.sections: list[SectionRequest] = []
+        self.section_answer: SectionAnswer = self.one_point_per_item
+        # Sections of these Folders fail, after the model answered.
+        self.failing_folders: set[str] = set()
 
     def score_items(self, items: Sequence[UnscoredItem]) -> ScoringResult:
         self.calls.append(list(items))
@@ -130,6 +141,25 @@ class FakeLanguageModel:
         if any(word in item.title for item in items for word in self.failing_titles):
             raise ScoringFailed("scripted failure", self.USAGE)
         return self.answer(items)
+
+    def write_briefing_section(self, section: SectionRequest) -> SectionResult:
+        self.sections.append(section)
+        if section.folder_name in self.failing_folders:
+            raise BriefingFailed("scripted refusal", self.SECTION_USAGE)
+        return self.section_answer(section)
+
+    SECTION_USAGE = AiUsage(
+        model="claude-opus-5-5",
+        input_tokens=20_000,
+        output_tokens=1_500,
+        web_searches=0,
+        duration=timedelta(seconds=20),
+    )
+
+    @classmethod
+    def one_point_per_item(cls, section: SectionRequest) -> SectionResult:
+        points = [WrittenPoint(f"Point about {item.title}", [item.id]) for item in section.items]
+        return SectionResult(points, cls.SECTION_USAGE)
 
     @classmethod
     def score_all(cls, items: Sequence[UnscoredItem]) -> ScoringResult:

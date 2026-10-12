@@ -40,6 +40,8 @@ def serve(settings: Settings) -> int:
     language_model = AnthropicLanguageModel(
         api_key=settings.anthropic_api_key,
         scoring_model=settings.scoring_model,
+        briefing_model=settings.briefing_model,
+        briefing_effort=settings.briefing_effort,
         timeout=settings.anthropic_timeout,
         max_attempts=settings.anthropic_max_attempts,
     )

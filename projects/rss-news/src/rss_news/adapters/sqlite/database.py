@@ -88,6 +88,20 @@ MIGRATIONS: tuple[str, ...] = (
     """
     ALTER TABLE items ADD COLUMN read_at TEXT;  -- first time the owner opened it; NULL if unread
     """,
+    """
+    CREATE TABLE briefings (
+        id INTEGER PRIMARY KEY,
+        scope TEXT NOT NULL,  -- such as all-24h
+        created_at TEXT NOT NULL,
+        local_day TEXT NOT NULL,  -- the day it was written in the owner's time zone, for reuse
+        item_count INTEGER NOT NULL,
+        cost_micro_usd INTEGER NOT NULL,
+        -- The sections as JSON: [{folder_id, folder_name, points: [{text, items: [{id, title,
+        -- source}]}]}]. Items are copied in, so a Briefing outlives the Items it links to.
+        sections TEXT NOT NULL
+    );
+    CREATE INDEX briefings_scope_day ON briefings (scope, local_day);
+    """,
 )
 
 
