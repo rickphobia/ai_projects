@@ -131,13 +131,15 @@ func _on_start_over_after_damaged_save() -> void:
 
 
 func _new_farm() -> Farm:
-	return Farm.new(_tuning, _field.plot_count())
+	return Farm.new(_tuning)
 
 
-## Wires the Farm to the field and The App, and saves it at once: a new Farm, or a restored
-## one now that its time away has been counted (so it isn't counted again).
+## Builds the field from the Farm's land, wires the Farm to it and The App, and saves it at
+## once: a new Farm, or a restored one now that its time away has been counted (so it isn't
+## counted again).
 func _begin(farm: Farm) -> void:
 	_farm = farm
+	_field.show_land(farm.land())
 	_field.plot_tapped.connect(_on_plot_tapped)
 	_field.generator_tapped.connect(_on_generator_tapped)
 	_app.upgrade_pressed.connect(_on_upgrade_pressed)

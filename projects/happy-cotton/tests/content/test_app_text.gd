@@ -75,7 +75,7 @@ func test_a_refusal_fills_in_the_price_and_points() -> void:
 
 
 func test_every_store_item_has_a_name_and_a_blurb() -> void:
-	for item in Farm.new(FastTuning.table(), 1).store():
+	for item in Farm.new(FastTuning.table()).store():
 		assert_true(AppText.STORE_NAMES.has(item.id), "%s has a name" % item.id)
 		assert_true(AppText.STORE_BLURBS.has(item.id), "%s has a blurb" % item.id)
 

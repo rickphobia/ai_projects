@@ -43,6 +43,10 @@ const LIMITS: Dictionary = {
 	"letter_every_shifts": [1.0, 1000.0],
 	"call_home_price": [0.0, 10000.0],
 	"call_home_seconds": [1.0, 86400.0],
+	"first_land_columns": [1.0, 20.0],
+	"first_land_rows": [1.0, 20.0],
+	"largest_land_columns": [1.0, 20.0],
+	"largest_land_rows": [1.0, 20.0],
 }
 ## Fields that count things (picks, points), so they must be whole numbers.
 const WHOLE_NUMBERS: Array[String] = [
@@ -58,6 +62,10 @@ const WHOLE_NUMBERS: Array[String] = [
 	"school_fees_every_shifts",
 	"letter_every_shifts",
 	"call_home_price",
+	"first_land_columns",
+	"first_land_rows",
+	"largest_land_columns",
+	"largest_land_rows",
 ]
 ## What a Generator tier's growth multiplier is measured against: no Upgrade at all.
 const NO_UPGRADE_GROWTH := 1.0
@@ -163,6 +171,12 @@ const MOST_TIER_QUOTA_RISE := 10000.0
 ## How long a call home lasts, in seconds of online play. He is off the Generator for it, so
 ## crops halt, but unlike a rest hour it takes no Exhaustion away.
 @export var call_home_seconds: float = NAN
+## The Farm's land at the start, in Plots across (columns) and front to back (rows).
+@export var first_land_columns: float = NAN
+@export var first_land_rows: float = NAN
+## The most land the Farm can grow to, in columns and rows. At least the first land.
+@export var largest_land_columns: float = NAN
+@export var largest_land_rows: float = NAN
 ## The Generator Upgrade's tiers, bought in order: each one's price, growth per second of
 ## running, and Quota rise. At least one tier.
 @export var generator_tiers: Array[GeneratorTier] = []
@@ -213,9 +227,25 @@ func problems() -> Array[String]:
 			"fewest_laps_before_breath is %s, but it must be at most" + " laps_before_breath (%s)"
 		)
 		found.append(laps_problem % [fewest_laps_before_breath, laps_before_breath])
+	found.append_array(_land_problems())
 	found.append_array(_generator_tier_problems())
 	found.append_array(_tools_tier_problems())
 	return found
+
+
+## The largest Farm must take in the first one, in both columns and rows.
+func _land_problems() -> Array[String]:
+	var found: Array[String] = []
+	found.append_array(_largest_land_problems("columns", largest_land_columns, first_land_columns))
+	found.append_array(_largest_land_problems("rows", largest_land_rows, first_land_rows))
+	return found
+
+
+func _largest_land_problems(along: String, largest: float, first: float) -> Array[String]:
+	if is_nan(largest) or is_nan(first) or largest >= first:
+		return []
+	var problem := "largest_land_%s is %d, but it must be at least first_land_%s (%d)"
+	return [problem % [along, largest, along, first]]
 
 
 ## The tier list must not be empty; each tier has a whole, positive price, a whole Quota rise

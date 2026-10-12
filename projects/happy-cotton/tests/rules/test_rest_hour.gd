@@ -5,7 +5,7 @@ extends GutTest
 ## table it costs 10 Labour Points (two picks) and lasts 20 seconds, taking away 2 Exhaustion a
 ## second.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 const RECOVERY_PER_SECOND := FastTuning.REST_HOUR_RECOVERY / FastTuning.REST_HOUR_SECONDS
 
 var _farm: Farm
@@ -18,7 +18,7 @@ func before_each() -> void:
 func _farm_with_shift(shift_seconds: float) -> Farm:
 	var tuning := FastTuning.exhausting_table()
 	tuning.shift_seconds = shift_seconds
-	var farm := Farm.new(tuning, PLOTS)
+	var farm := Farm.new(tuning)
 	farm.take_messages()
 	return farm
 
@@ -100,7 +100,7 @@ func test_rest_never_brings_exhaustion_below_the_floor() -> void:
 	tuning.first_quota = 1
 	tuning.exhaustion_floor_rise = 30.0
 	tuning.rest_hour_price = FastTuning.LABOUR_POINTS_PER_PICK
-	_farm = Farm.new(tuning, PLOTS)
+	_farm = Farm.new(tuning)
 	_farm.plant(0)
 	_farm.run_generator()
 	_farm.advance(FastTuning.GROW_SECONDS)
@@ -173,7 +173,7 @@ func test_a_met_quota_gives_the_rest_hour_back() -> void:
 	var tuning := FastTuning.exhausting_table()
 	tuning.first_quota = 1
 	tuning.quota_rise = 1
-	_farm = Farm.new(tuning, PLOTS)
+	_farm = Farm.new(tuning)
 	_farm.advance(FastTuning.SHIFT_SECONDS)
 	_farm.advance(FastTuning.STUDY_SESSION_SECONDS)
 	assert_true(_farm.rest_hour().taken_away)

@@ -2,20 +2,20 @@ extends GutTest
 ## The Farm rules through their public interface: plant, grow, look, pick. Crops grow only
 ## while the Worker runs on the Generator, so the growth tests send him there after planting.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 
 var _farm: Farm
 
 
 func before_each() -> void:
-	_farm = Farm.new(FastTuning.table(), PLOTS)
+	_farm = Farm.new(FastTuning.table())
 
 
 func _stage(index: int) -> PlotView.Stage:
 	return _farm.plot(index).stage
 
 
-func test_a_new_farm_has_the_asked_for_number_of_empty_plots() -> void:
+func test_a_new_farm_has_an_empty_plot_in_every_cell_of_its_first_land() -> void:
 	assert_eq(_farm.plots().size(), PLOTS)
 	for view in _farm.plots():
 		assert_eq(view.stage, PlotView.Stage.EMPTY)
@@ -68,7 +68,7 @@ func test_ripe_cotton_stays_ripe() -> void:
 
 
 func test_growth_in_small_steps_matches_one_big_step() -> void:
-	var stepped := Farm.new(FastTuning.table(), PLOTS)
+	var stepped := Farm.new(FastTuning.table())
 	stepped.plant(0)
 	stepped.run_generator()
 	_farm.plant(0)
@@ -102,7 +102,7 @@ func test_empty_plots_do_not_grow() -> void:
 func test_the_grow_time_comes_from_the_tuning_table() -> void:
 	var tuning := FastTuning.table()
 	tuning.grow_seconds = 60.0
-	var slow := Farm.new(tuning, PLOTS)
+	var slow := Farm.new(tuning)
 	slow.plant(0)
 	slow.run_generator()
 

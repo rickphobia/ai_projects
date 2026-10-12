@@ -3,14 +3,14 @@ extends GutTest
 ## Worker is, which the field uses to keep him in step on the track. With the fast table a lap
 ## takes 10 seconds and he runs 10 laps before he stops to breathe for 5.
 
-const PLOTS := 4
+const PLOTS := FastTuning.FIRST_PLOTS
 const RUN_SECONDS := FastTuning.LAP_SECONDS * FastTuning.LAPS_BEFORE_BREATH
 
 var _farm: Farm
 
 
 func before_each() -> void:
-	_farm = Farm.new(FastTuning.table(), PLOTS)
+	_farm = Farm.new(FastTuning.table())
 
 
 func test_the_lap_clock_shows_how_far_through_his_lap_he_is() -> void:
@@ -25,7 +25,7 @@ func test_the_lap_clock_shows_how_far_through_his_lap_he_is() -> void:
 func test_the_lap_clock_waits_at_the_lap_line_while_he_breathes() -> void:
 	var tuning := FastTuning.table()
 	tuning.shift_seconds = 1000.0
-	_farm = Farm.new(tuning, PLOTS)
+	_farm = Farm.new(tuning)
 	_farm.run_generator()
 
 	_farm.advance(RUN_SECONDS + 1.0)

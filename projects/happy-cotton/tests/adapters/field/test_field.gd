@@ -5,6 +5,13 @@ extends GutTest
 const FIELD_SCENE := preload("res://src/adapters/field/field.tscn")
 
 
+## A field in the tree, built on the shipped first land.
+func _field() -> Field:
+	var field: Field = add_child_autofree(FIELD_SCENE.instantiate())
+	field.show_land(FieldLand.first())
+	return field
+
+
 func test_time_left_shows_minutes_and_seconds() -> void:
 	assert_eq(Field.time_left_text(125.0), "2:05 left")
 
@@ -25,10 +32,8 @@ func test_colour_drains_evenly_from_the_scenes_own_to_nearly_grey() -> void:
 
 
 func test_an_exhausted_worker_drains_this_fields_colour_only() -> void:
-	var tired: Field = FIELD_SCENE.instantiate()
-	var rested: Field = FIELD_SCENE.instantiate()
-	add_child_autofree(tired)
-	add_child_autofree(rested)
+	var tired := _field()
+	var rested := _field()
 	var haze: WorldEnvironment = rested.get_node("Haze")
 	var full := haze.environment.adjustment_saturation
 
@@ -40,8 +45,7 @@ func test_an_exhausted_worker_drains_this_fields_colour_only() -> void:
 
 
 func test_the_overseer_stands_outside_the_track_by_the_generator() -> void:
-	var field: Field = FIELD_SCENE.instantiate()
-	add_child_autofree(field)
+	var field := _field()
 	var overseer: Node3D = field.get_node("Overseer")
 	var lap_line := (field.get_node("Generator") as Node3D).position
 
@@ -49,8 +53,7 @@ func test_the_overseer_stands_outside_the_track_by_the_generator() -> void:
 
 
 func test_the_whip_makes_the_overseer_crack_it_and_the_worker_stagger() -> void:
-	var field: Field = FIELD_SCENE.instantiate()
-	add_child_autofree(field)
+	var field := _field()
 	var camera: Camera3D = field.get_node("Camera")
 	var camera_before := camera.global_transform
 
@@ -68,8 +71,7 @@ func test_the_whip_makes_the_overseer_crack_it_and_the_worker_stagger() -> void:
 
 
 func test_the_whistle_makes_the_overseer_blow_it() -> void:
-	var field: Field = FIELD_SCENE.instantiate()
-	add_child_autofree(field)
+	var field := _field()
 
 	field.show_overseer(Farm.OVERSEER_WHISTLE)
 
@@ -80,8 +82,7 @@ func test_the_whistle_makes_the_overseer_blow_it() -> void:
 
 
 func test_the_lap_line_is_at_the_generator() -> void:
-	var field: Field = FIELD_SCENE.instantiate()
-	add_child_autofree(field)
+	var field := _field()
 	var line: Node3D = field.get_node("PowerTiles/LapLine")
 	var generator: Node3D = field.get_node("Generator")
 
@@ -90,8 +91,7 @@ func test_the_lap_line_is_at_the_generator() -> void:
 
 
 func test_a_step_while_he_runs_lights_its_tile_and_pulses_the_lamp() -> void:
-	var field: Field = FIELD_SCENE.instantiate()
-	add_child_autofree(field)
+	var field := _field()
 	var tiles: PowerTiles = field.get_node("PowerTiles")
 	var generator: Generator = field.get_node("Generator")
 	field.show_worker(WorkerView.new(WorkerView.Activity.RUNNING, 5))
@@ -103,8 +103,7 @@ func test_a_step_while_he_runs_lights_its_tile_and_pulses_the_lamp() -> void:
 
 
 func test_reduced_motion_stops_the_trail_fading_and_the_lamp_pulsing() -> void:
-	var field: Field = FIELD_SCENE.instantiate()
-	add_child_autofree(field)
+	var field := _field()
 	var tiles: PowerTiles = field.get_node("PowerTiles")
 	var generator: Generator = field.get_node("Generator")
 
@@ -112,3 +111,33 @@ func test_reduced_motion_stops_the_trail_fading_and_the_lamp_pulsing() -> void:
 
 	assert_true(tiles.instant_fade)
 	assert_true(generator.skip_pulse)
+
+
+func test_the_first_land_is_laid_out_where_it_always_was() -> void:
+	var field := _field()
+
+	assert_eq((field.get_node("Plot0") as Node3D).position, Vector3(-3.6, 0.0, -2.4))
+	assert_eq((field.get_node("Plot11") as Node3D).position, Vector3(3.6, 0.0, 2.4))
+	assert_almost_eq(
+		(field.get_node("Generator") as Node3D).position,
+		Vector3(-7.5, 0.0, 4.0),
+		Vector3.ONE * 0.0001
+	)
+	assert_almost_eq(field.track().half_size, Vector2(7.5, 6.3), Vector2.ONE * 0.0001)
+
+
+func test_a_bigger_farm_adds_plots_and_leaves_the_generator_where_it_was() -> void:
+	var first := _field()
+	var bigger: Field = add_child_autofree(FIELD_SCENE.instantiate())
+	bigger.show_land(FieldLand.grown(1, 1))
+
+	assert_true(bigger.has_node("Plot13"))
+	assert_eq(
+		(bigger.get_node("Plot0") as Node3D).position, (first.get_node("Plot0") as Node3D).position
+	)
+	assert_almost_eq(
+		(bigger.get_node("Generator") as Node3D).position,
+		(first.get_node("Generator") as Node3D).position,
+		Vector3.ONE * 0.0001
+	)
+	assert_gt(bigger.track().length(), first.track().length())
