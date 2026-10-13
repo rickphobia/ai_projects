@@ -15,6 +15,7 @@ from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.adapters.sqlite.spending import SqliteSpending
 from rss_news.adapters.sqlite.stocks import SqliteStocks
 from rss_news.alerts.push import AlertPush
+from rss_news.alerts.rules import AlertLimits
 from rss_news.briefings.writing import Briefings
 from rss_news.chat.chatting import Chats
 from rss_news.config import load_settings
@@ -138,6 +139,11 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
                 sender=None,
                 inbox=Inbox(SqliteItems(database, clock)),
                 clock=clock,
+            ),
+            alert_limits=AlertLimits(
+                quiet_hours=settings.alert_quiet_hours,
+                daily_cap=settings.alert_daily_cap,
+                timezone=settings.timezone,
             ),
             tick=NeverTicked(),
         )

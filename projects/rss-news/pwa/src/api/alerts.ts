@@ -7,6 +7,10 @@ export interface PushSetup {
   publicKey: string | null;
   // How many phones have Alerts on.
   subscriptions: number;
+  // No Alerts between these times ("HH:MM", the owner's time zone); start may be after end.
+  quietHours: { start: string; end: string };
+  // Most Alerts sent per day.
+  dailyCap: number;
 }
 
 // A browser's PushSubscription.toJSON(): where its push service reaches it, and the keys the
@@ -28,6 +32,8 @@ export interface PushSetupJson {
   available: boolean;
   public_key: string | null;
   subscriptions: number;
+  quiet_hours: { start: string; end: string };
+  daily_cap: number;
 }
 
 export function pushSetupFromJson(setup: PushSetupJson): PushSetup {
@@ -35,5 +41,7 @@ export function pushSetupFromJson(setup: PushSetupJson): PushSetup {
     available: setup.available,
     publicKey: setup.public_key,
     subscriptions: setup.subscriptions,
+    quietHours: setup.quiet_hours,
+    dailyCap: setup.daily_cap,
   };
 }

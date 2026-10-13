@@ -25,6 +25,8 @@ PUSH = f"{PREFIX}/api/push"
 FEED = "https://news.example/rss"
 PHONE = "https://fcm.googleapis.com/fcm/send/phone-token"
 TABLET = "https://fcm.googleapis.com/fcm/send/tablet-token"
+# The quiet hours and daily cap the set-up shows when config doesn't change them.
+DEFAULT_LIMITS = {"quiet_hours": {"start": "23:00", "end": "07:00"}, "daily_cap": 10}
 
 
 def subscription(endpoint: str = PHONE, p256dh: str = "BPhoneKey") -> dict[str, Any]:
@@ -81,6 +83,7 @@ def test_the_setup_gives_the_key_a_browser_subscribes_with(client: TestClient) -
         "available": True,
         "public_key": FakePushSender.application_server_key,
         "subscriptions": 0,
+        **DEFAULT_LIMITS,
     }
 
 
@@ -175,7 +178,12 @@ def test_without_a_vapid_key_alerts_say_they_are_not_set_up(
 ) -> None:
     client = signed_in(make_wiring(load_settings(app_env(tmp_path)), clock, alerts_off=True))
 
-    assert client.get(PUSH).json() == {"available": False, "public_key": None, "subscriptions": 0}
+    assert client.get(PUSH).json() == {
+        "available": False,
+        "public_key": None,
+        "subscriptions": 0,
+        **DEFAULT_LIMITS,
+    }
     for path, body in (("/subscriptions", subscription()), ("/test", None)):
         response = client.post(f"{PUSH}{path}", json=body)
         assert response.status_code == 409

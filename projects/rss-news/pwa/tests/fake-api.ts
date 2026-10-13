@@ -99,6 +99,8 @@ export class FakeApiClient implements ApiClient {
     available: true,
     publicKey: "BServerKey",
     subscriptions: 0,
+    quietHours: { start: "23:00", end: "07:00" },
+    dailyCap: 10,
   };
   // The endpoints the server holds; subscribe and unsubscribe change it like the backend.
   pushEndpoints = new Set<string>();

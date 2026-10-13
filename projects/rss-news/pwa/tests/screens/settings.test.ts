@@ -123,6 +123,14 @@ describe("the Alerts settings", () => {
     expect(testButton().disabled).toBe(false);
   });
 
+  it("shows the quiet hours and the daily cap", async () => {
+    await renderSettings(root, api, phone);
+
+    expect(screen.getByLabelText("Alert limits").textContent).toBe(
+      "No Alerts from 23:00 to 07:00, and at most 10 a day. Alerts held back by these are dropped; the Items stay in the Inbox.",
+    );
+  });
+
   it("turns Alerts off and tells the server to forget the phone", async () => {
     await phone.subscribe("BServerKey");
     await renderSettings(root, api, phone);
@@ -203,6 +211,8 @@ describe("the Alerts settings", () => {
       available: false,
       publicKey: null,
       subscriptions: 0,
+      quietHours: { start: "23:00", end: "07:00" },
+      dailyCap: 10,
     };
 
     await renderSettings(root, api, phone);

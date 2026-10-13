@@ -14,6 +14,7 @@ from rss_news.alerts.push import (
     NoSubscriptions,
     PushSubscription,
 )
+from rss_news.alerts.rules import AlertLimits
 
 alerts_router = APIRouter(prefix="/api/push")
 # Real endpoints are a few hundred characters; this keeps junk out of the table.
@@ -44,14 +45,20 @@ def push_of(request: Request) -> AlertPush:
 
 @alerts_router.get("")
 def push_setup(request: Request) -> dict[str, Any]:
-    """Whether the server can send Alerts, the key a browser subscribes with, and how many
-    phones have them on."""
+    """Whether the server can send Alerts, the key a browser subscribes with, how many phones
+    have them on, and the quiet hours and daily cap that hold Alerts back."""
     push = push_of(request)
     key = push.application_server_key
+    limits: AlertLimits = request.app.state.alert_limits
     return {
         "available": key is not None,
         "public_key": key,
         "subscriptions": push.subscription_count(),
+        "quiet_hours": {
+            "start": limits.quiet_hours.start.strftime("%H:%M"),
+            "end": limits.quiet_hours.end.strftime("%H:%M"),
+        },
+        "daily_cap": limits.daily_cap,
     }
 
 

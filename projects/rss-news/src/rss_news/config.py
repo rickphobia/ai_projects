@@ -3,12 +3,13 @@
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import time, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Literal, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from rss_news.alerts.rules import QuietHours
 from rss_news.alerts.vapid_keys import InvalidVapidKey, VapidKey, parse_vapid_private_key
 from rss_news.auth.passwords import InvalidPasswordHash, PasswordHash, parse_password_hash
 from rss_news.spending.ledger import ModelPrice
@@ -86,6 +87,10 @@ class Settings:
     vapid_key: VapidKey | None = field(repr=False)
     # Who push services contact about our messages: a mailto: or https: URL.
     vapid_subject: str
+    # No Alerts in these hours, in the owner's time zone; they're dropped, not sent later.
+    alert_quiet_hours: QuietHours
+    # Most Alerts sent per day, counted from midnight in the owner's time zone.
+    alert_daily_cap: int
 
 
 def load_settings(environ: Mapping[str, str]) -> Settings:
@@ -175,6 +180,10 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
             "RSS_NEWS_VAPID_SUBJECT",
             default="https://rickphobia.com",
         ),
+        alert_quiet_hours=_quiet_hours(
+            environ, "RSS_NEWS_ALERT_QUIET_HOURS", default="23:00-07:00"
+        ),
+        alert_daily_cap=_positive_int(environ, "RSS_NEWS_ALERT_DAILY_CAP", default=10),
     )
 
 
@@ -288,6 +297,23 @@ def _timezone(environ: Mapping[str, str], name: str, *, default: str) -> ZoneInf
     except (ZoneInfoNotFoundError, ValueError):
         raise ConfigError(
             f"{name} must be an IANA time zone name like Asia/Kuala_Lumpur, got {value!r}"
+        ) from None
+
+
+_QUIET_HOURS = re.compile(r"(\d{2}):(\d{2})-(\d{2}):(\d{2})")
+
+
+def _quiet_hours(environ: Mapping[str, str], name: str, *, default: str) -> QuietHours:
+    value = _non_blank(environ, name, default=default)
+    match = _QUIET_HOURS.fullmatch(value)
+    try:
+        if match is None:
+            raise ValueError(value)
+        start_hour, start_minute, end_hour, end_minute = (int(part) for part in match.groups())
+        return QuietHours(time(start_hour, start_minute), time(end_hour, end_minute))
+    except ValueError:
+        raise ConfigError(
+            f"{name} must be two 24-hour times like 23:00-07:00, got {value!r}"
         ) from None
 
 

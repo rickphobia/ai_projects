@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 
 from rss_news.alerts.push import AlertPush
+from rss_news.alerts.rules import AlertLimits
 from rss_news.auth.login import LoginFailures, OwnerLogin
 from rss_news.auth.sessions import SessionSigner
 from rss_news.briefings.writing import Briefings
@@ -69,6 +70,7 @@ def create_app(
     notes: Notes,
     spending: SpendingLimit,
     alert_push: AlertPush,
+    alert_limits: AlertLimits,
     tick: TickHealth,
     background: tuple[BackgroundJob, ...] = (),
 ) -> FastAPI:
@@ -117,6 +119,7 @@ def create_app(
     app.state.notes = notes
     app.state.spending = spending
     app.state.alert_push = alert_push
+    app.state.alert_limits = alert_limits
 
     @app.get("/healthz")
     def healthz() -> Response:
