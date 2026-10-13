@@ -36,7 +36,7 @@ Each milestone ends in something installable and useful on its own.
 
 1. As a user, I want to download the app as an APK from GitHub Releases, so that I don't need the Play Store.
 2. As a user, I want updates to install over the old version without losing my data, so that updating is safe.
-3. As a user, I want the README to tell me how to allow restricted settings for a sideloaded app on Android 13 and later, so that I can grant notification access.
+3. As a user, I want the README to tell me how to allow restricted settings for a sideloaded app on Android 13 and later, so that I can grant notification access, and how to get past Google Play Protect blocking the install, so that I can install the app and its updates at all.
 4. As the owner, I want every pull request to produce a separate Preview app with its own data, so that I can try an unmerged build without it touching my real Transactions.
 5. As a stranger reading the code, I want an MIT licence, so that I know I may use and change it.
 
@@ -246,5 +246,6 @@ Daily, Monthly and Stats tabs with the Month header; Transaction details and edi
 
 - The Notification Reader's patterns can only be written once real notifications have been recorded. Milestone 1 therefore ships the recorder first, and the owner uses TNG, Grab and Shopee for about a week before milestone 2's reader tickets start.
 - On Android 13 and later, a sideloaded app's notification access is blocked until "Allow restricted settings" is turned on in its App info. The first-run guide and the README both explain this.
+- In some countries (Malaysia since April 2026) Play Protect's enhanced fraud protection blocks installing a sideloaded app that requests notification access from a browser, messaging app or file manager. It applies to every install and update but not to adb installs, and the installed app keeps working. The README explains the workarounds; decision 0005 records why duit-log still ships on GitHub Releases.
 - Wallet apps change their wording without notice. The "Couldn't read" list and the warning in the log are how that shows up; the fix is a new sample and a pattern update.
 - The README needs a privacy section that states the two rules of decision 0003 in plain words and links to the code that enforces them.

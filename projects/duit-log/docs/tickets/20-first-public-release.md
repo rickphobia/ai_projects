@@ -11,7 +11,7 @@
 **Effort:** low
 
 - [ ] README privacy section states decision 0003's two rules in plain words and links to the code and tests that enforce them
-- [ ] README install steps cover downloading the APK, allowing restricted settings, granting notification access, switching other apps off (optional), and adding an AI key (optional)
+- [ ] README install steps cover downloading the APK, getting past Play Protect if it blocks the install, allowing restricted settings, granting notification access, switching other apps off (optional), and adding an AI key (optional)
 - [ ] Every screen checked in light and dark theme; anything unreadable fixed
 - [ ] Version name 0.1.0; CI publishes `duit-log-v0.1.0`
 - [ ] Root README index row set to "working"
