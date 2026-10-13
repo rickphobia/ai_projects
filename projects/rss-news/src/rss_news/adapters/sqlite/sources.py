@@ -135,11 +135,30 @@ class SqliteSources:
             if not connection.execute("DELETE FROM sources WHERE id = ?", (source_id,)).rowcount:
                 raise NotFound(f"there is no Source {source_id}")
 
+    def newsletter_source(self, *, folder_name: str, name: str, url: str) -> int:
+        with self._database.connection() as connection:
+            existing = connection.execute("SELECT id FROM sources WHERE url = ?", (url,)).fetchone()
+            if existing:
+                return int(existing[0])
+            folder_id = connection.execute(
+                "INSERT INTO folders (name, position) "
+                "SELECT ?, COALESCE(MAX(position), 0) + 1 FROM folders WHERE true "
+                "ON CONFLICT (name) DO UPDATE SET name = excluded.name RETURNING id",
+                (folder_name,),
+            ).fetchone()[0]
+            source_id: int = connection.execute(
+                "INSERT INTO sources (folder_id, name, url) VALUES (?, ?, ?) RETURNING id",
+                (folder_id, name, url),
+            ).fetchone()[0]
+        return source_id
+
     def due(self, now: datetime) -> list[Source]:
+        # Newsletter Sources (mailto:) arrive through the mailbox; there is nothing to fetch.
         with self._database.connection() as connection:
             rows = connection.execute(
                 "SELECT id, folder_id, name, url, etag, last_modified FROM sources "
-                "WHERE NOT paused AND (next_fetch_at IS NULL OR next_fetch_at <= ?) "
+                "WHERE NOT paused AND url NOT LIKE 'mailto:%' "
+                "AND (next_fetch_at IS NULL OR next_fetch_at <= ?) "
                 "ORDER BY next_fetch_at IS NOT NULL, next_fetch_at, id",
                 (to_db_time(now),),
             ).fetchall()

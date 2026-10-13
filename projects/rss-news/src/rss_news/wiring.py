@@ -32,6 +32,7 @@ from rss_news.config import Settings
 from rss_news.dictionary.lookup import Dictionary, DictionaryModel
 from rss_news.items.inbox import Inbox, OldItemCleanup
 from rss_news.items.reading import ArticleExtractor, ItemReading
+from rss_news.newsletters.collecting import Mailbox, Newsletters
 from rss_news.notes.notes import Notes
 from rss_news.scoring.item_scoring import ItemScoring, ScoringModel
 from rss_news.sources.catalog import StarterFolder, load_starter_sources
@@ -68,13 +69,15 @@ def build_app(
     language_model: LanguageModel,
     article_extractor: ArticleExtractor,
     push_sender: PushSender | None,
+    mailbox: Mailbox | None,
     clock: Clock,
     starter_folders: Sequence[StarterFolder],
     run_tick_loop: bool,
 ) -> Wiring:
     """Build the app over a migrated database, loading the starter Sources on first run.
 
-    Without a push sender (no VAPID key configured) Alerts are off and say so.
+    Without a push sender (no VAPID key configured) Alerts are off and say so; without a
+    mailbox (no newsletter Gmail configured) the tick doesn't read newsletters.
     """
     sources = SqliteSources(database)
     items = SqliteItems(database, clock)
@@ -126,9 +129,20 @@ def build_app(
             timezone=settings.timezone,
         ),
     )
+    newsletter_steps = (
+        [
+            TickStep(
+                "read newsletters",
+                Newsletters(mailbox=mailbox, sources=sources, items=items, clock=clock).collect,
+            )
+        ]
+        if mailbox
+        else []
+    )
     tick = Tick(
         [
             TickStep("fetch due sources", fetching.fetch_due),
+            *newsletter_steps,
             TickStep("score new items", scoring.score_new),
             TickStep("send alerts", alert_rules.send_due),
             TickStep(

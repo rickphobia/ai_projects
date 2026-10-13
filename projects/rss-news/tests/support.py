@@ -28,6 +28,7 @@ from rss_news.dictionary.lookup import (
     DictionaryFailed,
 )
 from rss_news.items.reading import ExtractionFailed, ReaderView
+from rss_news.newsletters.collecting import MailMessage
 from rss_news.scoring.item_scoring import (
     ItemScore,
     ScoringFailed,
@@ -249,6 +250,20 @@ class FakeLanguageModel:
         return ScoringResult(scores, cls.USAGE)
 
 
+class FakeMailbox:
+    """Holds the messages the test delivered; marking one handled takes it out."""
+
+    def __init__(self) -> None:
+        self.messages: list[MailMessage] = []
+        self.handled: list[str] = []
+
+    def unhandled(self) -> list[MailMessage]:
+        return [message for message in self.messages if message.uid not in self.handled]
+
+    def mark_handled(self, uids: Sequence[str]) -> None:
+        self.handled.extend(uids)
+
+
 def make_wiring(
     settings: Settings,
     clock: FakeClock,
@@ -258,6 +273,7 @@ def make_wiring(
     article_extractor: FakeArticleExtractor | None = None,
     push_sender: FakePushSender | None = None,
     alerts_off: bool = False,
+    mailbox: FakeMailbox | None = None,
     starter_folders: Sequence[StarterFolder] = (),
 ) -> Wiring:
     """The whole app over the settings' database file, with fakes for the outside world.
@@ -274,6 +290,7 @@ def make_wiring(
         language_model=language_model or FakeLanguageModel(),
         article_extractor=article_extractor or FakeArticleExtractor(),
         push_sender=None if alerts_off else push_sender or FakePushSender(),
+        mailbox=mailbox,
         clock=clock,
         starter_folders=starter_folders,
         run_tick_loop=False,

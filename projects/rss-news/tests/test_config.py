@@ -8,7 +8,7 @@ import pytest
 from rss_news.alerts.rules import QuietHours
 from rss_news.alerts.vapid_keys import generate_vapid_private_key, parse_vapid_private_key
 from rss_news.auth.passwords import parse_password_hash
-from rss_news.config import ConfigError, Settings, load_settings
+from rss_news.config import ConfigError, NewsletterMailbox, Settings, load_settings
 from rss_news.spending.ledger import ModelPrice
 from tests.support import OWNER_PASSWORD_HASH, SESSION_SECRET, fake_pwa_build
 
@@ -74,6 +74,7 @@ def test_defaults_apply_when_only_the_pwa_folder_and_secrets_are_set(pwa_dir: Pa
         vapid_subject="https://rickphobia.com",
         alert_quiet_hours=QuietHours(time(23, 0), time(7, 0)),
         alert_daily_cap=10,
+        newsletter_mailbox=None,
     )
 
 
@@ -119,6 +120,9 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
             "RSS_NEWS_VAPID_SUBJECT": "mailto:owner@example.com",
             "RSS_NEWS_ALERT_QUIET_HOURS": "22:30-06:15",
             "RSS_NEWS_ALERT_DAILY_CAP": "5",
+            "RSS_NEWS_NEWSLETTER_IMAP_HOST": "imap.example.com",
+            "RSS_NEWS_NEWSLETTER_ADDRESS": "owner.newsletters@gmail.com",
+            "RSS_NEWS_NEWSLETTER_APP_PASSWORD": "abcd efgh ijkl mnop",
         }
     )
 
@@ -167,6 +171,12 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         vapid_subject="mailto:owner@example.com",
         alert_quiet_hours=QuietHours(time(22, 30), time(6, 15)),
         alert_daily_cap=5,
+        newsletter_mailbox=NewsletterMailbox(
+            imap_host="imap.example.com",
+            address="owner.newsletters@gmail.com",
+            # Gmail shows it in groups of four; the spaces aren't part of it.
+            app_password="abcdefghijklmnop",
+        ),
     )
 
 
@@ -220,6 +230,8 @@ def test_reads_every_setting_from_the_environment(pwa_dir: Path) -> None:
         ("RSS_NEWS_ALERT_QUIET_HOURS", "23:00-24:00", "must be two 24-hour times"),
         ("RSS_NEWS_ALERT_QUIET_HOURS", "23:00", "must be two 24-hour times"),
         ("RSS_NEWS_ALERT_DAILY_CAP", "0", "RSS_NEWS_ALERT_DAILY_CAP must be at least 1"),
+        ("RSS_NEWS_NEWSLETTER_ADDRESS", "news@gmail.com", "set both for newsletters, or neither"),
+        ("RSS_NEWS_NEWSLETTER_APP_PASSWORD", "abcd", "set both for newsletters, or neither"),
     ],
 )
 def test_a_bad_value_is_rejected_naming_the_variable(
@@ -236,6 +248,8 @@ def test_the_secrets_are_kept_out_of_the_settings_repr(pwa_dir: Path) -> None:
                 "RSS_NEWS_PWA_DIR": str(pwa_dir),
                 **SECRETS,
                 "RSS_NEWS_VAPID_PRIVATE_KEY": VAPID_PRIVATE_KEY,
+                "RSS_NEWS_NEWSLETTER_ADDRESS": "owner.newsletters@gmail.com",
+                "RSS_NEWS_NEWSLETTER_APP_PASSWORD": "abcdefghijklmnop",
             }
         )
     )
@@ -244,6 +258,7 @@ def test_the_secrets_are_kept_out_of_the_settings_repr(pwa_dir: Path) -> None:
     assert "sk-ant-test" not in text
     assert "scrypt" not in text
     assert VAPID_PRIVATE_KEY not in text
+    assert "abcdefghijklmnop" not in text
 
 
 def test_a_pwa_folder_without_a_build_is_rejected(tmp_path: Path) -> None:

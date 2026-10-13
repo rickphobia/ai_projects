@@ -12,6 +12,7 @@ import uvicorn
 from rss_news.adapters.article_extractor import TrafilaturaArticleExtractor
 from rss_news.adapters.feed_fetcher import HttpFeedFetcher
 from rss_news.adapters.language_model import AnthropicLanguageModel
+from rss_news.adapters.mailbox import ImapMailbox
 from rss_news.adapters.push_sender import WebPushSender
 from rss_news.adapters.sqlite.database import DatabaseError, SqliteDatabase
 from rss_news.alerts.vapid_keys import generate_vapid_private_key
@@ -58,6 +59,16 @@ def serve(settings: Settings) -> int:
         logger.warning(
             "alerts are off: RSS_NEWS_VAPID_PRIVATE_KEY is not set (see `rss-news vapid-key`)"
         )
+    mailbox = None
+    if settings.newsletter_mailbox:
+        mailbox = ImapMailbox(
+            host=settings.newsletter_mailbox.imap_host,
+            address=settings.newsletter_mailbox.address,
+            app_password=settings.newsletter_mailbox.app_password,
+            timeout_seconds=settings.fetch_timeout.total_seconds(),
+        )
+    else:
+        logger.warning("newsletters are off: RSS_NEWS_NEWSLETTER_ADDRESS is not set")
     wiring = build_app(
         settings,
         database=database,
@@ -65,6 +76,7 @@ def serve(settings: Settings) -> int:
         language_model=language_model,
         article_extractor=article_extractor,
         push_sender=push_sender,
+        mailbox=mailbox,
         clock=clock,
         starter_folders=STARTER_FOLDERS,
         run_tick_loop=True,

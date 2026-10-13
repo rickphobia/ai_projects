@@ -25,6 +25,13 @@ class ConfigError(Exception):
 
 
 @dataclass(frozen=True)
+class NewsletterMailbox:
+    imap_host: str
+    address: str
+    app_password: str = field(repr=False)
+
+
+@dataclass(frozen=True)
 class Settings:
     log_level: str
     host: str
@@ -91,6 +98,8 @@ class Settings:
     alert_quiet_hours: QuietHours
     # Most Alerts sent per day, counted from midnight in the owner's time zone.
     alert_daily_cap: int
+    # The newsletter Gmail inbox. None leaves newsletters off; the rest of the app works.
+    newsletter_mailbox: NewsletterMailbox | None
 
 
 def load_settings(environ: Mapping[str, str]) -> Settings:
@@ -184,6 +193,25 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
             environ, "RSS_NEWS_ALERT_QUIET_HOURS", default="23:00-07:00"
         ),
         alert_daily_cap=_positive_int(environ, "RSS_NEWS_ALERT_DAILY_CAP", default=10),
+        newsletter_mailbox=_newsletter_mailbox(environ),
+    )
+
+
+def _newsletter_mailbox(environ: Mapping[str, str]) -> NewsletterMailbox | None:
+    address = environ.get("RSS_NEWS_NEWSLETTER_ADDRESS", "").strip()
+    # Gmail shows app passwords in groups of four; the spaces aren't part of it.
+    app_password = "".join(environ.get("RSS_NEWS_NEWSLETTER_APP_PASSWORD", "").split())
+    if not address and not app_password:
+        return None
+    if not address or not app_password:
+        raise ConfigError(
+            "RSS_NEWS_NEWSLETTER_ADDRESS and RSS_NEWS_NEWSLETTER_APP_PASSWORD go together: "
+            "set both for newsletters, or neither"
+        )
+    return NewsletterMailbox(
+        imap_host=_non_blank(environ, "RSS_NEWS_NEWSLETTER_IMAP_HOST", default="imap.gmail.com"),
+        address=address,
+        app_password=app_password,
     )
 
 
