@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,12 +23,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.rickphobia.duitlog.R
 import com.rickphobia.duitlog.core.ledger.Category
 import com.rickphobia.duitlog.core.ledger.HandEntry
 import com.rickphobia.duitlog.core.ledger.Kind
 import com.rickphobia.duitlog.core.ledger.LedgerException
 import com.rickphobia.duitlog.core.ledger.Transaction
+import com.rickphobia.duitlog.core.reader.Wallet
 import com.rickphobia.duitlog.logging.AppLog
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -70,6 +74,7 @@ fun EditTransactionScreen(
         onCancel = onCancel,
     ) {
         ExcludedSwitch(excluded) { excluded = it }
+        OriginalText(transaction)
         OutlinedButton(onClick = { confirmingDelete = true }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
         }
@@ -119,6 +124,19 @@ private fun ExcludedSwitch(
     }
 }
 
+/** The notification a captured Transaction was read from, so the user can see why it reads as it does. */
+@Composable
+private fun OriginalText(transaction: Transaction) {
+    val wallet = transaction.wallet ?: return
+    val text = transaction.originalText ?: return
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(R.string.original_notification, wallet.label), style = MaterialTheme.typography.labelMedium)
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+            Text(text, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp))
+        }
+    }
+}
+
 /** Deletes; returns the string resource to show if it failed, or null if it worked. */
 private suspend fun tryDelete(onDelete: suspend () -> Unit): Int? =
     try {
@@ -151,6 +169,8 @@ private fun EditTransactionScreenPreview() {
             "F&B",
             "lunch with Ali",
             excluded = true,
+            wallet = Wallet.TNG,
+            originalText = "Payment\nYou paid RM12.50 to Nasi Kandar",
         )
     DuitLogTheme {
         EditTransactionScreen(transaction, zone, categories, { _, _ -> }, {}, {}, {}, {})

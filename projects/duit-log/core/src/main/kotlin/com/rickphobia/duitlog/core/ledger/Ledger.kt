@@ -24,6 +24,9 @@ class Ledger(
     /** Adding, renaming and deleting Categories. */
     val categoryLists = CategoryLists(database)
 
+    /** Saving what the Notification Reader read, and the "Couldn't read" list. */
+    val captures = Captures(database)
+
     /** Saves [entry] and returns it as a Transaction, or throws a [LedgerException] and saves nothing. */
     fun addByHand(entry: HandEntry): Transaction {
         val checked = database.check(entry, clock.zone)

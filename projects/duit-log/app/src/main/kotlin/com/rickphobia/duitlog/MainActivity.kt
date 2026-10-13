@@ -30,6 +30,7 @@ import com.rickphobia.duitlog.onboarding.NotificationAccessGuide
 import com.rickphobia.duitlog.screens.AccessBanner
 import com.rickphobia.duitlog.screens.DuitLogApp
 import com.rickphobia.duitlog.screens.DuitLogTheme
+import com.rickphobia.duitlog.screens.RecorderMenu
 import java.io.File
 import java.io.IOException
 import java.time.ZoneId
@@ -69,12 +70,21 @@ class MainActivity : ComponentActivity() {
                     }
 
                     Destination.HOME -> {
+                        val app = application as DuitLogApplication
+                        val ledgerChanges by app.ledgerChanges.collectAsState()
+                        val recorderOn by app.recorderSwitch.on.collectAsState()
                         DuitLogApp(
-                            ledger = (application as DuitLogApplication).ledger,
+                            ledger = app.ledger,
                             versionName = BuildConfig.VERSION_NAME,
                             buildNumber = BuildConfig.VERSION_CODE,
                             access = AccessBanner(accessGranted, onFix = { NotificationAccess.openSettings(this) }),
-                            onOpenRecorder = { destination = Destination.RECORDER },
+                            ledgerChanges = ledgerChanges,
+                            recorder =
+                                RecorderMenu(
+                                    on = recorderOn,
+                                    onChange = ::switchRecorder,
+                                    onOpen = { destination = Destination.RECORDER },
+                                ),
                             onOpenGuide = { destination = Destination.GUIDE },
                             onShareLog = ::shareLog,
                         )
@@ -126,6 +136,11 @@ class MainActivity : ComponentActivity() {
             onClear = ::clearRecordings,
             onBack = onBack,
         )
+    }
+
+    private fun switchRecorder(on: Boolean) {
+        (application as DuitLogApplication).recorderSwitch.set(on)
+        AppLog.i("recorder switched ${if (on) "on" else "off"}")
     }
 
     /** Copies the log into the shared cache folder and hands it to the Android share menu. */

@@ -70,8 +70,11 @@ _Avoid_: Parser, scraper
 **Not a Wallet**:
 The Notification Reader's verdict on a notification whose posting app isn't a Wallet app. It is dropped at once, its text unread, and never saved, logged or counted.
 
+**Unreadable**:
+The Notification Reader's verdict on a Wallet notification that mentions an amount but matches none of that Wallet's known wordings. It goes on the "Couldn't read" list, where you add it by hand or dismiss it.
+
 **Recorder**:
-The milestone 1 screen and storage that keep every Wallet notification as Android posted it, so the Notification Reader can be built from real wording.
+The screen and storage that keep every Wallet notification as Android posted it, so the Notification Reader can be built from real wording. Since ticket 06 it is a debug setting, off by default.
 _Avoid_: Capture log, sample collector
 
 ## Sorting

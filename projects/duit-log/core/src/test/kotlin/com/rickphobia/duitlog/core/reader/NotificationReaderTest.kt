@@ -15,6 +15,7 @@ class NotificationReaderTest {
         text = text,
         expandedText = "$text using your eWallet balance",
         postedAt = Instant.parse("2026-10-12T04:30:00Z"),
+        notificationKey = "0|my.com.tngdigital.ewallet|5|null|10270",
     )
 
     @Test
@@ -42,7 +43,7 @@ class NotificationReaderTest {
     }
 
     @Test
-    fun `each Wallet app's notification is kept with its Wallet`() {
+    fun `each Wallet app's notification is read as its Wallet's`() {
         val expected =
             mapOf(
                 "my.com.tngdigital.ewallet" to Wallet.TNG,
@@ -51,8 +52,16 @@ class NotificationReaderTest {
             )
 
         expected.forEach { (packageName, wallet) ->
-            assertEquals(Reading.FromWallet(wallet, content()), reader.read(packageName) { content() })
+            val reading = reader.read(packageName) { content() }
+            assertEquals(wallet, (reading as Reading.FromWallet).wallet)
         }
+    }
+
+    @Test
+    fun `a Wallet with no known wordings isn't read yet`() {
+        val reading = reader.read("com.grabtaxi.passenger") { content() }
+
+        assertEquals(Reading.Ignored(Wallet.GRAB, content(), IgnoreReason.WALLET_NOT_READ_YET), reading)
     }
 
     @Test

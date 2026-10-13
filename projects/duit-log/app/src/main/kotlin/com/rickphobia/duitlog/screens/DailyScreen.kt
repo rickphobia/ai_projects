@@ -29,6 +29,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -230,10 +231,13 @@ private fun TransactionRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // A captured Transaction waits for a Category; it stands out until it gets one.
+        val uncategorised = transaction.categoryName == null
         Text(
-            transaction.categoryName ?: "",
+            transaction.categoryName ?: stringResource(R.string.uncategorised),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = with(MaterialTheme.colorScheme) { if (uncategorised) tertiary else onSurfaceVariant },
+            fontWeight = if (uncategorised) FontWeight.Bold else null,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(CATEGORY_SHARE),
@@ -298,6 +302,16 @@ private fun DailyScreenPreview() {
                 "F&B",
                 "lunch with Ali",
                 excluded = true,
+            ),
+            Transaction(
+                3,
+                Kind.EXPENSE,
+                850,
+                LocalDateTime.of(2026, 10, 2, 18, 5).atZone(zone).toInstant(),
+                "Kedai Runcit",
+                null,
+                null,
+                null,
             ),
         )
     DuitLogTheme {

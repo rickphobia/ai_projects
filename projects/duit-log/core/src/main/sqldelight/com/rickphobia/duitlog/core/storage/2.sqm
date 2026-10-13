@@ -1,0 +1,14 @@
+-- Databases made before ticket 06 have no captured Transactions and no "Couldn't read" list.
+ALTER TABLE ledger_transaction ADD COLUMN wallet TEXT;
+ALTER TABLE ledger_transaction ADD COLUMN posted_at INTEGER;
+ALTER TABLE ledger_transaction ADD COLUMN original_text TEXT;
+ALTER TABLE ledger_transaction ADD COLUMN notification_key TEXT;
+CREATE INDEX ledger_transaction_wallet_key ON ledger_transaction(wallet, notification_key);
+
+CREATE TABLE couldnt_read (
+  id INTEGER NOT NULL PRIMARY KEY,
+  wallet TEXT NOT NULL,
+  posted_at INTEGER NOT NULL,
+  original_text TEXT NOT NULL,
+  notification_key TEXT NOT NULL
+);

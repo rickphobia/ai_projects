@@ -12,6 +12,7 @@ internal fun problemText(problem: LedgerException): Int =
         is LedgerException.MerchantMissing -> R.string.problem_merchant
         is LedgerException.UnknownCategory, is LedgerException.CategoryKindMismatch -> R.string.problem_category
         is LedgerException.UnknownTransaction -> R.string.problem_gone
+        is LedgerException.UnknownCouldntRead -> R.string.problem_entry_gone
         is LedgerException.CategoryNameMissing -> R.string.problem_category_name
         is LedgerException.CategoryNameTaken -> R.string.problem_category_taken
         is LedgerException.OtherIsFixed -> R.string.problem_other_fixed
