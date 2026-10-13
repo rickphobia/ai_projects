@@ -16,14 +16,19 @@ import java.time.YearMonth
 class CaptureTest {
     private val lunch = LocalDateTime.of(2026, 10, 12, 12, 30).atZone(KUALA_LUMPUR).toInstant()
 
+    // Android's keys as TNG's notifications carry them: only the id differs between two payments.
+    private val firstKey = "0|my.com.tngdigital.ewallet|5|null|10270"
+    private val secondKey = "0|my.com.tngdigital.ewallet|6|null|10270"
+
     private fun payment(
         amountSen: Long = 1_250,
         postedAt: Instant = lunch,
         wallet: Wallet = Wallet.TNG,
         text: String = "Paid RM12.50 to Nasi Kandar Pelita",
+        key: String = firstKey,
     ) = Reading.Read(
         wallet,
-        NotificationContent("Payment", text, "", postedAt),
+        NotificationContent("Payment", text, "", postedAt, key),
         ReadKind.EXPENSE,
         amountSen,
         "Nasi Kandar Pelita",
@@ -32,7 +37,8 @@ class CaptureTest {
     private fun unreadable(
         text: String = "Something about RM8.00",
         postedAt: Instant = lunch,
-    ) = Reading.Unreadable(Wallet.TNG, NotificationContent("TNG", text, "", postedAt))
+        key: String = firstKey,
+    ) = Reading.Unreadable(Wallet.TNG, NotificationContent("TNG", text, "", postedAt, key))
 
     @Test
     fun `a captured payment is an Expense without a Category on the day it was posted`() {
@@ -74,6 +80,27 @@ class CaptureTest {
     }
 
     @Test
+    fun `two payments with the same words and amount seconds apart give two Transactions`() {
+        val ledger = newLedger()
+        ledger.captures.payment(payment())
+
+        val second = payment(postedAt = lunch.plusSeconds(13), key = secondKey)
+
+        assertTrue(ledger.captures.payment(second) is CaptureOutcome.Captured)
+    }
+
+    @Test
+    fun `the same key re-posted 40 seconds later gives one Transaction`() {
+        val ledger = newLedger()
+        val first = (ledger.captures.payment(payment()) as CaptureOutcome.Captured).transaction
+
+        assertEquals(
+            CaptureOutcome.Duplicate(first.id),
+            ledger.captures.payment(payment(postedAt = lunch.plusSeconds(40))),
+        )
+    }
+
+    @Test
     fun `a notification updated in place a little later gives one Transaction`() {
         val ledger = newLedger()
         val first = (ledger.captures.payment(payment()) as CaptureOutcome.Captured).transaction
@@ -103,14 +130,14 @@ class CaptureTest {
     }
 
     @Test
-    fun `a different amount, Wallet or a later payment is a new Transaction`() {
+    fun `the same key from another Wallet, or reused long after, is a new Transaction`() {
         val ledger = newLedger()
         ledger.captures.payment(payment())
 
-        assertTrue(ledger.captures.payment(payment(amountSen = 1_300)) is CaptureOutcome.Captured)
         assertTrue(ledger.captures.payment(payment(wallet = Wallet.GRAB)) is CaptureOutcome.Captured)
-        val later = payment(postedAt = lunch + DUPLICATE_WINDOW.plusSeconds(1))
-        assertTrue(ledger.captures.payment(later) is CaptureOutcome.Captured)
+        // A Wallet may number its notifications from 1 again after a restart.
+        val reused = payment(postedAt = lunch + DUPLICATE_WINDOW.plusSeconds(1))
+        assertTrue(ledger.captures.payment(reused) is CaptureOutcome.Captured)
     }
 
     @Test
@@ -140,7 +167,7 @@ class CaptureTest {
 
         val again = unreadable(postedAt = lunch.plusSeconds(5))
         assertEquals(KeepOutcome.Duplicate(kept.id), ledger.captures.keepUnreadable(again))
-        assertTrue(ledger.captures.keepUnreadable(unreadable(text = "Other words RM8.00")) is KeepOutcome.Kept)
+        assertTrue(ledger.captures.keepUnreadable(unreadable(key = secondKey)) is KeepOutcome.Kept)
         assertEquals(2, ledger.captures.couldntRead().size)
     }
 

@@ -8,12 +8,13 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * How far apart two postings of the same thing can be and still count as one. Wallets post a
- * notification again or update it in place within seconds, and Android gives each posting its own
- * time; two real payments of the same amount in the same Wallet this close together are rare
- * enough to accept losing one.
+ * A notification is a duplicate when the same Wallet posted the same notification key within this
+ * long of it: a re-post or an update in place. The key, not the amount or the words, tells two
+ * real payments apart (two RM1.00 Transfers 13 s apart have different keys). The window only
+ * guards against a Wallet reusing a notification id later, e.g. after the app restarts, which
+ * would otherwise drop a real payment.
  */
-val DUPLICATE_WINDOW: Duration = Duration.ofMinutes(2)
+val DUPLICATE_WINDOW: Duration = Duration.ofHours(1)
 
 /** What capturing a read notification did. */
 sealed interface CaptureOutcome {
@@ -56,8 +57,7 @@ class Captures internal constructor(
 ) {
     /**
      * Saves [read] as a new Transaction without a Category, at its posting time; or, when a
-     * Transaction from the same Wallet with the same kind and amount was posted within
-     * [DUPLICATE_WINDOW], saves nothing.
+     * Transaction was captured from the same notification (see [DUPLICATE_WINDOW]), saves nothing.
      */
     fun payment(read: Reading.Read): CaptureOutcome {
         val kind =
@@ -71,8 +71,7 @@ class Captures internal constructor(
                 queries
                     .capturedBetween(
                         read.wallet.name,
-                        kind.name,
-                        read.amountSen,
+                        read.content.notificationKey,
                         (postedAt - DUPLICATE_WINDOW).toEpochMilli(),
                         (postedAt + DUPLICATE_WINDOW).toEpochMilli(),
                     ).executeAsOneOrNull()
@@ -87,6 +86,7 @@ class Captures internal constructor(
                     read.wallet.name,
                     postedAt.toEpochMilli(),
                     read.content.originalText,
+                    read.content.notificationKey,
                 )
                 val id = queries.lastInsertedId().executeAsOne()
                 CaptureOutcome.Captured(queries.byId(id, ::toTransaction).executeAsOne())
@@ -97,7 +97,7 @@ class Captures internal constructor(
     /** The "Couldn't read" list, newest first. */
     fun couldntRead(): List<CouldntRead> = database.couldntReadQueries.all(::toCouldntRead).executeAsList()
 
-    /** Keeps [unreadable], unless the same words from the same Wallet were posted within [DUPLICATE_WINDOW]. */
+    /** Keeps [unreadable], unless it is already on the list (see [DUPLICATE_WINDOW]). */
     fun keepUnreadable(unreadable: Reading.Unreadable): KeepOutcome {
         val queries = database.couldntReadQueries
         val postedAt = unreadable.content.postedAt
@@ -105,16 +105,21 @@ class Captures internal constructor(
         return database.transactionWithResult {
             val existing =
                 queries
-                    .sameWordsBetween(
+                    .sameNotificationBetween(
                         unreadable.wallet.name,
-                        text,
+                        unreadable.content.notificationKey,
                         (postedAt - DUPLICATE_WINDOW).toEpochMilli(),
                         (postedAt + DUPLICATE_WINDOW).toEpochMilli(),
                     ).executeAsOneOrNull()
             if (existing != null) {
                 KeepOutcome.Duplicate(existing)
             } else {
-                queries.insert(unreadable.wallet.name, postedAt.toEpochMilli(), text)
+                queries.insert(
+                    unreadable.wallet.name,
+                    postedAt.toEpochMilli(),
+                    text,
+                    unreadable.content.notificationKey,
+                )
                 val id = queries.lastInsertedId().executeAsOne()
                 KeepOutcome.Kept(CouldntRead(id, unreadable.wallet, postedAt, text))
             }

@@ -15,6 +15,7 @@ class NotificationReaderTest {
         text = text,
         expandedText = "$text using your eWallet balance",
         postedAt = Instant.parse("2026-10-12T04:30:00Z"),
+        notificationKey = "0|my.com.tngdigital.ewallet|5|null|10270",
     )
 
     @Test

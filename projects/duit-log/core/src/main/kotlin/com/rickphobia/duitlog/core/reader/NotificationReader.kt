@@ -2,12 +2,16 @@ package com.rickphobia.duitlog.core.reader
 
 import java.time.Instant
 
-/** What a posted notification says, and when it was posted. */
+/**
+ * What a posted notification says, when it was posted, and Android's key for it. Posting the same
+ * key again is a re-post or an update in place; two payments get two keys, even seconds apart.
+ */
 data class NotificationContent(
     val title: String,
     val text: String,
     val expandedText: String,
     val postedAt: Instant,
+    val notificationKey: String,
 ) {
     /** Every part that has words, one per line, as the Transaction's details show it. */
     val originalText: String

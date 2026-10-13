@@ -3,8 +3,9 @@
 -- day and Month a Transaction shows in, never the moment it happened. An excluded (1) Transaction
 -- stays in the list but counts in no total; 1.sqm adds the column to databases from version 0.2.0.
 -- A captured Transaction has the Wallet that posted it, the notification's posting time (epoch
--- milliseconds; unlike occurred_at it never changes, so duplicates are still found after an edit)
--- and its original text; a hand-added one has none of them. 2.sqm adds these columns.
+-- milliseconds; unlike occurred_at it never changes, so duplicates are still found after an edit),
+-- its original text and Android's key for it; a hand-added one has none of them. 2.sqm adds these
+-- columns.
 CREATE TABLE ledger_transaction (
   id INTEGER NOT NULL PRIMARY KEY,
   kind TEXT NOT NULL CHECK (kind IN ('EXPENSE', 'INCOME')),
@@ -16,11 +17,12 @@ CREATE TABLE ledger_transaction (
   excluded INTEGER NOT NULL DEFAULT 0 CHECK (excluded IN (0, 1)),
   wallet TEXT,
   posted_at INTEGER,
-  original_text TEXT
+  original_text TEXT,
+  notification_key TEXT
 );
 
 CREATE INDEX ledger_transaction_occurred_at ON ledger_transaction(occurred_at);
-CREATE INDEX ledger_transaction_wallet_posted_at ON ledger_transaction(wallet, posted_at);
+CREATE INDEX ledger_transaction_wallet_key ON ledger_transaction(wallet, notification_key);
 
 insert:
 INSERT INTO ledger_transaction(kind, amount_sen, occurred_at, merchant, category_id, note)
@@ -28,14 +30,14 @@ VALUES (?, ?, ?, ?, ?, ?);
 
 -- A captured Transaction starts without a Category.
 insertCaptured:
-INSERT INTO ledger_transaction(kind, amount_sen, occurred_at, merchant, wallet, posted_at, original_text)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO ledger_transaction(kind, amount_sen, occurred_at, merchant, wallet, posted_at, original_text, notification_key)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
--- A Transaction captured from the same Wallet with the same kind and amount, posted from
--- (inclusive) until (inclusive).
+-- A Transaction captured from the same notification of the same Wallet, posted from (inclusive)
+-- until (inclusive).
 capturedBetween:
 SELECT id FROM ledger_transaction
-WHERE wallet = :wallet AND kind = :kind AND amount_sen = :amountSen AND posted_at BETWEEN :from AND :until
+WHERE wallet = :wallet AND notification_key = :notificationKey AND posted_at BETWEEN :from AND :until
 LIMIT 1;
 
 lastInsertedId:

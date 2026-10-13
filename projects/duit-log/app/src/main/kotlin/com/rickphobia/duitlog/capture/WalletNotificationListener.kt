@@ -106,6 +106,7 @@ class WalletNotificationListener : NotificationListenerService() {
             text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty(),
             expandedText = expanded?.toString().orEmpty(),
             postedAt = Instant.ofEpochMilli(postTime),
+            notificationKey = key,
         )
     }
 

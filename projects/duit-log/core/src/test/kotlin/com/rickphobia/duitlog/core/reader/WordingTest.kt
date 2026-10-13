@@ -20,7 +20,8 @@ class WordingTest {
 
     private fun tng(text: String) = reader.read("my.com.tngdigital.ewallet") { content(text) }
 
-    private fun content(text: String) = NotificationContent("Wallet", text, "", Instant.parse("2026-10-12T04:30:00Z"))
+    private fun content(text: String) =
+        NotificationContent("Wallet", text, "", Instant.parse("2026-10-12T04:30:00Z"), "0|key")
 
     @Test
     fun `a payment wording gives the amount in sen and the Merchant`() {
@@ -63,7 +64,7 @@ class WordingTest {
 
     @Test
     fun `the original text has each part once, one per line`() {
-        val posted = NotificationContent("Paid", "RM5.00 to Kedai", "RM5.00 to Kedai", Instant.EPOCH)
+        val posted = NotificationContent("Paid", "RM5.00 to Kedai", "RM5.00 to Kedai", Instant.EPOCH, "0|key")
 
         assertEquals("Paid\nRM5.00 to Kedai", posted.originalText)
     }

@@ -1,14 +1,16 @@
 -- Wallet notifications that mention an amount but match no known wording, kept until the user
--- adds them by hand or dismisses them. posted_at is epoch milliseconds.
+-- adds them by hand or dismisses them. posted_at is epoch milliseconds; notification_key is
+-- Android's key for the notification, which finds a re-post of the same one.
 CREATE TABLE couldnt_read (
   id INTEGER NOT NULL PRIMARY KEY,
   wallet TEXT NOT NULL,
   posted_at INTEGER NOT NULL,
-  original_text TEXT NOT NULL
+  original_text TEXT NOT NULL,
+  notification_key TEXT NOT NULL
 );
 
 insert:
-INSERT INTO couldnt_read(wallet, posted_at, original_text) VALUES (?, ?, ?);
+INSERT INTO couldnt_read(wallet, posted_at, original_text, notification_key) VALUES (?, ?, ?, ?);
 
 lastInsertedId:
 SELECT last_insert_rowid();
@@ -17,10 +19,10 @@ SELECT last_insert_rowid();
 all:
 SELECT id, wallet, posted_at, original_text FROM couldnt_read ORDER BY posted_at DESC, id DESC;
 
--- The same words from the same Wallet posted from (inclusive) until (inclusive).
-sameWordsBetween:
+-- The same notification from the same Wallet, posted from (inclusive) until (inclusive).
+sameNotificationBetween:
 SELECT id FROM couldnt_read
-WHERE wallet = :wallet AND original_text = :originalText AND posted_at BETWEEN :from AND :until
+WHERE wallet = :wallet AND notification_key = :notificationKey AND posted_at BETWEEN :from AND :until
 LIMIT 1;
 
 delete:
