@@ -98,7 +98,7 @@ class Captures internal constructor(
     fun couldntRead(): List<CouldntRead> = database.couldntReadQueries.all(::toCouldntRead).executeAsList()
 
     /** Keeps [unreadable], unless the same words from the same Wallet were posted within [DUPLICATE_WINDOW]. */
-    fun unreadable(unreadable: Reading.Unreadable): KeepOutcome {
+    fun keepUnreadable(unreadable: Reading.Unreadable): KeepOutcome {
         val queries = database.couldntReadQueries
         val postedAt = unreadable.content.postedAt
         val text = unreadable.content.originalText

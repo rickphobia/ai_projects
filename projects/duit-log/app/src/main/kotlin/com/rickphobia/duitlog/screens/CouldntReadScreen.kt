@@ -32,11 +32,12 @@ private val postedFormat = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MED
 
 /**
  * Wallet notifications that mention an amount but couldn't be read, newest first, each with its
- * original text, "Add by hand" (which opens + at the notification's time) and "Dismiss".
+ * original text, "Add by hand" (which opens + at the notification's time) and "Dismiss". Null
+ * [entries] means the list couldn't be read; the log says why.
  */
 @Composable
 fun CouldntReadScreen(
-    entries: List<CouldntRead>,
+    entries: List<CouldntRead>?,
     zone: ZoneId,
     onAddByHand: (CouldntRead) -> Unit,
     onDismiss: (CouldntRead) -> Unit,
@@ -52,10 +53,12 @@ fun CouldntReadScreen(
                 Text(stringResource(R.string.couldnt_read_title), style = MaterialTheme.typography.headlineSmall)
                 Text(stringResource(R.string.couldnt_read_explainer), style = MaterialTheme.typography.bodyMedium)
             }
-            if (entries.isEmpty()) {
+            if (entries == null) {
+                item { Text(stringResource(R.string.couldnt_read_unreadable), color = MaterialTheme.colorScheme.error) }
+            } else if (entries.isEmpty()) {
                 item { Text(stringResource(R.string.couldnt_read_empty), style = MaterialTheme.typography.bodyLarge) }
             }
-            items(entries, key = { it.id }) { entry ->
+            items(entries.orEmpty(), key = { it.id }) { entry ->
                 EntryCard(entry, zone, { onAddByHand(entry) }, { onDismiss(entry) })
             }
         }

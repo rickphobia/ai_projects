@@ -21,12 +21,12 @@ import java.io.File
 class DuitLogApplication : Application() {
     val ledger: Ledger by lazy { Ledger(PhoneDatabase.create(this), PhoneClock()) }
 
-    private val captures = MutableStateFlow(0)
+    private val changeCount = MutableStateFlow(0)
 
     /** Counts the listener's changes to the Ledger, so an open screen reads it again. */
-    val ledgerChanges: StateFlow<Int> = captures.asStateFlow()
+    val ledgerChanges: StateFlow<Int> = changeCount.asStateFlow()
 
-    fun ledgerChanged() = captures.update { it + 1 }
+    fun ledgerChanged() = changeCount.update { it + 1 }
 
     val recorderSwitch by lazy { RecorderSwitch(this) }
 

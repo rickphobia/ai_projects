@@ -125,7 +125,7 @@ class CaptureTest {
     fun `an Unreadable notification is kept on the Couldn't read list with its text and time`() {
         val ledger = newLedger()
 
-        val kept = (ledger.captures.unreadable(unreadable()) as KeepOutcome.Kept).entry
+        val kept = (ledger.captures.keepUnreadable(unreadable()) as KeepOutcome.Kept).entry
 
         assertEquals(listOf(kept), ledger.captures.couldntRead())
         assertEquals(Wallet.TNG, kept.wallet)
@@ -136,18 +136,18 @@ class CaptureTest {
     @Test
     fun `the same Unreadable notification posted twice is kept once`() {
         val ledger = newLedger()
-        val kept = (ledger.captures.unreadable(unreadable()) as KeepOutcome.Kept).entry
+        val kept = (ledger.captures.keepUnreadable(unreadable()) as KeepOutcome.Kept).entry
 
         val again = unreadable(postedAt = lunch.plusSeconds(5))
-        assertEquals(KeepOutcome.Duplicate(kept.id), ledger.captures.unreadable(again))
-        assertTrue(ledger.captures.unreadable(unreadable(text = "Other words RM8.00")) is KeepOutcome.Kept)
+        assertEquals(KeepOutcome.Duplicate(kept.id), ledger.captures.keepUnreadable(again))
+        assertTrue(ledger.captures.keepUnreadable(unreadable(text = "Other words RM8.00")) is KeepOutcome.Kept)
         assertEquals(2, ledger.captures.couldntRead().size)
     }
 
     @Test
     fun `a Couldn't read entry can be removed once`() {
         val ledger = newLedger()
-        val kept = (ledger.captures.unreadable(unreadable()) as KeepOutcome.Kept).entry
+        val kept = (ledger.captures.keepUnreadable(unreadable()) as KeepOutcome.Kept).entry
 
         ledger.captures.removeCouldntRead(kept.id)
 

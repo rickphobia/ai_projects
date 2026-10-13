@@ -33,19 +33,19 @@ sealed interface Wording {
                     ?.trim()
                     .orEmpty()
             val amountSen = sen(match.groups["amount"]?.value.orEmpty())
-            return if (merchant.isEmpty() || amountSen <= 0) {
+            return if (merchant.isEmpty() || amountSen == null || amountSen <= 0) {
                 Reading.Unreadable(wallet, content)
             } else {
                 Reading.Read(wallet, content, kind, amountSen, merchant)
             }
         }
 
-        // 0 for anything that isn't a ringgit amount, which the caller treats as unreadable.
-        private fun sen(amount: String) =
+        // Null for anything that isn't a ringgit amount.
+        private fun sen(amount: String): Long? =
             try {
                 Ringgit.parse(amount)
             } catch (_: LedgerException.AmountUnreadable) {
-                0L
+                null
             }
     }
 

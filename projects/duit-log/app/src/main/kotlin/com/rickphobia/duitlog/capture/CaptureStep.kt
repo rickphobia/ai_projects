@@ -60,7 +60,7 @@ private fun keepUnreadable(
     unreadable: Reading.Unreadable,
     described: String,
 ): Boolean =
-    when (val outcome = ledger.captures.unreadable(unreadable)) {
+    when (val outcome = ledger.captures.keepUnreadable(unreadable)) {
         // A warning: the Wallet may have changed its wording, and the fix is a new sample.
         is KeepOutcome.Kept -> {
             AppLog.w("couldn't read a $described; kept as \"Couldn't read\" entry ${outcome.entry.id}")

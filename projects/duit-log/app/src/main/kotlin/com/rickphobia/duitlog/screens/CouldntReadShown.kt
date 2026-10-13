@@ -38,13 +38,14 @@ fun CouldntReadShown(
     // The id of the entry being added by hand, if any.
     var addingId by rememberSaveable { mutableStateOf<Long?>(null) }
     var removals by remember { mutableIntStateOf(0) }
-    val entries by produceState(emptyList<CouldntRead>(), changes, removals) {
+    // Null when the list couldn't be read from the database.
+    val entries by produceState<List<CouldntRead>?>(emptyList(), changes, removals) {
         value = readEntries(ledger)
     }
     val scope = rememberCoroutineScope()
     val zone = ZoneId.systemDefault()
 
-    val adding = addingId?.let { id -> entries.firstOrNull { it.id == id } }
+    val adding = addingId?.let { id -> entries?.firstOrNull { it.id == id } }
     if (adding != null) {
         BackHandler { addingId = null }
         val categories by produceCategories(ledger)
@@ -53,7 +54,11 @@ fun CouldntReadShown(
             now = LocalDateTime.ofInstant(adding.postedAt, zone).truncatedTo(ChronoUnit.MINUTES),
             onSave = { entry -> addByHand(ledger, entry) },
             onSaved = { occurredAt ->
-                scope.launch { remove(ledger, adding.id, "added by hand") }
+                scope.launch {
+                    remove(ledger, adding.id, "added by hand")
+                    // Read the list again, or the entry just added would still show and could be added twice.
+                    removals++
+                }
                 addingId = null
                 onAdded(YearMonth.from(occurredAt))
             },
@@ -76,12 +81,12 @@ fun CouldntReadShown(
     }
 }
 
-private suspend fun readEntries(ledger: Ledger): List<CouldntRead> =
+private suspend fun readEntries(ledger: Ledger): List<CouldntRead>? =
     try {
         withContext(Dispatchers.IO) { ledger.captures.couldntRead() }
     } catch (e: SQLException) {
         AppLog.e("reading the \"Couldn't read\" list failed", e)
-        emptyList()
+        null
     }
 
 /** Removes entry [id] off the main thread; logs [why] with the id only, never the text. */

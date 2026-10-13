@@ -60,6 +60,7 @@
   <string name="couldnt_read_title">Couldn\'t read</string>
   <string name="couldnt_read_explainer">Wallet notifications that mention an amount but that duit-log couldn\'t read. Add each one by hand, or dismiss it. The log has a warning for each, without its text.</string>
   <string name="couldnt_read_empty">Nothing here: every Wallet notification so far was read.</string>
+  <string name="couldnt_read_unreadable">Couldn\'t load this list. Send the log from ⋮ → Share log.</string>
   <string name="couldnt_read_add">Add by hand</string>
   <string name="couldnt_read_dismiss">Dismiss</string>
 
