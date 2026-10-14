@@ -9,13 +9,6 @@ extends PanelContainer
 ## The hand-in button was pressed, to hand in `amount` of the cotton in hand.
 signal hand_in_pressed(amount: int)
 
-const CARD_COLOUR := PaySlipCard.CARD_COLOUR
-const TITLE_COLOUR := PaySlipCard.TITLE_COLOUR
-const ROW_COLOUR := PaySlipCard.ROW_COLOUR
-const BUTTON_COLOUR := PaySlipCard.BUTTON_COLOUR
-const TITLE_FONT_SIZE := PaySlipCard.TITLE_FONT_SIZE
-const FONT_SIZE := PaySlipCard.FONT_SIZE
-const MARGIN := PaySlipCard.MARGIN
 const WIDTH := PaySlipCard.WIDTH
 
 var _title: Label
@@ -32,26 +25,21 @@ func _ready() -> void:
 	grow_horizontal = Control.GROW_DIRECTION_BOTH
 	grow_vertical = Control.GROW_DIRECTION_BOTH
 	custom_minimum_size = Vector2(WIDTH, 0)
-	add_theme_stylebox_override("panel", _rounded(CARD_COLOUR, 28, MARGIN))
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 10)
+	column.add_theme_constant_override("separation", AppLook.SPACE)
 	add_child(column)
-	_title = _label(TITLE_COLOUR, TITLE_FONT_SIZE)
+	_title = _label(AppLook.TITLE_LABEL)
 	column.add_child(_title)
-	_cotton = _label(ROW_COLOUR, FONT_SIZE)
+	_cotton = _label(&"")
 	column.add_child(_cotton)
 	_slider = HSlider.new()
 	_slider.name = "HandInSlider"
 	_slider.step = 1.0
-	_slider.custom_minimum_size = Vector2(0, MARGIN * 2.0)
+	_slider.custom_minimum_size = Vector2(0, AppLook.SPACE * 6)
 	_slider.value_changed.connect(func(_value: float) -> void: _show_amount())
 	column.add_child(_slider)
-	var button := Button.new()
+	var button := AppLook.button(AppText.HAND_IN_BUTTON)
 	button.name = "HandInButton"
-	button.text = AppText.HAND_IN_BUTTON
-	button.add_theme_font_size_override("font_size", FONT_SIZE)
-	for state: String in ["normal", "hover", "pressed", "focus"]:
-		button.add_theme_stylebox_override(state, _rounded(BUTTON_COLOUR, 20, MARGIN / 2.0))
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	button.pressed.connect(func() -> void: hand_in_pressed.emit(amount()))
 	column.add_child(button)
@@ -88,17 +76,8 @@ func _show_amount() -> void:
 	_cotton.text = AppText.HAND_IN_COTTON.format(values)
 
 
-func _label(colour: Color, font_size: int) -> Label:
+func _label(variation: StringName) -> Label:
 	var label := Label.new()
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", colour)
+	label.theme_type_variation = variation
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return label
-
-
-func _rounded(colour: Color, corner_radius: int, margin: float) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = colour
-	style.set_corner_radius_all(corner_radius)
-	style.set_content_margin_all(margin)
-	return style

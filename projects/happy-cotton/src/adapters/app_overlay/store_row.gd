@@ -12,15 +12,7 @@ signal buy_pressed(id: StringName)
 ## The tin's button was pressed: buy this row's item with hidden savings.
 signal savings_pressed(id: StringName)
 
-const FONT_SIZE := 26
-const SMALL_FONT_SIZE := 22
-const TEXT := Color(0.3, 0.12, 0.22)
-const QUOTA_RISE_TEXT := Color(0.75, 0.2, 0.35)
-const REFUSAL_TEXT := Color(0.45, 0.4, 0.42)
-const BUTTON_COLOUR := Color(1.0, 0.42, 0.62)
-const BUTTON_OFF_COLOUR := Color(0.78, 0.7, 0.74)
-const BUTTON_WIDTH := 260
-const BUTTON_HEIGHT := 64
+const BUTTON_WIDTH := AppLook.SPACE * 32
 
 var _id: StringName
 var _title: Label
@@ -34,26 +26,20 @@ var _savings_button: Button
 func _init(item_id: StringName) -> void:
 	_id = item_id
 	name = "StoreRow_%s" % item_id
-	add_theme_constant_override("separation", 16)
+	add_theme_constant_override("separation", AppLook.SPACE * 2)
 	var words := VBoxContainer.new()
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_title = _label(FONT_SIZE, TEXT)
-	_blurb = _label(SMALL_FONT_SIZE, TEXT)
-	_quota_rise = _label(SMALL_FONT_SIZE, QUOTA_RISE_TEXT)
-	_refusal = _label(SMALL_FONT_SIZE, REFUSAL_TEXT)
+	_title = _label(&"")
+	_blurb = _label(AppLook.SMALL_LABEL)
+	_quota_rise = _label(AppLook.QUOTA_RISE_LABEL)
+	_refusal = _label(AppLook.REFUSAL_LABEL)
 	var labels: Array[Label] = [_title, _blurb, _quota_rise, _refusal]
 	for label in labels:
 		words.add_child(label)
 	add_child(words)
-	_button = Button.new()
-	_button.custom_minimum_size = Vector2(BUTTON_WIDTH, BUTTON_HEIGHT)
+	_button = AppLook.button()
+	_button.custom_minimum_size.x = BUTTON_WIDTH
 	_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_button.add_theme_font_size_override("font_size", FONT_SIZE)
-	_button.add_theme_color_override("font_color", Color.WHITE)
-	_button.add_theme_color_override("font_disabled_color", Color.WHITE)
-	for state: String in ["normal", "hover", "pressed", "focus"]:
-		_button.add_theme_stylebox_override(state, _rounded(BUTTON_COLOUR))
-	_button.add_theme_stylebox_override("disabled", _rounded(BUTTON_OFF_COLOUR))
 	_button.pressed.connect(func() -> void: buy_pressed.emit(_id))
 	var buttons := VBoxContainer.new()
 	buttons.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -119,39 +105,33 @@ func refusal_text() -> String:
 	return _refusal.text
 
 
-func _label(font_size: int, colour: Color) -> Label:
+func _label(variation: StringName) -> Label:
 	var label := Label.new()
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", colour)
+	label.theme_type_variation = variation
 	return label
 
 
-## Pencil on paper, like the tin: nothing like The App's pink buttons.
+## Pencil on paper, like the tin: nothing like The App's pink buttons, and it doesn't squish.
 func _build_savings_button() -> Button:
 	var savings := Button.new()
 	savings.name = "SavingsButton"
+	savings.add_to_group(TapFeedback.NOT_APP)
 	savings.visible = false
-	savings.custom_minimum_size = Vector2(BUTTON_WIDTH, BUTTON_HEIGHT * 0.75)
+	savings.custom_minimum_size = Vector2(BUTTON_WIDTH, AppLook.TAP_TARGET)
 	savings.add_theme_font_override("font", LettersView.HANDWRITING)
-	savings.add_theme_font_size_override("font_size", SMALL_FONT_SIZE)
+	savings.add_theme_font_size_override("font_size", AppLook.SMALL)
 	for colour_name: String in ["font_color", "font_hover_color", "font_pressed_color"]:
 		savings.add_theme_color_override(colour_name, SavingsTin.PENCIL)
 	savings.add_theme_color_override("font_disabled_color", SavingsTin.TIN_SHADE)
-	var paper := _rounded(SavingsTin.PAPER)
+	var paper := StyleBoxFlat.new()
+	paper.bg_color = SavingsTin.PAPER
 	paper.set_corner_radius_all(4)
 	paper.set_border_width_all(2)
 	paper.border_color = SavingsTin.PENCIL
+	paper.content_margin_left = AppLook.SPACE
+	paper.content_margin_right = AppLook.SPACE
 	for state: String in ["normal", "hover", "pressed", "focus", "disabled"]:
 		savings.add_theme_stylebox_override(state, paper)
 	savings.pressed.connect(func() -> void: savings_pressed.emit(_id))
 	return savings
-
-
-func _rounded(colour: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = colour
-	style.set_corner_radius_all(20)
-	style.content_margin_left = 12
-	style.content_margin_right = 12
-	return style

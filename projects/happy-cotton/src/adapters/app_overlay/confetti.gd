@@ -3,14 +3,6 @@ extends CPUParticles2D
 ## The App's confetti: one burst of bright pieces falling from the top of the screen, for a met
 ## Quota or a purchase. Emitting starts off; restart() sets it falling.
 
-const COLOURS: Array[Color] = [
-	Color(1.0, 0.3, 0.4),
-	Color(1.0, 0.85, 0.2),
-	Color(0.3, 0.8, 0.5),
-	Color(0.3, 0.6, 1.0),
-	Color(1.0, 0.5, 0.9),
-]
-
 
 func _init() -> void:
 	emitting = false
@@ -32,8 +24,8 @@ func _init() -> void:
 	var colours := Gradient.new()
 	colours.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_CONSTANT
 	var offsets := PackedFloat32Array()
-	for index in COLOURS.size():
-		offsets.append(float(index) / COLOURS.size())
+	for index in AppLook.CONFETTI_COLOURS.size():
+		offsets.append(float(index) / AppLook.CONFETTI_COLOURS.size())
 	colours.offsets = offsets
-	colours.colors = PackedColorArray(COLOURS)
+	colours.colors = PackedColorArray(AppLook.CONFETTI_COLOURS)
 	color_initial_ramp = colours

@@ -62,4 +62,4 @@ func test_store_rows_take_the_players_text_size() -> void:
 	_overlay.show_store(items, 30)
 
 	var button := _overlay.store_panel().row(Farm.REST_HOUR).button()
-	assert_eq(button.get_theme_font_size(&"font_size"), StoreRow.FONT_SIZE * 2)
+	assert_eq(button.get_theme_font_size(&"font_size"), AppLook.BODY * 2)
