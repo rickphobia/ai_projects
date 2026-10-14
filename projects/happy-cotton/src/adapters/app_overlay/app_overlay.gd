@@ -67,6 +67,7 @@ var _powered_parts: Array[CanvasItem] = []
 var _powered := true
 var _reduced_motion := false
 var _tap_feedback := TapFeedback.new()
+var _text_scale := 1.0
 
 
 func _ready() -> void:
@@ -215,6 +216,7 @@ func show_resting(rest_seconds_left: float, call_seconds_left := 0.0) -> void:
 func show_store(items: Array[StoreItemView], labour_points: int, hidden_savings := 0) -> void:
 	if _store.show_items(items, labour_points, hidden_savings):
 		_tap_feedback.attach_all(_store)
+		SettingsEffects.scale_text(_store, _text_scale)
 	if _supplies_bar.show_supplies(items):
 		_tap_feedback.attach_all(_supplies_bar)
 
@@ -253,11 +255,12 @@ func set_reduced_motion(on: bool) -> void:
 	_tap_feedback.reduced_motion = on
 
 
-## Scales all of The App's text to `scale` times its normal size. The Study Session room isn't
-## The App and sizes its own text.
+## Scales all of The App's text to `scale` times its normal size. The parts that aren't The App
+## (the Study Session room, the tin's pencil button) size their own text and are scaled apart.
 func scale_text(scale: float) -> void:
+	_text_scale = scale
 	_root.theme = AppLook.theme(AppLook.Palette.BRIGHT, scale)
-	SettingsEffects.scale_text(_study_room, scale)
+	SettingsEffects.scale_text(_root, scale)
 
 
 func is_celebrating() -> bool:
