@@ -34,6 +34,10 @@ _Avoid_: message, mail, notification
 The smiling cotton boll that speaks for The App.
 _Avoid_: helper, guide, tutorial character
 
+**Mascot mood**:
+The face the Mascot pulls for what The App is saying: cheerful, proud, stern or alarmed. It smiles in every one.
+_Avoid_: emotion, expression, reaction
+
 ### The system
 
 **Farm**:
@@ -71,6 +75,10 @@ _Avoid_: welcome-back screen, offline report
 **The App**:
 The bright, state-issued "Happy Cotton" app laid over the world: the state's cheerful voice, never the Worker's.
 _Avoid_: HUD, UI (when talking about the game's world rather than its code)
+
+**App look**:
+The App's shared style: its colours, font, rounded glossy panels and buttons, and flat icons. The title screen, Settings and the Study Session room share its layout in muted colours; the Worker's and Family's things never use it.
+_Avoid_: skin, theme (when talking about the game rather than Godot's Theme class)
 
 **Study Session**:
 The punishment for a missed Quota or Negligence: a stretch of real time when the Worker is taken off the field. Each one in a row lasts longer, and a Co-worker shares the cost.
