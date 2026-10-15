@@ -162,6 +162,8 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 90. As the owner, I want each Inbox row to show the title, the one-line summary, the Source, the time and the Importance at a glance, so that I can skim without opening Items.
 91. As the owner, I want a small thumbnail on Inbox rows when the feed provides one, so that I can recognise stories faster.
 92. As the owner, I want each Inbox row to stand apart as its own card with a bold title, and a Contents panel listing the loaded Items that jumps to the one I pick, so that a long Inbox is easy to scan and move around.
+93. As the owner, I want each Briefing point to be a short headline sentence, a plain-words (ELI5) explanation and a one-sentence conclusion, so that I understand stories outside my expertise without opening them.
+94. As the owner, I want each Briefing point to stand apart as a card with its first sentence in bold, only a few Source links until I ask for more, and a Folder strip that jumps to each section, so that a long Briefing is easy to read and move around.
 
 ## Implementation Decisions
 

@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 # The estimate's guess at a section's answer, thinking included. The real usage is what the
 # ledger records.
-ESTIMATED_OUTPUT_TOKENS_PER_SECTION = 2_000
+ESTIMATED_OUTPUT_TOKENS_PER_SECTION = 3_000
 
 
 @dataclass(frozen=True)
