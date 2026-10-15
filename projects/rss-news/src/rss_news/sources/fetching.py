@@ -187,6 +187,9 @@ def _new_item(source: Source, entry: FeedEntry, now: datetime) -> NewItem:
         excerpt=entry.excerpt,
         published_at=published,
         image_url=entry.image_url,
+        body=entry.body,
+        body_complete=entry.body_complete,
+        linked_url=entry.linked_url,
     )
 
 

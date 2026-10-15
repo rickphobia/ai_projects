@@ -8,6 +8,7 @@ from typing import Any
 from rss_news.adapters.sqlite.database import SqliteDatabase, from_db_time, to_db_time
 from rss_news.clock import Clock
 from rss_news.items.inbox import InboxItem, InboxOrder, InboxPosition, NewItem
+from rss_news.items.reading import SourceText
 from rss_news.scoring.item_scoring import ItemScore, UnscoredItem
 
 _INBOX_SELECT = (
@@ -46,8 +47,9 @@ class SqliteItems:
             before = connection.total_changes
             connection.executemany(
                 "INSERT INTO items "
-                "(source_id, title, url, clean_url, excerpt, published_at, fetched_at, image_url) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (clean_url) DO NOTHING",
+                "(source_id, title, url, clean_url, excerpt, published_at, fetched_at, image_url, "
+                "body, body_complete, linked_url) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (clean_url) DO NOTHING",
                 [
                     (
                         item.source_id,
@@ -58,6 +60,9 @@ class SqliteItems:
                         to_db_time(item.published_at),
                         fetched_at,
                         item.image_url,
+                        item.body,
+                        int(item.body_complete),
+                        item.linked_url,
                     )
                     for item in items
                 ],
@@ -116,12 +121,17 @@ class SqliteItems:
             row = connection.execute(f"{_INBOX_SELECT} WHERE items.id = ?", (item_id,)).fetchone()
         return None if row is None else _inbox_item(row)
 
-    def excerpt(self, item_id: int) -> str | None:
+    def source_text(self, item_id: int) -> SourceText | None:
         with self._database.connection() as connection:
             row = connection.execute(
-                "SELECT excerpt FROM items WHERE id = ?", (item_id,)
+                "SELECT excerpt, body, body_complete, linked_url FROM items WHERE id = ?",
+                (item_id,),
             ).fetchone()
-        return None if row is None else str(row[0])
+        if row is None:
+            return None
+        return SourceText(
+            excerpt=str(row[0]), body=str(row[1]), body_complete=bool(row[2]), linked_url=row[3]
+        )
 
     def mark_read(self, item_id: int, *, at: datetime) -> None:
         with self._database.connection() as connection:

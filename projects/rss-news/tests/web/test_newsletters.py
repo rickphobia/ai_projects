@@ -164,3 +164,15 @@ def test_email_bodies_are_never_logged(
     for record in caplog.records:
         assert "merger" not in record.getMessage()
         assert all("merger" not in str(value) for value in record.__dict__.values())
+
+
+def test_an_issue_reads_in_reader_view_from_the_email_itself(
+    wiring: Wiring, client: TestClient, mailbox: FakeMailbox, clock: FakeClock
+) -> None:
+    deliver(mailbox, clock, "1", "morning.example", "Monday brief")
+    wiring.tick.run()
+    (issue,) = client.get(f"{PREFIX}/api/inbox").json()["items"]
+
+    view = client.get(f"{PREFIX}/api/items/{issue['id']}/reader").json()
+
+    assert view == {"title": None, "text": SECRET_BODY, "problem": None}

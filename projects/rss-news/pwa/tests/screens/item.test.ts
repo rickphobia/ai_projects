@@ -140,7 +140,7 @@ describe("the Item view", () => {
     await renderItem(root, api, 7, () => undefined);
 
     expect(readerView().querySelector("p")?.textContent).toBe(
-      "Couldn't load the full article (the page answered HTTP 403), and the feed gave no preview.",
+      "No article to show (the page answered HTTP 403). Open the original page to see it.",
     );
   });
 

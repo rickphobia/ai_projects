@@ -1,14 +1,16 @@
 """Turns a fetched feed body (RSS, RDF or Atom, Reddit's included) into entries."""
 
 import io
-import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from html.parser import HTMLParser
 from time import struct_time
 from typing import Any
 
 import feedparser
+
+from rss_news.items.inbox import BODY_LENGTH
+from rss_news.sources.feed_text import cut, paragraphs, plain_text
+from rss_news.sources.reddit_posts import is_reddit_post, reddit_post
 
 _EXCERPT_LENGTH = 500
 
@@ -28,6 +30,13 @@ class FeedEntry:
     published_at: datetime | None
     # An http(s) image link the feed gives for the entry; None when it gives none.
     image_url: str | None = None
+    # The entry's text in paragraphs, at most BODY_LENGTH long; empty when the feed gives none.
+    body: str = ""
+    # True when `body` is the whole thing, as for a Reddit text post, so Reader view needn't
+    # fetch the page.
+    body_complete: bool = False
+    # The article a Reddit link post points to, which Reader view reads instead of Reddit.
+    linked_url: str | None = None
 
 
 def parse_feed(body: bytes, *, content_type: str | None) -> list[FeedEntry]:
@@ -49,17 +58,31 @@ def parse_feed(body: bytes, *, content_type: str | None) -> list[FeedEntry]:
         raise NotAFeed(f"not a feed: {reason}")
     entries = []
     for raw in parsed.entries:
-        title = _plain_text(raw.get("title", ""))
+        title = plain_text(raw.get("title", ""))
         url = str(raw.get("link", "")).strip()
         if not title or not url:
             continue
+        summary = _summary_html(raw)
+        if is_reddit_post(url):
+            post = reddit_post(summary)
+            text, linked_url = post.text, post.linked_url
+            # A picture or video post is complete too: there is no text anywhere to read.
+            body_complete = bool(post.text) or post.is_media
+            # Only the post itself, without Reddit's "submitted by" line.
+            excerpt = " ".join(text.split("\n"))
+        else:
+            text, body_complete, linked_url = paragraphs(_content_html(raw)), False, None
+            excerpt = plain_text(summary)
         entries.append(
             FeedEntry(
                 title=title,
                 url=url,
-                excerpt=_preview(_plain_text(_summary_html(raw))),
+                excerpt=cut(excerpt, _EXCERPT_LENGTH),
                 published_at=_date(raw.get("published_parsed") or raw.get("updated_parsed")),
                 image_url=_image_url(raw),
+                body=cut(text, BODY_LENGTH),
+                body_complete=body_complete,
+                linked_url=linked_url,
             )
         )
     return entries
@@ -71,6 +94,14 @@ def _summary_html(raw: Any) -> str:
         return str(summary)
     content = raw.get("content") or []
     return str(content[0].get("value", "")) if content else ""
+
+
+def _content_html(raw: Any) -> str:
+    """The fullest text the entry has: its content, which feeds use for whole posts, before
+    its summary."""
+    content = raw.get("content") or []
+    full = str(content[0].get("value", "")) if content else ""
+    return full or str(raw.get("summary") or "")
 
 
 def _image_url(raw: Any) -> str | None:
@@ -100,35 +131,3 @@ def _date(parsed: struct_time | None) -> datetime | None:
     if parsed is None:
         return None
     return datetime(*parsed[:6], tzinfo=UTC)
-
-
-def _preview(text: str) -> str:
-    if len(text) <= _EXCERPT_LENGTH:
-        return text
-    return text[: _EXCERPT_LENGTH - 1].rstrip() + "…"
-
-
-class _TextCollector(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.parts: list[str] = []
-        self._skipping = 0
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag in ("script", "style"):
-            self._skipping += 1
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag in ("script", "style") and self._skipping:
-            self._skipping -= 1
-
-    def handle_data(self, data: str) -> None:
-        if not self._skipping:
-            self.parts.append(data)
-
-
-def _plain_text(html: str) -> str:
-    collector = _TextCollector()
-    collector.feed(html)
-    collector.close()
-    return re.sub(r"\s+", " ", " ".join(collector.parts)).strip()

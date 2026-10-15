@@ -8,7 +8,8 @@ from typing import Protocol
 from urllib.parse import quote
 
 from rss_news.clock import Clock
-from rss_news.items.inbox import ItemStore, NewItem
+from rss_news.items.inbox import BODY_LENGTH, ItemStore, NewItem
+from rss_news.sources.feed_text import cut
 
 logger = logging.getLogger(__name__)
 
@@ -96,9 +97,17 @@ class Newsletters:
             url=url,
             clean_url=url,
             excerpt=_preview(message.text),
+            # The email is the whole issue; Reader view shows it as it came.
+            body=_paragraphs(message.text),
+            body_complete=True,
             # A future Date header can't put an issue on top of the Inbox for days.
             published_at=min(message.received_at, now),
         )
+
+
+def _paragraphs(text: str) -> str:
+    lines = (" ".join(line.split()) for line in text.splitlines())
+    return cut("\n".join(line for line in lines if line), BODY_LENGTH)
 
 
 def _preview(text: str) -> str:

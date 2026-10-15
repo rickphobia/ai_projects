@@ -165,6 +165,7 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 93. As the owner, I want each Briefing point to be a short headline sentence, a plain-words (ELI5) explanation and a one-sentence conclusion, so that I understand stories outside my expertise without opening them.
 94. As the owner, I want each Briefing point to stand apart as a card with its first sentence in bold, only a few Source links until I ask for more, and a Folder strip that jumps to each section, so that a long Briefing is easy to read and move around.
 95. As the owner, I want the browser's Back and Forward (and my phone's back gesture) to move between screens like a normal website, coming back to the Inbox where I left it, so that I don't have to find my way Home each time.
+96. As the owner, I want Reader view to work for Reddit posts and newsletters (the linked article, or the post or email itself), so that most Items read in the app instead of showing only a preview.
 
 ## Implementation Decisions
 

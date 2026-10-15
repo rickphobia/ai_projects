@@ -1,6 +1,7 @@
 """Opening one Item: it shows, becomes read, and its Reader view is extracted on demand."""
 
 from dataclasses import replace
+from html import escape
 from pathlib import Path
 
 import pytest
@@ -154,3 +155,132 @@ def test_an_unreadable_page_without_a_preview_says_so(tmp_path: Path) -> None:
 
 def test_reader_view_needs_a_session(wiring: Wiring) -> None:
     assert TestClient(wiring.app).get(f"{PREFIX}/api/items/1/reader").status_code == 401
+
+
+REDDIT_FEED = "https://www.reddit.com/r/LocalLLaMA/.rss"
+VIDEOCARDZ = (
+    "https://videocardz.com/newz/heres-why-rtx-5090-costs-5000-ai-firms-are-buying-gaming-"
+    "gpus-by-the-pallet"
+)
+
+
+@pytest.fixture
+def reddit(tmp_path: Path, extractor: FakeArticleExtractor) -> TestClient:
+    """Signed in, with the saved r/LocalLLaMA feed fetched: a link post and two text posts."""
+    fetcher = FakeFeedFetcher()
+    saved = Path(__file__).parents[1] / "sources" / "feeds" / "reddit-localllama.atom.xml"
+    fetcher.answers[REDDIT_FEED] = Fetched(saved.read_bytes(), "application/atom+xml", None, None)
+    wiring = make_wiring(
+        load_settings(app_env(tmp_path)),
+        FakeClock(),
+        feed_fetcher=fetcher,
+        article_extractor=extractor,
+        starter_folders=(StarterFolder("AI", (StarterSource("r/LocalLLaMA", REDDIT_FEED),)),),
+    )
+    wiring.tick.run()
+    client = TestClient(wiring.app)
+    client.post(f"{PREFIX}/api/login", json={"password": OWNER_PASSWORD})
+    return client
+
+
+def reader_of(client: TestClient, title_start: str) -> dict[str, object]:
+    items = client.get(f"{PREFIX}/api/inbox").json()["items"]
+    item_id = next(item["id"] for item in items if item["title"].startswith(title_start))
+    view: dict[str, object] = client.get(f"{PREFIX}/api/items/{item_id}/reader").json()
+    return view
+
+
+def test_a_reddit_text_post_reads_from_the_feed_without_fetching_reddit(
+    reddit: TestClient, extractor: FakeArticleExtractor
+) -> None:
+    view = reader_of(reddit, "Every Model That Can Be Run")
+
+    assert view["problem"] is None
+    assert "Velvet Eclipse 2x12B" in str(view["text"])
+    assert extractor.requested == []
+
+
+def test_a_reddit_link_post_reads_the_article_it_links_to(
+    reddit: TestClient, extractor: FakeArticleExtractor
+) -> None:
+    extractor.pages[VIDEOCARDZ] = ReaderView(title="RTX 5090", text="Pallets of GPUs.")
+
+    view = reader_of(reddit, "Here\u2019s why RTX 5090")
+
+    assert view == {"title": "RTX 5090", "text": "Pallets of GPUs.", "problem": None}
+    assert extractor.requested == [VIDEOCARDZ]
+
+
+def test_a_reddit_link_post_whose_article_cant_be_read_says_why(
+    reddit: TestClient, extractor: FakeArticleExtractor
+) -> None:
+    view = reader_of(reddit, "Here\u2019s why RTX 5090")
+
+    assert view["problem"] == "no article text was found on the page"
+    assert extractor.requested[0] == VIDEOCARDZ
+
+
+def test_a_reddit_post_whose_linked_article_cant_be_read_shows_the_post(
+    tmp_path: Path, extractor: FakeArticleExtractor
+) -> None:
+    post = "https://www.reddit.com/r/test/comments/1abc/a_post/"
+    article = "https://news.example/bezos"
+    content = (
+        f'<!-- SC_OFF --><div class="md"><p>Bezos says so: <a href="{article}">{article}</a>'
+        f'</p></div><!-- SC_ON --> submitted by <span><a href="{post}">[link]</a></span>'
+    )
+    feed = f"""<feed xmlns="http://www.w3.org/2005/Atom"><title>r/test</title>
+      <entry><title>A post</title><link href="{post}"/><id>t3_1abc</id>
+      <updated>2026-10-15T00:00:00+00:00</updated>
+      <content type="html">{escape(content)}</content></entry></feed>"""
+    fetcher = FakeFeedFetcher()
+    fetcher.answers[REDDIT_FEED] = Fetched(feed.encode(), "application/atom+xml", None, None)
+    wiring = make_wiring(
+        load_settings(app_env(tmp_path)),
+        FakeClock(),
+        feed_fetcher=fetcher,
+        article_extractor=extractor,
+        starter_folders=(StarterFolder("AI", (StarterSource("r/test", REDDIT_FEED),)),),
+    )
+    wiring.tick.run()
+    client = TestClient(wiring.app)
+    client.post(f"{PREFIX}/api/login", json={"password": OWNER_PASSWORD})
+
+    view = reader_of(client, "A post")
+
+    assert view["text"] == f"Bezos says so: {article}"
+    assert view["problem"] == "no article text was found on the page"
+    # Reddit's own page is never asked for: the post is all there is.
+    assert extractor.requested == [article]
+
+
+def test_an_item_with_nothing_but_a_picture_says_so_without_fetching(
+    tmp_path: Path, extractor: FakeArticleExtractor
+) -> None:
+    post = "https://www.reddit.com/r/test/comments/1img/a_picture/"
+    content = f'submitted by <span><a href="https://i.redd.it/abc.png">[link]</a></span> {post}'
+    feed = f"""<feed xmlns="http://www.w3.org/2005/Atom"><title>r/test</title>
+      <entry><title>A picture</title><link href="{post}"/><id>t3_1img</id>
+      <updated>2026-10-15T00:00:00+00:00</updated>
+      <content type="html">{escape(content)}</content></entry></feed>"""
+    fetcher = FakeFeedFetcher()
+    fetcher.answers[REDDIT_FEED] = Fetched(feed.encode(), "application/atom+xml", None, None)
+    wiring = make_wiring(
+        load_settings(app_env(tmp_path)),
+        FakeClock(),
+        feed_fetcher=fetcher,
+        article_extractor=extractor,
+        starter_folders=(StarterFolder("AI", (StarterSource("r/test", REDDIT_FEED),)),),
+    )
+    wiring.tick.run()
+    client = TestClient(wiring.app)
+    client.post(f"{PREFIX}/api/login", json={"password": OWNER_PASSWORD})
+
+    view = reader_of(client, "A picture")
+
+    assert view == {
+        "title": None,
+        "text": "",
+        "problem": "it is a picture or video with no text",
+    }
+    assert extractor.requested == []

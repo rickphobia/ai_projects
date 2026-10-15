@@ -94,7 +94,7 @@ async function loadReaderView(
       note.textContent =
         paragraphs.length > 0
           ? `Couldn't load the full article (${view.problem}). This is the preview from the feed.`
-          : `Couldn't load the full article (${view.problem}), and the feed gave no preview.`;
+          : `No article to show (${view.problem}). Open the original page to see it.`;
       reader.replaceChildren(note, ...paragraphs, originalLink(item.url));
     }
   } catch (error) {
