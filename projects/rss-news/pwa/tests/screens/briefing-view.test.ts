@@ -65,17 +65,28 @@ describe("showBriefing", () => {
     expect(cards[1]?.querySelector("strong")).toBeNull();
   });
 
+  it("links a point's bold lead to its first Item", () => {
+    showBriefing(shown, BRIEFING, onOpenItem);
+
+    within(section("AI"))
+      .getByRole("link", { name: "Meta launched Muse Wonder." })
+      .click();
+
+    expect(onOpenItem).toHaveBeenCalledWith(1);
+  });
+
   it("shows three Source links and the rest behind a button", () => {
     showBriefing(shown, BRIEFING, onOpenItem);
     const card = within(section("AI")).getAllByRole("listitem")[0];
-    if (!card) throw new Error("no card");
+    const sources = card?.querySelector<HTMLElement>(".briefing-sources");
+    if (!sources) throw new Error("no Source links");
 
-    expect(within(card).getAllByRole("link")).toHaveLength(3);
-    within(card).getByRole("button", { name: "+2 more" }).click();
+    expect(within(sources).getAllByRole("link")).toHaveLength(3);
+    within(sources).getByRole("button", { name: "+2 more" }).click();
 
-    expect(within(card).getAllByRole("link")).toHaveLength(5);
-    expect(within(card).queryByRole("button")).toBeNull();
-    within(card).getByRole("link", { name: "Source 5: Story 5" }).click();
+    expect(within(sources).getAllByRole("link")).toHaveLength(5);
+    expect(within(sources).queryByRole("button")).toBeNull();
+    within(sources).getByRole("link", { name: "Source 5: Story 5" }).click();
     expect(onOpenItem).toHaveBeenCalledWith(5);
   });
 

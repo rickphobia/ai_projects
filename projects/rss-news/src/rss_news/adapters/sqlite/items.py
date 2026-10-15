@@ -116,6 +116,13 @@ class SqliteItems:
             row = connection.execute(f"{_INBOX_SELECT} WHERE items.id = ?", (item_id,)).fetchone()
         return None if row is None else _inbox_item(row)
 
+    def excerpt(self, item_id: int) -> str | None:
+        with self._database.connection() as connection:
+            row = connection.execute(
+                "SELECT excerpt FROM items WHERE id = ?", (item_id,)
+            ).fetchone()
+        return None if row is None else str(row[0])
+
     def mark_read(self, item_id: int, *, at: datetime) -> None:
         with self._database.connection() as connection:
             connection.execute(

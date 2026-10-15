@@ -21,6 +21,8 @@ class ReaderView:
     title: str | None
     # Plain text, paragraphs separated by blank lines.
     text: str
+    # Why the original page couldn't be read; `text` is then the feed's preview, or empty.
+    problem: str | None = None
 
 
 class ArticleExtractor(Protocol):
@@ -32,6 +34,10 @@ class ArticleExtractor(Protocol):
 
 class ReadableItemStore(Protocol):
     def item(self, item_id: int) -> InboxItem | None: ...
+
+    def excerpt(self, item_id: int) -> str | None:
+        """The plain-text preview the feed gave the Item; None for an unknown Item."""
+        ...
 
     def mark_read(self, item_id: int, *, at: datetime) -> None:
         """Record the first time the Item was opened; later opens keep that time."""
@@ -51,8 +57,16 @@ class ItemReading:
         return found
 
     def reader_view(self, item_id: int) -> ReaderView:
-        """Extracted fresh on every call and never stored, so the database stays small."""
-        return self._extractor.extract(self._found(item_id).url)
+        """Extracted fresh on every call and never stored, so the database stays small. A page
+        that can't be read, such as Reddit's (it refuses servers), gives the feed's preview
+        instead, with the reason."""
+        found = self._found(item_id)
+        try:
+            return self._extractor.extract(found.url)
+        except ExtractionFailed as error:
+            return ReaderView(
+                title=None, text=self._items.excerpt(item_id) or "", problem=str(error)
+            )
 
     def _found(self, item_id: int) -> InboxItem:
         found = self._items.item(item_id)

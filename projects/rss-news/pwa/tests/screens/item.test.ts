@@ -78,6 +78,7 @@ describe("the Item view", () => {
     api.readerViews.set(7, {
       title: STORY.title,
       text: "The bank held rates.\n\nThe ringgit firmed.",
+      problem: null,
     });
 
     await renderItem(root, api, 7, () => undefined);
@@ -105,6 +106,42 @@ describe("the Item view", () => {
     });
     expect(links).toHaveLength(2);
     expect(readerView().contains(links[1] ?? null)).toBe(true);
+  });
+
+  it("shows the feed's preview when the page can't be read, saying why", async () => {
+    api.readerViews.set(7, {
+      title: null,
+      text: "What the feed says.",
+      problem: "the page answered HTTP 403",
+    });
+
+    await renderItem(root, api, 7, () => undefined);
+
+    const paragraphs = Array.from(readerView().querySelectorAll("p")).map(
+      (paragraph) => paragraph.textContent,
+    );
+    expect(paragraphs).toEqual([
+      "Couldn't load the full article (the page answered HTTP 403). This is the preview from the feed.",
+      "What the feed says.",
+    ]);
+    const links = screen.getAllByRole("link", {
+      name: "Open the original page",
+    });
+    expect(readerView().contains(links[1] ?? null)).toBe(true);
+  });
+
+  it("says so when the page can't be read and the feed gave no preview", async () => {
+    api.readerViews.set(7, {
+      title: null,
+      text: "",
+      problem: "the page answered HTTP 403",
+    });
+
+    await renderItem(root, api, 7, () => undefined);
+
+    expect(readerView().querySelector("p")?.textContent).toBe(
+      "Couldn't load the full article (the page answered HTTP 403), and the feed gave no preview.",
+    );
   });
 
   it("says so when the Item can't be opened", async () => {
