@@ -73,8 +73,22 @@ function pointCard(
   if (split === null) {
     text.textContent = point.text;
   } else {
+    // The bold lead is the point's headline; it opens the point's first Item in the app.
     const lead = document.createElement("strong");
-    lead.textContent = split.lead;
+    const first = point.items[0];
+    if (first === undefined) {
+      lead.textContent = split.lead;
+    } else {
+      const link = document.createElement("a");
+      link.className = "briefing-lead";
+      link.href = `#items/${String(first.id)}`;
+      link.textContent = split.lead;
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        onOpenItem(first.id);
+      });
+      lead.append(link);
+    }
     text.append(lead, ` ${split.rest}`);
   }
   const card = document.createElement("li");

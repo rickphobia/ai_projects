@@ -1008,6 +1008,15 @@ form label {
   font-size: var(--text-lg);
 }
 
+/* The headline link reads as a heading, not as a run of blue text. */
+.briefing-lead {
+  color: inherit;
+}
+
+.briefing-lead:hover {
+  color: var(--accent);
+}
+
 .reader-note {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius);
