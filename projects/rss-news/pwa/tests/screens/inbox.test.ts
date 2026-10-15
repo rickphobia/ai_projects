@@ -1,5 +1,5 @@
-import { screen, waitFor } from "@testing-library/dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { screen, waitFor, within } from "@testing-library/dom";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { ApiError, type Folder, type InboxItem } from "../../src/api/client";
 import { renderInbox } from "../../src/screens/inbox";
@@ -332,5 +332,112 @@ describe("the Inbox", () => {
 
     expect(root.querySelector("img")).toBeNull();
     expect(root.querySelector(".has-thumbnail")).toBeNull();
+  });
+
+  it("gives each Item's title its own heading", async () => {
+    await renderInbox(root, api, onOpen, onBriefThese);
+
+    const list = root.querySelector<HTMLElement>(".inbox-list");
+    if (!list) throw new Error("no Inbox list");
+    const headings = within(list)
+      .getAllByRole("heading", { level: 2 })
+      .map((heading) => heading.textContent);
+    expect(headings).toEqual([
+      "●Newest world story",
+      "●AI story",
+      "●Older world story",
+    ]);
+  });
+
+  describe("Contents", () => {
+    function contentsButton(): HTMLButtonElement {
+      return screen.getByRole("button", { name: "Contents" });
+    }
+
+    function contents(): HTMLElement {
+      return screen.getByRole("navigation", { name: "Contents" });
+    }
+
+    function contentsTitles(): string[] {
+      return within(contents())
+        .getAllByRole("listitem")
+        .map((entry) => entry.textContent);
+    }
+
+    it("opens from the toolbar and closes with its close button or Escape", async () => {
+      await renderInbox(root, api, onOpen, onBriefThese);
+      const button = contentsButton();
+      expect(button.getAttribute("aria-expanded")).toBe("false");
+      expect(contents().dataset.open).toBe("false");
+
+      button.click();
+      expect(button.getAttribute("aria-expanded")).toBe("true");
+      expect(contents().dataset.open).toBe("true");
+
+      within(contents())
+        .getByRole("button", { name: "Close Contents" })
+        .click();
+      expect(button.getAttribute("aria-expanded")).toBe("false");
+      expect(document.activeElement).toBe(button);
+
+      button.click();
+      contents().dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+      expect(contents().dataset.open).toBe("false");
+    });
+
+    it("lists the loaded Items in order", async () => {
+      await renderInbox(root, api, onOpen, onBriefThese);
+
+      expect(contentsTitles()).toEqual([
+        "Newest world story",
+        "AI story",
+        "Older world story",
+      ]);
+    });
+
+    it("jumps to the chosen Item and closes", async () => {
+      // jsdom has no scrollIntoView; the mock records which element it was called on.
+      const scrollIntoView = vi.fn();
+      Element.prototype.scrollIntoView = scrollIntoView;
+      onTestFinished(() => {
+        Reflect.deleteProperty(Element.prototype, "scrollIntoView");
+      });
+      await renderInbox(root, api, onOpen, onBriefThese);
+      contentsButton().click();
+
+      within(contents()).getByRole("button", { name: "AI story" }).click();
+
+      const link = screen.getByRole("link", { name: "AI story" });
+      expect(scrollIntoView.mock.contexts).toEqual([link.closest("li")]);
+      expect(document.activeElement).toBe(link);
+      expect(contents().dataset.open).toBe("false");
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("follows Load more and the filters", async () => {
+      api.pageSize = 2;
+      await renderInbox(root, api, onOpen, onBriefThese);
+      expect(contentsTitles()).toEqual(["Newest world story", "AI story"]);
+
+      screen.getByRole("button", { name: "Load more" }).click();
+      await waitFor(() => {
+        expect(contentsTitles()).toHaveLength(3);
+      });
+
+      choose(folderFilter(), "AI");
+      await waitFor(() => {
+        expect(contentsTitles()).toEqual(["AI story"]);
+      });
+    });
+
+    it("says so when no Items are loaded", async () => {
+      api.items = [];
+      await renderInbox(root, api, onOpen, onBriefThese);
+
+      expect(within(contents()).queryAllByRole("listitem")).toEqual([]);
+      expect(within(contents()).getByText("No Items to list.")).toBeTruthy();
+    });
   });
 });

@@ -5,6 +5,7 @@ import {
   type InboxQuery,
 } from "../api/client";
 import { renderChatPanel, type ChatPanelOptions } from "./chat";
+import { inboxContents } from "./inbox-contents";
 import { relativeTime, shownTime } from "./shown-time";
 import { stockTags } from "./stock-tags";
 
@@ -19,6 +20,7 @@ const ANY_IMPORTANCE = "";
 // The Inbox: every Item newest first or most important first, a keyword search, filters by
 // Folder and Importance, and a button for the next page. Unread Items are marked; choosing one calls
 // onOpen with its id. Items can be ticked, and "Brief these" calls onBriefThese with their ids.
+// A Contents panel lists the loaded Items and jumps to the chosen one's row.
 // Given folderId (a Folder picked in the sidebar), it opens filtered to that Folder. The Chat
 // panel sits beside it, its Source buttons and "Brief these" going to the same callbacks; it
 // reopens chat.openChatId and reports the Chat it shows.
@@ -93,9 +95,12 @@ export async function renderInbox(
     else picked.delete(itemId);
     showPicked();
   };
+  const contents = inboxContents((itemId) => {
+    jumpToRow(list, itemId);
+  });
   const actions = document.createElement("div");
   actions.className = "toolbar";
-  actions.append(briefThese);
+  actions.append(briefThese, contents.toggle);
   const column = document.createElement("div");
   column.className = "inbox-column";
   column.append(
@@ -110,7 +115,7 @@ export async function renderInbox(
   const chatPanel = document.createElement("aside");
   const layout = document.createElement("div");
   layout.className = "inbox-layout";
-  layout.append(column, chatPanel);
+  layout.append(column, chatPanel, contents.panel);
   root.replaceChildren(layout);
 
   let query: InboxQuery = folderId === undefined ? {} : { folderId };
@@ -133,6 +138,7 @@ export async function renderInbox(
       );
       if (append) list.append(...rows);
       else list.replaceChildren(...rows);
+      contents.show(page.items, append);
       nextCursor = page.nextCursor;
       loadMore.hidden = nextCursor === null;
       status.textContent =
@@ -217,6 +223,18 @@ function emptyMessage(query: InboxQuery): string {
     : "No Items match these filters.";
 }
 
+function rowId(itemId: number): string {
+  return `inbox-item-${String(itemId)}`;
+}
+
+// Scrolls the Item's row into view and focuses its title, so the keyboard carries on from there.
+function jumpToRow(list: HTMLElement, itemId: number): void {
+  const row = list.querySelector<HTMLElement>(`#${rowId(itemId)}`);
+  if (!row) return;
+  row.scrollIntoView({ behavior: "smooth", block: "start" });
+  row.querySelector("a")?.focus({ preventScroll: true });
+}
+
 function itemRow(
   item: InboxItem,
   onOpen: (itemId: number) => void,
@@ -224,6 +242,7 @@ function itemRow(
   onPick: (itemId: number, ticked: boolean) => void,
 ): HTMLLIElement {
   const row = document.createElement("li");
+  row.id = rowId(item.id);
   row.className = item.read ? "inbox-row" : "inbox-row unread";
   const pick = document.createElement("input");
   pick.type = "checkbox";
@@ -234,8 +253,10 @@ function itemRow(
   });
   const body = document.createElement("div");
   body.className = "inbox-row-body";
+  // Each title is a heading, so the rows read as separate stories and can be jumped between.
+  const title = document.createElement("h2");
+  title.className = "inbox-row-title";
   const link = document.createElement("a");
-  link.className = "inbox-row-title";
   // A real link, so it can be focused and read out; the Item view opens in the app.
   link.href = `#items/${String(item.id)}`;
   link.textContent = item.title;
@@ -248,9 +269,10 @@ function itemRow(
     unread.className = "unread-dot";
     unread.textContent = "●";
     unread.setAttribute("aria-label", "Unread");
-    body.append(unread);
+    title.append(unread);
   }
-  body.append(link);
+  title.append(link);
+  body.append(title);
   if (item.summary !== null) {
     const summary = document.createElement("p");
     summary.className = "inbox-row-summary";

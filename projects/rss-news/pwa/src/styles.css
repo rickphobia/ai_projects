@@ -416,8 +416,11 @@ form label {
 
 /* Inbox */
 
+/* Each Item is its own card with a heading, so neighbouring stories don't run together. */
 .inbox-list {
-  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .inbox-row {
@@ -425,8 +428,12 @@ form label {
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: var(--space-1) var(--space-3);
   align-items: start;
-  padding: var(--space-3) var(--space-1);
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  /* A jump from Contents lands below the sticky header. */
+  scroll-margin-top: calc(var(--header-height) + var(--space-3));
 }
 
 .inbox-row.has-thumbnail {
@@ -454,14 +461,20 @@ form label {
 }
 
 .inbox-row-title {
+  margin: 0;
   overflow-wrap: anywhere;
-  color: var(--text-muted);
-  font-weight: 400;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1.35;
 }
 
-.inbox-row.unread .inbox-row-title {
+/* Read Items keep a bold title but step back in colour. */
+.inbox-row-title a {
+  color: var(--text-muted);
+}
+
+.inbox-row.unread .inbox-row-title a {
   color: var(--text);
-  font-weight: 600;
 }
 
 .unread-dot {
@@ -526,6 +539,85 @@ form label {
 .load-more {
   display: block;
   margin: var(--space-4) auto;
+}
+
+/* Contents: a panel sliding in from the right, over the Chat panel on a wide screen. */
+.inbox-contents {
+  position: fixed;
+  top: var(--header-height);
+  right: 0;
+  bottom: 0;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  width: min(20rem, 85vw);
+  padding: var(--space-3);
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  background: var(--bg-sidebar);
+  box-shadow: -4px 0 16px rgb(0 0 0 / 12%);
+  transform: translateX(100%);
+  /* Hidden, not just moved away, so a closed panel's entries can't be tabbed to. */
+  visibility: hidden;
+  transition:
+    transform 0.2s ease,
+    visibility 0.2s;
+}
+
+.inbox-contents[data-open="true"] {
+  transform: none;
+  visibility: visible;
+}
+
+.inbox-contents-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.inbox-contents-header h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.inbox-contents-close {
+  border: none;
+  background: transparent;
+}
+
+.inbox-contents ol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inbox-contents li button {
+  width: 100%;
+  min-height: 0;
+  padding: var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: left;
+}
+
+.inbox-contents li button.unread {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.inbox-contents li button:hover {
+  background: var(--bg-hover);
+}
+
+.inbox-contents-empty {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
 }
 
 /* Chat: a bottom sheet over the Inbox on a phone, opened from its Chat bar; a panel beside the
