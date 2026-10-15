@@ -58,7 +58,11 @@ export async function renderHome(
   const actions = document.createElement("div");
   actions.className = "toolbar";
   actions.append(briefMe, regenerate);
-  showInReadingColumn(root, "div", controls, actions, progress, failure, shown);
+  // Brief me sits in its own card, apart from the Briefing it writes.
+  const briefMeCard = document.createElement("div");
+  briefMeCard.className = "brief-me";
+  briefMeCard.append(controls, actions, progress, failure);
+  showInReadingColumn(root, "div", briefMeCard, shown);
 
   const request = (): BriefingRequest =>
     picked

@@ -934,17 +934,98 @@ form label {
   list-style: revert;
 }
 
-/* A Briefing: Folder headings, each point a short paragraph with its Source links. */
-.briefing li {
-  margin-bottom: var(--space-3);
-  font-size: var(--text-lg);
+/* Home's Brief me controls, in a card apart from the Briefing below. */
+.brief-me {
+  margin-bottom: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sidebar);
+}
+
+.brief-me > :last-child,
+.brief-me > .toolbar:last-of-type {
+  margin-bottom: 0;
+}
+
+/* Empty status lines take no room, but stay in place so screen readers still hear them. */
+.brief-me > p:empty {
+  margin: 0;
+}
+
+/* A Briefing: a strip of Folder buttons, then each Folder's points as cards with their lead
+   sentence in bold and their Source links underneath. */
+.briefing-folders {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 5;
+  display: flex;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) 0;
+  overflow-x: auto;
+  background: var(--bg);
+}
+
+.briefing-folders button {
+  flex: none;
+  min-height: 2rem;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+}
+
+.briefing-section h3 {
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--border);
+  font-size: var(--text-xl);
+  /* A jump from the strip lands below the header and the strip itself. */
+  scroll-margin-top: calc(var(--header-height) + 3.5rem);
+}
+
+.briefing-section {
+  scroll-margin-top: calc(var(--header-height) + 3.5rem);
+}
+
+.briefing-points {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.briefing-points > li {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+}
+
+.briefing-points p {
+  margin: 0;
   line-height: var(--leading-reading);
 }
 
-.briefing li a {
-  margin-left: var(--space-1);
+.briefing-points strong {
+  font-size: var(--text-lg);
+}
+
+.briefing-sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin-top: var(--space-2);
   font-size: var(--text-sm);
+}
+
+.briefing-sources a {
   white-space: nowrap;
+}
+
+.briefing-sources button {
+  min-height: 0;
+  padding: 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
 }
 
 /* Plain lists of rows: Briefings, Sources, Folders, spending by feature. */
