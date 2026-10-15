@@ -68,29 +68,28 @@ function pointCard(
   point: BriefingPoint,
   onOpenItem: (itemId: number) => void,
 ): HTMLLIElement {
-  const text = document.createElement("p");
+  // The bold lead is the point's headline; it opens the point's first Item in the app. A
+  // one-sentence point, as older Briefings wrote them, is all headline.
   const split = splitLeadSentence(point.text);
-  if (split === null) {
-    text.textContent = point.text;
+  const headline = split?.lead ?? point.text;
+  const lead = document.createElement("strong");
+  const first = point.items[0];
+  if (first === undefined) {
+    lead.textContent = headline;
   } else {
-    // The bold lead is the point's headline; it opens the point's first Item in the app.
-    const lead = document.createElement("strong");
-    const first = point.items[0];
-    if (first === undefined) {
-      lead.textContent = split.lead;
-    } else {
-      const link = document.createElement("a");
-      link.className = "briefing-lead";
-      link.href = `#items/${String(first.id)}`;
-      link.textContent = split.lead;
-      link.addEventListener("click", (event) => {
-        event.preventDefault();
-        onOpenItem(first.id);
-      });
-      lead.append(link);
-    }
-    text.append(lead, ` ${split.rest}`);
+    const link = document.createElement("a");
+    link.className = "briefing-lead";
+    link.href = `#items/${String(first.id)}`;
+    link.textContent = headline;
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      onOpenItem(first.id);
+    });
+    lead.append(link);
   }
+  const text = document.createElement("p");
+  text.append(lead);
+  if (split !== null) text.append(` ${split.rest}`);
   const card = document.createElement("li");
   card.append(text, sourceLinks(point.items, onOpenItem));
   return card;

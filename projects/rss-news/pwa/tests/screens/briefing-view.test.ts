@@ -62,7 +62,13 @@ describe("showBriefing", () => {
     expect(cards[0]?.querySelector("p")?.textContent).toBe(
       "Meta launched Muse Wonder. Its stock rose 3%.",
     );
-    expect(cards[1]?.querySelector("strong")).toBeNull();
+    // A one-sentence point is all headline.
+    expect(cards[1]?.querySelector("strong")?.textContent).toBe(
+      "One sentence only.",
+    );
+    expect(cards[1]?.querySelector("p")?.textContent).toBe(
+      "One sentence only.",
+    );
   });
 
   it("links a point's bold lead to its first Item", () => {
@@ -73,6 +79,11 @@ describe("showBriefing", () => {
       .click();
 
     expect(onOpenItem).toHaveBeenCalledWith(1);
+
+    within(section("AI"))
+      .getByRole("link", { name: "One sentence only." })
+      .click();
+    expect(onOpenItem).toHaveBeenLastCalledWith(1);
   });
 
   it("shows three Source links and the rest behind a button", () => {
