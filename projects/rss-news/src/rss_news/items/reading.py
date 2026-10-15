@@ -25,6 +25,21 @@ class ReaderView:
     problem: str | None = None
 
 
+@dataclass(frozen=True)
+class SourceText:
+    """What a Source itself gave for an Item, beside its link."""
+
+    # A short plain-text preview.
+    excerpt: str
+    # The text in paragraphs, one per line; empty when the Source gave none.
+    body: str
+    # True when `body` is the whole Item, as for a Reddit text post or a newsletter; with an
+    # empty body, the Item is only a picture or video.
+    body_complete: bool
+    # The article a Reddit link post points to.
+    linked_url: str | None
+
+
 class ArticleExtractor(Protocol):
     def extract(self, url: str) -> ReaderView:
         """Fetch the page and return its article without ads or clutter; raise
@@ -35,8 +50,8 @@ class ArticleExtractor(Protocol):
 class ReadableItemStore(Protocol):
     def item(self, item_id: int) -> InboxItem | None: ...
 
-    def excerpt(self, item_id: int) -> str | None:
-        """The plain-text preview the feed gave the Item; None for an unknown Item."""
+    def source_text(self, item_id: int) -> SourceText | None:
+        """What the Source itself gave for the Item; None for an unknown Item."""
         ...
 
     def mark_read(self, item_id: int, *, at: datetime) -> None:
@@ -57,16 +72,27 @@ class ItemReading:
         return found
 
     def reader_view(self, item_id: int) -> ReaderView:
-        """Extracted fresh on every call and never stored, so the database stays small. A page
-        that can't be read, such as Reddit's (it refuses servers), gives the feed's preview
-        instead, with the reason."""
+        """The article a Reddit post links to, extracted fresh on every call and never stored;
+        else the Item's whole text when its Source gave it (a Reddit text post, a newsletter);
+        else the Item's own page. When no page can be read, the Source's text instead, with
+        the first reason."""
         found = self._found(item_id)
+        given = self._items.source_text(item_id) or SourceText("", "", False, None)
+        problem: str | None = None
+        if given.linked_url is not None:
+            try:
+                return self._extractor.extract(given.linked_url)
+            except ExtractionFailed as error:
+                problem = str(error)
+        if given.body_complete:
+            if given.body:
+                return ReaderView(title=None, text=given.body, problem=problem)
+            return ReaderView(title=None, text="", problem="it is a picture or video with no text")
         try:
             return self._extractor.extract(found.url)
         except ExtractionFailed as error:
-            return ReaderView(
-                title=None, text=self._items.excerpt(item_id) or "", problem=str(error)
-            )
+            problem = problem or str(error)
+        return ReaderView(title=None, text=given.body or given.excerpt, problem=problem)
 
     def _found(self, item_id: int) -> InboxItem:
         found = self._items.item(item_id)

@@ -204,6 +204,15 @@ MIGRATIONS: tuple[str, ...] = (
         WHERE alert IS NULL AND scored_at IS NOT NULL;
     CREATE INDEX items_alerts_sent ON items (alert_decided_at) WHERE alert = 'sent';
     """,
+    """
+    -- What the Source itself gave beyond the excerpt, so Reader view has something when the
+    -- page can't be read: the text in paragraphs (empty if none), whether that text is the
+    -- whole Item (a Reddit text post, a newsletter), and the article a Reddit link post
+    -- points to. Items stored before this keep only their excerpt.
+    ALTER TABLE items ADD COLUMN body TEXT NOT NULL DEFAULT '';
+    ALTER TABLE items ADD COLUMN body_complete INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE items ADD COLUMN linked_url TEXT;
+    """,
 )
 
 

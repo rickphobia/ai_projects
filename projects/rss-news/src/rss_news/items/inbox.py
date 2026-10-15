@@ -26,6 +26,10 @@ class InboxOrder(StrEnum):
     IMPORTANCE = "importance"
 
 
+# The most of a Source's own text kept for an Item: a long post, but not a whole book.
+BODY_LENGTH = 20_000
+
+
 @dataclass(frozen=True)
 class NewItem:
     source_id: int
@@ -38,6 +42,10 @@ class NewItem:
     published_at: datetime
     # A thumbnail link from the feed; only the link is kept, the image is never fetched.
     image_url: str | None = None
+    # What the Source itself gave beyond the excerpt, for Reader view (see items/reading.py).
+    body: str = ""
+    body_complete: bool = False
+    linked_url: str | None = None
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,7 @@
 """Parsing saved feeds, one from each starter Source family: RSS, RDF, Atom and Reddit."""
 
 from datetime import UTC, datetime
+from html import escape
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,8 @@ def test_an_rss_feed_gives_one_entry_per_item() -> None:
         published_at=datetime(2026, 10, 11, 21, 36, 40, tzinfo=UTC),
         image_url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/16d8/live/"
         "4817e400-c58a-11f1-bc2e-018d645d8d21.jpg",
+        body="Ukraine's leader says he will support such a truce if Moscow does, after "
+        "initially expressing surprise at Donald Trump's announcement.",
     )
 
 
@@ -52,6 +55,114 @@ def test_a_reddit_feed_links_each_post_and_drops_the_html_table() -> None:
     assert first.published_at is not None
     assert "<" not in first.excerpt
     assert "&#32;" not in first.excerpt
+    # Reddit's "submitted by /u/… [link] [comments]" line is not part of any post.
+    assert all("submitted by" not in entry.excerpt for entry in entries)
+
+
+def test_a_reddit_link_post_keeps_the_article_it_links_to() -> None:
+    first = parse_saved("reddit-localllama.atom.xml")[0]
+
+    assert first.linked_url == (
+        "https://videocardz.com/newz/heres-why-rtx-5090-costs-5000-ai-firms-are-buying-"
+        "gaming-gpus-by-the-pallet"
+    )
+    # No post text of its own, and none of Reddit's "submitted by" line.
+    assert first.body == ""
+    assert first.body_complete is False
+
+
+def test_a_reddit_text_post_keeps_its_whole_text_in_paragraphs() -> None:
+    second = parse_saved("reddit-localllama.atom.xml")[1]
+
+    assert second.linked_url is None
+    assert second.body_complete is True
+    assert "Velvet Eclipse 2x12B" in second.body
+    assert "\n" in second.body
+    assert "submitted by" not in second.body
+    assert "<" not in second.body
+    assert len(second.body) > len(second.excerpt)
+
+
+def reddit_entry(post_html: str) -> FeedEntry:
+    """One Reddit text post, laid out as Reddit's feed lays it out."""
+    url = "https://www.reddit.com/r/test/comments/1abc/a_post/"
+    content = (
+        f'<!-- SC_OFF --><div class="md">{post_html}</div><!-- SC_ON --> &#32; submitted by '
+        f'&#32; <a href="https://www.reddit.com/user/someone"> /u/someone </a> <br/> '
+        f'<span><a href="{url}">[link]</a></span>'
+    )
+    body = f"""<feed xmlns="http://www.w3.org/2005/Atom"><title>r/test</title>
+      <entry><title>A post</title><link href="{url}"/><id>t3_1abc</id>
+      <updated>2026-10-15T00:00:00+00:00</updated>
+      <content type="html">{escape(content)}</content></entry></feed>""".encode()
+    (entry,) = parse_feed(body, content_type="application/atom+xml")
+    return entry
+
+
+def test_a_short_reddit_text_post_sharing_a_link_reads_that_link() -> None:
+    entry = reddit_entry(
+        '<p>Bezos says so: <a href="https://www.forbes.com/sites/x/2026/10/08/bezos/">'
+        "https://www.forbes.com/sites/x/2026/10/08/bezos/</a></p>"
+    )
+
+    assert entry.linked_url == "https://www.forbes.com/sites/x/2026/10/08/bezos/"
+    assert entry.body_complete is True
+    assert entry.excerpt.startswith("Bezos says so:")
+
+
+def test_a_reddit_image_post_has_nothing_to_read() -> None:
+    url = "https://www.reddit.com/r/test/comments/1img/a_picture/"
+    content = (
+        '<table><tr><td><a href="https://www.reddit.com/r/test/comments/1img/a_picture/">'
+        '<img src="https://preview.redd.it/x.png" /></a></td><td> submitted by '
+        '<span><a href="https://i.redd.it/abc123.png">[link]</a></span></td></tr></table>'
+    )
+    body = f"""<feed xmlns="http://www.w3.org/2005/Atom"><title>r/test</title>
+      <entry><title>A picture</title><link href="{url}"/><id>t3_1img</id>
+      <updated>2026-10-15T00:00:00+00:00</updated>
+      <content type="html">{escape(content)}</content></entry></feed>""".encode()
+
+    (entry,) = parse_feed(body, content_type="application/atom+xml")
+
+    assert entry.linked_url is None
+    assert entry.body == ""
+    # Complete with no text: there is no page worth fetching.
+    assert entry.body_complete is True
+
+
+def test_a_long_reddit_text_post_is_read_as_itself_even_with_a_link() -> None:
+    entry = reddit_entry(
+        "<p>" + "A long thought. " * 40 + '</p><p>See <a href="https://example.com/a">this</a>.</p>'
+    )
+
+    assert entry.linked_url is None
+    assert entry.body_complete is True
+
+
+def test_a_feeds_full_content_is_kept_in_paragraphs_but_not_as_the_whole_item() -> None:
+    body = b"""<rss version="2.0"><channel><title>t</title>
+      <item><title>Post</title><link>https://example.com/post</link>
+      <description><![CDATA[<p>First paragraph.</p><p>Second <b>bold</b> one.</p>]]></description>
+      </item></channel></rss>"""
+
+    (entry,) = parse_feed(body, content_type=None)
+
+    assert entry.body == "First paragraph.\nSecond bold one."
+    assert entry.body_complete is False
+    assert entry.linked_url is None
+
+
+def test_a_very_long_body_is_cut() -> None:
+    long_text = "<p>" + "word " * 10_000 + "</p>"
+    body = f"""<rss version="2.0"><channel><title>t</title>
+      <item><title>Long</title><link>https://example.com/long</link>
+      <description><![CDATA[{long_text}]]></description></item>
+    </channel></rss>""".encode()
+
+    (entry,) = parse_feed(body, content_type=None)
+
+    assert len(entry.body) <= 20_000
+    assert entry.body.endswith("…")
 
 
 def test_an_rdf_feed_gives_entries() -> None:
