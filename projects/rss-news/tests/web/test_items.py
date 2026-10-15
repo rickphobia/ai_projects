@@ -1,5 +1,6 @@
 """Opening one Item: it shows, becomes read, and its Reader view is extracted on demand."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,7 @@ from fastapi.testclient import TestClient
 from rss_news.config import load_settings
 from rss_news.items.reading import ReaderView
 from rss_news.sources.catalog import StarterFolder, StarterSource
+from rss_news.sources.fetching import Fetched
 from rss_news.wiring import Wiring
 from tests.support import (
     OWNER_PASSWORD,
@@ -33,7 +35,7 @@ def extractor() -> FakeArticleExtractor:
 @pytest.fixture
 def wiring(tmp_path: Path, extractor: FakeArticleExtractor) -> Wiring:
     fetcher = FakeFeedFetcher()
-    fetcher.answers[FEED] = rss(("A story", STORY, None))
+    fetcher.answers[FEED] = with_preview(rss(("A story", STORY, None)), "What the feed says.")
     wiring = make_wiring(
         load_settings(app_env(tmp_path)),
         FakeClock(),
@@ -50,6 +52,12 @@ def client(wiring: Wiring) -> TestClient:
     client = TestClient(wiring.app)
     assert client.post(f"{PREFIX}/api/login", json={"password": OWNER_PASSWORD}).status_code == 204
     return client
+
+
+def with_preview(feed: Fetched, preview: str) -> Fetched:
+    """The feed with the preview text a feed gives each item, as RSS's description."""
+    body = feed.body.decode().replace("</item>", f"<description>{preview}</description></item>")
+    return replace(feed, body=body.encode())
 
 
 def only_item(client: TestClient) -> dict[str, object]:
@@ -101,20 +109,47 @@ def test_reader_view_extracts_the_original_page_each_time(
     client.get(f"{PREFIX}/api/items/{item_id}/reader")
 
     assert first.status_code == 200
-    assert first.json() == {"title": "A story", "text": "First paragraph.\nSecond."}
+    assert first.json() == {
+        "title": "A story",
+        "text": "First paragraph.\nSecond.",
+        "problem": None,
+    }
     # Nothing is kept: every open fetches the page again.
     assert extractor.requested == [STORY, STORY]
 
 
-def test_reader_view_failure_is_a_clear_message(
-    client: TestClient, extractor: FakeArticleExtractor
-) -> None:
+def test_an_unreadable_page_falls_back_to_the_feeds_preview(client: TestClient) -> None:
+    # Such as Reddit, which refuses servers. Not a 5xx: Cloudflare replaces those with its own
+    # page, and the owner would never see why.
     response = client.get(f"{PREFIX}/api/items/{only_item(client)['id']}/reader")
 
-    assert response.status_code == 502
-    assert response.json()["detail"] == (
-        "Reader view isn't available: no article text was found on the page."
+    assert response.status_code == 200
+    assert response.json() == {
+        "title": None,
+        "text": "What the feed says.",
+        "problem": "no article text was found on the page",
+    }
+
+
+def test_an_unreadable_page_without_a_preview_says_so(tmp_path: Path) -> None:
+    fetcher = FakeFeedFetcher()
+    fetcher.answers[FEED] = rss(("A story", STORY, None))
+    wiring = make_wiring(
+        load_settings(app_env(tmp_path)),
+        FakeClock(),
+        feed_fetcher=fetcher,
+        article_extractor=FakeArticleExtractor(),
+        starter_folders=STARTER,
     )
+    wiring.tick.run()
+    client = TestClient(wiring.app)
+    client.post(f"{PREFIX}/api/login", json={"password": OWNER_PASSWORD})
+
+    response = client.get(f"{PREFIX}/api/items/{only_item(client)['id']}/reader")
+
+    assert response.status_code == 200
+    assert response.json()["text"] == ""
+    assert response.json()["problem"] == "no article text was found on the page"
 
 
 def test_reader_view_needs_a_session(wiring: Wiring) -> None:

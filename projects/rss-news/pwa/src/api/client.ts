@@ -86,6 +86,8 @@ export interface ReaderView {
   title: string | null;
   // Plain text, one paragraph per line.
   text: string;
+  // Why the original page couldn't be read; `text` is then the feed's preview, or empty.
+  problem: string | null;
 }
 
 export type InboxOrder = "newest" | "importance";
@@ -161,7 +163,7 @@ export interface ApiClient {
   inbox(query: InboxQuery): Promise<InboxPage>;
   // One Item; showing it marks it read.
   item(itemId: number): Promise<InboxItem>;
-  // Rejects with RefusedError, saying why, when the page can't be extracted.
+  // A page that can't be read gives the feed's preview with the `problem`.
   readerView(itemId: number): Promise<ReaderView>;
   // The calls below reject with RefusedError when the server says no, such as deleting a
   // Folder that still has Sources.

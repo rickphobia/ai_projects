@@ -77,16 +77,26 @@ async function loadReaderView(
 ): Promise<void> {
   try {
     const view = await api.readerView(item.id);
-    reader.replaceChildren(
-      ...view.text
-        .split("\n")
-        .filter((line) => line.trim() !== "")
-        .map((line) => {
-          const paragraph = document.createElement("p");
-          paragraph.textContent = line;
-          return paragraph;
-        }),
-    );
+    const paragraphs = view.text
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => {
+        const paragraph = document.createElement("p");
+        paragraph.textContent = line;
+        return paragraph;
+      });
+    if (view.problem === null) {
+      reader.replaceChildren(...paragraphs);
+    } else {
+      // Some sites, such as Reddit, refuse the server; the feed's preview is what's left.
+      const note = document.createElement("p");
+      note.className = "reader-note";
+      note.textContent =
+        paragraphs.length > 0
+          ? `Couldn't load the full article (${view.problem}). This is the preview from the feed.`
+          : `Couldn't load the full article (${view.problem}), and the feed gave no preview.`;
+      reader.replaceChildren(note, ...paragraphs, originalLink(item.url));
+    }
   } catch (error) {
     if (error instanceof SignedOutError) return;
     // Never a dead end: say why and offer the original page.
