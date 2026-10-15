@@ -62,4 +62,18 @@ func test_store_rows_take_the_players_text_size() -> void:
 	_overlay.show_store(items, 30)
 
 	var button := _overlay.store_panel().row(Farm.REST_HOUR).button()
-	assert_eq(button.get_theme_font_size(&"font_size"), StoreRow.FONT_SIZE * 2)
+	assert_eq(button.get_theme_font_size(&"font_size"), AppLook.BODY * 2)
+
+
+func test_the_tins_pencil_button_takes_the_players_text_size_too() -> void:
+	var items: Array[StoreItemView] = [
+		StoreItemView.new(Farm.REST_HOUR, StoreItemView.Kind.PRIVILEGE, 20, &"")
+	]
+	_overlay.scale_text(1.5)
+	_overlay.show_store(items, 30, 50)
+	var tin_button := _overlay.store_panel().row(Farm.REST_HOUR).savings_button()
+	assert_eq(tin_button.get_theme_font_size(&"font_size"), roundi(AppLook.SMALL * 1.5))
+
+	_overlay.scale_text(1.0)
+
+	assert_eq(tin_button.get_theme_font_size(&"font_size"), AppLook.SMALL)

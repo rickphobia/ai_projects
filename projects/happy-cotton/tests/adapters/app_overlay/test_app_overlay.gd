@@ -140,7 +140,7 @@ func test_it_shows_the_exhaustion_as_a_whole_percentage() -> void:
 func test_the_app_dims_while_the_generator_stands_still_and_brightens_when_it_turns() -> void:
 	_overlay.show_powered(false)
 	assert_eq(
-		(_overlay.find_child("StoreButton", true, false) as Button).modulate, AppOverlay.UNPOWERED
+		(_overlay.find_child("StoreButton", true, false) as Button).modulate, AppLook.UNPOWERED
 	)
 	assert_false(_overlay.is_powered())
 
@@ -178,9 +178,9 @@ func test_the_text_scales_with_the_text_size() -> void:
 	for node in _overlay.find_children("*", "Label", true, false):
 		if (node as Label).text == "Bigger":
 			speech = node
-	assert_eq(speech.get_theme_font_size("font_size"), roundi(AppOverlay.FONT_SIZE * 1.5))
+	assert_eq(speech.get_theme_font_size("font_size"), roundi(AppLook.BODY * 1.5))
 	_overlay.scale_text(1.0)
-	assert_eq(speech.get_theme_font_size("font_size"), AppOverlay.FONT_SIZE)
+	assert_eq(speech.get_theme_font_size("font_size"), AppLook.BODY)
 
 
 func test_the_settings_button_asks_for_settings() -> void:

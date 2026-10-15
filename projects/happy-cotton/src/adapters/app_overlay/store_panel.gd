@@ -15,15 +15,8 @@ signal land_pressed
 ## An item's tin button was pressed: buy it with hidden savings, by its Farm id.
 signal savings_pressed(id: StringName)
 
-const BACKDROP := Color(0.1, 0.05, 0.08, 0.55)
-const CARD_COLOUR := Color(1.0, 0.98, 0.9)
-const TITLE_COLOUR := Color(1.0, 0.42, 0.62)
-const HEADING_COLOUR := Color(0.3, 0.12, 0.22)
-const TITLE_FONT_SIZE := 34
-const HEADING_FONT_SIZE := 28
 ## The card's share of the screen, so it fits a phone held sideways.
 const CARD_SHARE := Vector2(0.8, 0.82)
-const MARGIN := 24
 
 var _upgrades: VBoxContainer
 var _land: VBoxContainer
@@ -35,8 +28,8 @@ var _rows: Dictionary[StringName, StoreRow] = {}
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	var backdrop := ColorRect.new()
-	backdrop.color = BACKDROP
+	var backdrop := Panel.new()
+	backdrop.theme_type_variation = AppLook.BACKDROP_PANEL
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(backdrop)
 	var card := PanelContainer.new()
@@ -44,14 +37,9 @@ func _ready() -> void:
 	card.anchor_right = 1.0 - card.anchor_left
 	card.anchor_top = (1.0 - CARD_SHARE.y) / 2.0
 	card.anchor_bottom = 1.0 - card.anchor_top
-	var style := StyleBoxFlat.new()
-	style.bg_color = CARD_COLOUR
-	style.set_corner_radius_all(28)
-	style.set_content_margin_all(MARGIN)
-	card.add_theme_stylebox_override("panel", style)
 	add_child(card)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 12)
+	column.add_theme_constant_override("separation", AppLook.SPACE * 2)
 	card.add_child(column)
 	column.add_child(_title())
 	var scroll := ScrollContainer.new()
@@ -60,7 +48,7 @@ func _ready() -> void:
 	column.add_child(scroll)
 	var sections := VBoxContainer.new()
 	sections.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sections.add_theme_constant_override("separation", 16)
+	sections.add_theme_constant_override("separation", AppLook.SPACE * 2)
 	scroll.add_child(sections)
 	_upgrades = _section(sections, AppText.STORE_UPGRADES)
 	_land = _section(sections, AppText.STORE_LAND)
@@ -108,18 +96,15 @@ func _add_row(item: StoreItemView) -> void:
 func _title() -> Label:
 	var title := Label.new()
 	title.text = AppText.STORE_TITLE
-	title.add_theme_font_size_override("font_size", TITLE_FONT_SIZE)
-	title.add_theme_color_override("font_color", TITLE_COLOUR)
+	title.theme_type_variation = AppLook.TITLE_LABEL
 	return title
 
 
 func _build_close_button() -> Button:
-	var close := Button.new()
+	var close := AppLook.button(AppText.STORE_CLOSE)
 	close.name = "CloseButton"
-	close.text = AppText.STORE_CLOSE
-	close.custom_minimum_size = Vector2(180, 56)
+	close.custom_minimum_size.x = AppLook.SPACE * 22
 	close.size_flags_horizontal = Control.SIZE_SHRINK_END
-	close.add_theme_font_size_override("font_size", HEADING_FONT_SIZE)
 	close.pressed.connect(hide)
 	return close
 
@@ -128,10 +113,8 @@ func _build_close_button() -> Button:
 func _section(parent: Control, heading: String) -> VBoxContainer:
 	var label := Label.new()
 	label.text = heading
-	label.add_theme_font_size_override("font_size", HEADING_FONT_SIZE)
-	label.add_theme_color_override("font_color", HEADING_COLOUR)
 	parent.add_child(label)
 	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation", 14)
+	rows.add_theme_constant_override("separation", AppLook.SPACE * 2)
 	parent.add_child(rows)
 	return rows

@@ -1,6 +1,6 @@
 # Asset credits
 
-Every file in `assets/` is listed here with its author, licence and where it came from. All are CC0 (public domain), so crediting is not required, but we do it anyway. Add a row before adding an asset; only CC0 assets go in this folder.
+Every file in `assets/` is listed here with its author, licence and where it came from. Add a row before adding an asset. The rule: CC0, or SIL OFL 1.1 for fonts, with the licence file next to the font. CC0 needs no credit, but we credit anyway.
 
 | File | What it is in the game | Original | Author | Licence | Link |
 |---|---|---|---|---|---|
@@ -15,6 +15,7 @@ Every file in `assets/` is listed here with its author, licence and where it cam
 | `bigsoundbank/whistle.ogg` | The Overseer's whistle | "Whistle, plastic #4" (#1142), one blast cut from 0.93 s to 2.33 s, mono Ogg | Joseph Sardin (BigSoundBank) | CC0 1.0 | https://bigsoundbank.com/whistle-plastic-4-s1142.html |
 | `bigsoundbank/whip_crack.ogg` | The Overseer's whip crack | "Whip crack 2" (#2950), cut from 0.2 s to 0.9 s with a fade out, mono Ogg | Joseph Sardin (BigSoundBank) | CC0 1.0 | https://bigsoundbank.com/whip-crack-2-s2950.html |
 | `ggbotnet-first-time-writing/FirstTimeWriting.woff2` | The handwriting of the Children's letters | First Time Writing! 1.35, `FirstTimeWriting.woff2` (the copy named without the exclamation mark) | GGBotNet | CC0 1.0 | https://opengameart.org/content/first-time-writing-font |
+| `nunito/Nunito.woff2` (licence: `nunito/OFL.txt`) | The App's rounded font, drawn at weight 750 | Nunito 3.x variable font, `ofl/nunito/Nunito[wght].ttf` from github.com/google/fonts at commit `6049366`, converted to WOFF2 with fontTools 4.54.1 (`fonttools ttLib.woff2 compress`), glyphs unchanged | The Nunito Project Authors (Vernon Adams and others, see `OFL.txt`) | SIL OFL 1.1 | https://github.com/googlefonts/nunito |
 | `polyhaven/dry_ground_01_diff_1k.jpg` | Dust on the ground and in the plots | `dry_ground_01`, diffuse, 1k JPG | Poly Haven (Rob Tuytel) | CC0 1.0 | https://polyhaven.com/a/dry_ground_01 |
 
 The plant and fence colours are replaced in code (`src/adapters/field/`) with the field's muted palette; the Worker keeps the model's own colours. The model files are unchanged; the two BigSoundBank sounds were cut from the site's MP3s with ffmpeg as described. The Generator and its loudspeaker pole are simple shapes built in code (`src/adapters/field/generator.gd`), not an asset, and so are the power tiles and the lap line (`src/adapters/field/power_tiles.gd`). So is the Overseer's whip (`src/adapters/field/overseer_look.gd`), and the Generator's whine is a hum made in code (`src/adapters/audio/field_sounds.gd`).

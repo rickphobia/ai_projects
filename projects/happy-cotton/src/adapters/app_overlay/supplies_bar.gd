@@ -6,14 +6,6 @@ extends VBoxContainer
 ## normal again. Pressing the picked one again puts it back. It shows what it is given and
 ## never decides anything: the rules say whether the supply goes on.
 
-const FONT_SIZE := 24
-const BUTTON_COLOUR := Color(1.0, 0.42, 0.62)
-## A picked supply's button, bright so it is plain which one the next tap uses.
-const CHOSEN_COLOUR := Color(0.98, 0.84, 0.2)
-const TEXT := Color(1.0, 1.0, 1.0)
-const HINT_TEXT := Color(0.3, 0.12, 0.22)
-const HINT_COLOUR := Color(1.0, 0.98, 0.9)
-
 var _buttons: Dictionary[StringName, Button] = {}
 var _row: HBoxContainer
 var _hint: Label
@@ -27,14 +19,12 @@ func _init() -> void:
 	_hint = Label.new()
 	_hint.name = "SupplyHint"
 	_hint.visible = false
-	_hint.add_theme_font_size_override("font_size", FONT_SIZE)
-	_hint.add_theme_color_override("font_color", HINT_TEXT)
-	_hint.add_theme_stylebox_override("normal", _rounded(HINT_COLOUR))
+	_hint.theme_type_variation = AppLook.HINT_LABEL
 	add_child(_hint)
 	_row = HBoxContainer.new()
 	_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_row.alignment = BoxContainer.ALIGNMENT_END
-	_row.add_theme_constant_override("separation", 12)
+	_row.add_theme_constant_override("separation", AppLook.SPACE * 2)
 	add_child(_row)
 
 
@@ -82,11 +72,8 @@ func hint() -> Label:
 
 
 func _add_button(id: StringName) -> void:
-	var supply_button := Button.new()
+	var supply_button := AppLook.button()
 	supply_button.name = "Supply_%s" % id
-	supply_button.add_theme_font_size_override("font_size", FONT_SIZE)
-	supply_button.add_theme_color_override("font_color", TEXT)
-	_paint(supply_button, BUTTON_COLOUR)
 	supply_button.pressed.connect(choose.bind(id))
 	_row.add_child(supply_button)
 	_buttons[id] = supply_button
@@ -94,7 +81,8 @@ func _add_button(id: StringName) -> void:
 
 func _show_chosen() -> void:
 	for id in _buttons:
-		_paint(_buttons[id], CHOSEN_COLOUR if id == _chosen else BUTTON_COLOUR)
+		# The picked one is bright so it is plain which supply the next tap uses.
+		_buttons[id].theme_type_variation = AppLook.CHOSEN_BUTTON if id == _chosen else &""
 	_hint.visible = _chosen != &""
 	if _hint.visible:
 		var hint: String = AppText.SUPPLY_CHOSEN.get(_chosen, "")
@@ -103,19 +91,3 @@ func _show_chosen() -> void:
 
 func _name_of(id: StringName) -> String:
 	return AppText.STORE_NAMES.get(id, String(id))
-
-
-func _paint(supply_button: Button, colour: Color) -> void:
-	for state: String in ["normal", "hover", "pressed", "focus"]:
-		supply_button.add_theme_stylebox_override(state, _rounded(colour))
-
-
-func _rounded(colour: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = colour
-	style.set_corner_radius_all(20)
-	style.content_margin_left = 14
-	style.content_margin_right = 14
-	style.content_margin_top = 6
-	style.content_margin_bottom = 6
-	return style

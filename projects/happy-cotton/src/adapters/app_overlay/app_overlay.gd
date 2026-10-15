@@ -35,20 +35,11 @@ signal hand_in_pressed(amount: int)
 ## The Settings button was pressed.
 signal settings_pressed
 
-const BAR_COLOUR := Color(1.0, 0.42, 0.62)
-const BUBBLE_COLOUR := Color(1.0, 0.98, 0.9)
-const QUOTA_EMPTY := Color(1.0, 0.8, 0.88)
-const QUOTA_FILL := Color(0.98, 0.84, 0.2)
-const TEXT_ON_BAR := Color(1.0, 1.0, 1.0)
-const TEXT_IN_BUBBLE := Color(0.3, 0.12, 0.22)
-## The tint over The App while the Generator stands still.
-const UNPOWERED := Color(0.45, 0.45, 0.45)
-const FONT_SIZE := 28
-const MARGIN := 16
+const MARGIN := AppLook.SPACE * 2
 ## The player's own button, not one of The App's lines, so it isn't in AppText.
 const SETTINGS_BUTTON_TEXT := "Settings"
 ## How far above the screen's bottom edge the supplies bar sits, clear of the Store button.
-const SUPPLIES_BAR_LIFT := 80
+const SUPPLIES_BAR_LIFT := AppLook.TAP_TARGET + AppLook.SPACE
 ## How long the Mascot's words stay up when nobody taps them away.
 const SPEECH_SECONDS := 5.0
 
@@ -66,7 +57,6 @@ var _supplies_bar: SuppliesBar
 var _store: StorePanel
 var _pay_slip: PaySlipCard
 var _hand_in: HandInCard
-var _text_scale := 1.0
 var _speech: Label
 var _bubble: PanelContainer
 var _speech_seconds_left := 0.0
@@ -76,22 +66,35 @@ var _study_room: StudyRoom
 var _powered_parts: Array[CanvasItem] = []
 var _powered := true
 var _reduced_motion := false
+var _tap_feedback := TapFeedback.new()
+var _text_scale := 1.0
 
 
 func _ready() -> void:
 	layer = 10
+	# A CanvasLayer breaks theme inheritance, so The App's root takes the App look itself.
 	_root = Control.new()
+	_root.name = "AppRoot"
+	_root.theme = AppLook.theme(AppLook.Palette.BRIGHT)
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
 	_study_room = StudyRoom.new()
 	_study_room.visible = false
 	_root.add_child(_study_room)
+	# The Disaster banner sits in the same column as the top bar, so it stays just under the bar
+	# however tall the player's text size makes it.
+	var top := VBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	top.add_theme_constant_override("separation", AppLook.SPACE)
+	_root.add_child(top)
 	var top_bar := _build_top_bar()
-	_root.add_child(top_bar)
+	top.add_child(top_bar)
 	_disaster_banner = DisasterBanner.new()
 	_disaster_banner.name = "DisasterBanner"
-	_root.add_child(_disaster_banner)
+	_disaster_banner.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	top.add_child(_disaster_banner)
 	var mascot_corner := _build_mascot_corner()
 	_root.add_child(mascot_corner)
 	_store_button = _build_store_button()
@@ -126,6 +129,7 @@ func _ready() -> void:
 		_hand_in,
 		_store
 	]
+	_tap_feedback.attach_all(_root)
 	_confetti = Confetti.new()
 	add_child(_confetti)
 
@@ -151,7 +155,7 @@ func _input(event: InputEvent) -> void:
 func show_powered(powered: bool) -> void:
 	_powered = powered
 	for part in _powered_parts:
-		part.modulate = Color.WHITE if powered else UNPOWERED
+		part.modulate = Color.WHITE if powered else AppLook.UNPOWERED
 
 
 func is_powered() -> bool:
@@ -211,9 +215,10 @@ func show_resting(rest_seconds_left: float, call_seconds_left := 0.0) -> void:
 ## show: The App never shows the amount.
 func show_store(items: Array[StoreItemView], labour_points: int, hidden_savings := 0) -> void:
 	if _store.show_items(items, labour_points, hidden_savings):
+		_tap_feedback.attach_all(_store)
 		SettingsEffects.scale_text(_store, _text_scale)
 	if _supplies_bar.show_supplies(items):
-		SettingsEffects.scale_text(_supplies_bar, _text_scale)
+		_tap_feedback.attach_all(_supplies_bar)
 
 
 func open_store() -> void:
@@ -244,14 +249,17 @@ func in_study_room() -> bool:
 	return _study_room.visible
 
 
-## With reduced motion a met Quota brings no confetti.
+## With reduced motion a met Quota brings no confetti and buttons don't squish.
 func set_reduced_motion(on: bool) -> void:
 	_reduced_motion = on
+	_tap_feedback.reduced_motion = on
 
 
-## Scales all of The App's text to `scale` times its normal size.
+## Scales all of The App's text to `scale` times its normal size. The parts that aren't The App
+## (the Study Session room, the tin's pencil button) size their own text and are scaled apart.
 func scale_text(scale: float) -> void:
 	_text_scale = scale
+	_root.theme = AppLook.theme(AppLook.Palette.BRIGHT, scale)
 	SettingsEffects.scale_text(_root, scale)
 
 
@@ -290,66 +298,77 @@ static func clock_text(seconds_left: float) -> String:
 	return "%d:%02d" % [floori(whole / 60.0), whole % 60]
 
 
+## The Quota bar with the Shift's time (and Harmony Support, while on watch) under it, then
+## Exhaustion over the crop counter, then the balance and Settings at the right.
 func _build_top_bar() -> Control:
 	var bar := PanelContainer.new()
+	bar.name = "TopBar"
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar.add_theme_stylebox_override("panel", _rounded(BAR_COLOUR, 0))
-	bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	bar.theme_type_variation = AppLook.BAR_PANEL
+	bar.custom_minimum_size = Vector2(0, AppLook.TOP_BAR_HEIGHT)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 24)
+	row.add_theme_constant_override("separation", AppLook.SPACE * 2)
 	bar.add_child(row)
 
+	var shift := _bar_column()
+	row.add_child(shift)
 	var quota := Control.new()
 	quota.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	quota.custom_minimum_size = Vector2(380, 44)
+	quota.custom_minimum_size = Vector2(AppLook.SPACE * 44, AppLook.SPACE * 4)
 	_quota_bar = ProgressBar.new()
 	_quota_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_quota_bar.show_percentage = false
 	_quota_bar.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_quota_bar.add_theme_stylebox_override("background", _rounded(QUOTA_EMPTY, 22))
-	_quota_bar.add_theme_stylebox_override("fill", _rounded(QUOTA_FILL, 22))
 	quota.add_child(_quota_bar)
-	_quota_label = _label(TEXT_IN_BUBBLE)
+	_quota_label = Label.new()
+	_quota_label.theme_type_variation = AppLook.SMALL_LABEL
 	_quota_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_quota_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_quota_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	quota.add_child(_quota_label)
-	row.add_child(quota)
-
-	_shift_label = _label(TEXT_ON_BAR)
-	_shift_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_shift_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	row.add_child(_shift_label)
-	_exhaustion_label = _label(TEXT_ON_BAR)
-	row.add_child(_exhaustion_label)
-	_on_watch_label = _label(TEXT_ON_BAR)
+	shift.add_child(quota)
+	_shift_label = _bar_label()
+	shift.add_child(_shift_label)
+	_on_watch_label = _bar_label()
 	_on_watch_label.name = "OnWatch"
 	_on_watch_label.visible = false
-	row.add_child(_on_watch_label)
-	_crop_counter = _label(TEXT_ON_BAR)
+	shift.add_child(_on_watch_label)
+
+	var worker := _bar_column()
+	row.add_child(worker)
+	_exhaustion_label = _bar_label()
+	worker.add_child(_exhaustion_label)
+	_crop_counter = _bar_label()
 	_crop_counter.name = "CropCounter"
-	row.add_child(_crop_counter)
+	worker.add_child(_crop_counter)
+
+	var gap := Control.new()
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(gap)
 	_balance = BalanceBadge.new()
 	_balance.name = "BalanceBadge"
+	_balance.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_balance)
-	var settings := Button.new()
+	var settings := AppLook.button(SETTINGS_BUTTON_TEXT)
 	settings.name = "SettingsButton"
-	settings.text = SETTINGS_BUTTON_TEXT
-	settings.add_theme_font_size_override("font_size", FONT_SIZE)
 	settings.pressed.connect(settings_pressed.emit)
 	row.add_child(settings)
 	return bar
 
 
+func _bar_column() -> VBoxContainer:
+	var column := VBoxContainer.new()
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	column.add_theme_constant_override("separation", 0)
+	return column
+
+
 func _build_store_button() -> Button:
-	var button := Button.new()
+	var button := AppLook.button(AppText.STORE_BUTTON)
 	button.name = "StoreButton"
-	button.text = AppText.STORE_BUTTON
-	button.add_theme_font_size_override("font_size", FONT_SIZE)
-	for state: String in ["normal", "hover", "pressed", "focus"]:
-		button.add_theme_stylebox_override(state, _rounded(BAR_COLOUR, 20))
-	button.add_theme_color_override("font_color", TEXT_ON_BAR)
 	button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)
 	button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	button.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -382,29 +401,17 @@ func _build_mascot_corner() -> Control:
 	_bubble = PanelContainer.new()
 	_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bubble.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_bubble.add_theme_stylebox_override("panel", _rounded(BUBBLE_COLOUR, 20))
-	_speech = _label(TEXT_IN_BUBBLE)
+	_bubble.theme_type_variation = AppLook.BUBBLE_PANEL
+	_speech = Label.new()
 	_speech.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_speech.custom_minimum_size = Vector2(560, 0)
+	_speech.custom_minimum_size = Vector2(AppLook.SPACE * 70, 0)
 	_bubble.add_child(_speech)
 	_bubble.visible = false
 	corner.add_child(_bubble)
 	return corner
 
 
-func _label(colour: Color) -> Label:
+func _bar_label() -> Label:
 	var label := Label.new()
-	label.add_theme_font_size_override("font_size", FONT_SIZE)
-	label.add_theme_color_override("font_color", colour)
+	label.theme_type_variation = AppLook.BAR_SMALL_LABEL
 	return label
-
-
-func _rounded(colour: Color, corner_radius: int) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = colour
-	style.set_corner_radius_all(corner_radius)
-	style.content_margin_left = MARGIN
-	style.content_margin_right = MARGIN
-	style.content_margin_top = MARGIN / 2.0
-	style.content_margin_bottom = MARGIN / 2.0
-	return style
