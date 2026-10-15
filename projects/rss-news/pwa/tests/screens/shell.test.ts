@@ -9,11 +9,25 @@ describe("the app shell", () => {
   let root: HTMLElement;
   let api: FakeApiClient;
 
+  let scrolledTo: number[];
+
   beforeEach(() => {
     root = document.createElement("div");
     document.body.replaceChildren(root);
     api = new FakeApiClient();
+    // Each test starts at the app's address with no screen in it.
+    history.replaceState(null, "", "/");
+    scrolledTo = [];
+    window.scrollTo = ((_x: number, y: number) => {
+      scrolledTo.push(y);
+    }) as typeof window.scrollTo;
   });
+
+  function currentScreen(): string[] {
+    return [...root.querySelectorAll("[aria-current=page]")].map(
+      (entry) => entry.textContent,
+    );
+  }
 
   it("names the app and says the server is up", async () => {
     await renderShell(root, api, () => undefined);
@@ -250,10 +264,11 @@ describe("the app shell", () => {
       expect(screen.getByRole("heading", { name: "A story" })).toBeTruthy();
     });
     screen.getByRole("button", { name: "Back to Inbox" }).click();
+    // Back goes through the browser's history, so the Inbox comes back a moment later.
+    expect(await screen.findByRole("link", { name: "A story" })).toBeTruthy();
     await waitFor(() => {
       expect(screen.queryByLabelText("Unread")).toBeNull();
     });
-    expect(screen.getByRole("link", { name: "A story" })).toBeTruthy();
   });
 
   describe("the Chat in the Inbox", () => {
@@ -428,5 +443,119 @@ describe("the app shell", () => {
       expect(onSignedOut).toHaveBeenCalledOnce();
     });
     expect(api.logouts).toBe(1);
+  });
+
+  describe("history", () => {
+    const STORY = {
+      id: 1,
+      title: "A story",
+      url: "https://news.example/1",
+      source: "Example",
+      folder: { id: 1, name: "AI" },
+      publishedAt: "2026-10-12T04:00:00+00:00",
+      importance: 4,
+      summary: "Something happened.",
+      read: false,
+      imageUrl: null,
+      stocks: [],
+    };
+
+    it("gives each screen an address, and Back and Forward move between them", async () => {
+      await renderShell(root, api, () => undefined);
+      expect(location.hash).toBe("#home");
+
+      screen.getByRole("button", { name: "Inbox" }).click();
+      expect(location.hash).toBe("#inbox");
+      screen.getByRole("button", { name: "Settings" }).click();
+      expect(location.hash).toBe("#settings");
+
+      history.back();
+      await waitFor(() => {
+        expect(currentScreen()).toEqual(["Inbox"]);
+      });
+      expect(location.hash).toBe("#inbox");
+
+      history.forward();
+      await waitFor(() => {
+        expect(currentScreen()).toEqual(["Settings"]);
+      });
+    });
+
+    it("opens the screen in the address, as after a reload", async () => {
+      history.replaceState(null, "", "/#settings");
+
+      await renderShell(root, api, () => undefined);
+
+      expect(currentScreen()).toEqual(["Settings"]);
+    });
+
+    it("goes back from an Item to the Inbox where it was scrolled to", async () => {
+      api.items = [STORY];
+      await renderShell(root, api, () => undefined);
+      screen.getByRole("button", { name: "Inbox" }).click();
+      const link = await screen.findByRole("link", { name: "A story" });
+      Object.defineProperty(window, "scrollY", {
+        value: 640,
+        configurable: true,
+      });
+
+      link.click();
+      await screen.findByRole("heading", { name: "A story" });
+      expect(location.hash).toBe("#items/1");
+      Object.defineProperty(window, "scrollY", {
+        value: 0,
+        configurable: true,
+      });
+      screen.getByRole("button", { name: "Back to Inbox" }).click();
+
+      await screen.findByRole("link", { name: "A story" });
+      expect(location.hash).toBe("#inbox");
+      await waitFor(() => {
+        expect(scrolledTo.at(-1)).toBe(640);
+      });
+    });
+
+    it("goes Home from an Item opened straight from an Alert", async () => {
+      api.items = [STORY];
+      await renderShell(root, api, () => undefined, { openItemId: 1 });
+      expect(location.hash).toBe("#items/1");
+      const entries = history.length;
+
+      screen.getByRole("button", { name: "Back to Home" }).click();
+
+      await waitFor(() => {
+        expect(currentScreen()).toEqual(["Home"]);
+      });
+      expect(location.hash).toBe("#home");
+      // Replaced, not added: Back from Home doesn't return to the Item.
+      expect(history.length).toBe(entries);
+    });
+
+    it("gives an opened Briefing its own address, and its back button goes back", async () => {
+      api.briefingsAnswer = [
+        {
+          id: 5,
+          scope: "all-24h",
+          title: "All Sources, last 24 hours",
+          createdAt: "2026-10-12T00:30:00+00:00",
+          itemCount: 1,
+          costUsd: "0.20",
+        },
+      ];
+      api.savedBriefings.set(5, {
+        ...api.briefingsAnswer[0],
+        sections: [],
+      } as never);
+      await renderShell(root, api, () => undefined);
+      screen.getByRole("button", { name: "Briefings" }).click();
+
+      (await screen.findByRole("link", { name: /last 24 hours/ })).click();
+      await screen.findByRole("button", { name: "Back to Briefings" });
+      expect(location.hash).toBe("#briefings/5");
+
+      screen.getByRole("button", { name: "Back to Briefings" }).click();
+      await screen.findByRole("list", { name: "Saved Briefings" });
+      expect(location.hash).toBe("#briefings");
+    });
   });
 });

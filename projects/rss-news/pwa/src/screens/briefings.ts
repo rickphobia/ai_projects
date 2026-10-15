@@ -4,12 +4,11 @@ import { showBriefing } from "./briefing-view";
 import { showInReadingColumn } from "./reading-column";
 import { shownTime } from "./shown-time";
 
-// The Briefings list: every saved Briefing newest first. Choosing one shows it here, with a
-// button back to the list.
+// The Briefings list: every saved Briefing newest first. Choosing one calls onOpenBriefing.
 export async function renderBriefings(
   root: HTMLElement,
   api: ApiClient,
-  onOpenItem: (itemId: number) => void,
+  onOpenBriefing: (briefingId: number) => void,
 ): Promise<void> {
   const list = document.createElement("ul");
   list.setAttribute("aria-label", "Saved Briefings");
@@ -22,7 +21,9 @@ export async function renderBriefings(
     const briefings = await api.briefings();
     list.replaceChildren(
       ...briefings.map((briefing) =>
-        briefingRow(briefing, () => void open(briefing.id)),
+        briefingRow(briefing, () => {
+          onOpenBriefing(briefing.id);
+        }),
       ),
     );
     if (briefings.length === 0) {
@@ -32,25 +33,30 @@ export async function renderBriefings(
     if (error instanceof SignedOutError) return;
     status.textContent = `Couldn't load the Briefings: ${messageOf(error)}`;
   }
+}
 
-  async function open(briefingId: number): Promise<void> {
-    const back = document.createElement("button");
-    back.type = "button";
-    back.textContent = "Back to Briefings";
-    back.addEventListener("click", () => {
-      void renderBriefings(root, api, onOpenItem);
-    });
-    const shown = document.createElement("section");
-    shown.setAttribute("aria-label", "Briefing");
-    shown.className = "briefing";
-    shown.textContent = "Loading the Briefing…";
-    showInReadingColumn(root, "article", back, shown);
-    try {
-      showBriefing(shown, await api.briefing(briefingId), onOpenItem);
-    } catch (error) {
-      if (error instanceof SignedOutError) return;
-      shown.textContent = `Couldn't load the Briefing: ${messageOf(error)}`;
-    }
+// One saved Briefing from the list, with a button back to it.
+export async function renderSavedBriefing(
+  root: HTMLElement,
+  api: ApiClient,
+  briefingId: number,
+  onOpenItem: (itemId: number) => void,
+  onBack: () => void,
+): Promise<void> {
+  const back = document.createElement("button");
+  back.type = "button";
+  back.textContent = "Back to Briefings";
+  back.addEventListener("click", onBack);
+  const shown = document.createElement("section");
+  shown.setAttribute("aria-label", "Briefing");
+  shown.className = "briefing";
+  shown.textContent = "Loading the Briefing…";
+  showInReadingColumn(root, "article", back, shown);
+  try {
+    showBriefing(shown, await api.briefing(briefingId), onOpenItem);
+  } catch (error) {
+    if (error instanceof SignedOutError) return;
+    shown.textContent = `Couldn't load the Briefing: ${messageOf(error)}`;
   }
 }
 

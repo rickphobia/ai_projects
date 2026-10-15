@@ -1,9 +1,12 @@
-import { screen, waitFor } from "@testing-library/dom";
+import { screen } from "@testing-library/dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Briefing, BriefingSummary } from "../../src/api/briefings";
 import { ApiError } from "../../src/api/client";
-import { renderBriefings } from "../../src/screens/briefings";
+import {
+  renderBriefings,
+  renderSavedBriefing,
+} from "../../src/screens/briefings";
 import { FakeApiClient } from "../fake-api";
 
 const WEEK_SUMMARY: BriefingSummary = {
@@ -59,27 +62,29 @@ describe("the Briefings list", () => {
     expect(rows[1]).toContain("All Sources, last 24 hours");
   });
 
-  it("opens a saved Briefing, links its Items, and goes back", async () => {
+  it("opens a saved Briefing chosen from the list", async () => {
     api.briefingsAnswer = [WEEK_SUMMARY];
-    api.savedBriefings.set(5, WEEK);
-    const onOpenItem = vi.fn();
-    await renderBriefings(root, api, onOpenItem);
+    const onOpenBriefing = vi.fn();
+    await renderBriefings(root, api, onOpenBriefing);
 
     screen.getByRole("link", { name: /AI, last 7 days/ }).click();
 
-    await waitFor(() => {
-      expect(
-        screen.getByText("A new model came out.", { exact: false }),
-      ).toBeTruthy();
-    });
+    expect(onOpenBriefing).toHaveBeenCalledWith(5);
+  });
+
+  it("shows a saved Briefing, links its Items, and has a way back", async () => {
+    api.savedBriefings.set(5, WEEK);
+    const onOpenItem = vi.fn();
+    const onBack = vi.fn();
+    await renderSavedBriefing(root, api, 5, onOpenItem, onBack);
+
+    expect(
+      screen.getByText("A new model came out.", { exact: false }),
+    ).toBeTruthy();
     screen.getByRole("link", { name: "AI News: Model released" }).click();
     expect(onOpenItem).toHaveBeenCalledWith(7);
     screen.getByRole("button", { name: "Back to Briefings" }).click();
-    await waitFor(() => {
-      expect(
-        screen.getByRole("list", { name: "Saved Briefings" }),
-      ).toBeTruthy();
-    });
+    expect(onBack).toHaveBeenCalled();
   });
 
   it("says when there are none yet", async () => {

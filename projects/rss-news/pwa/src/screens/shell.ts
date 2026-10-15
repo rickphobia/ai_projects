@@ -2,13 +2,16 @@ import type { ChatQuote } from "../api/chats";
 import { SignedOutError, type ApiClient } from "../api/client";
 import { noDevicePush, type DevicePush } from "../pwa/device-push";
 import type { Shortcut } from "../pwa/shortcut";
-import { renderBriefings } from "./briefings";
+import { renderBriefings, renderSavedBriefing } from "./briefings";
 import { renderHome } from "./home";
 import { renderInbox } from "./inbox";
 import { renderItem } from "./item";
+import { Navigation, type Visit } from "./navigation";
 import { renderNoteBriefing, renderNotes } from "./notes";
+import { backLabel, routeFromHash, type Route } from "./routes";
 import { installSelectionPopup } from "./selection";
 import { renderSettings, spendingBanner } from "./settings";
+import { drawerControls, navButton, showFolders } from "./sidebar";
 import { renderSources } from "./sources";
 import { renderStocks } from "./stocks";
 
@@ -25,7 +28,8 @@ export interface ShellOptions {
 // a sidebar with the screens and the Folders (a drawer opened from the header's Menu button on
 // a phone), a spending warning from 80% of the monthly limit, and the page: the home screen
 // (the latest Briefing), the Inbox (all of it or one Folder), an Item, the saved Briefings,
-// the Notes, the Sources, the Stocks or the Settings screen.
+// the Notes, the Sources, the Stocks or the Settings screen. Each screen has an address, and the
+// browser's Back and Forward move between them (see navigation.ts).
 export async function renderShell(
   root: HTMLElement,
   api: ApiClient,
@@ -92,255 +96,199 @@ export async function renderShell(
   header.className = "app-header";
   header.append(drawer.menuButton, heading, status);
 
-  // Marks the screen being shown in the sidebar and closes the drawer.
-  const showing = (current: HTMLButtonElement): void => {
+  // Marks the screen being shown in the sidebar and closes the drawer. An Item or a Briefing
+  // marks the screen it was opened from.
+  const showing = (route: Route, from: Route | null): void => {
     for (const entry of sidebar.querySelectorAll("button")) {
       entry.removeAttribute("aria-current");
     }
-    current.setAttribute("aria-current", "page");
+    sidebarEntry(route, from)?.setAttribute("aria-current", "page");
     drawer.close();
   };
-  const showHome = (
-    pickedItemIds?: number[],
-    briefNow = false,
-  ): Promise<void> => {
-    showing(toHome);
-    return renderHome(
-      page,
-      api,
-      (itemId) => {
-        void renderItem(
-          page,
-          api,
-          itemId,
-          () => void showHome(),
-          "Back to Home",
+  const sidebarEntry = (
+    route: Route,
+    from: Route | null,
+  ): HTMLButtonElement | null => {
+    switch (route.screen) {
+      case "home":
+        return toHome;
+      case "inbox":
+        return (
+          (route.folderId === undefined
+            ? null
+            : folderList.querySelector<HTMLButtonElement>(
+                `[data-folder-id="${String(route.folderId)}"]`,
+              )) ?? toInbox
         );
-      },
-      pickedItemIds,
-      briefNow,
-    );
+      case "item":
+        return from === null || from.screen === "item"
+          ? null
+          : sidebarEntry(from, null);
+      case "briefings":
+      case "briefing":
+        return toBriefings;
+      case "notes":
+      case "note-briefing":
+        return toNotes;
+      case "sources":
+        return toSources;
+      case "stocks":
+        return toStocks;
+      case "settings":
+        return toSettings;
+    }
   };
   // The Chat open in the Inbox, so it is still there after going to an Item and back.
   let openChatId: number | null = null;
-  const showInbox = (
-    entry: HTMLButtonElement = toInbox,
-    folderId?: number,
-    quote: ChatQuote | null = null,
-    openChat = false,
-  ): Promise<void> => {
-    showing(entry);
-    return renderInbox(
-      page,
-      api,
-      (itemId) => {
-        void renderItem(
+  const openItem = (itemId: number): void => {
+    void navigation.go({ screen: "item", itemId });
+  };
+  const show = (visit: Visit, once: Once = {}): Promise<void> => {
+    const { route } = visit;
+    showing(route, visit.from);
+    switch (route.screen) {
+      case "home":
+        return renderHome(
           page,
           api,
-          itemId,
-          () => void showInbox(entry, folderId),
-        );
-      },
-      (itemIds) => void showHome(itemIds),
-      folderId,
-      {
-        openChatId,
-        quote,
-        open: openChat,
-        onChatOpened: (chatId) => {
-          openChatId = chatId;
-        },
-      },
-    );
-  };
-  const showBriefings = (): Promise<void> => {
-    showing(toBriefings);
-    return renderBriefings(page, api, (itemId) => {
-      void renderItem(
-        page,
-        api,
-        itemId,
-        () => void showBriefings(),
-        "Back to Briefings",
-      );
-    });
-  };
-  // A Note links back to the Item, Briefing or Chat it was saved from.
-  const showNotes = (): Promise<void> => {
-    showing(toNotes);
-    const openItem = (itemId: number): void => {
-      void renderItem(
-        page,
-        api,
-        itemId,
-        () => void showNotes(),
-        "Back to Notes",
-      );
-    };
-    return renderNotes(page, api, (link) => {
-      if (link.kind === "item") {
-        openItem(link.id);
-      } else if (link.kind === "briefing") {
-        void renderNoteBriefing(
-          page,
-          api,
-          link.id,
           openItem,
-          () => void showNotes(),
+          visit.pickedItemIds,
+          once.briefNow ?? false,
         );
-      } else {
-        openChatId = link.id;
-        void showInbox();
-      }
-    });
+      case "inbox":
+        return renderInbox(
+          page,
+          api,
+          openItem,
+          (itemIds) =>
+            void navigation.go({ screen: "home" }, { pickedItemIds: itemIds }),
+          route.folderId,
+          {
+            openChatId,
+            quote: once.quote ?? null,
+            open: once.openChat ?? false,
+            onChatOpened: (chatId) => {
+              openChatId = chatId;
+            },
+          },
+        );
+      case "item":
+        return renderItem(
+          page,
+          api,
+          route.itemId,
+          () => {
+            navigation.back({ screen: "home" });
+          },
+          backLabel(visit.from),
+        );
+      case "briefings":
+        return renderBriefings(page, api, (briefingId) => {
+          void navigation.go({ screen: "briefing", briefingId });
+        });
+      case "briefing":
+        return renderSavedBriefing(
+          page,
+          api,
+          route.briefingId,
+          openItem,
+          () => {
+            navigation.back({ screen: "briefings" });
+          },
+        );
+      // A Note links back to the Item, Briefing or Chat it was saved from.
+      case "notes":
+        return renderNotes(page, api, (link) => {
+          if (link.kind === "item") {
+            openItem(link.id);
+          } else if (link.kind === "briefing") {
+            void navigation.go({
+              screen: "note-briefing",
+              briefingId: link.id,
+            });
+          } else {
+            openChatId = link.id;
+            void navigation.go({ screen: "inbox" });
+          }
+        });
+      case "note-briefing":
+        return renderNoteBriefing(page, api, route.briefingId, openItem, () => {
+          navigation.back({ screen: "notes" });
+        });
+      case "sources":
+        return renderSources(page, api, () => void listFolders());
+      // Adding or removing a stock adds or removes its ticker-news Source, which the Folders
+      // don't show, so the sidebar needs no refresh.
+      case "stocks":
+        return renderStocks(page, api);
+      case "settings":
+        return renderSettings(page, api, devicePush);
+    }
   };
+  const navigation = new Navigation<Once>(show, () => app.isConnected);
   const listFolders = (): Promise<void> =>
-    showFolders(api, folderList, (entry, folderId) =>
-      showInbox(entry, folderId),
-    );
-  toHome.addEventListener("click", () => {
-    void showHome();
-  });
-  toInbox.addEventListener("click", () => {
-    void showInbox();
-  });
-  toBriefings.addEventListener("click", () => {
-    void showBriefings();
-  });
-  toNotes.addEventListener("click", () => {
-    void showNotes();
-  });
-  toSources.addEventListener("click", () => {
-    showing(toSources);
-    void renderSources(page, api, () => void listFolders());
-  });
-  // Adding or removing a stock adds or removes its ticker-news Source, which the Folders
-  // don't show, so the sidebar needs no refresh.
-  toStocks.addEventListener("click", () => {
-    showing(toStocks);
-    void renderStocks(page, api);
-  });
-  toSettings.addEventListener("click", () => {
-    showing(toSettings);
-    void renderSettings(page, api, devicePush);
-  });
+    showFolders(api, folderList, (folderId) => {
+      void navigation.go({ screen: "inbox", folderId });
+    });
+  const sidebarRoutes: [HTMLButtonElement, Route][] = [
+    [toHome, { screen: "home" }],
+    [toInbox, { screen: "inbox" }],
+    [toBriefings, { screen: "briefings" }],
+    [toNotes, { screen: "notes" }],
+    [toSources, { screen: "sources" }],
+    [toStocks, { screen: "stocks" }],
+    [toSettings, { screen: "settings" }],
+  ];
+  for (const [entry, route] of sidebarRoutes) {
+    entry.addEventListener("click", () => {
+      void navigation.go(route);
+    });
+  }
   app.append(header, sidebar, drawer.backdrop, main);
   // Ask AI from a Briefing, an Item or a Chat answer opens the Inbox's Chat with the quote.
   installSelectionPopup(app, api, (quote) => {
-    void showInbox(toInbox, undefined, quote);
+    void navigation.go({ screen: "inbox" }, { once: { quote } });
   });
   root.replaceChildren(app);
 
   await Promise.all([
     showHealth(api, status),
     showSpendingWarning(api, warning),
-    listFolders(),
-    openItemId === null
-      ? showFirstScreen()
-      : renderItem(
-          page,
-          api,
-          openItemId,
-          () => void showHome(),
-          "Back to Home",
-        ),
+    // A Folder's Inbox opened from its address is marked once the Folders are in.
+    listFolders().then(() => {
+      const { route, from } = navigation.visit();
+      showing(route, from);
+    }),
+    startScreen(),
   ]);
 
-  function showFirstScreen(): Promise<void> {
+  // An Alert or an app icon shortcut names the first screen; otherwise it is the one in the
+  // address, as after a reload, or Home.
+  function startScreen(): Promise<void> {
+    if (openItemId !== null) {
+      return navigation.start({ screen: "item", itemId: openItemId });
+    }
     switch (shortcut) {
       case "brief":
-        return showHome(undefined, true);
+        return navigation.start({ screen: "home" }, { briefNow: true });
       case "chat":
-        return showInbox(toInbox, undefined, null, true);
+        return navigation.start({ screen: "inbox" }, { openChat: true });
       case "notes":
-        return showNotes();
+        return navigation.start({ screen: "notes" });
       case null:
-        return showHome();
+        return navigation.start(routeFromHash(location.hash));
     }
   }
 }
 
-interface Drawer {
-  menuButton: HTMLButtonElement;
-  backdrop: HTMLButtonElement;
-  close: () => void;
-}
-
-// The sidebar as a drawer on a narrow screen: the Menu button opens it and moves focus into it,
-// and the backdrop, the Escape key or choosing a screen closes it. While it is open the page
-// behind is inert, so the keyboard stays in the drawer. On a wide screen the stylesheet always
-// shows the sidebar and hides the button and the backdrop.
-function drawerControls(
-  app: HTMLElement,
-  sidebar: HTMLElement,
-  behind: HTMLElement,
-): Drawer {
-  const menuButton = navButton("☰");
-  menuButton.className = "menu-button";
-  menuButton.setAttribute("aria-label", "Menu");
-  menuButton.setAttribute("aria-controls", sidebar.id);
-  const backdrop = navButton("");
-  backdrop.className = "drawer-backdrop";
-  backdrop.setAttribute("aria-label", "Close menu");
-  // Escape closes it from the keyboard, so the backdrop needn't be a tab stop.
-  backdrop.tabIndex = -1;
-  const isOpen = (): boolean => app.dataset.drawer === "open";
-  const setOpen = (open: boolean): void => {
-    app.dataset.drawer = open ? "open" : "closed";
-    menuButton.setAttribute("aria-expanded", String(open));
-    backdrop.hidden = !open;
-    behind.inert = open;
-  };
-  setOpen(false);
-  menuButton.addEventListener("click", () => {
-    setOpen(!isOpen());
-    if (isOpen()) sidebar.querySelector("button")?.focus();
-  });
-  backdrop.addEventListener("click", () => {
-    setOpen(false);
-  });
-  app.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape" || !isOpen()) return;
-    setOpen(false);
-    menuButton.focus();
-  });
-  return {
-    menuButton,
-    backdrop,
-    close: () => {
-      setOpen(false);
-    },
-  };
-}
-
-// The Folders in the sidebar, each opening the Inbox filtered to it.
-async function showFolders(
-  api: ApiClient,
-  folderList: HTMLElement,
-  showInbox: (entry: HTMLButtonElement, folderId: number) => Promise<void>,
-): Promise<void> {
-  try {
-    const folders = await api.folders();
-    folderList.replaceChildren(
-      ...folders.map((folder) => {
-        const entry = navButton(folder.name);
-        entry.addEventListener("click", () => {
-          void showInbox(entry, folder.id);
-        });
-        const row = document.createElement("li");
-        row.append(entry);
-        return row;
-      }),
-    );
-  } catch (error) {
-    // A 401 already sent the owner to login.
-    if (error instanceof SignedOutError) return;
-    // The screens still work without the Folder list.
-    const problem = document.createElement("li");
-    const detail = error instanceof Error ? error.message : String(error);
-    problem.textContent = `Couldn't load the Folders: ${detail}`;
-    folderList.replaceChildren(problem);
-  }
+// What one showing of a screen gets that its history entry doesn't keep.
+interface Once {
+  // Brief me presses itself, for the Brief me (24h) shortcut.
+  briefNow?: boolean;
+  // Ask AI's quote for the Chat.
+  quote?: ChatQuote;
+  // The Chat sheet starts open, for the Chat shortcut.
+  openChat?: boolean;
 }
 
 async function showHealth(api: ApiClient, status: HTMLElement): Promise<void> {
@@ -369,11 +317,4 @@ async function showSpendingWarning(
     const detail = error instanceof Error ? error.message : String(error);
     warning.textContent = `Couldn't check this month's AI spending: ${detail}`;
   }
-}
-
-function navButton(text: string): HTMLButtonElement {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.textContent = text;
-  return button;
 }
