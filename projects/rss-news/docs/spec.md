@@ -161,6 +161,7 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 89. As the owner, I want the layout to work one-handed on my phone, with the Folder sidebar as a drawer, and to use the extra room on a wide screen, so that it suits both.
 90. As the owner, I want each Inbox row to show the title, the one-line summary, the Source, the time and the Importance at a glance, so that I can skim without opening Items.
 91. As the owner, I want a small thumbnail on Inbox rows when the feed provides one, so that I can recognise stories faster.
+92. As the owner, I want each Inbox row to stand apart as its own card with a bold title, and a Contents panel listing the loaded Items that jumps to the one I pick, so that a long Inbox is easy to scan and move around.
 
 ## Implementation Decisions
 
