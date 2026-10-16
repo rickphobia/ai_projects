@@ -1,4 +1,5 @@
-"""Opening one Item: it shows, becomes read, and its Reader view is extracted on demand."""
+"""Opening one Item: it shows, its Reader view is extracted on demand, and the owner marks it
+read or unread."""
 
 from dataclasses import replace
 from html import escape
@@ -71,7 +72,7 @@ def test_new_items_are_unread(client: TestClient) -> None:
     assert only_item(client)["read"] is False
 
 
-def test_showing_an_item_gives_its_details_and_marks_it_read(client: TestClient) -> None:
+def test_showing_an_item_gives_its_details_and_leaves_it_unread(client: TestClient) -> None:
     item_id = only_item(client)["id"]
 
     response = client.get(f"{PREFIX}/api/items/{item_id}")
@@ -83,11 +84,49 @@ def test_showing_an_item_gives_its_details_and_marks_it_read(client: TestClient)
     assert shown["source"] == "World News"
     assert shown["summary"] == "Summary of A story"
     assert shown["importance"] == 3
+    # Only the Read button marks it read, so swiping through Items leaves them in the Inbox.
+    assert only_item(client)["read"] is False
+
+
+def test_marking_an_item_read_and_unread_again(client: TestClient) -> None:
+    item_id = only_item(client)["id"]
+
+    assert client.put(f"{PREFIX}/api/items/{item_id}/read").status_code == 204
+    assert only_item(client)["read"] is True
+    assert client.get(f"{PREFIX}/api/items/{item_id}").json()["read"] is True
+
+    assert client.delete(f"{PREFIX}/api/items/{item_id}/read").status_code == 204
+    assert only_item(client)["read"] is False
+
+
+def test_marking_read_twice_is_fine(client: TestClient) -> None:
+    item_id = only_item(client)["id"]
+
+    client.put(f"{PREFIX}/api/items/{item_id}/read")
+
+    assert client.put(f"{PREFIX}/api/items/{item_id}/read").status_code == 204
     assert only_item(client)["read"] is True
 
 
+def test_the_inbox_shows_unread_read_or_all_items(client: TestClient) -> None:
+    item_id = only_item(client)["id"]
+    client.put(f"{PREFIX}/api/items/{item_id}/read")
+
+    def ids(read: str) -> list[object]:
+        page = client.get(f"{PREFIX}/api/inbox", params={"read": read}).json()
+        return [item["id"] for item in page["items"]]
+
+    assert ids("unread") == []
+    assert ids("read") == [item_id]
+    assert ids("all") == [item_id]
+
+
+def test_an_unknown_read_filter_is_refused(client: TestClient) -> None:
+    assert client.get(f"{PREFIX}/api/inbox", params={"read": "maybe"}).status_code == 422
+
+
 def test_read_state_survives_a_restart(tmp_path: Path, client: TestClient) -> None:
-    client.get(f"{PREFIX}/api/items/{only_item(client)['id']}")
+    client.put(f"{PREFIX}/api/items/{only_item(client)['id']}/read")
 
     restarted = TestClient(make_wiring(load_settings(app_env(tmp_path)), FakeClock()).app)
     restarted.post(f"{PREFIX}/api/login", json={"password": OWNER_PASSWORD})
@@ -97,6 +136,8 @@ def test_read_state_survives_a_restart(tmp_path: Path, client: TestClient) -> No
 
 def test_an_unknown_item_is_404(client: TestClient) -> None:
     assert client.get(f"{PREFIX}/api/items/999").status_code == 404
+    assert client.put(f"{PREFIX}/api/items/999/read").status_code == 404
+    assert client.delete(f"{PREFIX}/api/items/999/read").status_code == 404
     assert client.get(f"{PREFIX}/api/items/999/reader").status_code == 404
 
 
@@ -153,8 +194,10 @@ def test_an_unreadable_page_without_a_preview_says_so(tmp_path: Path) -> None:
     assert response.json()["problem"] == "no article text was found on the page"
 
 
-def test_reader_view_needs_a_session(wiring: Wiring) -> None:
-    assert TestClient(wiring.app).get(f"{PREFIX}/api/items/1/reader").status_code == 401
+def test_reader_view_and_read_state_need_a_session(wiring: Wiring) -> None:
+    signed_out = TestClient(wiring.app)
+    assert signed_out.get(f"{PREFIX}/api/items/1/reader").status_code == 401
+    assert signed_out.put(f"{PREFIX}/api/items/1/read").status_code == 401
 
 
 REDDIT_FEED = "https://www.reddit.com/r/LocalLLaMA/.rss"

@@ -2,12 +2,14 @@ import {
   SignedOutError,
   type ApiClient,
   type InboxItem,
+  type InboxOrder,
   type InboxQuery,
+  type InboxReadFilter,
 } from "../api/client";
 import { renderChatPanel, type ChatPanelOptions } from "./chat";
 import { inboxContents } from "./inbox-contents";
-import { relativeTime, shownTime } from "./shown-time";
-import { stockTags } from "./stock-tags";
+import { itemRow, rowId } from "./inbox-row";
+import { toggleGroup } from "./toggle-group";
 
 export type InboxChat = Pick<
   ChatPanelOptions,
@@ -17,9 +19,10 @@ export type InboxChat = Pick<
 const ALL_FOLDERS = "";
 const ANY_IMPORTANCE = "";
 
-// The Inbox: every Item newest first or most important first, a keyword search, filters by
-// Folder and Importance, and a button for the next page. Unread Items are marked; choosing one calls
-// onOpen with its id. Items can be ticked, and "Brief these" calls onBriefThese with their ids.
+// The Inbox: the unread Items (or the read ones, or all) latest first or most important first,
+// a keyword search, filters by Folder and Importance, and a button for the next page. Choosing
+// an Item calls onOpen with its id and the loaded Items' ids in order, so the Item view can move
+// on to the next one. Items can be ticked, and "Brief these" calls onBriefThese with their ids.
 // A Contents panel lists the loaded Items and jumps to the chosen one's row.
 // Given folderId (a Folder picked in the sidebar), it opens filtered to that Folder. The Chat
 // panel sits beside it, its Source buttons and "Brief these" going to the same callbacks; it
@@ -27,7 +30,7 @@ const ANY_IMPORTANCE = "";
 export async function renderInbox(
   root: HTMLElement,
   api: ApiClient,
-  onOpen: (itemId: number) => void,
+  onOpen: (itemId: number, listedIds?: number[]) => void,
   onBriefThese: (itemIds: number[]) => void,
   folderId?: number,
   chat: InboxChat = { openChatId: null },
@@ -42,11 +45,6 @@ export async function renderInbox(
     ),
     new Option("5 only", "5"),
   );
-  const order = document.createElement("select");
-  order.append(
-    new Option("Newest first", "newest"),
-    new Option("Most important first", "importance"),
-  );
   const searchForm = document.createElement("form");
   searchForm.setAttribute("role", "search");
   const searchBox = document.createElement("input");
@@ -59,17 +57,43 @@ export async function renderInbox(
   searchButton.type = "submit";
   searchButton.textContent = "Search";
   searchForm.append(searchLabel, searchButton);
+  const shownRead = toggleGroup<InboxReadFilter>(
+    "Show",
+    [
+      ["unread", "Unread"],
+      ["read", "Read"],
+      ["all", "All"],
+    ],
+    "unread",
+    () => {
+      applyFilters();
+    },
+  );
+  const order = toggleGroup<InboxOrder>(
+    "Sort",
+    [
+      ["newest", "Latest"],
+      ["importance", "Importance"],
+    ],
+    "newest",
+    () => {
+      applyFilters();
+    },
+  );
+  const views = document.createElement("div");
+  views.className = "toolbar inbox-views";
+  views.append(shownRead.group, order.group);
   const filters = document.createElement("div");
   filters.className = "toolbar";
   filters.append(
     labelled("Folder", filter),
     labelled("Importance", importanceFilter),
-    labelled("Sort", order),
   );
   const list = document.createElement("ul");
   list.className = "inbox-list";
-  const folderError = document.createElement("p");
-  folderError.setAttribute("role", "alert");
+  // Why the Folders didn't load.
+  const problem = document.createElement("p");
+  problem.setAttribute("role", "alert");
   const status = document.createElement("p");
   status.setAttribute("role", "status");
   status.setAttribute("aria-label", "Inbox");
@@ -104,10 +128,11 @@ export async function renderInbox(
   const column = document.createElement("div");
   column.className = "inbox-column";
   column.append(
+    views,
     searchForm,
     filters,
     actions,
-    folderError,
+    problem,
     list,
     status,
     loadMore,
@@ -118,8 +143,20 @@ export async function renderInbox(
   layout.append(column, chatPanel, contents.panel);
   root.replaceChildren(layout);
 
-  let query: InboxQuery = folderId === undefined ? {} : { folderId };
+  let query: InboxQuery =
+    folderId === undefined ? { read: "unread" } : { read: "unread", folderId };
   let nextCursor: string | null = null;
+  // The Items in the list, in order, for the Contents panel.
+  let shown: InboxItem[] = [];
+
+  const openListed = (itemId: number): void => {
+    onOpen(
+      itemId,
+      shown.map((item) => item.id),
+    );
+  };
+  const row = (item: InboxItem): HTMLLIElement =>
+    itemRow(item, picked.has(item.id), { onOpen: openListed, onPick });
   // Each load gets a number; an answer that arrives after a newer load started is dropped,
   // so a slow page can't land under a different Folder.
   let latestLoad = 0;
@@ -133,11 +170,10 @@ export async function renderInbox(
     try {
       const page = await api.inbox(pageQuery);
       if (thisLoad !== latestLoad) return;
-      const rows = page.items.map((item) =>
-        itemRow(item, onOpen, picked.has(item.id), onPick),
-      );
+      const rows = page.items.map(row);
       if (append) list.append(...rows);
       else list.replaceChildren(...rows);
+      shown = append ? [...shown, ...page.items] : page.items;
       contents.show(page.items, append);
       nextCursor = page.nextCursor;
       loadMore.hidden = nextCursor === null;
@@ -153,18 +189,18 @@ export async function renderInbox(
   }
 
   function applyFilters(): void {
-    query = {};
+    query = { read: shownRead.value() };
     const search = searchBox.value.trim();
     if (search !== "") query.search = search;
     if (filter.value !== ALL_FOLDERS) query.folderId = Number(filter.value);
     if (importanceFilter.value !== ANY_IMPORTANCE) {
       query.minImportance = Number(importanceFilter.value);
     }
-    if (order.value === "importance") query.sort = "importance";
+    if (order.value() === "importance") query.sort = "importance";
     void load(false);
   }
 
-  for (const select of [filter, importanceFilter, order]) {
+  for (const select of [filter, importanceFilter]) {
     select.addEventListener("change", applyFilters);
   }
   searchForm.addEventListener("submit", (event) => {
@@ -178,7 +214,7 @@ export async function renderInbox(
   });
 
   await Promise.all([
-    fillFolders(api, filter, folderError).then(() => {
+    fillFolders(api, filter, problem).then(() => {
       if (folderId !== undefined) filter.value = String(folderId);
     }),
     load(false),
@@ -218,13 +254,12 @@ function labelled(text: string, select: HTMLSelectElement): HTMLLabelElement {
 
 function emptyMessage(query: InboxQuery): string {
   if (query.search !== undefined) return "No Items match this search.";
-  return query.folderId === undefined && query.minImportance === undefined
-    ? "No Items yet. Sources are checked every few minutes."
-    : "No Items match these filters.";
-}
-
-function rowId(itemId: number): string {
-  return `inbox-item-${String(itemId)}`;
+  if (query.folderId !== undefined || query.minImportance !== undefined) {
+    return "No Items match these filters.";
+  }
+  if (query.read === "unread") return "All caught up: nothing unread.";
+  if (query.read === "read") return "Nothing read yet.";
+  return "No Items yet. Sources are checked every few minutes.";
 }
 
 // Scrolls the Item's row into view and focuses its title, so the keyboard carries on from there.
@@ -233,101 +268,4 @@ function jumpToRow(list: HTMLElement, itemId: number): void {
   if (!row) return;
   row.scrollIntoView({ behavior: "smooth", block: "start" });
   row.querySelector("a")?.focus({ preventScroll: true });
-}
-
-function itemRow(
-  item: InboxItem,
-  onOpen: (itemId: number) => void,
-  ticked: boolean,
-  onPick: (itemId: number, ticked: boolean) => void,
-): HTMLLIElement {
-  const row = document.createElement("li");
-  row.id = rowId(item.id);
-  row.className = item.read ? "inbox-row" : "inbox-row unread";
-  const pick = document.createElement("input");
-  pick.type = "checkbox";
-  pick.checked = ticked;
-  pick.setAttribute("aria-label", `Pick ${item.title}`);
-  pick.addEventListener("change", () => {
-    onPick(item.id, pick.checked);
-  });
-  const body = document.createElement("div");
-  body.className = "inbox-row-body";
-  // Each title is a heading, so the rows read as separate stories and can be jumped between.
-  const title = document.createElement("h2");
-  title.className = "inbox-row-title";
-  const link = document.createElement("a");
-  // A real link, so it can be focused and read out; the Item view opens in the app.
-  link.href = `#items/${String(item.id)}`;
-  link.textContent = item.title;
-  link.addEventListener("click", (event) => {
-    event.preventDefault();
-    onOpen(item.id);
-  });
-  if (!item.read) {
-    const unread = document.createElement("span");
-    unread.className = "unread-dot";
-    unread.textContent = "●";
-    unread.setAttribute("aria-label", "Unread");
-    title.append(unread);
-  }
-  title.append(link);
-  body.append(title);
-  if (item.summary !== null) {
-    const summary = document.createElement("p");
-    summary.className = "inbox-row-summary";
-    summary.textContent = item.summary;
-    body.append(summary);
-  }
-  const published = new Date(item.publishedAt);
-  const time = document.createElement("time");
-  time.dateTime = item.publishedAt;
-  time.title = shownTime.format(published);
-  time.textContent = relativeTime(published, new Date());
-  const details = document.createElement("small");
-  details.className = "inbox-row-meta";
-  details.append(`${item.source} · `, time);
-  const tags = stockTags(item.stocks);
-  if (tags) details.append(" ", tags);
-  body.append(details);
-  row.append(pick, body);
-  if (item.imageUrl !== null) {
-    row.classList.add("has-thumbnail");
-    row.append(thumbnail(item.imageUrl, row));
-  }
-  row.append(importanceMarker(item.importance));
-  return row;
-}
-
-// Decorative: the title already says what the Item is, so the image has empty alt text.
-// A broken image is dropped and the row falls back to the plain layout.
-function thumbnail(imageUrl: string, row: HTMLLIElement): HTMLImageElement {
-  const image = document.createElement("img");
-  image.className = "inbox-row-thumbnail";
-  image.src = imageUrl;
-  image.alt = "";
-  image.loading = "lazy";
-  image.decoding = "async";
-  // The feed's site sees no Referer for the owner's Inbox.
-  image.referrerPolicy = "no-referrer";
-  image.addEventListener("error", () => {
-    image.remove();
-    row.classList.remove("has-thumbnail");
-  });
-  return image;
-}
-
-function importanceMarker(importance: number | null): HTMLSpanElement {
-  const marker = document.createElement("span");
-  marker.className = "importance";
-  // Unscored Items wait for the next scoring run; they show a dash until then.
-  if (importance === null) {
-    marker.textContent = "–";
-    marker.setAttribute("aria-label", "Not scored yet");
-  } else {
-    marker.textContent = String(importance);
-    marker.dataset.level = String(importance);
-    marker.setAttribute("aria-label", `Importance ${String(importance)}`);
-  }
-  return marker;
 }

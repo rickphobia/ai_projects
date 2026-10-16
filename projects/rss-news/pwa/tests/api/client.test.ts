@@ -98,6 +98,7 @@ describe("HttpApiClient", () => {
       minImportance: 3,
       sort: "importance",
       search: "gemma weights",
+      read: "unread",
       cursor: "2026-10-12T05:00:00+00:00~9",
     });
 
@@ -107,6 +108,7 @@ describe("HttpApiClient", () => {
     expect(url.searchParams.get("min_importance")).toBe("3");
     expect(url.searchParams.get("sort")).toBe("importance");
     expect(url.searchParams.get("search")).toBe("gemma weights");
+    expect(url.searchParams.get("read")).toBe("unread");
     expect(url.searchParams.get("cursor")).toBe("2026-10-12T05:00:00+00:00~9");
     expect(page).toEqual({
       items: [
@@ -195,6 +197,21 @@ describe("HttpApiClient", () => {
     await expect(
       new HttpApiClient(BASE, () => undefined).deleteFolder(4),
     ).rejects.toEqual(new RefusedError("the Folder still has 2 Source(s)"));
+  });
+
+  it("marks an Item read and unread", async () => {
+    const fetchMock = vi.fn().mockImplementation(() => answer(204));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new HttpApiClient(BASE, () => undefined);
+
+    await client.markRead(7);
+    await client.markUnread(7);
+
+    const calls = fetchMock.mock.calls as [URL, RequestInit][];
+    expect(calls.map(([url, init]) => [init.method, url.pathname])).toEqual([
+      ["PUT", "/ai-projects/rss-news/api/items/7/read"],
+      ["DELETE", "/ai-projects/rss-news/api/items/7/read"],
+    ]);
   });
 
   it("asks for one Item's Reader view", async () => {

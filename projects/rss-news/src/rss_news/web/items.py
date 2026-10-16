@@ -1,4 +1,4 @@
-"""One Item over the JSON API: showing it (which marks it read) and its Reader view."""
+"""One Item over the JSON API: showing it, its Reader view, and marking it read or unread."""
 
 from typing import Any
 
@@ -17,9 +17,25 @@ def reading_of(request: Request) -> ItemReading:
 
 @items_router.get("/{item_id}")
 def show_item(request: Request, item_id: int) -> dict[str, Any]:
-    """The Item, marked read from now on."""
     try:
-        return item_json(reading_of(request).open(item_id))
+        return item_json(reading_of(request).show(item_id))
+    except ItemNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error)) from None
+
+
+@items_router.put("/{item_id}/read", status_code=204)
+def mark_read(request: Request, item_id: int) -> None:
+    """Marks the Item read, which takes it out of the Inbox's Unread view."""
+    try:
+        reading_of(request).mark_read(item_id)
+    except ItemNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error)) from None
+
+
+@items_router.delete("/{item_id}/read", status_code=204)
+def mark_unread(request: Request, item_id: int) -> None:
+    try:
+        reading_of(request).mark_unread(item_id)
     except ItemNotFound as error:
         raise HTTPException(status_code=404, detail=str(error)) from None
 

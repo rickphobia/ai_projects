@@ -1,19 +1,28 @@
 import { SignedOutError, type ApiClient, type InboxItem } from "../api/client";
+import { itemEnd, type ItemRun } from "./item-end";
 import { showInReadingColumn } from "./reading-column";
 import { offerSelection } from "./selection";
 import { shownTime } from "./shown-time";
 import { stockTags } from "./stock-tags";
 
+export interface ItemViewOptions extends Partial<
+  Pick<ItemRun, "previousId" | "nextId" | "onMove">
+> {
+  onBack: () => void;
+  backLabel?: string;
+}
+
 // One Item: its summary, Source, time, Importance and the owner's stocks it mentions at once, a
-// link to the original page, and Reader view loading underneath straight away. Opening it marks
-// it read.
+// link to the original page, and Reader view loading underneath straight away. Opening it leaves
+// it unread; scrolling on past its end marks it read and opens the next Item (see item-end.ts).
+// A read Item offers Mark unread.
 export async function renderItem(
   root: HTMLElement,
   api: ApiClient,
   itemId: number,
-  onBack: () => void,
-  backLabel = "Back to Inbox",
+  options: ItemViewOptions,
 ): Promise<void> {
+  const { onBack, backLabel = "Back to Inbox" } = options;
   const back = document.createElement("button");
   back.type = "button";
   back.textContent = backLabel;
@@ -42,11 +51,20 @@ export async function renderItem(
   reader.className = "prose";
   reader.setAttribute("aria-busy", "true");
   reader.textContent = "Loading the article…";
-  column.append(itemHeader(item), reader);
+  column.append(
+    itemHeader(item, api),
+    reader,
+    itemEnd(item, api, {
+      previousId: options.previousId ?? null,
+      nextId: options.nextId ?? null,
+      onMove: options.onMove ?? (() => undefined),
+      onBack,
+    }),
+  );
   await loadReaderView(reader, api, item);
 }
 
-function itemHeader(item: InboxItem): HTMLElement {
+function itemHeader(item: InboxItem, api: ApiClient): HTMLElement {
   const header = document.createElement("header");
   const title = document.createElement("h2");
   title.textContent = item.title;
@@ -66,8 +84,47 @@ function itemHeader(item: InboxItem): HTMLElement {
     summary.textContent = item.summary;
     header.append(summary);
   }
-  header.append(originalLink(item.url));
+  const actions = document.createElement("div");
+  actions.className = "item-actions";
+  if (item.read) actions.append(readButton(item, api, header));
+  actions.append(originalLink(item.url));
+  header.append(actions);
   return header;
+}
+
+// For a read Item: Mark unread, then "✓ Read" to undo that. A failure is said under it.
+function readButton(
+  item: InboxItem,
+  api: ApiClient,
+  header: HTMLElement,
+): HTMLButtonElement {
+  let read = item.read;
+  const button = document.createElement("button");
+  button.type = "button";
+  const show = (): void => {
+    button.textContent = read ? "Mark unread" : "✓ Read";
+  };
+  show();
+  const toggle = async (): Promise<void> => {
+    button.disabled = true;
+    header.querySelector('[role="alert"]')?.remove();
+    try {
+      if (read) await api.markUnread(item.id);
+      else await api.markRead(item.id);
+      button.disabled = false;
+      read = !read;
+      show();
+    } catch (error) {
+      button.disabled = false;
+      if (error instanceof SignedOutError) return;
+      const problem = document.createElement("p");
+      problem.setAttribute("role", "alert");
+      problem.textContent = `Couldn't mark it ${read ? "unread" : "read"}: ${messageOf(error)}`;
+      header.append(problem);
+    }
+  };
+  button.addEventListener("click", () => void toggle());
+  return button;
 }
 
 async function loadReaderView(

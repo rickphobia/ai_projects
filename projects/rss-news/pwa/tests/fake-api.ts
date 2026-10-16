@@ -55,6 +55,9 @@ export class FakeApiClient implements ApiClient {
   holdReaderView = false;
   releaseReaderView: (() => void) | null = null;
   itemsOpened: number[] = [];
+  // Each markRead/markUnread call as [itemId, read]; while readMarkError is set, they fail.
+  readMarks: [number, boolean][] = [];
+  readMarkError: Error | null = null;
   sourcesAnswer: SourceInfo[] = [];
   // When set, the next change is refused with it.
   changeError: Error | null = null;
@@ -169,6 +172,9 @@ export class FakeApiClient implements ApiClient {
         (query.folderId === undefined || item.folder.id === query.folderId) &&
         (query.minImportance === undefined ||
           (item.importance ?? 0) >= query.minImportance) &&
+        (query.read === undefined ||
+          query.read === "all" ||
+          item.read === (query.read === "read")) &&
         (query.search === undefined ||
           query.search
             .toLowerCase()
@@ -191,8 +197,23 @@ export class FakeApiClient implements ApiClient {
     this.itemsOpened.push(itemId);
     const found = this.items.find((item) => item.id === itemId);
     if (!found) return Promise.reject(new Error(`no Item ${String(itemId)}`));
-    found.read = true;
     return Promise.resolve({ ...found });
+  }
+
+  markRead(itemId: number): Promise<void> {
+    return this.markItem(itemId, true);
+  }
+
+  markUnread(itemId: number): Promise<void> {
+    return this.markItem(itemId, false);
+  }
+
+  private markItem(itemId: number, read: boolean): Promise<void> {
+    this.readMarks.push([itemId, read]);
+    if (this.readMarkError) return Promise.reject(this.readMarkError);
+    const found = this.items.find((item) => item.id === itemId);
+    if (found) found.read = read;
+    return Promise.resolve();
   }
 
   async readerView(itemId: number): Promise<ReaderView> {

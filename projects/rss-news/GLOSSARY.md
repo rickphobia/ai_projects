@@ -23,7 +23,7 @@ A score from 1 to 5 for how much an Item matters to the owner, given when the It
 _Avoid_: Priority, rank, relevance
 
 **Inbox**:
-The list of all Items, newest first, which can be filtered by Folder.
+The list of Items, unread ones latest first unless the owner asks for read ones, all of them, or most important first; it can be filtered by Folder, Importance and search words.
 _Avoid_: Feed, timeline, stream
 
 **Reader view**:

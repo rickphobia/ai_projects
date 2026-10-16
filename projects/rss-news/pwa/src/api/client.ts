@@ -73,7 +73,7 @@ export interface InboxItem {
   // 1 to 5, and one line in English; both null until the Item is scored.
   importance: number | null;
   summary: string | null;
-  // True once the owner has opened the Item.
+  // True once the owner has marked the Item read.
   read: boolean;
   // An http(s) image link from the feed, or null when the feed gives none.
   imageUrl: string | null;
@@ -92,6 +92,8 @@ export interface ReaderView {
 
 export type InboxOrder = "newest" | "importance";
 
+export type InboxReadFilter = "unread" | "read" | "all";
+
 export interface InboxQuery {
   // Only this Folder's Items; all Folders when left out.
   folderId?: number;
@@ -101,6 +103,8 @@ export interface InboxQuery {
   search?: string;
   // Newest first when left out.
   sort?: InboxOrder;
+  // Read and unread Items alike when left out.
+  read?: InboxReadFilter;
   // The last page's nextCursor, for the page after it.
   cursor?: string;
 }
@@ -161,8 +165,11 @@ export interface ApiClient {
   checkSession(): Promise<void>;
   folders(): Promise<Folder[]>;
   inbox(query: InboxQuery): Promise<InboxPage>;
-  // One Item; showing it marks it read.
+  // One Item; showing it leaves it unread.
   item(itemId: number): Promise<InboxItem>;
+  // Read Items leave the Inbox's Unread view; unread ones come back.
+  markRead(itemId: number): Promise<void>;
+  markUnread(itemId: number): Promise<void>;
   // A page that can't be read gives the feed's preview with the `problem`.
   readerView(itemId: number): Promise<ReaderView>;
   // The calls below reject with RefusedError when the server says no, such as deleting a
@@ -299,6 +306,7 @@ export class HttpApiClient implements ApiClient {
     }
     if (query.search !== undefined) params.set("search", query.search);
     if (query.sort !== undefined) params.set("sort", query.sort);
+    if (query.read !== undefined) params.set("read", query.read);
     if (query.cursor !== undefined) params.set("cursor", query.cursor);
     const path =
       params.size > 0 ? `api/inbox?${params.toString()}` : "api/inbox";
@@ -316,6 +324,14 @@ export class HttpApiClient implements ApiClient {
       `api/items/${String(itemId)}`,
     );
     return itemFromJson((await response.json()) as ItemJson);
+  }
+
+  async markRead(itemId: number): Promise<void> {
+    await this.sendWithSession("PUT", `api/items/${String(itemId)}/read`);
+  }
+
+  async markUnread(itemId: number): Promise<void> {
+    await this.sendWithSession("DELETE", `api/items/${String(itemId)}/read`);
   }
 
   async readerView(itemId: number): Promise<ReaderView> {

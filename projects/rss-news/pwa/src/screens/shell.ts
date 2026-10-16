@@ -6,6 +6,7 @@ import { renderBriefings, renderSavedBriefing } from "./briefings";
 import { renderHome } from "./home";
 import { renderInbox } from "./inbox";
 import { renderItem } from "./item";
+import { neighbours } from "./item-end";
 import { Navigation, type Visit } from "./navigation";
 import { renderNoteBriefing, renderNotes } from "./notes";
 import { backLabel, routeFromHash, type Route } from "./routes";
@@ -140,8 +141,12 @@ export async function renderShell(
   };
   // The Chat open in the Inbox, so it is still there after going to an Item and back.
   let openChatId: number | null = null;
-  const openItem = (itemId: number): void => {
-    void navigation.go({ screen: "item", itemId });
+  // From the Inbox, with its list, so the Item view can go on to the next Item.
+  const openItem = (itemId: number, listedIds?: number[]): void => {
+    void navigation.go(
+      { screen: "item", itemId },
+      listedIds === undefined ? {} : { listedIds },
+    );
   };
   const show = (visit: Visit, once: Once = {}): Promise<void> => {
     const { route } = visit;
@@ -173,15 +178,15 @@ export async function renderShell(
           },
         );
       case "item":
-        return renderItem(
-          page,
-          api,
-          route.itemId,
-          () => {
+        return renderItem(page, api, route.itemId, {
+          onBack: () => {
             navigation.back({ screen: "home" });
           },
-          backLabel(visit.from),
-        );
+          backLabel: backLabel(visit.from),
+          ...neighbours(route.itemId, visit.listedIds ?? []),
+          onMove: (itemId) =>
+            void navigation.replace({ screen: "item", itemId }),
+        });
       case "briefings":
         return renderBriefings(page, api, (briefingId) => {
           void navigation.go({ screen: "briefing", briefingId });

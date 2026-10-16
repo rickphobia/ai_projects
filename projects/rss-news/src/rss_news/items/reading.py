@@ -55,8 +55,10 @@ class ReadableItemStore(Protocol):
         ...
 
     def mark_read(self, item_id: int, *, at: datetime) -> None:
-        """Record the first time the Item was opened; later opens keep that time."""
+        """Record when the Item was marked read; marking it again keeps that time."""
         ...
+
+    def mark_unread(self, item_id: int) -> None: ...
 
 
 class ItemReading:
@@ -65,11 +67,17 @@ class ItemReading:
         self._extractor = extractor
         self._clock = clock
 
-    def open(self, item_id: int) -> InboxItem:
-        """The Item, now marked read."""
-        found = self._found(item_id)
+    def show(self, item_id: int) -> InboxItem:
+        """The Item. Showing it leaves it unread: only the owner's Read button marks it."""
+        return self._found(item_id)
+
+    def mark_read(self, item_id: int) -> None:
+        self._found(item_id)
         self._items.mark_read(item_id, at=self._clock.now())
-        return found
+
+    def mark_unread(self, item_id: int) -> None:
+        self._found(item_id)
+        self._items.mark_unread(item_id)
 
     def reader_view(self, item_id: int) -> ReaderView:
         """The article a Reddit post links to, extracted fresh on every call and never stored;

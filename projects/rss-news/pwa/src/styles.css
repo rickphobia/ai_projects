@@ -500,6 +500,77 @@ form label {
   margin-top: var(--space-1);
 }
 
+/* Unread | Read | All and Latest | Importance, side by side above the search. */
+.inbox-views {
+  justify-content: space-between;
+}
+
+.toggle-group {
+  display: inline-flex;
+}
+
+.toggle-group > button {
+  border-radius: 0;
+}
+
+.toggle-group > button + button {
+  margin-left: -1px;
+}
+
+.toggle-group > button:first-child {
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.toggle-group > button:last-child {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.toggle-group > button[aria-pressed="true"] {
+  position: relative;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+/* The end of an Item: a bar fills as the owner scrolls on past it (--pull, 0 to 1). */
+.item-end {
+  --pull: 0;
+  margin-top: var(--space-6);
+  padding: var(--space-4) 0 var(--space-6);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.item-end-bar {
+  height: 4px;
+  margin-bottom: var(--space-3);
+  border-radius: 2px;
+  background: var(--accent);
+  transform: scaleX(var(--pull));
+  transition: transform 0.1s linear;
+}
+
+.item-end-hint {
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.item-end.pulled .item-end-hint {
+  color: var(--accent);
+}
+
+.item-end .toolbar {
+  justify-content: center;
+}
+
+.item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 /* The owner's stocks an Item mentions, in the Inbox row and the Item view. */
 .stock-tags {
   display: inline-flex;
