@@ -7,7 +7,7 @@ from typing import Any
 
 from rss_news.adapters.sqlite.database import SqliteDatabase, from_db_time, to_db_time
 from rss_news.clock import Clock
-from rss_news.items.inbox import InboxItem, InboxOrder, InboxPosition, NewItem
+from rss_news.items.inbox import InboxItem, InboxOrder, InboxPosition, InboxReadFilter, NewItem
 from rss_news.items.reading import SourceText
 from rss_news.scoring.item_scoring import ItemScore, UnscoredItem
 
@@ -76,6 +76,7 @@ class SqliteItems:
         folder_id: int | None,
         min_importance: int | None,
         search: str | None,
+        read: InboxReadFilter,
         after: InboxPosition | None,
         limit: int,
     ) -> list[InboxItem]:
@@ -92,6 +93,10 @@ class SqliteItems:
         if min_importance is not None:
             conditions.append("items.importance >= ?")
             parameters.append(min_importance)
+        if read is InboxReadFilter.UNREAD:
+            conditions.append("items.read_at IS NULL")
+        elif read is InboxReadFilter.READ:
+            conditions.append("items.read_at IS NOT NULL")
         columns = ["items.published_at", "items.id"]
         if order is InboxOrder.IMPORTANCE:
             columns.insert(0, "COALESCE(items.importance, 0)")
@@ -139,6 +144,10 @@ class SqliteItems:
                 "UPDATE items SET read_at = ? WHERE id = ? AND read_at IS NULL",
                 (to_db_time(at), item_id),
             )
+
+    def mark_unread(self, item_id: int) -> None:
+        with self._database.connection() as connection:
+            connection.execute("UPDATE items SET read_at = NULL WHERE id = ?", (item_id,))
 
     def unscored(self, *, due_at: datetime, limit: int) -> list[UnscoredItem]:
         with self._database.connection() as connection:

@@ -5,8 +5,8 @@ import { shownTime } from "./shown-time";
 import { stockTags } from "./stock-tags";
 
 // One Item: its summary, Source, time, Importance and the owner's stocks it mentions at once, a
-// link to the original page, and Reader view loading underneath straight away. Opening it marks
-// it read.
+// Read button, a link to the original page, and Reader view loading underneath straight away.
+// Opening it leaves it unread; the Read button marks it read, or unread again.
 export async function renderItem(
   root: HTMLElement,
   api: ApiClient,
@@ -42,11 +42,11 @@ export async function renderItem(
   reader.className = "prose";
   reader.setAttribute("aria-busy", "true");
   reader.textContent = "Loading the article…";
-  column.append(itemHeader(item), reader);
+  column.append(itemHeader(item, api), reader);
   await loadReaderView(reader, api, item);
 }
 
-function itemHeader(item: InboxItem): HTMLElement {
+function itemHeader(item: InboxItem, api: ApiClient): HTMLElement {
   const header = document.createElement("header");
   const title = document.createElement("h2");
   title.textContent = item.title;
@@ -66,8 +66,46 @@ function itemHeader(item: InboxItem): HTMLElement {
     summary.textContent = item.summary;
     header.append(summary);
   }
-  header.append(originalLink(item.url));
+  const actions = document.createElement("div");
+  actions.className = "item-actions";
+  actions.append(readButton(item, api, header), originalLink(item.url));
+  header.append(actions);
   return header;
+}
+
+// Flips between "✓ Read" and "Mark unread"; a failure is said under the buttons.
+function readButton(
+  item: InboxItem,
+  api: ApiClient,
+  header: HTMLElement,
+): HTMLButtonElement {
+  let read = item.read;
+  const button = document.createElement("button");
+  button.type = "button";
+  const show = (): void => {
+    button.textContent = read ? "Mark unread" : "✓ Read";
+  };
+  show();
+  const toggle = async (): Promise<void> => {
+    button.disabled = true;
+    header.querySelector('[role="alert"]')?.remove();
+    try {
+      if (read) await api.markUnread(item.id);
+      else await api.markRead(item.id);
+      button.disabled = false;
+      read = !read;
+      show();
+    } catch (error) {
+      button.disabled = false;
+      if (error instanceof SignedOutError) return;
+      const problem = document.createElement("p");
+      problem.setAttribute("role", "alert");
+      problem.textContent = `Couldn't mark it ${read ? "unread" : "read"}: ${messageOf(error)}`;
+      header.append(problem);
+    }
+  };
+  button.addEventListener("click", () => void toggle());
+  return button;
 }
 
 async function loadReaderView(

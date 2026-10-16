@@ -266,9 +266,8 @@ describe("the app shell", () => {
     screen.getByRole("button", { name: "Back to Inbox" }).click();
     // Back goes through the browser's history, so the Inbox comes back a moment later.
     expect(await screen.findByRole("link", { name: "A story" })).toBeTruthy();
-    await waitFor(() => {
-      expect(screen.queryByLabelText("Unread")).toBeNull();
-    });
+    // Opening it isn't reading it: only the Read button takes it out of the Unread list.
+    expect(screen.getByLabelText("Unread")).toBeTruthy();
   });
 
   describe("the Chat in the Inbox", () => {
@@ -424,7 +423,7 @@ describe("the app shell", () => {
     within(folders).getByRole("button", { name: "World" }).click();
 
     await waitFor(() => {
-      expect(api.inboxQueries.at(-1)).toEqual({ folderId: 2 });
+      expect(api.inboxQueries.at(-1)).toEqual({ read: "unread", folderId: 2 });
     });
     expect(
       within(folders)

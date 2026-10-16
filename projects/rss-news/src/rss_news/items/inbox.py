@@ -26,6 +26,13 @@ class InboxOrder(StrEnum):
     IMPORTANCE = "importance"
 
 
+class InboxReadFilter(StrEnum):
+    ALL = "all"
+    # The Inbox's usual view: an Item leaves it once the owner marks it read.
+    UNREAD = "unread"
+    READ = "read"
+
+
 # The most of a Source's own text kept for an Item: a long post, but not a whole book.
 BODY_LENGTH = 20_000
 
@@ -60,7 +67,7 @@ class InboxItem:
     # Both None until the Item is scored.
     importance: int | None
     summary: str | None
-    # True once the owner has opened the Item.
+    # True once the owner has marked the Item read.
     read: bool = False
     image_url: str | None = None
     # The owner's tickers the Item mentions; empty until it is scored.
@@ -96,12 +103,14 @@ class ItemStore(Protocol):
         folder_id: int | None,
         min_importance: int | None,
         search: str | None,
+        read: InboxReadFilter,
         after: InboxPosition | None,
         limit: int,
     ) -> list[InboxItem]:
         """Items in the order (ties broken by newest id), optionally only one Folder's, only
-        those scored at least `min_importance` and only those whose title, excerpt or summary
-        has every word of `search` (as a word start), after a position."""
+        those scored at least `min_importance`, only those whose title, excerpt or summary
+        has every word of `search` (as a word start) and only unread or read ones, after a
+        position."""
         ...
 
 
@@ -123,6 +132,7 @@ class Inbox:
         folder_id: int | None = None,
         min_importance: int | None = None,
         search: str | None = None,
+        read: InboxReadFilter = InboxReadFilter.ALL,
         cursor: str | None = None,
         limit: int = DEFAULT_PAGE_SIZE,
     ) -> InboxPage:
@@ -137,6 +147,7 @@ class Inbox:
             min_importance=min_importance,
             # A blank search box means no search.
             search=search if search and search.strip() else None,
+            read=read,
             after=after,
             limit=limit + 1,
         )

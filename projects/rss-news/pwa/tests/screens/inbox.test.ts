@@ -50,6 +50,12 @@ function choose(select: HTMLSelectElement, label: string): void {
   select.dispatchEvent(new Event("change"));
 }
 
+function showOnly(label: "Unread" | "Read" | "All"): void {
+  within(screen.getByRole("group", { name: "Show" }))
+    .getByRole("button", { name: label })
+    .click();
+}
+
 describe("the Inbox", () => {
   let root: HTMLElement;
   let api: FakeApiClient;
@@ -91,6 +97,7 @@ describe("the Inbox", () => {
       expect(shownTitles()).toEqual(["Newest world story"]);
     });
     expect(api.inboxQueries.at(-1)).toEqual({
+      read: "unread",
       folderId: WORLD.id,
       minImportance: 2,
     });
@@ -119,6 +126,7 @@ describe("the Inbox", () => {
       expect(shownTitles()).toEqual(["Older world story"]);
     });
     expect(api.inboxQueries.at(-1)).toEqual({
+      read: "unread",
       folderId: WORLD.id,
       search: "older",
     });
@@ -133,13 +141,14 @@ describe("the Inbox", () => {
     );
   });
 
-  it("sorts by Importance on request", async () => {
+  it("sorts by Importance or Latest on request", async () => {
     await renderInbox(root, api, onOpen, onBriefThese);
+    const sort = screen.getByRole("group", { name: "Sort" });
+    const latest = within(sort).getByRole("button", { name: "Latest" });
+    const importance = within(sort).getByRole("button", { name: "Importance" });
+    expect(latest.getAttribute("aria-pressed")).toBe("true");
 
-    choose(
-      screen.getByRole("combobox", { name: "Sort" }),
-      "Most important first",
-    );
+    importance.click();
 
     await waitFor(() => {
       expect(shownTitles()).toEqual([
@@ -148,7 +157,18 @@ describe("the Inbox", () => {
         "Older world story",
       ]);
     });
-    expect(api.inboxQueries.at(-1)).toEqual({ sort: "importance" });
+    expect(api.inboxQueries.at(-1)).toEqual({
+      read: "unread",
+      sort: "importance",
+    });
+    expect(importance.getAttribute("aria-pressed")).toBe("true");
+    expect(latest.getAttribute("aria-pressed")).toBe("false");
+
+    latest.click();
+    await waitFor(() => {
+      expect(shownTitles()[0]).toBe("Newest world story");
+    });
+    expect(api.inboxQueries.at(-1)).toEqual({ read: "unread" });
   });
 
   it("lists every Item newest first, each opening the Item view", async () => {
@@ -164,11 +184,110 @@ describe("the Inbox", () => {
     expect(screen.getByText(/AI source/)).toBeTruthy();
   });
 
-  it("marks unread Items only", async () => {
+  it("shows only unread Items at first", async () => {
     api.items[1] = { ...api.items[1], read: true } as InboxItem;
     await renderInbox(root, api, onOpen, onBriefThese);
 
+    expect(shownTitles()).toEqual(["Newest world story", "Older world story"]);
+    expect(api.inboxQueries).toEqual([{ read: "unread" }]);
+    const show = screen.getByRole("group", { name: "Show" });
+    expect(
+      within(show)
+        .getByRole("button", { name: "Unread" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+
+  it("marks unread Items only when showing all", async () => {
+    api.items[1] = { ...api.items[1], read: true } as InboxItem;
+    await renderInbox(root, api, onOpen, onBriefThese);
+
+    showOnly("All");
+
+    await waitFor(() => {
+      expect(shownTitles()).toHaveLength(3);
+    });
+    expect(api.inboxQueries.at(-1)).toEqual({ read: "all" });
     expect(screen.getAllByLabelText("Unread")).toHaveLength(2);
+  });
+
+  it("takes an Item out of the list when it is marked read", async () => {
+    await renderInbox(root, api, onOpen, onBriefThese);
+
+    screen.getByRole("button", { name: "Mark AI story read" }).click();
+
+    await waitFor(() => {
+      expect(shownTitles()).toEqual([
+        "Newest world story",
+        "Older world story",
+      ]);
+    });
+    expect(api.readMarks).toEqual([[2, true]]);
+  });
+
+  it("says so when everything is read", async () => {
+    api.items = [item(2, "AI story", AI, 5)];
+    await renderInbox(root, api, onOpen, onBriefThese);
+
+    screen.getByRole("button", { name: "Mark AI story read" }).click();
+
+    await waitFor(() => {
+      expect(screen.getByRole("status", { name: "Inbox" }).textContent).toBe(
+        "All caught up: nothing unread.",
+      );
+    });
+  });
+
+  it("lists read Items on request, and Mark unread takes one back", async () => {
+    api.items[1] = { ...api.items[1], read: true } as InboxItem;
+    await renderInbox(root, api, onOpen, onBriefThese);
+
+    showOnly("Read");
+    await waitFor(() => {
+      expect(shownTitles()).toEqual(["AI story"]);
+    });
+    expect(api.inboxQueries.at(-1)).toEqual({ read: "read" });
+
+    screen.getByRole("button", { name: "Mark AI story unread" }).click();
+
+    await waitFor(() => {
+      expect(shownTitles()).toEqual([]);
+    });
+    expect(api.readMarks).toEqual([[2, false]]);
+    expect(screen.getByRole("status", { name: "Inbox" }).textContent).toBe(
+      "Nothing read yet.",
+    );
+  });
+
+  it("flips the Read button in place when showing all", async () => {
+    await renderInbox(root, api, onOpen, onBriefThese);
+    showOnly("All");
+    await waitFor(() => {
+      expect(api.inboxQueries.at(-1)).toEqual({ read: "all" });
+    });
+
+    screen.getByRole("button", { name: "Mark AI story read" }).click();
+
+    const unmark = await screen.findByRole("button", {
+      name: "Mark AI story unread",
+    });
+    expect(shownTitles()).toHaveLength(3);
+    expect(screen.getAllByLabelText("Unread")).toHaveLength(2);
+    unmark.click();
+    await screen.findByRole("button", { name: "Mark AI story read" });
+    expect(screen.getAllByLabelText("Unread")).toHaveLength(3);
+  });
+
+  it("keeps the Item and says why when marking it read fails", async () => {
+    api.readMarkError = new Error("the server is down");
+    await renderInbox(root, api, onOpen, onBriefThese);
+
+    screen.getByRole("button", { name: "Mark AI story read" }).click();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Couldn't mark AI story read/)).toBeTruthy();
+    });
+    expect(shownTitles()).toHaveLength(3);
   });
 
   it("filters by Folder and back to all Folders", async () => {
@@ -187,13 +306,16 @@ describe("the Inbox", () => {
         "Older world story",
       ]);
     });
-    expect(api.inboxQueries.at(-1)).toEqual({ folderId: WORLD.id });
+    expect(api.inboxQueries.at(-1)).toEqual({
+      read: "unread",
+      folderId: WORLD.id,
+    });
 
     choose(filter, "All folders");
     await waitFor(() => {
       expect(shownTitles()).toHaveLength(3);
     });
-    expect(api.inboxQueries.at(-1)).toEqual({});
+    expect(api.inboxQueries.at(-1)).toEqual({ read: "unread" });
   });
 
   it("loads the next page on request and keeps the Folder filter", async () => {
@@ -213,6 +335,7 @@ describe("the Inbox", () => {
       ]);
     });
     expect(api.inboxQueries.at(-1)).toEqual({
+      read: "unread",
       folderId: WORLD.id,
       cursor: "1",
     });
@@ -221,12 +344,18 @@ describe("the Inbox", () => {
 
   it("says so when there are no Items yet", async () => {
     api.items = [];
-
     await renderInbox(root, api, onOpen, onBriefThese);
-
-    expect(screen.getByRole("status", { name: "Inbox" }).textContent).toContain(
-      "No Items yet",
+    expect(screen.getByRole("status", { name: "Inbox" }).textContent).toBe(
+      "All caught up: nothing unread.",
     );
+
+    showOnly("All");
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("status", { name: "Inbox" }).textContent,
+      ).toContain("No Items yet");
+    });
   });
 
   it("still lists Items when the Folders can't load", async () => {

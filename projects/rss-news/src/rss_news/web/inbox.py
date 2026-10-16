@@ -11,6 +11,7 @@ from rss_news.items.inbox import (
     Inbox,
     InboxItem,
     InboxOrder,
+    InboxReadFilter,
     InvalidCursor,
 )
 from rss_news.scoring.instructions import MAX_IMPORTANCE, MIN_IMPORTANCE
@@ -30,18 +31,21 @@ def list_inbox(
     min_importance: Annotated[int | None, Query(ge=MIN_IMPORTANCE, le=MAX_IMPORTANCE)] = None,
     search: Annotated[str | None, Query(max_length=200)] = None,
     sort: InboxOrder = InboxOrder.NEWEST,
+    read: InboxReadFilter = InboxReadFilter.ALL,
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
 ) -> dict[str, Any]:
     """`folder` limits the page to one Folder, `min_importance` to Items scored at least that
     and `search` to Items with every word in the title, excerpt or summary; `sort` is
-    `newest` or `importance`; `cursor` is the last page's `next_cursor`."""
+    `newest` or `importance`; `read` is `all`, `unread` or `read`; `cursor` is the last
+    page's `next_cursor`."""
     try:
         page = inbox_of(request).page(
             order=sort,
             folder_id=folder,
             min_importance=min_importance,
             search=search,
+            read=read,
             cursor=cursor,
             limit=limit,
         )

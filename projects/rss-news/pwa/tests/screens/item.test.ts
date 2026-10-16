@@ -67,11 +67,50 @@ describe("the Item view", () => {
     await shown;
   });
 
-  it("marks the Item read when it opens", async () => {
+  it("leaves the Item unread when it opens", async () => {
     await renderItem(root, api, 7, () => undefined);
 
     expect(api.itemsOpened).toEqual([7]);
-    expect(api.items[0]?.read).toBe(true);
+    expect(api.readMarks).toEqual([]);
+  });
+
+  it("marks the Item read with its Read button, and unread again", async () => {
+    await renderItem(root, api, 7, () => undefined);
+
+    screen.getByRole("button", { name: "✓ Read" }).click();
+
+    const unmark = await screen.findByRole("button", { name: "Mark unread" });
+    expect(api.readMarks).toEqual([[7, true]]);
+    unmark.click();
+    await screen.findByRole("button", { name: "✓ Read" });
+    expect(api.readMarks).toEqual([
+      [7, true],
+      [7, false],
+    ]);
+  });
+
+  it("shows a read Item's button as Mark unread", async () => {
+    api.items = [{ ...STORY, read: true }];
+    await renderItem(root, api, 7, () => undefined);
+
+    expect(screen.getByRole("button", { name: "Mark unread" })).toBeTruthy();
+  });
+
+  it("says why when the Item can't be marked read", async () => {
+    api.readMarkError = new Error("the server is down");
+    await renderItem(root, api, 7, () => undefined);
+
+    screen.getByRole("button", { name: "✓ Read" }).click();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Couldn't mark it read: the server is down"),
+      ).toBeTruthy();
+    });
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "✓ Read" })
+        .disabled,
+    ).toBe(false);
   });
 
   it("loads Reader view without a button press, one paragraph per line", async () => {

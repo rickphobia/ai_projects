@@ -496,8 +496,63 @@ form label {
 }
 
 .inbox-row-meta {
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
   margin-top: var(--space-1);
+}
+
+/* Small and quiet, at the end of the Source and time line. */
+.row-read {
+  min-height: 1.75rem;
+  margin-left: auto;
+  padding: 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.inbox-row.unread .row-read {
+  color: var(--accent);
+}
+
+/* Unread | Read | All and Latest | Importance, side by side above the search. */
+.inbox-views {
+  justify-content: space-between;
+}
+
+.toggle-group {
+  display: inline-flex;
+}
+
+.toggle-group > button {
+  border-radius: 0;
+}
+
+.toggle-group > button + button {
+  margin-left: -1px;
+}
+
+.toggle-group > button:first-child {
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.toggle-group > button:last-child {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.toggle-group > button[aria-pressed="true"] {
+  position: relative;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 /* The owner's stocks an Item mentions, in the Inbox row and the Item view. */

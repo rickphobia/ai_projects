@@ -67,7 +67,7 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 28. As the owner, I want an Inbox listing all Items newest first, with their one-line summary, Source, time and Importance, so that I can scan everything.
 29. As the owner, I want to filter the Inbox by Folder, so that I can read just Malaysia or just AI.
 30. As the owner, I want to sort or filter the Inbox by Importance, so that I can skip minor Items.
-31. As the owner, I want unread Items marked and Items marked read once I open them, so that I know what's new.
+31. As the owner, I want unread Items marked, and an Item marked read only when I press its Read button (in the Inbox or the Item view), so that opening or swiping through Items doesn't lose them.
 32. As the owner, I want to search my Items by keyword, so that I can find something I saw last week.
 33. As the owner, I want to tick several Items and press "Brief these", so that I get a Briefing on exactly those Items.
 
@@ -166,6 +166,7 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 94. As the owner, I want each Briefing point to stand apart as a card with its first sentence in bold, only a few Source links until I ask for more, and a Folder strip that jumps to each section, so that a long Briefing is easy to read and move around.
 95. As the owner, I want the browser's Back and Forward (and my phone's back gesture) to move between screens like a normal website, coming back to the Inbox where I left it, so that I don't have to find my way Home each time.
 96. As the owner, I want Reader view to work for Reddit posts and newsletters (the linked article, or the post or email itself), so that most Items read in the app instead of showing only a preview.
+97. As the owner, I want the Inbox to show only unread Items by default, with Unread / Read / All and Latest / Importance toggles at the top, and a Read button on each Item that takes it out of the Unread list (Mark unread brings it back), so that the Inbox only holds what I haven't dealt with and I can still find what I've read.
 
 ## Implementation Decisions
 
