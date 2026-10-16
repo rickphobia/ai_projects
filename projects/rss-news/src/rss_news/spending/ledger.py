@@ -22,6 +22,7 @@ class Feature(StrEnum):
     BRIEFINGS = "briefings"
     CHAT = "chat"
     DICTIONARY = "dictionary"
+    SIMPLE_SUMMARIES = "simple_summaries"
 
 
 @dataclass(frozen=True)

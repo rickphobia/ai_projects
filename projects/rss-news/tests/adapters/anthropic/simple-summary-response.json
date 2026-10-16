@@ -1,0 +1,28 @@
+{
+  "id": "msg_01SimpleSummaryExample3c9d",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-5-5-20261001",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "EqQBCkYIBxgCKkBexampleSignatureNotReal"
+    },
+    {
+      "type": "text",
+      "text": "{\"gist\": \"Malaysia's central bank kept its main interest rate the same.\", \"points\": [\"Bank Negara left the OPR, the rate banks pay to borrow from each other overnight, at 2.75%.\", \"  Keeping it steady means loan and savings rates should not change much for now.\", \"It said prices are rising slowly, so there is no rush to move.\", \"\"]}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 2140,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 236,
+    "server_tool_use": null,
+    "service_tier": "standard"
+  }
+}

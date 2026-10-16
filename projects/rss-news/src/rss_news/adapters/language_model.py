@@ -20,6 +20,12 @@ from rss_news.adapters.anthropic_chat import (
     chat_usage,
     search_calls,
 )
+from rss_news.adapters.anthropic_simple_summary import (
+    SIMPLE_SUMMARY_MAX_TOKENS,
+    SIMPLE_SUMMARY_SCHEMA,
+    parse_simple_summary,
+    simple_summary_prompt,
+)
 from rss_news.briefings.briefing import (
     BriefingFailed,
     SectionRequest,
@@ -49,6 +55,12 @@ from rss_news.scoring.item_scoring import (
     ScoringResult,
     ScoringUnavailable,
     UnscoredItem,
+)
+from rss_news.simple_summaries.instructions import SIMPLE_SUMMARY_INSTRUCTIONS
+from rss_news.simple_summaries.summarising import (
+    SimpleSummaryFailed,
+    SimpleSummaryRequest,
+    SimpleSummaryResult,
 )
 from rss_news.spending.ledger import AiUsage
 
@@ -144,6 +156,7 @@ class AnthropicLanguageModel:
         chat_effort: Effort,
         chat_compaction_tokens: int,
         dictionary_model: str,
+        simple_summary_model: str,
         timeout: timedelta,
         max_attempts: int,
         http_client: anthropic.DefaultHttpxClient | None = None,
@@ -164,6 +177,7 @@ class AnthropicLanguageModel:
         self._chat_effort = chat_effort
         self._chat_compaction_tokens = chat_compaction_tokens
         self._dictionary_model = dictionary_model
+        self._simple_summary_model = simple_summary_model
         self._max_attempts = max_attempts
         self._sleep = sleep
 
@@ -226,6 +240,29 @@ class AnthropicLanguageModel:
             message, self._dictionary_model, timedelta(seconds=time.monotonic() - started)
         )
         return DefinitionResult(_parse_definition(message, usage), usage)
+
+    def summarise_simply(self, request: SimpleSummaryRequest) -> SimpleSummaryResult:
+        started = time.monotonic()
+        try:
+            message = self._create(
+                "summarise simply",
+                model=self._simple_summary_model,
+                max_tokens=SIMPLE_SUMMARY_MAX_TOKENS,
+                system=SIMPLE_SUMMARY_INSTRUCTIONS,
+                messages=[{"role": "user", "content": simple_summary_prompt(request)}],
+                output_config={
+                    "effort": "low",
+                    "format": {"type": "json_schema", "schema": SIMPLE_SUMMARY_SCHEMA},
+                },
+            )
+        except _CallFailed as error:
+            raise SimpleSummaryFailed(str(error)) from error
+        usage = _usage(
+            message, self._simple_summary_model, timedelta(seconds=time.monotonic() - started)
+        )
+        if (stopped := _stop_detail(message)) is not None:
+            raise SimpleSummaryFailed(f"no summary in the answer: {stopped}", usage)
+        return SimpleSummaryResult(parse_simple_summary(_answer_text(message), usage), usage)
 
     def continue_chat(self, context: str, given: ChatInput) -> ChatStep:
         """`context` is the Messages API conversation as JSON. The full assistant content,

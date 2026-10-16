@@ -85,6 +85,8 @@ class Settings:
     chat_compaction_tokens: int
     # Defines selected words; a cheap model is plenty for a sentence or two.
     dictionary_model: str
+    # Explains one Item in plain words; a cheap model is plenty for a short summary.
+    simple_summary_model: str
     # USD per million input and output tokens, by model name. Every configured model needs one.
     model_prices: Mapping[str, ModelPrice]
     web_search_price_usd: Decimal
@@ -179,6 +181,12 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         ),
         dictionary_model=_priced_model(
             environ, "RSS_NEWS_DICTIONARY_MODEL", default="claude-haiku-5-5", prices=model_prices
+        ),
+        simple_summary_model=_priced_model(
+            environ,
+            "RSS_NEWS_SIMPLE_SUMMARY_MODEL",
+            default="claude-haiku-5-5",
+            prices=model_prices,
         ),
         model_prices=model_prices,
         web_search_price_usd=_usd(environ, "RSS_NEWS_WEB_SEARCH_PRICE_USD", default="0.01"),

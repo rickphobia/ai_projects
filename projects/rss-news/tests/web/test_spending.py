@@ -93,6 +93,7 @@ def test_the_summary_starts_at_zero_for_every_feature(client: TestClient) -> Non
             "briefings": "0.00",
             "chat": "0.00",
             "dictionary": "0.00",
+            "simple_summaries": "0.00",
         },
     }
 
@@ -109,6 +110,7 @@ def test_the_summary_totals_this_month_by_feature(client: TestClient, wiring: Wi
         "briefings": "3.00",
         "chat": "0.00",
         "dictionary": "0.00",
+        "simple_summaries": "0.00",
     }
 
 
