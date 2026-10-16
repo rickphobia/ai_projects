@@ -9,18 +9,16 @@ export function rowId(itemId: number): string {
 export interface RowActions {
   onOpen: (itemId: number) => void;
   onPick: (itemId: number, ticked: boolean) => void;
-  // The Read button: marks the Item read, or unread again when it is read.
-  onToggleRead: (item: InboxItem) => void;
 }
 
 // One Inbox row: a tick for "Brief these", the title as a heading linking to the Item view,
-// the one-line summary, Source and time, the Read button, a thumbnail and the Importance.
+// the one-line summary, Source and time, a thumbnail and the Importance.
 export function itemRow(
   item: InboxItem,
   ticked: boolean,
   actions: RowActions,
 ): HTMLLIElement {
-  const { onOpen, onPick, onToggleRead } = actions;
+  const { onOpen, onPick } = actions;
   const row = document.createElement("li");
   row.id = rowId(item.id);
   row.className = item.read ? "inbox-row" : "inbox-row unread";
@@ -69,19 +67,6 @@ export function itemRow(
   details.append(`${item.source} · `, time);
   const tags = stockTags(item.stocks);
   if (tags) details.append(" ", tags);
-  const readButton = document.createElement("button");
-  readButton.type = "button";
-  readButton.className = "row-read";
-  readButton.textContent = item.read ? "Mark unread" : "✓ Read";
-  readButton.setAttribute(
-    "aria-label",
-    `Mark ${item.title} ${item.read ? "unread" : "read"}`,
-  );
-  readButton.addEventListener("click", () => {
-    readButton.disabled = true;
-    onToggleRead(item);
-  });
-  details.append(readButton);
   body.append(details);
   row.append(pick, body);
   if (item.imageUrl !== null) {

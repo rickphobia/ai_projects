@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError } from "../../src/api/client";
+import { ApiError, type InboxItem } from "../../src/api/client";
 import { renderShell } from "../../src/screens/shell";
 import { FakeApiClient } from "../fake-api";
 
@@ -268,6 +268,44 @@ describe("the app shell", () => {
     expect(await screen.findByRole("link", { name: "A story" })).toBeTruthy();
     // Opening it isn't reading it: only the Read button takes it out of the Unread list.
     expect(screen.getByLabelText("Unread")).toBeTruthy();
+  });
+
+  it("finishes an Item into the next one, and Back still returns to the Inbox", async () => {
+    const story = (id: number, title: string): InboxItem => ({
+      id,
+      title,
+      url: `https://news.example/${String(id)}`,
+      source: "Example",
+      folder: { id: 1, name: "AI" },
+      publishedAt: "2026-10-12T04:00:00+00:00",
+      importance: 4,
+      summary: "Something happened.",
+      read: false,
+      imageUrl: null,
+      stocks: [],
+    });
+    api.items = [story(2, "First story"), story(1, "Second story")];
+    await renderShell(root, api, () => undefined);
+    screen.getByRole("button", { name: "Inbox" }).click();
+    (await screen.findByRole("link", { name: "First story" })).click();
+    await screen.findByRole("heading", { name: "First story" });
+
+    screen.getByRole("button", { name: "Mark read: next Item ↓" }).click();
+
+    await screen.findByRole("heading", { name: "Second story" });
+    expect(location.hash).toBe("#items/1");
+    expect(api.readMarks).toEqual([[2, true]]);
+    // The last Item goes back instead.
+    expect(
+      screen.getByRole("button", { name: "Mark read and go back" }),
+    ).toBeTruthy();
+
+    screen.getByRole("button", { name: "Back to Inbox" }).click();
+
+    expect(
+      await screen.findByRole("link", { name: "Second story" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "First story" })).toBeNull();
   });
 
   describe("the Chat in the Inbox", () => {

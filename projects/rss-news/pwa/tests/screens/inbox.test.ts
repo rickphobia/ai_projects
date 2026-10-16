@@ -180,7 +180,8 @@ describe("the Inbox", () => {
       "Older world story",
     ]);
     screen.getByRole("link", { name: "AI story" }).click();
-    expect(onOpen).toHaveBeenCalledWith(2);
+    // With the list, so the Item view can go on to the next one.
+    expect(onOpen).toHaveBeenCalledWith(2, [3, 2, 1]);
     expect(screen.getByText(/AI source/)).toBeTruthy();
   });
 
@@ -211,83 +212,29 @@ describe("the Inbox", () => {
     expect(screen.getAllByLabelText("Unread")).toHaveLength(2);
   });
 
-  it("takes an Item out of the list when it is marked read", async () => {
-    await renderInbox(root, api, onOpen, onBriefThese);
-
-    screen.getByRole("button", { name: "Mark AI story read" }).click();
-
-    await waitFor(() => {
-      expect(shownTitles()).toEqual([
-        "Newest world story",
-        "Older world story",
-      ]);
-    });
-    expect(api.readMarks).toEqual([[2, true]]);
-  });
-
-  it("says so when everything is read", async () => {
-    api.items = [item(2, "AI story", AI, 5)];
-    await renderInbox(root, api, onOpen, onBriefThese);
-
-    screen.getByRole("button", { name: "Mark AI story read" }).click();
-
-    await waitFor(() => {
-      expect(screen.getByRole("status", { name: "Inbox" }).textContent).toBe(
-        "All caught up: nothing unread.",
-      );
-    });
-  });
-
-  it("lists read Items on request, and Mark unread takes one back", async () => {
+  it("lists read Items on request", async () => {
     api.items[1] = { ...api.items[1], read: true } as InboxItem;
     await renderInbox(root, api, onOpen, onBriefThese);
 
     showOnly("Read");
+
     await waitFor(() => {
       expect(shownTitles()).toEqual(["AI story"]);
     });
     expect(api.inboxQueries.at(-1)).toEqual({ read: "read" });
-
-    screen.getByRole("button", { name: "Mark AI story unread" }).click();
-
-    await waitFor(() => {
-      expect(shownTitles()).toEqual([]);
-    });
-    expect(api.readMarks).toEqual([[2, false]]);
-    expect(screen.getByRole("status", { name: "Inbox" }).textContent).toBe(
-      "Nothing read yet.",
-    );
+    expect(screen.queryByLabelText("Unread")).toBeNull();
   });
 
-  it("flips the Read button in place when showing all", async () => {
-    await renderInbox(root, api, onOpen, onBriefThese);
-    showOnly("All");
-    await waitFor(() => {
-      expect(api.inboxQueries.at(-1)).toEqual({ read: "all" });
-    });
-
-    screen.getByRole("button", { name: "Mark AI story read" }).click();
-
-    const unmark = await screen.findByRole("button", {
-      name: "Mark AI story unread",
-    });
-    expect(shownTitles()).toHaveLength(3);
-    expect(screen.getAllByLabelText("Unread")).toHaveLength(2);
-    unmark.click();
-    await screen.findByRole("button", { name: "Mark AI story read" });
-    expect(screen.getAllByLabelText("Unread")).toHaveLength(3);
-  });
-
-  it("keeps the Item and says why when marking it read fails", async () => {
-    api.readMarkError = new Error("the server is down");
+  it("says so when nothing is read yet", async () => {
     await renderInbox(root, api, onOpen, onBriefThese);
 
-    screen.getByRole("button", { name: "Mark AI story read" }).click();
+    showOnly("Read");
 
     await waitFor(() => {
-      expect(screen.getByText(/Couldn't mark AI story read/)).toBeTruthy();
+      expect(screen.getByRole("status", { name: "Inbox" }).textContent).toBe(
+        "Nothing read yet.",
+      );
     });
-    expect(shownTitles()).toHaveLength(3);
   });
 
   it("filters by Folder and back to all Folders", async () => {

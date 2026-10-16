@@ -11,6 +11,8 @@ interface Entry {
   from: string | null;
   // Items picked with "Brief these", which the home screen offers to brief.
   pickedItemIds?: number[];
+  // The Inbox list an Item was opened from, in order, so the Item view can move along it.
+  listedIds?: number[];
 }
 
 // One screen to show, with what its history entry remembers.
@@ -18,10 +20,12 @@ export interface Visit {
   route: Route;
   from: Route | null;
   pickedItemIds?: number[];
+  listedIds?: number[];
 }
 
 export interface GoOptions<Once> {
   pickedItemIds?: number[];
+  listedIds?: number[];
   // Passed to this showing only, never replayed by Back or Forward: a quote for the Chat, say.
   once?: Once;
 }
@@ -67,7 +71,7 @@ export class Navigation<Once> {
 
   go(
     route: Route,
-    { pickedItemIds, once }: GoOptions<Once> = {},
+    { pickedItemIds, listedIds, once }: GoOptions<Once> = {},
   ): Promise<void> {
     history.replaceState({ ...this.entry, scrollY: window.scrollY }, "");
     this.entry = {
@@ -75,10 +79,20 @@ export class Navigation<Once> {
       scrollY: 0,
       from: location.hash,
       ...(pickedItemIds === undefined ? {} : { pickedItemIds }),
+      ...(listedIds === undefined ? {} : { listedIds }),
     };
     history.pushState(this.entry, "", routeHash(route));
     window.scrollTo(0, 0);
     return this.show(this.visit(), once);
+  }
+
+  // Another screen in this entry's place, keeping where it came from and what it remembers:
+  // moving to the next Item, so Back still goes to the Inbox rather than through each Item.
+  replace(route: Route): Promise<void> {
+    this.entry = { ...this.entry, scrollY: 0 };
+    history.replaceState(this.entry, "", routeHash(route));
+    window.scrollTo(0, 0);
+    return this.show(this.visit(), undefined);
   }
 
   // A back button: the browser's Back while there is a screen of ours behind this one,
@@ -101,6 +115,9 @@ export class Navigation<Once> {
       ...(this.entry.pickedItemIds === undefined
         ? {}
         : { pickedItemIds: this.entry.pickedItemIds }),
+      ...(this.entry.listedIds === undefined
+        ? {}
+        : { listedIds: this.entry.listedIds }),
     };
   }
 }
@@ -110,7 +127,7 @@ function entryOf(state: unknown): Entry {
   if (typeof state !== "object" || state === null) {
     return { depth: 0, scrollY: 0, from: null };
   }
-  const { depth, scrollY, from, pickedItemIds } = state as Record<
+  const { depth, scrollY, from, pickedItemIds, listedIds } = state as Record<
     string,
     unknown
   >;
@@ -118,9 +135,11 @@ function entryOf(state: unknown): Entry {
     depth: typeof depth === "number" ? depth : 0,
     scrollY: typeof scrollY === "number" ? scrollY : 0,
     from: typeof from === "string" ? from : null,
-    ...(Array.isArray(pickedItemIds) &&
-    pickedItemIds.every((id) => typeof id === "number")
-      ? { pickedItemIds }
-      : {}),
+    ...(isIdList(pickedItemIds) ? { pickedItemIds } : {}),
+    ...(isIdList(listedIds) ? { listedIds } : {}),
   };
+}
+
+function isIdList(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((id) => typeof id === "number");
 }

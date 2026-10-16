@@ -36,7 +36,7 @@ describe("the Item view", () => {
 
   it("shows the owner's stocks the Item mentions", async () => {
     api.items = [{ ...STORY, stocks: ["1155.KL"] }];
-    await renderItem(root, api, 7, () => undefined);
+    await renderItem(root, api, 7, { onBack: () => undefined });
 
     expect(screen.getByLabelText("Mentions 1155.KL").textContent).toBe(
       "1155.KL",
@@ -45,7 +45,7 @@ describe("the Item view", () => {
 
   it("shows the summary, Source, time and Importance at once, with the original link", async () => {
     api.holdReaderView = true;
-    const shown = renderItem(root, api, 7, () => undefined);
+    const shown = renderItem(root, api, 7, { onBack: () => undefined });
 
     await waitFor(() => {
       expect(readerView().getAttribute("aria-busy")).toBe("true");
@@ -68,49 +68,39 @@ describe("the Item view", () => {
   });
 
   it("leaves the Item unread when it opens", async () => {
-    await renderItem(root, api, 7, () => undefined);
+    await renderItem(root, api, 7, { onBack: () => undefined });
 
     expect(api.itemsOpened).toEqual([7]);
     expect(api.readMarks).toEqual([]);
   });
 
-  it("marks the Item read with its Read button, and unread again", async () => {
-    await renderItem(root, api, 7, () => undefined);
+  it("offers no Read button on an unread Item", async () => {
+    await renderItem(root, api, 7, { onBack: () => undefined });
 
-    screen.getByRole("button", { name: "✓ Read" }).click();
-
-    const unmark = await screen.findByRole("button", { name: "Mark unread" });
-    expect(api.readMarks).toEqual([[7, true]]);
-    unmark.click();
-    await screen.findByRole("button", { name: "✓ Read" });
-    expect(api.readMarks).toEqual([
-      [7, true],
-      [7, false],
-    ]);
+    expect(screen.queryByRole("button", { name: "✓ Read" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Mark unread" })).toBeNull();
   });
 
   it("shows a read Item's button as Mark unread", async () => {
     api.items = [{ ...STORY, read: true }];
-    await renderItem(root, api, 7, () => undefined);
+    await renderItem(root, api, 7, { onBack: () => undefined });
 
     expect(screen.getByRole("button", { name: "Mark unread" })).toBeTruthy();
   });
 
-  it("says why when the Item can't be marked read", async () => {
-    api.readMarkError = new Error("the server is down");
-    await renderItem(root, api, 7, () => undefined);
+  it("marks a read Item unread, and read again", async () => {
+    api.items = [{ ...STORY, read: true }];
+    await renderItem(root, api, 7, { onBack: () => undefined });
 
-    screen.getByRole("button", { name: "✓ Read" }).click();
+    screen.getByRole("button", { name: "Mark unread" }).click();
 
-    await waitFor(() => {
-      expect(
-        screen.getByText("Couldn't mark it read: the server is down"),
-      ).toBeTruthy();
-    });
-    expect(
-      screen.getByRole<HTMLButtonElement>("button", { name: "✓ Read" })
-        .disabled,
-    ).toBe(false);
+    const again = await screen.findByRole("button", { name: "✓ Read" });
+    again.click();
+    await screen.findByRole("button", { name: "Mark unread" });
+    expect(api.readMarks).toEqual([
+      [7, false],
+      [7, true],
+    ]);
   });
 
   it("loads Reader view without a button press, one paragraph per line", async () => {
@@ -120,7 +110,7 @@ describe("the Item view", () => {
       problem: null,
     });
 
-    await renderItem(root, api, 7, () => undefined);
+    await renderItem(root, api, 7, { onBack: () => undefined });
 
     const paragraphs = Array.from(readerView().querySelectorAll("p")).map(
       (paragraph) => paragraph.textContent,
@@ -135,7 +125,7 @@ describe("the Item view", () => {
       new ApiError("Reader view isn't available: the page answered HTTP 403."),
     );
 
-    await renderItem(root, api, 7, () => undefined);
+    await renderItem(root, api, 7, { onBack: () => undefined });
 
     expect(screen.getByRole("alert").textContent).toBe(
       "Reader view isn't available: the page answered HTTP 403.",
@@ -154,7 +144,7 @@ describe("the Item view", () => {
       problem: "the page answered HTTP 403",
     });
 
-    await renderItem(root, api, 7, () => undefined);
+    await renderItem(root, api, 7, { onBack: () => undefined });
 
     const paragraphs = Array.from(readerView().querySelectorAll("p")).map(
       (paragraph) => paragraph.textContent,
@@ -176,7 +166,7 @@ describe("the Item view", () => {
       problem: "the page answered HTTP 403",
     });
 
-    await renderItem(root, api, 7, () => undefined);
+    await renderItem(root, api, 7, { onBack: () => undefined });
 
     expect(readerView().querySelector("p")?.textContent).toBe(
       "No article to show (the page answered HTTP 403). Open the original page to see it.",
@@ -184,7 +174,7 @@ describe("the Item view", () => {
   });
 
   it("says so when the Item can't be opened", async () => {
-    await renderItem(root, api, 99, () => undefined);
+    await renderItem(root, api, 99, { onBack: () => undefined });
 
     expect(screen.getByRole("status", { name: "Item" }).textContent).toBe(
       "Couldn't open the Item: no Item 99",
@@ -193,7 +183,7 @@ describe("the Item view", () => {
 
   it("goes back to the Inbox", async () => {
     const onBack = vi.fn();
-    await renderItem(root, api, 7, onBack);
+    await renderItem(root, api, 7, { onBack });
 
     screen.getByRole("button", { name: "Back to Inbox" }).click();
 

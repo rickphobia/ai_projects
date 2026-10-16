@@ -496,24 +496,8 @@ form label {
 }
 
 .inbox-row-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1);
+  display: block;
   margin-top: var(--space-1);
-}
-
-/* Small and quiet, at the end of the Source and time line. */
-.row-read {
-  min-height: 1.75rem;
-  margin-left: auto;
-  padding: 0 var(--space-2);
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-
-.inbox-row.unread .row-read {
-  color: var(--accent);
 }
 
 /* Unread | Read | All and Latest | Importance, side by side above the search. */
@@ -546,6 +530,38 @@ form label {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--accent-text);
+}
+
+/* The end of an Item: a bar fills as the owner scrolls on past it (--pull, 0 to 1). */
+.item-end {
+  --pull: 0;
+  margin-top: var(--space-6);
+  padding: var(--space-4) 0 var(--space-6);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.item-end-bar {
+  height: 4px;
+  margin-bottom: var(--space-3);
+  border-radius: 2px;
+  background: var(--accent);
+  transform: scaleX(var(--pull));
+  transition: transform 0.1s linear;
+}
+
+.item-end-hint {
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.item-end.pulled .item-end-hint {
+  color: var(--accent);
+}
+
+.item-end .toolbar {
+  justify-content: center;
 }
 
 .item-actions {

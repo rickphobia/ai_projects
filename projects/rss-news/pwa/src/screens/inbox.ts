@@ -20,9 +20,9 @@ const ALL_FOLDERS = "";
 const ANY_IMPORTANCE = "";
 
 // The Inbox: the unread Items (or the read ones, or all) latest first or most important first,
-// a keyword search, filters by Folder and Importance, and a button for the next page. Each row's
-// Read button marks its Item read, which takes it out of the Unread list; in the Read list it
-// marks it unread again. Choosing an Item calls onOpen with its id. Items can be ticked, and "Brief these" calls onBriefThese with their ids.
+// a keyword search, filters by Folder and Importance, and a button for the next page. Choosing
+// an Item calls onOpen with its id and the loaded Items' ids in order, so the Item view can move
+// on to the next one. Items can be ticked, and "Brief these" calls onBriefThese with their ids.
 // A Contents panel lists the loaded Items and jumps to the chosen one's row.
 // Given folderId (a Folder picked in the sidebar), it opens filtered to that Folder. The Chat
 // panel sits beside it, its Source buttons and "Brief these" going to the same callbacks; it
@@ -30,7 +30,7 @@ const ANY_IMPORTANCE = "";
 export async function renderInbox(
   root: HTMLElement,
   api: ApiClient,
-  onOpen: (itemId: number) => void,
+  onOpen: (itemId: number, listedIds?: number[]) => void,
   onBriefThese: (itemIds: number[]) => void,
   folderId?: number,
   chat: InboxChat = { openChatId: null },
@@ -91,7 +91,7 @@ export async function renderInbox(
   );
   const list = document.createElement("ul");
   list.className = "inbox-list";
-  // Why the Folders didn't load, or why an Item couldn't be marked read.
+  // Why the Folders didn't load.
   const problem = document.createElement("p");
   problem.setAttribute("role", "alert");
   const status = document.createElement("p");
@@ -149,43 +149,14 @@ export async function renderInbox(
   // The Items in the list, in order, for the Contents panel.
   let shown: InboxItem[] = [];
 
-  const showRows = (): void => {
-    contents.show(shown, false);
-    status.textContent =
-      list.childElementCount === 0 ? emptyMessage(query) : "";
+  const openListed = (itemId: number): void => {
+    onOpen(
+      itemId,
+      shown.map((item) => item.id),
+    );
   };
   const row = (item: InboxItem): HTMLLIElement =>
-    itemRow(item, picked.has(item.id), {
-      onOpen,
-      onPick,
-      onToggleRead: (toggled) => void toggleRead(toggled),
-    });
-  // A row whose Item no longer fits the list (read in Unread, unread in Read) leaves it; in
-  // All it stays and swaps its Read button.
-  async function toggleRead(item: InboxItem): Promise<void> {
-    const read = !item.read;
-    problem.textContent = "";
-    const current = list.querySelector<HTMLLIElement>(`#${rowId(item.id)}`);
-    try {
-      if (read) await api.markRead(item.id);
-      else await api.markUnread(item.id);
-    } catch (error) {
-      if (error instanceof SignedOutError) return;
-      const detail = error instanceof Error ? error.message : String(error);
-      problem.textContent = `Couldn't mark ${item.title} ${read ? "read" : "unread"}: ${detail}`;
-      current?.querySelector("button.row-read")?.removeAttribute("disabled");
-      return;
-    }
-    const changed = { ...item, read };
-    if (query.read === "all") {
-      shown = shown.map((other) => (other.id === item.id ? changed : other));
-      current?.replaceWith(row(changed));
-    } else {
-      shown = shown.filter((other) => other.id !== item.id);
-      current?.remove();
-    }
-    showRows();
-  }
+    itemRow(item, picked.has(item.id), { onOpen: openListed, onPick });
   // Each load gets a number; an answer that arrives after a newer load started is dropped,
   // so a slow page can't land under a different Folder.
   let latestLoad = 0;
@@ -203,9 +174,11 @@ export async function renderInbox(
       if (append) list.append(...rows);
       else list.replaceChildren(...rows);
       shown = append ? [...shown, ...page.items] : page.items;
+      contents.show(page.items, append);
       nextCursor = page.nextCursor;
       loadMore.hidden = nextCursor === null;
-      showRows();
+      status.textContent =
+        list.childElementCount === 0 ? emptyMessage(query) : "";
     } catch (error) {
       if (thisLoad !== latestLoad || error instanceof SignedOutError) return;
       const detail = error instanceof Error ? error.message : String(error);
