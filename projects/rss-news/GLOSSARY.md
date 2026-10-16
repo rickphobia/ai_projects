@@ -40,6 +40,10 @@ _Avoid_: Ask AI, assistant, bot
 A short written overview the owner asks for, covering all Sources or one Folder over the last 24 hours, 7 days or 30 days, or a set of Items picked by hand. Each point links to the Items it came from.
 _Avoid_: Digest, summary, recap, newsletter
 
+**Simple summary**:
+One whole Item explained in plain words, as if to someone new to the subject: a one-sentence gist and three to six short points. Written when the owner presses Summarise in the Item view, and not kept. Not the Item's one-line summary, which scoring writes for every Item.
+_Avoid_: ELI5, TL;DR, explainer
+
 **Dictionary**:
 A short definition of a selected word or phrase, fitted to the text around it, including jargon, stock tickers and Malay words.
 _Avoid_: Glossary, lookup, explain
