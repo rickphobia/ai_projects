@@ -412,7 +412,10 @@ def test_chat_is_refused_at_the_spending_limit_without_calling_the_model(
     response = client.post(f"{CHATS}/{chat_id}/messages", json={"text": "news?"})
 
     assert response.status_code == 429
-    assert "Briefings, Chat and Dictionary are off until next month" in response.json()["detail"]
+    assert (
+        "Briefings, Chat, Simple summaries and Dictionary are off until next month"
+        in response.json()["detail"]
+    )
     assert model.chat_calls == []
 
 

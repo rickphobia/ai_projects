@@ -11,6 +11,7 @@ import { showInReadingColumn } from "./reading-column";
 const featureNames: Record<string, string> = {
   scoring: "Scoring",
   briefings: "Briefings",
+  simple_summaries: "Simple summaries",
 };
 
 // Settings: this month's AI cost by feature against the monthly limit, with the warning

@@ -14,6 +14,7 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 - **Scoring on arrival:** a cheap model gives every new Item an Importance score and a one-line summary.
 - **Briefings on request:** when the owner presses a button, a stronger model writes a Briefing for the scope they chose: all Sources or one Folder over 24 hours, 7 days or 30 days, or a set of Items picked by hand. Each point links to its Items.
 - **Inbox and Chat:** the Inbox lists every Item. A Chat docked in the Inbox answers questions such as "what happened in Malaysia" with matching Items, each with a one-line summary, a Source button that opens the Item, and a button to turn them into a Briefing.
+- **Simple summary:** a Summarise button in the Item view explains the whole Item in plain words: a one-sentence gist and a few short points.
 - **Selecting text:** a popup offers Ask AI (opens the Chat with the selection), Note, or a short Dictionary definition.
 - **Alerts:** push notifications to the owner's Android phone for Items about their Watchlist stocks, and for Importance 5 Items.
 - **Spending:** every AI call is logged with its cost, and a monthly spending limit protects the budget.
@@ -170,6 +171,7 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 98. As the owner, I want scrolling on past the end of an Item to mark it read and open the next Item of the list I came from (or go back after the last), and a swipe left or right (or the arrow keys) to move to the next or previous Item without marking it, so that I can read through my Inbox without going back to it each time.
 99. As the owner, I want the home screen to be only an AI chat box, like oksskolten's: a greeting, a big question box and suggested questions (what's interesting today, a summary of the last 24 hours, a summary of the last 24 hours on a topic I type), so that I start by asking rather than scrolling.
 100. As the owner, I want each Item in a Chat answer to show its title as a heading that opens it, a two-or-three-sentence plain-words summary, and its Source, Importance and age, so that the answer reads like a short news digest.
+101. As the owner, I want a Summarise button in the Item view that explains the whole Item in plain words, more than one line but far shorter than the article, so that I get the gist of a long or technical piece without reading it all.
 
 ## Implementation Decisions
 
@@ -217,7 +219,7 @@ These are the only places that touch the network or the system. Each has one rea
   - **Limits:** each Item gets at most one Alert, none are sent during quiet hours, and at most 10 are sent per day. Quiet hours and the daily cap are set in config.
   - **What happens to blocked Alerts:** an Alert blocked by quiet hours or the cap is not sent later. The Item still shows in the Inbox.
   - **Push subscriptions** are stored. Gone subscriptions are removed, and a test Alert can be sent.
-- **spending:** a ledger with one row per AI call, recording feature, model, tokens, web searches, cost and duration. It gives the month-to-date total, the total per feature and the limit status: ok, warning at 80%, or stopped at 100%. Briefings, Chat and Dictionary check the status before calling and refuse with a clear error when stopped. Scoring is never stopped.
+- **spending:** a ledger with one row per AI call, recording feature, model, tokens, web searches, cost and duration. It gives the month-to-date total, the total per feature and the limit status: ok, warning at 80%, or stopped at 100%. Briefings, Chat, Simple summaries and Dictionary check the status before calling and refuse with a clear error when stopped. Scoring is never stopped.
 - **auth:** one password, set as a hash in config, with signed session cookies and slowed-down repeated failures. This follows court-booker's auth module.
 - **tick:** one function the scheduler calls every minute, which runs in order:
   1. fetch due Sources
@@ -240,7 +242,7 @@ One config module validates every setting at startup and fails with a clear mess
 
 Other settings:
 
-- models per job (scoring, Briefing, Chat, Dictionary) and the price per million tokens for each model
+- models per job (scoring, Briefing, Chat, Simple summary, Dictionary) and the price per million tokens for each model
 - price per web search
 - monthly limit
 - time zone
@@ -259,6 +261,7 @@ Defaults:
 | Scoring | `claude-haiku-5-5` |
 | Briefings | `claude-opus-5-5` at low effort |
 | Chat | `claude-opus-5-5` |
+| Simple summary | `claude-haiku-5-5` |
 | Dictionary | `claude-haiku-5-5` |
 
 The monthly limit defaults to 100 USD.
@@ -271,7 +274,7 @@ The monthly limit defaults to 100 USD.
 | Folders, Sources | list, create, update, delete. Source health is included when listing |
 | Stocks | Watchlist (list, add, remove) |
 | Inbox | list with filters and paging, search, mark read |
-| Items | show one; Reader view (fetches and extracts when the Item is opened) |
+| Items | show one; Reader view (fetches and extracts when the Item is opened); Simple summary (written when asked, not kept) |
 | Briefings | latest, estimate, create (returns progress as server-sent events; a `regenerate` flag writes a new one even when today's is saved), list, show |
 | Chats | list, create, send message (streamed), show |
 | Dictionary | look up |

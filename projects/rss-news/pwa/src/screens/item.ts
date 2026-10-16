@@ -1,6 +1,7 @@
 import { SignedOutError, type ApiClient, type InboxItem } from "../api/client";
 import { itemEnd, type ItemRun } from "./item-end";
 import { showInReadingColumn } from "./reading-column";
+import { simpleSummaryButton } from "./simple-summary";
 import { offerSelection } from "./selection";
 import { shownTime } from "./shown-time";
 import { stockTags } from "./stock-tags";
@@ -13,7 +14,8 @@ export interface ItemViewOptions extends Partial<
 }
 
 // One Item: its summary, Source, time, Importance and the owner's stocks it mentions at once, a
-// link to the original page, and Reader view loading underneath straight away. Opening it leaves
+// Summarise button for a Simple summary of the whole Item, a link to the original page, and
+// Reader view loading underneath straight away. Opening it leaves
 // it unread; scrolling on past its end marks it read and opens the next Item (see item-end.ts).
 // A read Item offers Mark unread.
 export async function renderItem(
@@ -87,8 +89,12 @@ function itemHeader(item: InboxItem, api: ApiClient): HTMLElement {
   const actions = document.createElement("div");
   actions.className = "item-actions";
   if (item.read) actions.append(readButton(item, api, header));
-  actions.append(originalLink(item.url));
-  header.append(actions);
+  const simpleSummary = document.createElement("section");
+  actions.append(
+    simpleSummaryButton(item.id, api, simpleSummary),
+    originalLink(item.url),
+  );
+  header.append(actions, simpleSummary);
   return header;
 }
 

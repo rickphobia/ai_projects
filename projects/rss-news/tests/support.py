@@ -36,6 +36,12 @@ from rss_news.scoring.item_scoring import (
     ScoringUnavailable,
     UnscoredItem,
 )
+from rss_news.simple_summaries.summarising import (
+    SimpleSummaryFailed,
+    SimpleSummaryRequest,
+    SimpleSummaryResult,
+    WrittenSimpleSummary,
+)
 from rss_news.sources.catalog import StarterFolder
 from rss_news.sources.fetching import FeedRequest, FetchFailed, FetchResult
 from rss_news.spending.ledger import AiUsage
@@ -179,12 +185,32 @@ class FakeLanguageModel:
         self.definitions: list[DefinitionRequest] = []
         # When set, define_word raises it instead of answering.
         self.definition_failure: DictionaryFailed | None = None
+        self.simple_summaries: list[SimpleSummaryRequest] = []
+        # When set, summarise_simply raises it instead of answering.
+        self.simple_summary_failure: SimpleSummaryFailed | None = None
 
     def define_word(self, request: DefinitionRequest) -> DefinitionResult:
         self.definitions.append(request)
         if self.definition_failure is not None:
             raise self.definition_failure
         return DefinitionResult(f"Meaning of {request.term}.", self.DEFINITION_USAGE)
+
+    def summarise_simply(self, request: SimpleSummaryRequest) -> SimpleSummaryResult:
+        self.simple_summaries.append(request)
+        if self.simple_summary_failure is not None:
+            raise self.simple_summary_failure
+        written = WrittenSimpleSummary(
+            f"{request.title}, simply.", [f"First point of {request.title}.", "Why it matters."]
+        )
+        return SimpleSummaryResult(written, self.SIMPLE_SUMMARY_USAGE)
+
+    SIMPLE_SUMMARY_USAGE = AiUsage(
+        model="claude-haiku-5-5",
+        input_tokens=4_000,
+        output_tokens=400,
+        web_searches=0,
+        duration=timedelta(seconds=2),
+    )
 
     DEFINITION_USAGE = AiUsage(
         model="claude-haiku-5-5",

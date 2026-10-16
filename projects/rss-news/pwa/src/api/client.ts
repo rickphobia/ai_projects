@@ -40,6 +40,11 @@ import {
   type Definition,
   type DefinitionJson,
 } from "./dictionary";
+import {
+  simpleSummaryFromJson,
+  type SimpleSummary,
+  type SimpleSummaryJson,
+} from "./simple-summaries";
 import { readEvents } from "./event-stream";
 import { noteFromJson, type NewNote, type Note, type NoteJson } from "./notes";
 import {
@@ -172,6 +177,10 @@ export interface ApiClient {
   markUnread(itemId: number): Promise<void>;
   // A page that can't be read gives the feed's preview with the `problem`.
   readerView(itemId: number): Promise<ReaderView>;
+  // The whole Item explained in plain words; each call asks the model again. Rejects with
+  // RefusedError, saying why, when the Item has no text, the model gave no summary or this
+  // month's spending limit is reached.
+  simpleSummary(itemId: number): Promise<SimpleSummary>;
   // The calls below reject with RefusedError when the server says no, such as deleting a
   // Folder that still has Sources.
   sources(): Promise<SourceInfo[]>;
@@ -340,6 +349,14 @@ export class HttpApiClient implements ApiClient {
       `api/items/${String(itemId)}/reader`,
     );
     return (await response.json()) as ReaderView;
+  }
+
+  async simpleSummary(itemId: number): Promise<SimpleSummary> {
+    const response = await this.sendWithSession(
+      "POST",
+      `api/items/${String(itemId)}/simple-summary`,
+    );
+    return simpleSummaryFromJson((await response.json()) as SimpleSummaryJson);
   }
 
   async sources(): Promise<SourceInfo[]> {

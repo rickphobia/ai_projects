@@ -49,6 +49,7 @@ def serve(settings: Settings) -> int:
         chat_effort=settings.chat_effort,
         chat_compaction_tokens=settings.chat_compaction_tokens,
         dictionary_model=settings.dictionary_model,
+        simple_summary_model=settings.simple_summary_model,
         timeout=settings.anthropic_timeout,
         max_attempts=settings.anthropic_max_attempts,
     )

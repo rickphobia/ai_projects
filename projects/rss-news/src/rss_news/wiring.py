@@ -35,6 +35,7 @@ from rss_news.items.reading import ArticleExtractor, ItemReading
 from rss_news.newsletters.collecting import Mailbox, Newsletters
 from rss_news.notes.notes import Notes
 from rss_news.scoring.item_scoring import ItemScoring, ScoringModel
+from rss_news.simple_summaries.summarising import SimpleSummaries, SimpleSummaryModel
 from rss_news.sources.catalog import StarterFolder, load_starter_sources
 from rss_news.sources.fetching import FeedFetcher, SourceFetching
 from rss_news.sources.managing import SourceManagement
@@ -48,7 +49,9 @@ from rss_news.web.app import create_app
 TICK_INTERVAL = timedelta(minutes=1)
 
 
-class LanguageModel(ScoringModel, BriefingModel, ChatModel, DictionaryModel, Protocol):
+class LanguageModel(
+    ScoringModel, BriefingModel, ChatModel, DictionaryModel, SimpleSummaryModel, Protocol
+):
     """Every job the app gives the language model."""
 
 
@@ -152,13 +155,14 @@ def build_app(
         ],
         clock,
     )
+    item_reading = ItemReading(items=items, extractor=article_extractor, clock=clock)
     app = create_app(
         settings,
         database=database,
         login_failures=SqliteLoginFailures(database),
         clock=clock,
         inbox=inbox,
-        item_reading=ItemReading(items=items, extractor=article_extractor, clock=clock),
+        item_reading=item_reading,
         source_management=SourceManagement(sources=sources, fetcher=feed_fetcher),
         stocks=stocks,
         briefings=Briefings(
@@ -182,6 +186,9 @@ def build_app(
             timezone=settings.timezone,
         ),
         dictionary=Dictionary(model=language_model, ledger=ledger, limit=limit),
+        simple_summaries=SimpleSummaries(
+            items=item_reading, model=language_model, ledger=ledger, limit=limit
+        ),
         notes=Notes(SqliteNotes(database), clock),
         spending=limit,
         alert_push=alert_push,

@@ -20,6 +20,7 @@ import type {
 } from "../src/api/chats";
 import type { Definition } from "../src/api/dictionary";
 import type { NewNote, Note } from "../src/api/notes";
+import type { SimpleSummary } from "../src/api/simple-summaries";
 import type { OwnerStocks, WatchedStock } from "../src/api/stocks";
 import type {
   ApiClient,
@@ -216,6 +217,11 @@ export class FakeApiClient implements ApiClient {
     return Promise.resolve();
   }
 
+  simpleSummary(itemId: number): Promise<SimpleSummary> {
+    this.simpleSummariesAsked.push(itemId);
+    return settle(this.simpleSummaryAnswer);
+  }
+
   async readerView(itemId: number): Promise<ReaderView> {
     if (this.holdReaderView) {
       await new Promise<void>((resolve) => {
@@ -305,6 +311,14 @@ export class FakeApiClient implements ApiClient {
   questions: [number, string][] = [];
   // The quote sent with each question, or null.
   quotes: (ChatQuote | null)[] = [];
+  // The Item id of each Summarise press; simpleSummaryAnswer answers them all.
+  simpleSummariesAsked: number[] = [];
+  simpleSummaryAnswer: SimpleSummary | Error = {
+    gist: "Malaysia's central bank kept its main interest rate the same.",
+    points: ["It left the rate at 2.75%.", "Loan rates should stay steady."],
+    fromPreview: false,
+    costUsd: "0.0006",
+  };
   // Each look-up, as [term, context]; definitionAnswer answers them all.
   lookUps: [string, string][] = [];
   definitionAnswer: Definition | Error = {

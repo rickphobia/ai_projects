@@ -23,6 +23,7 @@ from rss_news.dictionary.lookup import Dictionary
 from rss_news.items.inbox import Inbox
 from rss_news.items.reading import ItemReading
 from rss_news.notes.notes import Notes
+from rss_news.simple_summaries.summarising import SimpleSummaries
 from rss_news.sources.managing import SourceManagement
 from rss_news.spending.ledger import SpendingLedger
 from rss_news.spending.limit import SpendingLimit
@@ -97,6 +98,9 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
     limit = SpendingLimit(
         ledger, clock, timezone=settings.timezone, monthly_limit_usd=settings.monthly_limit_usd
     )
+    reading = ItemReading(
+        items=SqliteItems(database, clock), extractor=FakeArticleExtractor(), clock=clock
+    )
     client = TestClient(
         create_app(
             settings,
@@ -104,9 +108,7 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
             login_failures=SqliteLoginFailures(database),
             clock=clock,
             inbox=Inbox(SqliteItems(database, clock)),
-            item_reading=ItemReading(
-                items=SqliteItems(database, clock), extractor=FakeArticleExtractor(), clock=clock
-            ),
+            item_reading=reading,
             source_management=SourceManagement(
                 sources=SqliteSources(database), fetcher=FakeFeedFetcher()
             ),
@@ -132,6 +134,9 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
                 timezone=settings.timezone,
             ),
             dictionary=Dictionary(model=FakeLanguageModel(), ledger=ledger, limit=limit),
+            simple_summaries=SimpleSummaries(
+                items=reading, model=FakeLanguageModel(), ledger=ledger, limit=limit
+            ),
             notes=Notes(SqliteNotes(database), clock),
             spending=limit,
             alert_push=AlertPush(
