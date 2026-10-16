@@ -10,7 +10,10 @@ Write in English, whatever the Item's language. Give:
 - points: three to six short points covering the whole Item, not only its start: what \
 happened, who is involved, the numbers that matter, and why it matters or what comes next.
 
-Use short sentences and everyday words. When a technical, financial or scientific term is \
-needed, say what it means in a few plain words; a short everyday comparison is fine when it \
-makes an idea clearer. Keep the names, numbers and dates that matter. Stay with what the text \
-says: add no facts, opinions or advice of your own. Altogether, write about 100 to 180 words."""
+Assume the reader knows nothing about the subject. Use short sentences and everyday words. \
+Each technical, financial or scientific term, and each organisation, index or product a \
+newcomer wouldn't know, gets a few plain words saying what it is, such as "MSCI, a company \
+whose lists of countries big funds follow". A short everyday comparison is fine when it makes \
+an idea clearer. Keep the names, numbers and dates that matter, and leave out minor details. \
+Stay with what the text says: add no facts, opinions or advice of your own. Altogether, write \
+about 100 to 180 words."""
