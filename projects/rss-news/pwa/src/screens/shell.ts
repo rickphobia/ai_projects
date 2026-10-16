@@ -2,6 +2,7 @@ import type { ChatQuote } from "../api/chats";
 import { SignedOutError, type ApiClient } from "../api/client";
 import { noDevicePush, type DevicePush } from "../pwa/device-push";
 import type { Shortcut } from "../pwa/shortcut";
+import { AskAiPanel } from "./ask-ai-panel";
 import { renderBriefings, renderSavedBriefing } from "./briefings";
 import { renderHome } from "./home";
 import { renderInbox } from "./inbox";
@@ -148,15 +149,23 @@ export async function renderShell(
       listedIds === undefined ? {} : { listedIds },
     );
   };
+  const briefThese = (itemIds: number[]): void => {
+    void navigation.go({ screen: "inbox" }, { pickedItemIds: itemIds });
+  };
+  const askAi = new AskAiPanel(api, {
+    onOpenItem: openItem,
+    onBriefThese: briefThese,
+  });
+  main.append(askAi.element);
   const show = (visit: Visit, once: Once = {}): Promise<void> => {
     const { route } = visit;
     showing(route, visit.from);
+    if (route.screen !== "item") askAi.end();
     switch (route.screen) {
       case "home":
         return renderHome(page, api, {
           onOpenItem: openItem,
-          onBriefThese: (itemIds) =>
-            void navigation.go({ screen: "inbox" }, { pickedItemIds: itemIds }),
+          onBriefThese: briefThese,
           openChatId,
           quote: once.quote ?? null,
           open: once.openChat ?? false,
@@ -244,9 +253,11 @@ export async function renderShell(
     });
   }
   app.append(header, sidebar, drawer.backdrop, main);
-  // Ask AI from a Briefing, an Item or a Chat answer opens the Chat on Home with the quote.
+  // Ask AI in an Item opens the Chat beside it; from a Briefing or a Chat answer it opens the
+  // Chat on Home with the quote.
   installSelectionPopup(app, api, (quote) => {
-    void navigation.go({ screen: "home" }, { once: { quote } });
+    if (navigation.visit().route.screen === "item") void askAi.open(quote);
+    else void navigation.go({ screen: "home" }, { once: { quote } });
   });
   root.replaceChildren(app);
 

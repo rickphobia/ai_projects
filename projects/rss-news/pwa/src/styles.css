@@ -43,6 +43,7 @@
   --leading-reading: 1.75;
 
   --radius: 6px;
+  --ask-ai-width: min(26rem, 38vw);
   --sidebar-width: 15rem;
   --reading-width: 42rem;
   --header-height: 3rem;
@@ -1009,6 +1010,28 @@ form label {
 
   .chat-body {
     padding-top: var(--space-4);
+  }
+}
+
+/* Ask AI over an Item: the Chat panel floats on the right from 900px and the page makes room
+   for it; on a phone it is the bottom sheet, and the page leaves room for its bar. */
+.app:has(.ask-ai:not([hidden])) .page {
+  padding-bottom: 4rem;
+}
+
+@media (min-width: 900px) {
+  .ask-ai .chat-panel {
+    position: fixed;
+    top: calc(var(--header-height) + var(--space-3));
+    right: var(--space-4);
+    bottom: var(--space-4);
+    width: var(--ask-ai-width);
+    max-height: none;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+  }
+
+  .app:has(.ask-ai:not([hidden])) .page {
+    padding-right: calc(var(--ask-ai-width) + var(--space-6));
   }
 }
 

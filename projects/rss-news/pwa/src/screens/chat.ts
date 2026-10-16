@@ -18,6 +18,8 @@ export interface ChatPanelOptions {
   quote?: ChatQuote | null;
   // Start with the panel open even without a Chat or quote, as the Chat shortcut does.
   open?: boolean;
+  // Given, the panel has a Close button that calls it, as Ask AI's panel over an Item does.
+  onClose?: () => void;
   // "home" is the whole home screen: the question box up front with suggested questions under
   // it while the Chat is empty, and no sheet to open. "panel" (the default) is a side panel, a
   // bottom sheet on a phone.
@@ -40,6 +42,7 @@ export async function renderChatPanel(
     onOpenItem,
     onBriefThese,
     onChatOpened,
+    onClose,
     openChatId = null,
     quote = null,
     open = false,
@@ -80,6 +83,11 @@ export async function renderChatPanel(
   const controls = document.createElement("div");
   controls.className = "toolbar";
   controls.append(newChat);
+  if (onClose !== undefined) {
+    const close = button("Close");
+    close.addEventListener("click", onClose);
+    controls.append(close);
+  }
   const messages = document.createElement("ol");
   messages.className = "chat-messages";
   messages.setAttribute("aria-label", "Messages");
