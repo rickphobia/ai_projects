@@ -17,8 +17,18 @@ const ANSWER: ChatMessage = {
       title: "Bank Negara holds rates",
       source: "The Star",
       summary: "Rates held at 2.75%.",
+      importance: 4,
+      publishedAt: "2026-10-12T08:00:00+00:00",
     },
-    { id: 9, title: "Ringgit rises", source: "Reuters", summary: null },
+    // As saved before answers kept the Importance and time.
+    {
+      id: 9,
+      title: "Ringgit rises",
+      source: "Reuters",
+      summary: null,
+      importance: null,
+      publishedAt: null,
+    },
   ],
 };
 
@@ -98,23 +108,50 @@ describe("the Chat panel", () => {
     expect(
       screen.getByText("Rates held at 2.75%.", { exact: false }),
     ).toBeTruthy();
-    // An unscored Item shows its title instead of a summary.
-    expect(screen.getByText("Ringgit rises", { exact: false })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Ringgit rises" })).toBeTruthy();
     expect(progress.textContent).toBe("");
     expect(api.chatsCreated).toBe(1);
     expect(api.questions).toEqual([[101, "What happened in Malaysia?"]]);
     expect(onChatOpened).toHaveBeenCalledWith(101);
   });
 
-  it("opens an Item from its Source button", async () => {
+  it("shows each Item as a card: heading, summary, then Source, Importance and age", async () => {
     api.chatAnswers = [{ searches: [], result: ANSWER }];
     await render();
     askQuestion("Malaysia?");
     await screen.findByText(ANSWER.text);
 
-    screen.getByRole("button", { name: "Reuters: Ringgit rises" }).click();
+    const cards = screen
+      .getAllByRole("listitem")
+      .filter((card) => card.classList.contains("chat-item"));
+    expect(cards).toHaveLength(2);
+    const [first, second] = cards as [HTMLElement, HTMLElement];
+    expect(
+      within(first).getByRole("heading", { name: "Bank Negara holds rates" }),
+    ).toBeTruthy();
+    expect(within(first).getByText("Rates held at 2.75%.")).toBeTruthy();
+    const meta = first.querySelector(".chat-item-meta");
+    expect(meta?.textContent).toMatch(/^The Star · Importance 4 · .+$/);
+    expect(meta?.querySelector("time")?.dateTime).toBe(
+      "2026-10-12T08:00:00+00:00",
+    );
+    // An answer saved before the Importance and time were kept shows just the Source.
+    expect(second.querySelector(".chat-item-meta")?.textContent).toBe(
+      "Reuters",
+    );
+  });
 
-    expect(onOpenItem).toHaveBeenCalledWith(9);
+  it("opens an Item from its heading, with the answer's Items as the list", async () => {
+    api.chatAnswers = [{ searches: [], result: ANSWER }];
+    await render();
+    askQuestion("Malaysia?");
+    await screen.findByText(ANSWER.text);
+
+    const link = screen.getByRole("link", { name: "Ringgit rises" });
+    expect(link.getAttribute("href")).toBe("#items/9");
+    link.click();
+
+    expect(onOpenItem).toHaveBeenCalledWith(9, [7, 9]);
   });
 
   it("offers a Briefing of exactly the answer's Items", async () => {

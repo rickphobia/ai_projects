@@ -3,6 +3,7 @@ at most 90 days), checking the Item ids in answers, remembering earlier turns, s
 listing Chats, the spending limit, and when web search is offered."""
 
 import json
+import sqlite3
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
@@ -150,7 +151,11 @@ def test_a_question_without_a_window_searches_the_last_24_hours(
     assert name == "message"
     assert message["role"] == "assistant"
     assert message["text"] == "In the last 24 hours, 3 Items:"
-    assert message["items"] == [
+    # Importance and time are covered by test_answer_items_carry_their_importance_and_time.
+    assert [
+        {key: item[key] for key in ("id", "title", "source", "summary")}
+        for item in message["items"]
+    ] == [
         {
             "id": ids["Ringgit firms"],
             "title": "Ringgit firms",
@@ -283,6 +288,57 @@ def test_follow_ups_remember_the_conversation_and_chats_are_saved_and_listed(
     assert [(chat["id"], chat["title"]) for chat in listed] == [
         (chat_id, "what happened in Malaysia?"),
         (empty_id, "New Chat"),
+    ]
+
+
+def test_answer_items_carry_their_importance_and_time(
+    client: TestClient, model: FakeLanguageModel
+) -> None:
+    listed = client.get(f"{PREFIX}/api/inbox").json()["items"]
+    ringgit = next(item for item in listed if item["title"] == "Ringgit firms")
+    chat_id = new_chat(client)
+    model.chat_script = [[EVERYTHING], answer("One Item:", ringgit["id"])]
+
+    events = ask(client, chat_id, "what happened in Malaysia?")
+
+    expected = {
+        "id": ringgit["id"],
+        "title": "Ringgit firms",
+        "source": ringgit["source"],
+        "summary": f"About {ringgit['id']}",
+        "importance": ringgit["importance"],
+        "published_at": ringgit["published_at"],
+    }
+    answered = dict(events)["message"]
+    assert answered["items"] == [expected]
+    saved = client.get(f"{CHATS}/{chat_id}").json()["chat"]["messages"][1]
+    assert saved["items"] == [expected]
+
+
+def test_answers_saved_before_items_had_a_time_still_load(
+    client: TestClient, tmp_path: Path
+) -> None:
+    chat_id = new_chat(client)
+    old_items = '[{"id": 1, "title": "Old", "source": "The Star", "summary": "Said."}]'
+    with sqlite3.connect(tmp_path / "rss-news.sqlite3") as connection:
+        connection.execute(
+            "INSERT INTO chat_messages (chat_id, created_at, role, text, items) "
+            "VALUES (?, '2026-10-01T00:00:00+00:00', 'assistant', 'One:', ?)",
+            (chat_id, old_items),
+        )
+    connection.close()
+
+    saved = client.get(f"{CHATS}/{chat_id}").json()["chat"]["messages"][0]
+
+    assert saved["items"] == [
+        {
+            "id": 1,
+            "title": "Old",
+            "source": "The Star",
+            "summary": "Said.",
+            "importance": None,
+            "published_at": None,
+        }
     ]
 
 

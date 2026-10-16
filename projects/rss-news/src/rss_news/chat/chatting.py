@@ -248,7 +248,16 @@ class Chats:
             if item is None or item.id in listed:
                 continue
             listed.add(item.id)
-            items.append(AnswerItem(item.id, item.title, item.source_name, entry.summary))
+            items.append(
+                AnswerItem(
+                    item.id,
+                    item.title,
+                    item.source_name,
+                    entry.summary,
+                    importance=item.importance,
+                    published_at=item.published_at,
+                )
+            )
         return _CheckedAnswer(answer.intro, items)
 
 

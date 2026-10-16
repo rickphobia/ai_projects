@@ -128,6 +128,9 @@ class AnswerItem:
     title: str
     source_name: str
     summary: str
+    # None in answers saved before these were copied in.
+    importance: int | None = None
+    published_at: datetime | None = None
 
 
 @dataclass(frozen=True)

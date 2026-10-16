@@ -136,6 +136,10 @@ def _message_json(message: ChatMessage) -> dict[str, Any]:
                 "title": item.title,
                 "source": item.source_name,
                 "summary": item.summary,
+                "importance": item.importance,
+                "published_at": None
+                if item.published_at is None
+                else item.published_at.isoformat(),
             }
             for item in message.items
         ],

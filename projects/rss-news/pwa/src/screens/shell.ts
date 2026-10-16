@@ -28,7 +28,7 @@ export interface ShellOptions {
 // The app shell for a signed-in owner: a header with the name and whether the backend is up,
 // a sidebar with the screens and the Folders (a drawer opened from the header's Menu button on
 // a phone), a spending warning from 80% of the monthly limit, and the page: the home screen
-// (the latest Briefing), the Inbox (all of it or one Folder), an Item, the saved Briefings,
+// (the Chat), the Inbox (all of it or one Folder, with Brief me), an Item, the saved Briefings,
 // the Notes, the Sources, the Stocks or the Settings screen. Each screen has an address, and the
 // browser's Back and Forward move between them (see navigation.ts).
 export async function renderShell(
@@ -139,7 +139,7 @@ export async function renderShell(
         return toSettings;
     }
   };
-  // The Chat open in the Inbox, so it is still there after going to an Item and back.
+  // The Chat open on Home, so it is still there after going to an Item and back.
   let openChatId: number | null = null;
   // From the Inbox, with its list, so the Item view can go on to the next Item.
   const openItem = (itemId: number, listedIds?: number[]): void => {
@@ -153,30 +153,24 @@ export async function renderShell(
     showing(route, visit.from);
     switch (route.screen) {
       case "home":
-        return renderHome(
-          page,
-          api,
-          openItem,
-          visit.pickedItemIds,
-          once.briefNow ?? false,
-        );
-      case "inbox":
-        return renderInbox(
-          page,
-          api,
-          openItem,
-          (itemIds) =>
-            void navigation.go({ screen: "home" }, { pickedItemIds: itemIds }),
-          route.folderId,
-          {
-            openChatId,
-            quote: once.quote ?? null,
-            open: once.openChat ?? false,
-            onChatOpened: (chatId) => {
-              openChatId = chatId;
-            },
+        return renderHome(page, api, {
+          onOpenItem: openItem,
+          onBriefThese: (itemIds) =>
+            void navigation.go({ screen: "inbox" }, { pickedItemIds: itemIds }),
+          openChatId,
+          quote: once.quote ?? null,
+          open: once.openChat ?? false,
+          onChatOpened: (chatId) => {
+            openChatId = chatId;
           },
-        );
+        });
+      case "inbox":
+        return renderInbox(page, api, openItem, route.folderId, {
+          ...(visit.pickedItemIds === undefined
+            ? {}
+            : { pickedItemIds: visit.pickedItemIds }),
+          briefNow: once.briefNow ?? false,
+        });
       case "item":
         return renderItem(page, api, route.itemId, {
           onBack: () => {
@@ -250,9 +244,9 @@ export async function renderShell(
     });
   }
   app.append(header, sidebar, drawer.backdrop, main);
-  // Ask AI from a Briefing, an Item or a Chat answer opens the Inbox's Chat with the quote.
+  // Ask AI from a Briefing, an Item or a Chat answer opens the Chat on Home with the quote.
   installSelectionPopup(app, api, (quote) => {
-    void navigation.go({ screen: "inbox" }, { once: { quote } });
+    void navigation.go({ screen: "home" }, { once: { quote } });
   });
   root.replaceChildren(app);
 
@@ -275,9 +269,9 @@ export async function renderShell(
     }
     switch (shortcut) {
       case "brief":
-        return navigation.start({ screen: "home" }, { briefNow: true });
+        return navigation.start({ screen: "inbox" }, { briefNow: true });
       case "chat":
-        return navigation.start({ screen: "inbox" }, { openChat: true });
+        return navigation.start({ screen: "home" }, { openChat: true });
       case "notes":
         return navigation.start({ screen: "notes" });
       case null:

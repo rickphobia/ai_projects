@@ -19,7 +19,16 @@ const ANSWER_JSON = {
   created_at: "2026-10-12T09:05:00+00:00",
   text: "In the last 24 hours, 2 Items mention Malaysia.",
   items: [
-    { id: 7, title: "Budget day", source: "The Star", summary: "A summary." },
+    {
+      id: 7,
+      title: "Budget day",
+      source: "The Star",
+      summary: "A summary.",
+      importance: 4,
+      published_at: "2026-10-12T08:00:00+00:00",
+    },
+    // Saved before answers kept the Importance and time.
+    { id: 5, title: "Older", source: "Reuters", summary: "Said." },
   ],
 };
 
@@ -125,6 +134,24 @@ describe("HttpApiClient Chats", () => {
     expect(seen).toEqual([search]);
     expect(answer.role).toBe("assistant");
     expect(answer.text).toBe(ANSWER_JSON.text);
+    expect(answer.items).toEqual([
+      {
+        id: 7,
+        title: "Budget day",
+        source: "The Star",
+        summary: "A summary.",
+        importance: 4,
+        publishedAt: "2026-10-12T08:00:00+00:00",
+      },
+      {
+        id: 5,
+        title: "Older",
+        source: "Reuters",
+        summary: "Said.",
+        importance: null,
+        publishedAt: null,
+      },
+    ]);
     expect(answer.items[0]?.id).toBe(7);
   });
 
