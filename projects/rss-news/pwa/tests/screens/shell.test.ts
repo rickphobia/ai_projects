@@ -105,44 +105,81 @@ describe("the app shell", () => {
     ).toBe("page");
   });
 
-  it("Ask AI on an Item's text opens the Chat on Home with the quote", async () => {
-    api.items = [
-      {
-        id: 7,
-        title: "Bank Negara holds rates",
-        url: "https://news.example/7",
-        source: "The Star",
-        folder: { id: 1, name: "Malaysia" },
-        publishedAt: "2026-10-12T04:00:00+00:00",
-        importance: 5,
-        summary: "Malaysia's central bank kept its policy rate at 2.75%.",
-        read: false,
-        imageUrl: null,
-        stocks: [],
-      },
-    ];
+  const STORY: InboxItem = {
+    id: 7,
+    title: "Bank Negara holds rates",
+    url: "https://news.example/7",
+    source: "The Star",
+    folder: { id: 1, name: "Malaysia" },
+    publishedAt: "2026-10-12T04:00:00+00:00",
+    importance: 5,
+    summary: "Malaysia's central bank kept its policy rate at 2.75%.",
+    read: false,
+    imageUrl: null,
+    stocks: [],
+  };
+
+  // Selects the Item's summary and presses the selection popup's Ask AI.
+  async function askAiAboutTheSummary(): Promise<void> {
     Range.prototype.getBoundingClientRect = () => new DOMRect(0, 0, 10, 10);
-    await renderShell(root, api, () => undefined, { openItemId: 7 });
-    const summary = screen.getByText(
-      "Malaysia's central bank kept its policy rate at 2.75%.",
-    );
     const range = document.createRange();
+    const summary = root.querySelector(".item-summary");
+    if (summary === null) throw new Error("no Item summary");
     range.selectNodeContents(summary);
     // jsdom keeps one range; an earlier test's focus can leave one behind.
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(range);
     document.dispatchEvent(new Event("selectionchange"));
+    (await screen.findByRole("button", { name: "Ask AI" })).click();
+  }
 
-    const askAi = await screen.findByRole("button", { name: "Ask AI" });
-    askAi.click();
+  function askAiPanel(): HTMLElement {
+    const panel = root.querySelector<HTMLElement>(".ask-ai");
+    if (panel === null) throw new Error("no Ask AI panel");
+    return panel;
+  }
+
+  it("Ask AI on an Item's text opens the Chat beside the Item with the quote", async () => {
+    api.items = [{ ...STORY }];
+    await renderShell(root, api, () => undefined, { openItemId: 7 });
+
+    await askAiAboutTheSummary();
 
     const quoted = await screen.findByRole("figure", { name: "Asking about" });
     expect(quoted.textContent).toContain(
       "From Item: Bank Negara holds rates (The Star)",
     );
+    expect(askAiPanel().contains(quoted)).toBe(true);
+    expect(askAiPanel().hidden).toBe(false);
+    // Still on the Item, not sent Home.
+    expect(location.hash).toBe("#items/7");
+    expect(
+      screen.getByRole("heading", { name: "Bank Negara holds rates" }),
+    ).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Home" }).getAttribute("aria-current"),
-    ).toBe("page");
+    ).toBeNull();
+  });
+
+  it("closes the Item's Ask AI panel with Close, and ends it on leaving the Item", async () => {
+    api.items = [{ ...STORY }];
+    await renderShell(root, api, () => undefined, { openItemId: 7 });
+    await askAiAboutTheSummary();
+    await screen.findByRole("figure", { name: "Asking about" });
+
+    within(askAiPanel()).getByRole("button", { name: "Close" }).click();
+    expect(askAiPanel().hidden).toBe(true);
+
+    await askAiAboutTheSummary();
+    await waitFor(() => {
+      expect(askAiPanel().hidden).toBe(false);
+    });
+    screen.getByRole("button", { name: "Home" }).click();
+
+    await waitFor(() => {
+      expect(askAiPanel().hidden).toBe(true);
+    });
+    expect(askAiPanel().childElementCount).toBe(0);
   });
 
   it("says when the database is unreachable", async () => {
