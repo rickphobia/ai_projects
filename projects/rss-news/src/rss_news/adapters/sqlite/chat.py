@@ -146,6 +146,10 @@ class SqliteChats:
                     "title": item.title,
                     "source": item.source_name,
                     "summary": item.summary,
+                    "importance": item.importance,
+                    "published_at": None
+                    if item.published_at is None
+                    else to_db_time(item.published_at),
                 }
                 for item in answer_items
             ],
@@ -203,8 +207,17 @@ def _message(row: tuple[Any, ...]) -> ChatMessage:
         created_at=from_db_time(row[1]),
         role=row[2],
         text=row[3],
-        items=[
-            AnswerItem(item["id"], item["title"], item["source"], item["summary"])
-            for item in json.loads(row[4])
-        ],
+        items=[_answer_item(item) for item in json.loads(row[4])],
+    )
+
+
+def _answer_item(saved: dict[str, Any]) -> AnswerItem:
+    published_at = saved.get("published_at")
+    return AnswerItem(
+        saved["id"],
+        saved["title"],
+        saved["source"],
+        saved["summary"],
+        importance=saved.get("importance"),
+        published_at=None if published_at is None else from_db_time(published_at),
     )

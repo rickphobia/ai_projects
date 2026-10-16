@@ -691,19 +691,94 @@ form label {
   font-size: var(--text-sm);
 }
 
-/* Chat: a bottom sheet over the Inbox on a phone, opened from its Chat bar; a panel beside the
-   Inbox from 900px. */
-
-/* The Inbox and its Chat panel together are wider than the one centred column. */
-.page > :has(> .inbox-layout) {
-  max-width: none;
-}
+/* Chat: on Home (.chat-home), the whole screen; as a .chat-panel, a bottom sheet on a phone
+   opened from its Chat bar, and a sticky panel from 900px. */
 
 .inbox-column {
   max-width: var(--reading-width);
   margin: 0 auto;
-  /* Room for the closed sheet's bar, so it never covers Load more. */
-  padding-bottom: 3.5rem;
+}
+
+/* Home, like oksskolten's: a greeting over one big question box, suggestions under it. Once the
+   Chat starts, the greeting makes way and the answers sit above the box. */
+.home {
+  padding-top: 14vh;
+}
+
+.home:has(.chat-messages > li) {
+  padding-top: 0;
+}
+
+.home-greeting {
+  margin: 0 0 var(--space-5);
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.home:has(.chat-messages > li) .home-greeting {
+  display: none;
+}
+
+.chat-home .chat-label-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.chat-home .chat-form {
+  position: relative;
+  display: block;
+}
+
+.chat-home .chat-form label {
+  display: block;
+}
+
+.chat-home .chat-form textarea {
+  display: block;
+  width: 100%;
+  min-height: 7rem;
+  padding: var(--space-3) var(--space-4) 3.25rem;
+  border-radius: 12px;
+  font-size: var(--text-lg);
+  resize: none;
+}
+
+.chat-home .chat-form button[type="submit"] {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+}
+
+.chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.chat-suggestions > button {
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.chat-home > .chat-body > .toolbar {
+  justify-content: center;
+  margin: var(--space-6) 0 var(--space-2);
+}
+
+.chat-home .chat-history {
+  text-align: center;
+}
+
+.chat-home .chat-history ul {
+  text-align: left;
 }
 
 .chat-panel {
@@ -860,20 +935,43 @@ form label {
   line-height: var(--leading-reading);
 }
 
-.chat-answer ul {
-  margin-bottom: var(--space-2);
+/* An answer's Items: a card each, like the Inbox's, with the title as a bold heading. */
+.chat-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
 }
 
-.chat-answer ul > li {
-  padding: var(--space-1) 0;
-  border-bottom: 1px solid var(--border);
+.chat-item {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
 }
 
-.chat-source {
-  min-height: 1.75rem;
-  padding: 0 var(--space-2);
+.chat-item-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.chat-item-title a {
+  color: var(--text);
+}
+
+.chat-item-summary {
+  margin: var(--space-1) 0;
+}
+
+.chat-item-meta {
+  display: block;
+  color: var(--text-muted);
   font-size: var(--text-sm);
-  white-space: nowrap;
 }
 
 .chat-form {
@@ -892,18 +990,6 @@ form label {
 }
 
 @media (min-width: 900px) {
-  .inbox-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
-    gap: var(--space-6);
-    align-items: start;
-  }
-
-  .inbox-column {
-    width: 100%;
-    padding-bottom: 0;
-  }
-
   .chat-panel {
     position: sticky;
     top: calc(var(--header-height) + var(--space-5));
@@ -926,7 +1012,7 @@ form label {
   }
 }
 
-/* Reading column: Item, Reader view, Briefings and Home. */
+/* Reading column: Item, Reader view and Briefings. */
 
 .reading {
   max-width: var(--reading-width);
@@ -1005,7 +1091,24 @@ form label {
   list-style: revert;
 }
 
-/* Home's Brief me controls, in a card apart from the Briefing below. */
+/* Brief me, folded into a card at the top of the Inbox; inside it, the controls sit in their own
+   card apart from the Briefing below. */
+.brief-me-panel {
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.brief-me-panel > summary {
+  padding: var(--space-3) var(--space-4);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.brief-me-panel > div {
+  padding: 0 var(--space-4) var(--space-4);
+}
+
 .brief-me {
   margin-bottom: var(--space-5);
   padding: var(--space-4);

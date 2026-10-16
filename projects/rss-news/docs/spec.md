@@ -80,7 +80,7 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 
 ### Briefings
 
-38. As the owner, I want the home screen to show my latest Briefing, so that my ten minutes start there.
+38. As the owner, I want my latest Briefing and Brief me at the top of the Inbox, folded until I open them, so that they are one tap away without crowding the list.
 39. As the owner, I want a "Brief me" button for all Sources over the last 24 hours, so that the usual case is one tap.
 40. As the owner, I want to choose a 24 hour, 7 day or 30 day window, so that I can catch up after a few days away.
 41. As the owner, I want to brief one Folder only, so that I can get just the Malaysia or AI picture.
@@ -168,6 +168,8 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 96. As the owner, I want Reader view to work for Reddit posts and newsletters (the linked article, or the post or email itself), so that most Items read in the app instead of showing only a preview.
 97. As the owner, I want the Inbox to show only unread Items by default, with Unread / Read / All and Latest / Importance toggles at the top, so that the Inbox only holds what I haven't dealt with and I can still find what I've read.
 98. As the owner, I want scrolling on past the end of an Item to mark it read and open the next Item of the list I came from (or go back after the last), and a swipe left or right (or the arrow keys) to move to the next or previous Item without marking it, so that I can read through my Inbox without going back to it each time.
+99. As the owner, I want the home screen to be only an AI chat box, like oksskolten's: a greeting, a big question box and suggested questions (what's interesting today, a summary of the last 24 hours, a summary of the last 24 hours on a topic I type), so that I start by asking rather than scrolling.
+100. As the owner, I want each Item in a Chat answer to show its title as a heading that opens it, a two-or-three-sentence plain-words summary, and its Source, Importance and age, so that the answer reads like a short news digest.
 
 ## Implementation Decisions
 

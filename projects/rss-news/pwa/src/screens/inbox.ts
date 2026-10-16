@@ -6,15 +6,17 @@ import {
   type InboxQuery,
   type InboxReadFilter,
 } from "../api/client";
-import { renderChatPanel, type ChatPanelOptions } from "./chat";
+import { briefMeCard } from "./brief-me";
 import { inboxContents } from "./inbox-contents";
 import { itemRow, rowId } from "./inbox-row";
 import { toggleGroup } from "./toggle-group";
 
-export type InboxChat = Pick<
-  ChatPanelOptions,
-  "openChatId" | "onChatOpened" | "quote" | "open"
->;
+export interface InboxBriefing {
+  // Items to offer a Briefing of, from "Brief these" under a Chat answer.
+  pickedItemIds?: number[];
+  // Press Brief me straight away, for the Brief me (24h) shortcut.
+  briefNow?: boolean;
+}
 
 const ALL_FOLDERS = "";
 const ANY_IMPORTANCE = "";
@@ -22,19 +24,18 @@ const ANY_IMPORTANCE = "";
 // The Inbox: the unread Items (or the read ones, or all) latest first or most important first,
 // a keyword search, filters by Folder and Importance, and a button for the next page. Choosing
 // an Item calls onOpen with its id and the loaded Items' ids in order, so the Item view can move
-// on to the next one. Items can be ticked, and "Brief these" calls onBriefThese with their ids.
-// A Contents panel lists the loaded Items and jumps to the chosen one's row.
-// Given folderId (a Folder picked in the sidebar), it opens filtered to that Folder. The Chat
-// panel sits beside it, its Source buttons and "Brief these" going to the same callbacks; it
-// reopens chat.openChatId and reports the Chat it shows.
+// on to the next one. Brief me and the latest Briefing sit folded at the top (brief-me.ts);
+// Items can be ticked, and "Brief these" opens it offering a Briefing of exactly those. A
+// Contents panel lists the loaded Items and jumps to the chosen one's row.
+// Given folderId (a Folder picked in the sidebar), it opens filtered to that Folder.
 export async function renderInbox(
   root: HTMLElement,
   api: ApiClient,
   onOpen: (itemId: number, listedIds?: number[]) => void,
-  onBriefThese: (itemIds: number[]) => void,
   folderId?: number,
-  chat: InboxChat = { openChatId: null },
+  briefing: InboxBriefing = {},
 ): Promise<void> {
+  const briefMe = briefMeCard(api, onOpen);
   const filter = document.createElement("select");
   filter.append(new Option("All folders", ALL_FOLDERS));
   const importanceFilter = document.createElement("select");
@@ -112,7 +113,8 @@ export async function renderInbox(
   };
   showPicked();
   briefThese.addEventListener("click", () => {
-    onBriefThese([...picked]);
+    void briefMe.show([...picked]);
+    briefMe.card.scrollIntoView({ behavior: "smooth", block: "start" });
   });
   const onPick = (itemId: number, ticked: boolean): void => {
     if (ticked) picked.add(itemId);
@@ -128,6 +130,7 @@ export async function renderInbox(
   const column = document.createElement("div");
   column.className = "inbox-column";
   column.append(
+    briefMe.card,
     views,
     searchForm,
     filters,
@@ -137,10 +140,9 @@ export async function renderInbox(
     status,
     loadMore,
   );
-  const chatPanel = document.createElement("aside");
   const layout = document.createElement("div");
   layout.className = "inbox-layout";
-  layout.append(column, chatPanel, contents.panel);
+  layout.append(column, contents.panel);
   root.replaceChildren(layout);
 
   let query: InboxQuery =
@@ -218,11 +220,9 @@ export async function renderInbox(
       if (folderId !== undefined) filter.value = String(folderId);
     }),
     load(false),
-    renderChatPanel(chatPanel, api, {
-      onOpenItem: onOpen,
-      onBriefThese,
-      ...chat,
-    }),
+    briefing.pickedItemIds !== undefined || briefing.briefNow === true
+      ? briefMe.show(briefing.pickedItemIds, briefing.briefNow)
+      : Promise.resolve(),
   ]);
 }
 

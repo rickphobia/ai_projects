@@ -1,12 +1,25 @@
 // Chats as the PWA sees them, and how the backend's JSON becomes them.
 
-// An Item in a Chat answer; its Source button opens it in the Item view.
+// An Item in a Chat answer; its title opens it in the Item view.
 export interface ChatAnswerItem {
   id: number;
   title: string;
   source: string;
-  // The one-line summary, or null while the Item is unscored.
+  // What the answer says about the Item, or null when it gave nothing.
   summary: string | null;
+  // Null in answers saved before these were kept.
+  importance: number | null;
+  // ISO 8601 with a time zone.
+  publishedAt: string | null;
+}
+
+export interface ChatAnswerItemJson {
+  id: number;
+  title: string;
+  source: string;
+  summary: string | null;
+  importance?: number | null;
+  published_at?: string | null;
 }
 
 export interface ChatMessage {
@@ -64,7 +77,7 @@ export interface ChatMessageJson {
   role: "owner" | "assistant";
   created_at: string;
   text: string;
-  items: ChatAnswerItem[];
+  items: ChatAnswerItemJson[];
 }
 
 export interface ChatJson extends ChatSummaryJson {
@@ -94,7 +107,14 @@ export function chatMessageFromJson(message: ChatMessageJson): ChatMessage {
     role: message.role,
     createdAt: message.created_at,
     text: message.text,
-    items: message.items,
+    items: message.items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      source: item.source,
+      summary: item.summary,
+      importance: item.importance ?? null,
+      publishedAt: item.published_at ?? null,
+    })),
   };
 }
 

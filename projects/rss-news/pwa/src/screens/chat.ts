@@ -1,11 +1,12 @@
-import type { Chat, ChatMessage, ChatQuote, ChatSummary } from "../api/chats";
+import type { Chat, ChatMessage, ChatQuote } from "../api/chats";
 import { RefusedError, SignedOutError, type ApiClient } from "../api/client";
-import { offerSelection } from "./selection";
-import { relativeTime, shownTime } from "./shown-time";
+import { answerRow, questionRow } from "./chat-answer";
+import { historyRow } from "./chat-history";
+import { suggestionChips } from "./chat-suggestions";
 
 export interface ChatPanelOptions {
-  // A Source button opens its Item in the Item view.
-  onOpenItem: (itemId: number) => void;
+  // An answer's Item title opens it in the Item view, with the answer's Items as its list.
+  onOpenItem: (itemId: number, listedIds?: number[]) => void;
   // "Brief these" under an answer offers a Briefing of exactly its Items.
   onBriefThese: (itemIds: number[]) => void;
   // The Chat to show at first, such as the one open before the owner went to an Item.
@@ -17,6 +18,10 @@ export interface ChatPanelOptions {
   quote?: ChatQuote | null;
   // Start with the panel open even without a Chat or quote, as the Chat shortcut does.
   open?: boolean;
+  // "home" is the whole home screen: the question box up front with suggested questions under
+  // it while the Chat is empty, and no sheet to open. "panel" (the default) is a side panel, a
+  // bottom sheet on a phone.
+  layout?: "panel" | "home";
 }
 
 // The Chat docked in the Inbox: a side panel on a wide screen, a bottom sheet opened from its
@@ -38,6 +43,7 @@ export async function renderChatPanel(
     openChatId = null,
     quote = null,
     open = false,
+    layout = "panel",
   } = options;
   const body = document.createElement("div");
   body.id = "chat-panel-body";
@@ -93,10 +99,22 @@ export async function renderChatPanel(
   const question = document.createElement("textarea");
   question.rows = 2;
   question.required = true;
-  question.placeholder = "What happened in Malaysia?";
+  question.placeholder =
+    layout === "home"
+      ? "Ask anything about your news…"
+      : "What happened in Malaysia?";
+  // Enter asks, as in a chat app; Shift+Enter starts a new line.
+  question.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    form.requestSubmit();
+  });
   const questionLabel = document.createElement("label");
-  questionLabel.textContent = "Ask about your news";
-  questionLabel.append(question);
+  // Its own element, so Home can hide it from sight and keep it for screen readers.
+  const labelText = document.createElement("span");
+  labelText.className = "chat-label-text";
+  labelText.textContent = "Ask about your news";
+  questionLabel.append(labelText, question);
   const ask = button("Ask");
   ask.type = "submit";
   let attached = quote;
@@ -106,10 +124,39 @@ export async function renderChatPanel(
     question.focus();
   });
   form.append(quoted, questionLabel, ask);
-  body.append(controls, history, messages, progress, failure, form);
-  panel.className = "chat-panel";
+  const suggestions = suggestionChips(
+    (text) => void askQuestion(text),
+    (text) => {
+      question.value = text;
+      question.focus();
+      question.setSelectionRange(text.length, text.length);
+    },
+  );
+  const showSuggestions = (): void => {
+    suggestions.hidden = layout !== "home" || messages.childElementCount > 0;
+  };
+  history
+    .querySelector("summary")
+    ?.replaceChildren(layout === "home" ? "Chat history" : "Earlier Chats");
+  if (layout === "home") {
+    body.append(
+      messages,
+      progress,
+      failure,
+      form,
+      suggestions,
+      controls,
+      history,
+    );
+    panel.className = "chat-home";
+    panel.replaceChildren(body);
+  } else {
+    body.append(controls, history, messages, progress, failure, form);
+    panel.className = "chat-panel";
+    panel.replaceChildren(toggle, body);
+  }
   panel.setAttribute("aria-label", "Chat");
-  panel.replaceChildren(toggle, body);
+  showSuggestions();
 
   let chat: Chat | null = null;
   // Each Chat shown gets a number; one that arrives after the owner chose another is dropped.
@@ -122,6 +169,7 @@ export async function renderChatPanel(
   const show = (shown: Chat | null): void => {
     chat = shown;
     messages.replaceChildren(...(shown?.messages ?? []).map(messageRow));
+    showSuggestions();
     progress.textContent = "";
     showFailure("");
     if (shown !== null) onChatOpened?.(shown.id);
@@ -180,6 +228,7 @@ export async function renderChatPanel(
     const thisShow = latestShown;
     const asked = questionRow(text);
     messages.append(asked);
+    showSuggestions();
     question.value = "";
     ask.disabled = true;
     showFailure("");
@@ -213,6 +262,7 @@ export async function renderChatPanel(
       if (thisShow !== latestShown || error instanceof SignedOutError) return;
       // Nothing of a failed turn is saved, so the question goes back in the box to try again.
       asked.remove();
+      showSuggestions();
       question.value = text;
       progress.textContent = "";
       // A refusal is already worded for the owner; anything else needs saying what failed.
@@ -226,7 +276,8 @@ export async function renderChatPanel(
     }
   }
 
-  if (quote !== null) question.focus();
+  // On Home, the Chat shortcut lands in the question box.
+  if (quote !== null || (layout === "home" && open)) question.focus();
   await Promise.all([
     listChats(),
     openChatId === null ? Promise.resolve() : choose(openChatId),
@@ -249,69 +300,6 @@ function quoteBox(quote: ChatQuote | null, onRemove: () => void): HTMLElement {
   origin.append(" ", remove);
   box.append(text, origin);
   return box;
-}
-
-function questionRow(text: string): HTMLLIElement {
-  const row = document.createElement("li");
-  row.className = "chat-question";
-  row.textContent = text;
-  return row;
-}
-
-function answerRow(
-  message: ChatMessage,
-  chatId: number | null,
-  onOpenItem: (itemId: number) => void,
-  onBriefThese: (itemIds: number[]) => void,
-): HTMLLIElement {
-  const row = document.createElement("li");
-  row.className = "chat-answer";
-  offerSelection(
-    row,
-    "a Chat answer",
-    chatId === null ? undefined : { kind: "chat", id: chatId },
-  );
-  const intro = document.createElement("p");
-  intro.textContent = message.text;
-  row.append(intro);
-  if (message.items.length === 0) return row;
-  const items = document.createElement("ul");
-  for (const item of message.items) {
-    const source = button(item.source);
-    source.className = "chat-source";
-    source.setAttribute("aria-label", `${item.source}: ${item.title}`);
-    source.title = item.title;
-    source.addEventListener("click", () => {
-      onOpenItem(item.id);
-    });
-    const entry = document.createElement("li");
-    entry.append(item.summary ?? item.title, " ", source);
-    items.append(entry);
-  }
-  const briefThese = button(`Brief these (${String(message.items.length)})`);
-  briefThese.addEventListener("click", () => {
-    onBriefThese(message.items.map((item) => item.id));
-  });
-  row.append(items, briefThese);
-  return row;
-}
-
-function historyRow(
-  summary: ChatSummary,
-  onChoose: (chatId: number) => Promise<void>,
-): HTMLLIElement {
-  const choose = button(summary.title);
-  choose.addEventListener("click", () => {
-    void onChoose(summary.id);
-  });
-  const used = new Date(summary.updatedAt);
-  const time = document.createElement("time");
-  time.dateTime = summary.updatedAt;
-  time.title = shownTime.format(used);
-  time.textContent = relativeTime(used, new Date());
-  const row = document.createElement("li");
-  row.append(choose, time);
-  return row;
 }
 
 function itemCount(count: number): string {

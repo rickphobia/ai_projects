@@ -74,23 +74,25 @@ describe("the app shell", () => {
     await waitFor(() => {
       expect(api.writeScopes).toEqual([{ window: "24h" }]);
     });
-    // Not a regenerate: today's saved Briefing is shown if there is one.
-    expect(api.writeRequests).toEqual([false]);
-  });
-
-  it("the Chat shortcut opens the Inbox with its Chat open", async () => {
-    await renderShell(root, api, () => undefined, { shortcut: "chat" });
-
+    // Brief me lives in the Inbox.
     expect(
       screen
         .getByRole("button", { name: "Inbox" })
         .getAttribute("aria-current"),
     ).toBe("page");
+    // Not a regenerate: today's saved Briefing is shown if there is one.
+    expect(api.writeRequests).toEqual([false]);
+  });
+
+  it("the Chat shortcut opens Home with the cursor in the question box", async () => {
+    await renderShell(root, api, () => undefined, { shortcut: "chat" });
+
     expect(
-      screen
-        .getByRole("button", { name: "Chat" })
-        .getAttribute("aria-expanded"),
-    ).toBe("true");
+      screen.getByRole("button", { name: "Home" }).getAttribute("aria-current"),
+    ).toBe("page");
+    expect(document.activeElement).toBe(
+      screen.getByRole("textbox", { name: "Ask about your news" }),
+    );
   });
 
   it("the Notes shortcut opens the Notes", async () => {
@@ -103,7 +105,7 @@ describe("the app shell", () => {
     ).toBe("page");
   });
 
-  it("Ask AI on an Item's text opens the Inbox Chat with the quote", async () => {
+  it("Ask AI on an Item's text opens the Chat on Home with the quote", async () => {
     api.items = [
       {
         id: 7,
@@ -126,6 +128,8 @@ describe("the app shell", () => {
     );
     const range = document.createRange();
     range.selectNodeContents(summary);
+    // jsdom keeps one range; an earlier test's focus can leave one behind.
+    window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(range);
     document.dispatchEvent(new Event("selectionchange"));
 
@@ -137,9 +141,7 @@ describe("the app shell", () => {
       "From Item: Bank Negara holds rates (The Star)",
     );
     expect(
-      screen
-        .getByRole("button", { name: "Inbox" })
-        .getAttribute("aria-current"),
+      screen.getByRole("button", { name: "Home" }).getAttribute("aria-current"),
     ).toBe("page");
   });
 
@@ -163,7 +165,7 @@ describe("the app shell", () => {
     );
   });
 
-  it("starts on the home screen with the latest Briefing", async () => {
+  it("starts on the home screen's Chat; the latest Briefing is in the Inbox", async () => {
     api.latestBriefingAnswer = {
       id: 1,
       scope: "all-24h",
@@ -201,15 +203,21 @@ describe("the app shell", () => {
 
     await renderShell(root, api, () => undefined);
 
-    expect(screen.getByText("A model came out.")).toBeTruthy();
+    expect(
+      screen.getByRole("textbox", { name: "Ask about your news" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("A model came out.")).toBeNull();
+
+    screen.getByRole("button", { name: "Inbox" }).click();
+    const card = (await screen.findByText("Brief me")).closest("details");
+    if (card) card.open = true;
+    card?.dispatchEvent(new Event("toggle"));
+    await screen.findByText("A model came out.");
     screen.getByRole("link", { name: "Example: A story" }).click();
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "A story" })).toBeTruthy();
     });
-    screen.getByRole("button", { name: "Back to Home" }).click();
-    await waitFor(() => {
-      expect(screen.getByText("A model came out.")).toBeTruthy();
-    });
+    expect(screen.getByRole("button", { name: "Back to Inbox" })).toBeTruthy();
   });
 
   it("shows the Inbox", async () => {
@@ -308,7 +316,7 @@ describe("the app shell", () => {
     expect(screen.queryByRole("link", { name: "First story" })).toBeNull();
   });
 
-  describe("the Chat in the Inbox", () => {
+  describe("the Chat on Home", () => {
     beforeEach(() => {
       api.items = [
         {
@@ -339,6 +347,8 @@ describe("the app shell", () => {
                 title: "Bank Negara holds rates",
                 source: "The Star",
                 summary: "Rates held at 2.75%.",
+                importance: 5,
+                publishedAt: "2026-10-12T04:00:00+00:00",
               },
             ],
           },
@@ -346,9 +356,8 @@ describe("the app shell", () => {
       ];
     });
 
-    async function askInInbox(): Promise<void> {
+    async function askOnHome(): Promise<void> {
       await renderShell(root, api, () => undefined);
-      screen.getByRole("button", { name: "Inbox" }).click();
       const box = await screen.findByRole("textbox", {
         name: "Ask about your news",
       });
@@ -357,12 +366,10 @@ describe("the app shell", () => {
       await screen.findByText("Rates held at 2.75%.", { exact: false });
     }
 
-    it("opens an answer's Item from its Source button and comes back to the Chat", async () => {
-      await askInInbox();
+    it("opens an answer's Item from its heading and comes back to the Chat", async () => {
+      await askOnHome();
 
-      screen
-        .getByRole("button", { name: "The Star: Bank Negara holds rates" })
-        .click();
+      screen.getByRole("link", { name: "Bank Negara holds rates" }).click();
       await waitFor(() => {
         expect(
           screen.getByRole("heading", { name: "Bank Negara holds rates" }),
@@ -370,28 +377,26 @@ describe("the app shell", () => {
       });
       expect(api.itemsOpened).toEqual([7]);
 
-      screen.getByRole("button", { name: "Back to Inbox" }).click();
+      screen.getByRole("button", { name: "Back to Home" }).click();
       await waitFor(() => {
         expect(screen.getByText("What happened in Malaysia?")).toBeTruthy();
       });
     });
 
     it("offers a Briefing of exactly an answer's Items from Brief these", async () => {
-      await askInInbox();
+      await askOnHome();
 
-      const chatPanel = screen.getByRole("complementary", { name: "Chat" });
-      within(chatPanel)
-        .getByRole("button", { name: "Brief these (1)" })
-        .click();
+      screen.getByRole("button", { name: "Brief these (1)" }).click();
 
       await waitFor(() => {
         expect(api.estimateRequests).toContainEqual({ itemIds: [7] });
       });
       expect(
         screen
-          .getByRole("button", { name: "Home" })
+          .getByRole("button", { name: "Inbox" })
           .getAttribute("aria-current"),
       ).toBe("page");
+      expect(screen.getByText("Brief me").closest("details")?.open).toBe(true);
     });
   });
 
