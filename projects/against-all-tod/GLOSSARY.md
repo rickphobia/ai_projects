@@ -33,7 +33,7 @@ The number of Rounds won in a Run. A Run has no last Round; it ends only when th
 _Avoid_: Points, high score (the stored best Score is the "best Score")
 
 **Boss Round**:
-Every fifth Round, where the game adds its own extra threat on top of the player's.
+Every fifth Round, where the game adds a boss to the side the player is fighting against: a boss Dude on a Defense turn, a boss tower on an Attack turn.
 _Avoid_: Boss wave, elite round
 
 **Curse**:
