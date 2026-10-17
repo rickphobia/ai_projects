@@ -99,11 +99,11 @@ The offer at the start of each Round for the side being played: three random ite
 _Avoid_: Loot box, pack, draft
 
 **Defense gold**:
-Gold earned by killing Dudes, spent only on the defense side.
+Gold earned by killing Dudes, plus a bonus for the Goal health left after a won Defense turn. Spent only on the defense side.
 _Avoid_: Blood money, coins
 
 **Attack gold**:
-Gold earned by damaging the Goal, spent only on the attack side.
+Gold earned by each Dude that reaches the Goal, each Dude still alive when the Goal breaks, and each Piece a Wall-breaker destroys. Spent only on the attack side.
 _Avoid_: Blood money, coins
 
 **Settings trick**:
