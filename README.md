@@ -83,5 +83,6 @@ Follow [`docs/new-project.md`](docs/new-project.md). It is ticket 01 of the proj
 | [rss-news](projects/rss-news) | Personal news briefing: reads many feeds for one owner and writes a short Briefing on request | Python, FastAPI, SQLite, TypeScript PWA, Docker | in progress |
 | [ascii-sky](projects/ascii-sky) | Browser flight simulator drawn entirely in printable ASCII, from the cockpit to the instruments | TypeScript, Vite, three.js | in progress |
 | [duit-log](projects/duit-log) | Android money log that turns e-wallet payment notifications into sorted Income and Expenses, on the phone only | Kotlin, Jetpack Compose, SQLDelight, Android | in progress |
+| [against-all-tod](projects/against-all-tod) | Solo Tower Offense Defense: build a Maze, then switch sides and break it, on a Board that never resets | TypeScript, Vite, PixiJS | in progress |
 
 Status values: `idea`, `in progress`, `working`, `abandoned`.
