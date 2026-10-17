@@ -1,0 +1,8 @@
+dist
+node_modules
+itch
+package-lock.json
+# Prose is written by hand; Prettier only formats code and config.
+*.md
+# Third-party art and its licence, kept as the pack ships them.
+assets/

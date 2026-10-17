@@ -1,0 +1,41 @@
+name: against-all-tod
+
+on:
+  push:
+    paths:
+      - "projects/against-all-tod/**"
+      - ".github/workflows/against-all-tod.yml"
+  pull_request:
+    paths:
+      - "projects/against-all-tod/**"
+      - ".github/workflows/against-all-tod.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: against-all-tod-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: projects/against-all-tod
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: projects/against-all-tod/.nvmrc
+          cache: npm
+          cache-dependency-path: projects/against-all-tod/package-lock.json
+      - run: npm ci
+      # Lint, format check, type check and tests; the list lives in package.json.
+      - run: npm run check
+      # The build reads VITE_* vars at build time; use the example values so it always has them.
+      - run: cp .env.example .env && npm run build
+      # The server deploy scripts and the itch.io zip script. shellcheck comes preinstalled on the runner.
+      - run: shellcheck deploy/*.sh scripts/*.sh

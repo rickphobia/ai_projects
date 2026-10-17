@@ -1,0 +1,5 @@
+node_modules
+dist
+itch
+.env
+.env.local

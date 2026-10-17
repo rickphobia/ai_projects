@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>Against All TOD</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #16201a;
+        --fg: #e8efe9;
+        --muted: #9fb3a5;
+        --attack: #ff5a36;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: system-ui, sans-serif;
+      }
+      /* PixiJS sizes its canvas to this box; pinch and drag belong to the game, not the browser. */
+      #game {
+        position: fixed;
+        inset: 0;
+        touch-action: none;
+      }
+      #game canvas {
+        display: block;
+      }
+      #startup-error {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 16px;
+        text-align: center;
+        background: var(--bg);
+      }
+      #startup-error[hidden] {
+        display: none;
+      }
+      #startup-error h1 {
+        margin: 0;
+        font-size: 1.6rem;
+        color: var(--attack);
+      }
+      #startup-error p {
+        margin: 0;
+        max-width: 40rem;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game" aria-label="Against All TOD board"></div>
+    <section id="startup-error" role="alert" hidden>
+      <h1>Against All TOD could not start</h1>
+      <p id="startup-error-reason"></p>
+      <p>Reloading the page may help. The browser console has the details.</p>
+    </section>
+    <noscript>Against All TOD needs JavaScript.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
