@@ -1,4 +1,4 @@
-import { Assets, type Texture } from "pixi.js";
+import { Texture } from "pixi.js";
 import grassUrl from "../../../assets/kenney-tower-defense-top-down/towerDefense_tile024.png";
 import dirtUrl from "../../../assets/kenney-tower-defense-top-down/towerDefense_tile158.png";
 import stoneBaseUrl from "../../../assets/kenney-tower-defense-top-down/towerDefense_tile182.png";
@@ -15,12 +15,34 @@ export interface BoardTextures {
   readonly stoneBase: Texture;
 }
 
+export class TextureLoadError extends Error {
+  override name = "TextureLoadError";
+}
+
 /** Single tiles rather than the pack's tilesheet: its frames have no padding, so scaled tiles bleed their neighbours. */
 export async function loadBoardTextures(): Promise<BoardTextures> {
   const [grass, dirt, stoneBase] = await Promise.all([
-    Assets.load<Texture>(grassUrl),
-    Assets.load<Texture>(dirtUrl),
-    Assets.load<Texture>(stoneBaseUrl),
+    loadTexture("grass", grassUrl),
+    loadTexture("dirt", dirtUrl),
+    loadTexture("stone base", stoneBaseUrl),
   ]);
   return { grass, dirt, stoneBase };
+}
+
+/**
+ * Loads through an <img>, not PixiJS's Assets loader: Vite inlines small images as data: URLs,
+ * and the loader fetch()es them, which a sandbox like the Artifact preview's blocks (connect-src)
+ * while still allowing them as images.
+ */
+async function loadTexture(name: string, url: string): Promise<Texture> {
+  const image = new Image();
+  image.src = url;
+  try {
+    await image.decode();
+  } catch (error) {
+    throw new TextureLoadError(`Could not load the ${name} tile.`, {
+      cause: error,
+    });
+  }
+  return Texture.from(image);
 }
