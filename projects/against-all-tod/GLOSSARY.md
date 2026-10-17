@@ -24,6 +24,10 @@ _Avoid_: Offense round, offense turn
 One allowed failure. A Round that ends in a loss costs one Life; at zero the Run ends.
 _Avoid_: Heart, retry, attempt
 
+**Rewind**:
+What follows a lost Round: the Board goes back to how it was at the start of that Round, and the player tries again with the same crate pick and gold plus some bonus gold.
+_Avoid_: Retry, restart, reload
+
 **Score**:
 The number of Rounds won in a Run. A Run has no last Round; it ends only when the Lives run out.
 _Avoid_: Points, high score (the stored best Score is the "best Score")
@@ -72,10 +76,18 @@ _Avoid_: Wave, troop, group
 Every Squad placed so far. It all returns each Attack turn.
 _Avoid_: Swarm, horde
 
+**Mutation**:
+A permanent change to every Dude in the Army, taken from an attack Draft Crate.
+_Avoid_: Upgrade, buff, perk
+
+**Wall-breaker**:
+A Dude kind that can damage pieces of the Maze. Ordinary Dudes only walk.
+_Avoid_: Siege unit, sapper (Sapper is one Wall-breaker)
+
 ## Getting things
 
 **Draft Crate**:
-The offer at the start of each Round: three random items, of which the player takes one for free.
+The offer at the start of each Round for the side being played: three random items, of which the player takes one for free. Defense crates hold Maze pieces; attack crates hold Squads and Mutations.
 _Avoid_: Loot box, pack, draft
 
 **Defense gold**:
@@ -91,7 +103,7 @@ A change made in the game's own Settings menu (Brightness, Volume, Window size, 
 _Avoid_: Sabotage, cheat, hack, UI weapon
 
 **Undo**:
-Reversing one Settings trick by giving up part of your own side on the Board. Rare and painful on purpose.
+Reversing one Settings trick by destroying pieces of your own side, of your choice, up to the trick's price. Rare and painful on purpose.
 _Avoid_: Reset, revert
 
 **Watch speed**:
