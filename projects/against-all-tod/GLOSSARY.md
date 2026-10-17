@@ -54,6 +54,10 @@ _Avoid_: Map, field, level
 Everything the defender has placed on the Board. Dudes walk the shortest open route through it, so placing pieces shapes their path. The Goal can never be sealed off.
 _Avoid_: Path, lane, fortress, castle
 
+**Piece**:
+One thing the defender places in the Maze: a wall, a tower or a floor trap.
+_Avoid_: Building, structure, turret
+
 **Goal**:
 The thing the Army must destroy. It has a health bar; the Attack turn is won when it reaches zero.
 _Avoid_: Base, core, castle, nexus
@@ -67,6 +71,10 @@ _Avoid_: Deployment line, start zone
 **Dude**:
 One attacking unit.
 _Avoid_: Unit, minion, soldier, creep
+
+**Dude kind**:
+One type of Dude, such as Intern or Termite. Every Dude in a Squad is the same kind.
+_Avoid_: Hero, hero type, class, unit type
 
 **Squad**:
 A group of Dudes of one kind placed together on the Spawn line.
@@ -87,7 +95,7 @@ _Avoid_: Siege unit, sapper (Sapper is one Wall-breaker)
 ## Getting things
 
 **Draft Crate**:
-The offer at the start of each Round for the side being played: three random items, of which the player takes one for free. Defense crates hold Maze pieces; attack crates hold Squads and Mutations.
+The offer at the start of each Round for the side being played: three random items, of which the player takes one for free. Defense crates hold Pieces; attack crates hold Squads and Mutations.
 _Avoid_: Loot box, pack, draft
 
 **Defense gold**:
