@@ -25,8 +25,20 @@ One allowed failure. A Round that ends in a loss costs one Life; at zero the Run
 _Avoid_: Heart, retry, attempt
 
 **Score**:
-The number of Rounds won in a Run.
+The number of Rounds won in a Run. A Run has no last Round; it ends only when the Lives run out.
 _Avoid_: Points, high score (the stored best Score is the "best Score")
+
+**Boss Round**:
+Every fifth Round, where the game adds its own extra threat on top of the player's.
+_Avoid_: Boss wave, elite round
+
+**Curse**:
+A random handicap the game puts on one side for one Round, announced before building starts. The player never chooses it.
+_Avoid_: Debuff, modifier, event
+
+**Unlock**:
+A new tower, Dude kind or mutation added to what Draft Crates can offer, earned by reaching a Score milestone. Unlocks carry over between Runs.
+_Avoid_: Upgrade, meta-progression, perk
 
 ## The board
 
@@ -75,9 +87,13 @@ Gold earned by damaging the Goal, spent only on the attack side.
 _Avoid_: Blood money, coins
 
 **Settings trick**:
-A change made in the game's own Settings menu (Brightness, Volume, Window size, Game speed) that changes how the battle plays. It stays until it is undone.
+A change made in the game's own Settings menu (Brightness, Volume, Window size, Game speed) that changes how the battle plays. Either side can buy one, each trick favours one side, and it stays until it is undone. It changes how the battle plays, never whether the player can see it.
 _Avoid_: Sabotage, cheat, hack, UI weapon
 
 **Undo**:
-Reversing one Settings trick. Rare and expensive on purpose.
+Reversing one Settings trick by giving up part of your own side on the Board. Rare and painful on purpose.
 _Avoid_: Reset, revert
+
+**Watch speed**:
+How fast the player watches a battle (1x, 2x, 4x). It never changes who wins, unlike the Game speed Settings trick.
+_Avoid_: Fast-forward, game speed
