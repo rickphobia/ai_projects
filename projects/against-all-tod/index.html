@@ -14,6 +14,8 @@
         --fg: #e8efe9;
         --muted: #9fb3a5;
         --attack: #ff5a36;
+        --defense: #3d8bfd;
+        --hud-height: 68px;
       }
       html,
       body {
@@ -29,11 +31,43 @@
       /* PixiJS sizes its canvas to this box; pinch and drag belong to the game, not the browser. */
       #game {
         position: fixed;
-        inset: 0;
+        inset: var(--hud-height) 0 0 0;
         touch-action: none;
       }
       #game canvas {
         display: block;
+      }
+      /* Its own band above the Board, so it never hides a tile. */
+      #hud {
+        position: fixed;
+        inset: 0 0 auto 0;
+        height: var(--hud-height);
+        box-sizing: border-box;
+        padding: 6px 16px 0;
+        overflow: hidden;
+        text-align: center;
+      }
+      #hud h1 {
+        margin: 0;
+        font-size: 1rem;
+        color: var(--defense);
+      }
+      #hud p {
+        margin: 2px 0 0;
+        font-size: 0.85rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--muted);
+      }
+      #hud .hud-message {
+        color: var(--attack);
+        font-weight: 600;
+      }
+      /* Keeps its line when hidden, so the band doesn't jump. */
+      #hud .hud-message[hidden] {
+        display: block;
+        visibility: hidden;
       }
       #startup-error {
         position: fixed;
@@ -64,6 +98,7 @@
   </head>
   <body>
     <div id="game" aria-label="Against All TOD board"></div>
+    <div id="hud"></div>
     <section id="startup-error" role="alert" hidden>
       <h1>Against All TOD could not start</h1>
       <p id="startup-error-reason"></p>

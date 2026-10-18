@@ -43,7 +43,12 @@ export function allTiles(): Tile[] {
   return tiles;
 }
 
-function isOnBoard(tile: Tile): boolean {
+/** The Spawn line's tiles, top to bottom. */
+export function spawnLineTiles(): Tile[] {
+  return allTiles().filter((tile) => tileKind(tile) === "spawn-line");
+}
+
+export function isOnBoard(tile: Tile): boolean {
   return (
     Number.isInteger(tile.column) &&
     Number.isInteger(tile.row) &&
