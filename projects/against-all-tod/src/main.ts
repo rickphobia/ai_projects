@@ -12,6 +12,7 @@ import { SHOP_STOCK, FIRST_BUILD_PIECE, RunScreen } from "./run-screen";
 import { PORTRAIT_TOUCH_QUERY, showTurnDeviceScreenWhile } from "./ui/device";
 import { EndScreen } from "./ui/end-screen";
 import { FpsMeter } from "./ui/fps-meter";
+import { CratePanel } from "./ui/crate";
 import { Hud } from "./ui/hud";
 import { PieceInfo } from "./ui/piece-info";
 import { showStartupError } from "./ui/startup-error-screen";
@@ -87,7 +88,15 @@ async function start(): Promise<void> {
   const endScreen = new EndScreen(requireElement("end-screen"), () => {
     run.newRun();
   });
-  run.begin(hud, endScreen);
+  const cratePanel = new CratePanel(requireElement("crate"), {
+    onTake: (index) => {
+      run.takeFromCrate(index);
+    },
+    onReroll: () => {
+      run.rerollCrate();
+    },
+  });
+  run.begin(hud, endScreen, cratePanel);
   saves.save(firstRun);
   if (loaded.kind === "unreadable") {
     hud.showMessage("Your save couldn't be read, so this is a fresh start.");

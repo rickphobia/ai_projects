@@ -58,6 +58,22 @@ describe("SaveStore", () => {
     expect(store.load()).toEqual({ kind: "loaded", run });
   });
 
+  it("loads back the crate, a free item and the Mutations", () => {
+    const { store } = storeWith();
+    const taken = applyRunAction(newRun(42), {
+      type: "take-from-crate",
+      index: 0,
+    });
+    if (!taken.ok) throw new Error(taken.refusal);
+    const run: RunState = {
+      ...taken.state,
+      mutations: ["gold-teeth"],
+      crate: { items: [{ kind: "mutation", id: "split" }], rerolls: 2 },
+    };
+    store.save(run);
+    expect(store.load()).toEqual({ kind: "loaded", run });
+  });
+
   it("tags the save with its version", () => {
     const { store, storage } = storeWith();
     store.save(newRun(1));

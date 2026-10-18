@@ -1,11 +1,15 @@
 import type { Army, Squad } from "../../battle/army";
 import { DUDE_KINDS, type DudeKindId } from "../../catalog/dudes";
 import { PIECES, type PieceId } from "../../catalog/pieces";
+import { MUTATIONS, type MutationId } from "../../catalog/mutations";
+import type { CrateItem } from "../../catalog/pools";
 import type { Wallets } from "../../economy/economy";
 import type { Logger } from "../../logger";
 import type { PlacedPiece } from "../../maze/maze";
+import type { Crate } from "../../run/crate";
 import {
   mazeOf,
+  type FreeItem,
   type RoundSnapshot,
   type RunPhase,
   type RunState,
@@ -18,7 +22,7 @@ import {
  */
 
 /** Bump when the saved shape changes; older saves then give a fresh start. */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const SAVE_KEY = "against-all-tod.save";
 
 /** The part of `Storage` the save needs, so tests can pass a fake. */
@@ -102,6 +106,8 @@ export function parseSave(raw: string): RunState {
     bestScore: count(run.bestScore, "bestScore"),
     phase: phase(run.phase),
     roundStart: snapshot(record(run.roundStart, "roundStart"), "roundStart"),
+    crate: run.crate === null ? null : crate(run.crate),
+    freeItem: run.freeItem === null ? null : freeItem(run.freeItem),
   };
   // A Piece that no longer fits the Maze (say, after a rule change) makes the save unusable.
   mazeOf(state.pieces);
@@ -130,6 +136,7 @@ function snapshot(
   return {
     pieces: list(value.pieces, `${name}.pieces`).map(placedPiece),
     army: list(value.army, `${name}.army`).map(squad) satisfies Army,
+    mutations: list(value.mutations, `${name}.mutations`).map(mutationId),
     wallets: wallets(value.wallets),
   };
 }
@@ -149,6 +156,36 @@ function squad(value: unknown): Squad {
     dudeKind: dudeKind(found.dudeKind),
     spawnRow: count(found.spawnRow, "spawnRow"),
   };
+}
+
+function crate(value: unknown): Crate {
+  const found = record(value, "crate");
+  return {
+    items: list(found.items, "crate.items").map(crateItem),
+    rerolls: count(found.rerolls, "rerolls"),
+  };
+}
+
+function crateItem(value: unknown): CrateItem {
+  const item = record(value, "crate item");
+  if (item.kind === "mutation") {
+    return { kind: "mutation", id: mutationId(item.id) };
+  }
+  return freeItem(item);
+}
+
+function freeItem(value: unknown): FreeItem {
+  const item = record(value, "free item");
+  if (item.kind === "piece") return { kind: "piece", id: pieceId(item.id) };
+  if (item.kind === "squad") return { kind: "squad", id: dudeKind(item.id) };
+  throw new SaveFormatError("unknown crate item");
+}
+
+function mutationId(value: unknown): MutationId {
+  if (typeof value === "string" && Object.hasOwn(MUTATIONS, value)) {
+    return value as MutationId;
+  }
+  throw new SaveFormatError("unknown Mutation");
 }
 
 function wallets(value: unknown): Wallets {

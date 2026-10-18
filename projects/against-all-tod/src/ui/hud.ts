@@ -26,6 +26,7 @@ const REFUSAL_MESSAGES: Readonly<Record<RunRefusal, string>> = {
   "not-enough-gold":
     "Not enough gold. Each side pays from its own wallet; press Fight when you're done.",
   "not-spawn-line": "Squads go on the Spawn line, the Board's left edge.",
+  "no-crate": "This Round's crate is already taken from.",
 };
 
 const OUTCOME_MESSAGES: Readonly<Record<BattleOutcome["reason"], string>> = {

@@ -3,7 +3,9 @@ import type { BattleSetup, Side } from "../battle/battle";
 import { BATTLE_RULES, type BattleRules } from "../catalog/battle-rules";
 import { DUDE_KINDS, ROUND_ONE_ARMY, type DudeKindId } from "../catalog/dudes";
 import { GOLD_RULES } from "../catalog/gold-rules";
+import type { MutationId } from "../catalog/mutations";
 import { PIECES, type PieceId } from "../catalog/pieces";
+import { CRATE_RULES, type CrateItem } from "../catalog/pools";
 import { RUN_RULES } from "../catalog/run-rules";
 import {
   addGold,
@@ -19,6 +21,7 @@ import {
   type PlacedPiece,
   type PlacementRefusal,
 } from "../maze/maze";
+import { crateFor, sameItem, type Crate } from "./crate";
 
 /**
  * The whole Run as a pure state machine: actions in, new state or a typed refusal out. No DOM,
@@ -33,12 +36,17 @@ export type RunPhase =
   | "round-lost"
   | "run-over";
 
-/** The Board, the Army and both wallets: everything a Rewind puts back. */
+/** The Board, the Army, its Mutations and both wallets: everything a Rewind puts back. */
 export interface RoundSnapshot {
   readonly pieces: readonly PlacedPiece[];
   readonly army: Army;
+  /** Stored as picked; ticket 15 gives them battle effects. */
+  readonly mutations: readonly MutationId[];
   readonly wallets: Wallets;
 }
+
+/** A Piece or Squad taken from a crate, waiting to be placed for free. */
+export type FreeItem = Extract<CrateItem, { kind: "piece" | "squad" }>;
 
 /** Plain data only (no Maps or classes), so a save can JSON it as it is. */
 export interface RunState extends RoundSnapshot {
@@ -51,6 +59,9 @@ export interface RunState extends RoundSnapshot {
   readonly phase: RunPhase;
   /** The Board, Army and wallets as the current Round began. */
   readonly roundStart: RoundSnapshot;
+  /** This Round's Draft Crate; null once an item is taken. */
+  readonly crate: Crate | null;
+  readonly freeItem: FreeItem | null;
 }
 
 export type RunAction =
@@ -65,6 +76,8 @@ export type RunAction =
       readonly tile: Tile;
       readonly dudeKind: DudeKindId;
     }
+  | { readonly type: "take-from-crate"; readonly index: number }
+  | { readonly type: "reroll-crate" }
   | { readonly type: "start-battle" }
   | {
       readonly type: "battle-finished";
@@ -85,7 +98,9 @@ export type RunRefusal =
   /** The side's own wallet can't pay for it. */
   | "not-enough-gold"
   /** A Squad anywhere but the Spawn line. */
-  | "not-spawn-line";
+  | "not-spawn-line"
+  /** The crate is already taken from, or has no such item. */
+  | "no-crate";
 
 export type RunResult =
   | { readonly ok: true; readonly state: RunState }
@@ -95,9 +110,10 @@ export function newRun(seed: number, bestScore = 0): RunState {
   const board: RoundSnapshot = {
     pieces: [],
     army: ROUND_ONE_ARMY,
+    mutations: [],
     wallets: startingWallets(),
   };
-  return {
+  return withFreshCrate({
     ...board,
     seed: seed >>> 0,
     lives: RUN_RULES.startingLives,
@@ -105,7 +121,23 @@ export function newRun(seed: number, bestScore = 0): RunState {
     bestScore,
     phase: "building",
     roundStart: board,
-  };
+    crate: null,
+    freeItem: null,
+  });
+}
+
+/** The Round's crate as it first opens, with no free item waiting. */
+export function withFreshCrate(state: RunState): RunState {
+  return { ...state, crate: crateOf(state, 0), freeItem: null };
+}
+
+function crateOf(state: RunState, rerolls: number): Crate {
+  return crateFor(
+    roundSeed(state.seed, roundOf(state)),
+    sideOf(state),
+    state.mutations,
+    rerolls,
+  );
 }
 
 /** Where the player stands, for the HUD and the logs. */
@@ -136,7 +168,7 @@ export function sideOf(state: RunState): Side {
   return roundOf(state) % 2 === 1 ? "defense" : "attack";
 }
 
-/** What a Piece costs in Defense gold. */
+/** What a Piece costs in Defense gold from the shop. */
 export function piecePrice(pieceId: PieceId): number {
   return PIECES[pieceId].price;
 }
@@ -182,7 +214,11 @@ export function checkSquad(
   tile: Tile,
   dudeKind: DudeKindId,
 ): RunRefusal | null {
-  const refusal = checkPlacing(state, "attack", squadPrice(dudeKind));
+  const refusal = checkPlacing(
+    state,
+    "attack",
+    priceNow(state, { kind: "squad", id: dudeKind }),
+  );
   if (refusal !== null) return refusal;
   if (!isOnBoard(tile)) return "off-board";
   if (tileKind(tile) !== "spawn-line") return "not-spawn-line";
@@ -213,10 +249,25 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
         dudeKind: action.dudeKind,
         spawnRow: action.tile.row,
       };
+      const item: FreeItem = { kind: "squad", id: action.dudeKind };
+      return accept({
+        ...usedFreeItem(state, item),
+        army: [...state.army, squad],
+        wallets: paid(state.wallets, "attack", priceNow(state, item)),
+      });
+    }
+    case "take-from-crate":
+      return takeFromCrate(state, action.index);
+    case "reroll-crate": {
+      if (state.phase !== "building") return refuse("wrong-phase");
+      if (state.crate === null) return refuse("no-crate");
+      const side = sideOf(state);
+      const left = spend(state.wallets, side, CRATE_RULES.rerollPrice[side]);
+      if (left === null) return refuse("not-enough-gold");
       return accept({
         ...state,
-        army: [...state.army, squad],
-        wallets: paid(state.wallets, "attack", squadPrice(action.dudeKind)),
+        wallets: left,
+        crate: crateOf(state, state.crate.rerolls + 1),
       });
     }
     case "start-battle":
@@ -241,15 +292,42 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
 }
 
 function placeOnMaze(state: RunState, tile: Tile, pieceId: PieceId): RunResult {
-  const refusal = checkPlacing(state, "defense", piecePrice(pieceId));
+  const item: FreeItem = { kind: "piece", id: pieceId };
+  const price = priceNow(state, item);
+  const refusal = checkPlacing(state, "defense", price);
   if (refusal !== null) return refuse(refusal);
   const placed = placePiece(mazeOf(state.pieces), tile, pieceId);
   if (!placed.ok) return refuse(placed.refusal);
   return accept({
-    ...state,
+    ...usedFreeItem(state, item),
     pieces: [...state.pieces, { pieceId, tile }],
-    wallets: paid(state.wallets, "defense", piecePrice(pieceId)),
+    wallets: paid(state.wallets, "defense", price),
   });
+}
+
+/** The taken item is free; the rest of the crate is gone. A Mutation joins the Army at once. */
+function takeFromCrate(state: RunState, index: number): RunResult {
+  if (state.phase !== "building") return refuse("wrong-phase");
+  const item = state.crate?.items[index];
+  if (item === undefined) return refuse("no-crate");
+  const taken = { ...state, crate: null };
+  if (item.kind === "mutation") {
+    return accept({ ...taken, mutations: [...state.mutations, item.id] });
+  }
+  return accept({ ...taken, freeItem: item });
+}
+
+/** Zero for the waiting free item, otherwise the shop price. */
+export function priceNow(state: RunState, item: FreeItem): number {
+  if (state.freeItem !== null && sameItem(state.freeItem, item)) return 0;
+  return item.kind === "piece" ? piecePrice(item.id) : squadPrice(item.id);
+}
+
+function usedFreeItem(state: RunState, placed: FreeItem): RunState {
+  if (state.freeItem === null || !sameItem(state.freeItem, placed)) {
+    return state;
+  }
+  return { ...state, freeItem: null };
 }
 
 function checkPlacing(
@@ -277,18 +355,23 @@ function paid(wallets: Wallets, side: Side, price: number): Wallets {
 /** Everything placed and earned stays, and the next Round starts from here. */
 function winRound(state: RunState, earned: Wallets): RunState {
   const wallets = addGold(state.wallets, earned);
-  return {
+  return withFreshCrate({
     ...state,
     wallets,
     score: state.score + 1,
     phase: "round-won",
-    roundStart: { pieces: state.pieces, army: state.army, wallets },
-  };
+    roundStart: {
+      pieces: state.pieces,
+      army: state.army,
+      mutations: state.mutations,
+      wallets,
+    },
+  });
 }
 
 /**
  * One Life gone and the Board and wallets Rewound, with bonus gold for the side played. The
- * Round number stays, because the Score does.
+ * Round number stays, because the Score does, so the same crate opens again.
  */
 function loseRound(state: RunState): RunState {
   const lives = state.lives - 1;
@@ -297,13 +380,13 @@ function loseRound(state: RunState): RunState {
     ...state.roundStart.wallets,
     [side]: state.roundStart.wallets[side] + GOLD_RULES.rewindBonus,
   };
-  const rewound = {
+  const rewound = withFreshCrate({
     ...state,
     ...state.roundStart,
     wallets,
     lives,
     roundStart: { ...state.roundStart, wallets },
-  };
+  });
   if (lives > 0) return { ...rewound, phase: "round-lost" };
   return {
     ...rewound,

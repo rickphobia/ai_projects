@@ -152,6 +152,49 @@
       #debug-panel input {
         width: 4rem;
       }
+      /* The Draft Crate, along the bottom so it never hides the HUD. */
+      #crate {
+        position: fixed;
+        left: 50%;
+        bottom: 12px;
+        transform: translateX(-50%);
+        max-width: calc(100% - 32px);
+        box-sizing: border-box;
+        padding: 6px 12px;
+        border-radius: 6px;
+        background: rgb(0 0 0 / 0.75);
+        text-align: center;
+      }
+      #crate h2 {
+        margin: 0 0 4px;
+        font-size: 0.9rem;
+      }
+      #crate p {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      .crate-items {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+      }
+      #crate button {
+        font: inherit;
+        font-size: 0.85rem;
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--fg);
+        background: transparent;
+        color: var(--fg);
+        cursor: pointer;
+      }
+      #crate button.crate-reroll {
+        border-color: var(--muted);
+        color: var(--muted);
+      }
+      #crate[hidden],
       #fps[hidden],
       #debug-panel[hidden],
       #piece-info[hidden],
@@ -247,6 +290,7 @@
     <div id="game" aria-label="Against All TOD board"></div>
     <div id="hud"></div>
     <aside id="piece-info" aria-live="polite" hidden></aside>
+    <section id="crate" aria-label="Draft Crate" hidden></section>
     <output id="fps" hidden></output>
     <aside id="debug-panel" aria-label="Debug options" hidden></aside>
     <section
