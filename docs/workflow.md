@@ -8,7 +8,7 @@ Experienced engineers all land on the same loop: **spec → plan → build in sm
 
 | # | Step | You type | What you get |
 |---|------|----------|--------------|
-| 1 | Start a session on `main`: in the cloud (claude.ai/code), or on the Beelink in `~/homelab/code/ai_slops` | "New project: `pdf-summarizer`" (or "work on `projects/pdf-summarizer`") | Claude knows which folder it owns |
+| 1 | Start a session on `main`: in the cloud (claude.ai/code), or on the Beelink in `~/homelab/code/ai_projects` | "New project: `pdf-summarizer`" (or "work on `projects/pdf-summarizer`") | Claude knows which folder it owns |
 | 2 | Describe it | What you want and what the finished product looks like | — |
 | 3 | Get grilled | `/grill-with-docs` | Rounds of numbered questions, each with a recommended answer. Builds `GLOSSARY.md` and decision records as you go |
 | 4 | Write the spec | `/to-spec` | `docs/spec.md`. **Read it.** |
@@ -27,13 +27,13 @@ Bug: `/diagnosing-bugs`. It builds a failing check first, then fixes.
 
 - Only run tickets in parallel when all their blockers are `done` **and** their **Touches** don't overlap. Two sessions editing the same area is like two painters on the same wall.
 - Each parallel ticket gets its own fresh session, branch and PR. Two small tickets of the same kind can share one session to save its start-up cost.
-- **On the Beelink, each parallel session needs its own worktree.** Cloud sessions each get their own clone; local sessions share `~/homelab/code/ai_slops` and would switch branches under each other. Start the extra ones from the repo root with `claude -w <project>-<NN>`: a worktree under `.claude/worktrees/`, on its own branch from `origin/main`, removed when you exit if it has nothing unsaved.
+- **On the Beelink, each parallel session needs its own worktree.** Cloud sessions each get their own clone; local sessions share `~/homelab/code/ai_projects` and would switch branches under each other. Start the extra ones from the repo root with `claude -w <project>-<NN>`: a worktree under `.claude/worktrees/`, on its own branch from `origin/main`, removed when you exit if it has nothing unsaved.
 - Each ticket's session watches its own PR until it is green and mergeable: it fixes merge conflicts (by merging `main` in) and failing CI by itself, so a PR only waits on you once it is green. A cloud session keeps watching until merge and answers review comments; a local one runs `gh pr checks --watch`, tells you it is ready, and stops (reopen it with `claude --resume` to answer comments). You still review and merge.
 - Merge one PR at a time; merging one can make the next conflict, and its session then fixes that.
 
 ## Starting tickets with `scripts/next-tickets.sh`
 
-On the Beelink, from `~/homelab/code/ai_slops` (any branch):
+On the Beelink, from `~/homelab/code/ai_projects` (any branch):
 
 ```bash
 scripts/next-tickets.sh my-piggy --dry-run   # show the plan, start nothing

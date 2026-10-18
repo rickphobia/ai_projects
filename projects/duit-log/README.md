@@ -67,7 +67,7 @@ The `versionCode` is CI's run number (`DUITLOG_BUILD_NUMBER`, 1 for a local buil
 
 Download the newest `duit-log-v*` release's APK from the repo's Releases page on the phone, open it, and allow the browser to install apps when Android asks. Updates install over it and keep your data, as long as they come from these releases (same signing key).
 
-**With Obtainium**, which installs and updates apps from GitHub Releases ([Obtainium](https://github.com/ImranR98/Obtainium)): **Add app** with App source URL `https://github.com/rickphobia/ai_slops`, set **Filter release titles by regular expression** to `^duit-log-v[0-9.]+$`, leave **Include prereleases** off and **Fallback to older releases** on (the newest release in the repo may be another project's), then **Add** and **Install**. The tag `duit-log-v0.1.0` and the installed version name `0.1.0` match, so Obtainium's version detection works.
+**With Obtainium**, which installs and updates apps from GitHub Releases ([Obtainium](https://github.com/ImranR98/Obtainium)): **Add app** with App source URL `https://github.com/rickphobia/ai_projects`, set **Filter release titles by regular expression** to `^duit-log-v[0-9.]+$`, leave **Include prereleases** off and **Fallback to older releases** on (the newest release in the repo may be another project's), then **Add** and **Install**. The tag `duit-log-v0.1.0` and the installed version name `0.1.0` match, so Obtainium's version detection works.
 
 ### Play Protect blocks the install
 

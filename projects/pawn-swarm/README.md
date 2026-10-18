@@ -45,15 +45,15 @@ CI runs `npm run check`, `npm run build` and `shellcheck deploy/*.sh` on every p
 
 The game is a static site. It is served at `https://rickphobia.com/ai-projects/pawn-swarm/` by nginx in Docker on the Beelink, with `~/homelab/html` as the site root. GitHub can't reach the home network, so the server pulls: you run one script there, or a timer runs it.
 
-`deploy/update-site.sh` fetches `main` into `~/homelab/dev/ai_slops`, builds in a pinned `node` Docker image (no Node install needed on the server), copies the result to `~/homelab/html/ai-projects/pawn-swarm.new`, then renames it into place. The old build stays as `pawn-swarm.previous`. If any step fails, the script exits non-zero, names the step, and the live site stays as it was. If `main` hasn't moved since the last deploy, it does nothing.
+`deploy/update-site.sh` fetches `main` into `~/homelab/dev/ai_projects`, builds in a pinned `node` Docker image (no Node install needed on the server), copies the result to `~/homelab/html/ai-projects/pawn-swarm.new`, then renames it into place. The old build stays as `pawn-swarm.previous`. If any step fails, the script exits non-zero, names the step, and the live site stays as it was. If `main` hasn't moved since the last deploy, it does nothing.
 
 ### First-time setup (on the Beelink)
 
 Needs `git`, `docker` (your user can run it without sudo) and `flock` (part of `util-linux`, already on Ubuntu).
 
 ```bash
-mkdir -p ~/homelab/dev && git clone https://github.com/rickphobia/ai_slops.git ~/homelab/dev/ai_slops
-~/homelab/dev/ai_slops/projects/pawn-swarm/deploy/update-site.sh
+mkdir -p ~/homelab/dev && git clone https://github.com/rickphobia/ai_projects.git ~/homelab/dev/ai_projects
+~/homelab/dev/ai_projects/projects/pawn-swarm/deploy/update-site.sh
 ```
 
 **nginx check.** No nginx change is needed if `/ai-projects/` is already served from `~/homelab/html/ai-projects/`. After the first run, `curl -I https://rickphobia.com/ai-projects/pawn-swarm/` should say `200`. If it says `404`, nginx is mapping that path somewhere else; fix its `root`/`location` for `/ai-projects/` and reload nginx. Checked 2026-10-03: the page returns `200` and its JS and CSS bundles load, with no nginx change. Cloudflare sits in front of nginx (responses carry `server: cloudflare`).
@@ -61,10 +61,10 @@ mkdir -p ~/homelab/dev && git clone https://github.com/rickphobia/ai_slops.git ~
 ### Update
 
 ```bash
-~/homelab/dev/ai_slops/projects/pawn-swarm/deploy/update-site.sh
+~/homelab/dev/ai_projects/projects/pawn-swarm/deploy/update-site.sh
 ```
 
-To rebuild even though `main` hasn't changed: `PAWN_SWARM_FORCE=1 ~/homelab/dev/ai_slops/projects/pawn-swarm/deploy/update-site.sh`.
+To rebuild even though `main` hasn't changed: `PAWN_SWARM_FORCE=1 ~/homelab/dev/ai_projects/projects/pawn-swarm/deploy/update-site.sh`.
 
 Settings (all optional, shown with defaults in `.env.example`) are environment variables: `PAWN_SWARM_REPO_URL`, `PAWN_SWARM_BRANCH`, `PAWN_SWARM_SRC_DIR`, `PAWN_SWARM_SITE_ROOT`, `PAWN_SWARM_SITE_SUBPATH`, `PAWN_SWARM_NODE_IMAGE`, `PAWN_SWARM_FORCE`. The scripts do not read `.env`.
 
@@ -74,7 +74,7 @@ systemd user units, so no root is needed. `loginctl enable-linger` keeps them ru
 
 ```bash
 mkdir -p ~/.config/systemd/user
-cp ~/homelab/dev/ai_slops/projects/pawn-swarm/deploy/pawn-swarm-update.{service,timer} ~/.config/systemd/user/
+cp ~/homelab/dev/ai_projects/projects/pawn-swarm/deploy/pawn-swarm-update.{service,timer} ~/.config/systemd/user/
 loginctl enable-linger "$USER"
 systemctl --user daemon-reload
 systemctl --user enable --now pawn-swarm-update.timer
@@ -85,7 +85,7 @@ Check it with `systemctl --user list-timers pawn-swarm-update.timer` and `journa
 ### Roll back
 
 ```bash
-~/homelab/dev/ai_slops/projects/pawn-swarm/deploy/rollback.sh
+~/homelab/dev/ai_projects/projects/pawn-swarm/deploy/rollback.sh
 ```
 
 Swaps `pawn-swarm` and `pawn-swarm.previous`. Run it again to undo. If the timer is on, stop it first (`systemctl --user stop pawn-swarm-update.timer`), or it puts the latest `main` back at its next run. Fix `main`, then start the timer again.

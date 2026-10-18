@@ -7,20 +7,20 @@
 # Each preview is a systemd user service, try-pr-<N>, running scripts/try-pr.sh. No Claude.
 #
 # Usage: scripts/previews.sh <command>
-#   install    copy the scripts to ~/.local/state/ai-slops-previews and run `sync` every minute
+#   install    copy the scripts to ~/.local/state/ai-projects-previews and run `sync` every minute
 #   uninstall  stop the timer and every preview
 #   sync       start, refresh and stop previews to match the open PRs (what the timer runs)
 #   list       open PRs with their ci-gate result and preview link
 #   stop N     stop PR N's preview until its next push
 #
 # Settings (environment variables, all optional):
-#   PREVIEWS_REPO   the ai_slops checkout to work from (default ~/homelab/code/ai_slops)
+#   PREVIEWS_REPO   the ai_projects checkout to work from (default ~/homelab/code/ai_projects)
 set -euo pipefail
 
-repo="${PREVIEWS_REPO:-$HOME/homelab/code/ai_slops}"
-state="$HOME/.local/state/ai-slops-previews"
+repo="${PREVIEWS_REPO:-$HOME/homelab/code/ai_projects}"
+state="$HOME/.local/state/ai-projects-previews"
 units="$HOME/.config/systemd/user"
-timer=ai-slops-previews
+timer=ai-projects-previews
 # How long a sync waits for a preview it just started to answer before writing its link. A Godot
 # build takes about 15 seconds; a preview still building after this gets its link on a later sync.
 link_wait_seconds=120
@@ -234,7 +234,7 @@ cmd_install() {
   # The timer runs without a login shell, so it gets this shell's PATH (node, godot, gh).
   cat >"$units/$timer.service" <<EOF
 [Unit]
-Description=Start, refresh and stop ai_slops PR previews
+Description=Start, refresh and stop ai_projects PR previews
 
 [Service]
 Type=oneshot
@@ -244,7 +244,7 @@ ExecStart=$state/previews.sh sync
 EOF
   cat >"$units/$timer.timer" <<EOF
 [Unit]
-Description=Sync ai_slops PR previews every minute
+Description=Sync ai_projects PR previews every minute
 
 [Timer]
 OnBootSec=2min

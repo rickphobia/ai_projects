@@ -4,9 +4,9 @@
 # Settings come from environment variables; see "Deploy" in the project README.
 set -Eeuo pipefail
 
-REPO_URL="${PAWN_SWARM_REPO_URL:-https://github.com/rickphobia/ai_slops.git}"
+REPO_URL="${PAWN_SWARM_REPO_URL:-https://github.com/rickphobia/ai_projects.git}"
 BRANCH="${PAWN_SWARM_BRANCH:-main}"
-SRC_DIR="${PAWN_SWARM_SRC_DIR:-$HOME/homelab/dev/ai_slops}"
+SRC_DIR="${PAWN_SWARM_SRC_DIR:-$HOME/homelab/dev/ai_projects}"
 SITE_ROOT="${PAWN_SWARM_SITE_ROOT:-$HOME/homelab/html}"
 SITE_SUBPATH="${PAWN_SWARM_SITE_SUBPATH:-ai-projects/pawn-swarm}"
 # Keep in step with .nvmrc.

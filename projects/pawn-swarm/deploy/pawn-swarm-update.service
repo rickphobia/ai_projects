@@ -6,5 +6,5 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 # %h is the home folder of the user running the unit. The path matches the default PAWN_SWARM_SRC_DIR.
-ExecStart=%h/homelab/dev/ai_slops/projects/pawn-swarm/deploy/update-site.sh
+ExecStart=%h/homelab/dev/ai_projects/projects/pawn-swarm/deploy/update-site.sh
 # Add Environment=PAWN_SWARM_... lines here if you changed a default.

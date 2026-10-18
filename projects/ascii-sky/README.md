@@ -104,15 +104,15 @@ docs/                spec, tickets, decisions
 
 The game is a static site, served at `https://rickphobia.com/ai-projects/ascii-sky/` by nginx in Docker on the Beelink, with `~/homelab/html` as the site root. GitHub can't reach the home network, so the server pulls: you run one script there.
 
-`deploy/update-site.sh` fetches `main` into `~/homelab/dev/ai_slops`, builds in a pinned `node` Docker image (no Node install needed on the server), copies the result to `~/homelab/html/ai-projects/ascii-sky.new`, then renames it into place. The old build stays as `ascii-sky.previous`. If any step fails, the script exits non-zero, names the step, and the live site stays as it was. If `main` hasn't moved since the last deploy, it does nothing.
+`deploy/update-site.sh` fetches `main` into `~/homelab/dev/ai_projects`, builds in a pinned `node` Docker image (no Node install needed on the server), copies the result to `~/homelab/html/ai-projects/ascii-sky.new`, then renames it into place. The old build stays as `ascii-sky.previous`. If any step fails, the script exits non-zero, names the step, and the live site stays as it was. If `main` hasn't moved since the last deploy, it does nothing.
 
 ### First-time setup (on the Beelink)
 
-Needs `git`, `docker` (your user can run it without sudo) and `flock` (part of `util-linux`, already on Ubuntu). The clone is shared with the other projects, so skip it if `~/homelab/dev/ai_slops` exists.
+Needs `git`, `docker` (your user can run it without sudo) and `flock` (part of `util-linux`, already on Ubuntu). The clone is shared with the other projects, so skip it if `~/homelab/dev/ai_projects` exists.
 
 ```bash
-mkdir -p ~/homelab/dev && git clone https://github.com/rickphobia/ai_slops.git ~/homelab/dev/ai_slops
-~/homelab/dev/ai_slops/projects/ascii-sky/deploy/update-site.sh
+mkdir -p ~/homelab/dev && git clone https://github.com/rickphobia/ai_projects.git ~/homelab/dev/ai_projects
+~/homelab/dev/ai_projects/projects/ascii-sky/deploy/update-site.sh
 ```
 
 No nginx change is needed: `/ai-projects/` is already served from `~/homelab/html/ai-projects/` (see pawn-swarm's README).
@@ -120,17 +120,17 @@ No nginx change is needed: `/ai-projects/` is already served from `~/homelab/htm
 ### Update
 
 ```bash
-~/homelab/dev/ai_slops/projects/ascii-sky/deploy/update-site.sh
+~/homelab/dev/ai_projects/projects/ascii-sky/deploy/update-site.sh
 ```
 
-To rebuild even though `main` hasn't changed: `ASCII_SKY_FORCE=1 ~/homelab/dev/ai_slops/projects/ascii-sky/deploy/update-site.sh`.
+To rebuild even though `main` hasn't changed: `ASCII_SKY_FORCE=1 ~/homelab/dev/ai_projects/projects/ascii-sky/deploy/update-site.sh`.
 
 Settings (all optional, shown with defaults in `.env.example`) are environment variables: `ASCII_SKY_REPO_URL`, `ASCII_SKY_BRANCH`, `ASCII_SKY_SRC_DIR`, `ASCII_SKY_SITE_ROOT`, `ASCII_SKY_SITE_SUBPATH`, `ASCII_SKY_NODE_IMAGE`, `ASCII_SKY_FORCE`. The scripts do not read `.env`.
 
 ### Roll back
 
 ```bash
-~/homelab/dev/ai_slops/projects/ascii-sky/deploy/rollback.sh
+~/homelab/dev/ai_projects/projects/ascii-sky/deploy/rollback.sh
 ```
 
 Swaps `ascii-sky` and `ascii-sky.previous`. Run it again to undo. The next `update-site.sh` run puts the latest `main` back.

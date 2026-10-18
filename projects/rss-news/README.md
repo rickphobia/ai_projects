@@ -66,7 +66,7 @@ The smoke test fails if `/healthz`, the page, its script, the manifest or the se
 
 The app runs as a Docker container on the Beelink, on the shared `homelab_default` network, behind the host nginx (`portfolio-nginx`) at `https://rickphobia.com/ai-projects/rss-news/`. GitHub can't reach the home network, so the server pulls: you run one script there. The scripts are the same as court-booker's.
 
-`deploy/update-site.sh` fetches `main` into `~/homelab/dev/ai_slops`, builds the image `rss-news:<commit>`, loads `deploy/settings.sh` again from that commit, starts a new container with the env file and the data folder mounted at `/app/data` (where the SQLite file lives), and waits up to 60 seconds for `/healthz`. Only then does it give the new container the network name `rss-news` (which nginx proxies to) and remove the old one. If any step fails, the script exits non-zero, names the step, and the old container keeps serving. If `main` hasn't moved and its container is running, it does nothing. The settings both scripts share are in `deploy/settings.sh`.
+`deploy/update-site.sh` fetches `main` into `~/homelab/dev/ai_projects`, builds the image `rss-news:<commit>`, loads `deploy/settings.sh` again from that commit, starts a new container with the env file and the data folder mounted at `/app/data` (where the SQLite file lives), and waits up to 60 seconds for `/healthz`. Only then does it give the new container the network name `rss-news` (which nginx proxies to) and remove the old one. If any step fails, the script exits non-zero, names the step, and the old container keeps serving. If `main` hasn't moved and its container is running, it does nothing. The settings both scripts share are in `deploy/settings.sh`.
 
 ### One-time setup (on the Beelink)
 
@@ -94,16 +94,16 @@ Needs `git`, `docker` (your user can run it without sudo) and `flock` (already o
    }
    ```
 
-4. **First deploy:** if `~/homelab/dev/ai_slops` doesn't exist yet, `mkdir -p ~/homelab/dev && git clone https://github.com/rickphobia/ai_slops.git ~/homelab/dev/ai_slops`; then `~/homelab/dev/ai_slops/projects/rss-news/deploy/update-site.sh`.
+4. **First deploy:** if `~/homelab/dev/ai_projects` doesn't exist yet, `mkdir -p ~/homelab/dev && git clone https://github.com/rickphobia/ai_projects.git ~/homelab/dev/ai_projects`; then `~/homelab/dev/ai_projects/projects/rss-news/deploy/update-site.sh`.
 5. **Uptime Kuma:** add an HTTP(s) monitor on `https://rickphobia.com/ai-projects/rss-news/healthz`, expecting status 200, every 60 seconds.
 
 ### Update
 
 ```bash
-~/homelab/dev/ai_slops/projects/rss-news/deploy/update-site.sh
+~/homelab/dev/ai_projects/projects/rss-news/deploy/update-site.sh
 ```
 
-To redeploy even though `main` hasn't changed: `RSS_NEWS_FORCE=1 ~/homelab/dev/ai_slops/projects/rss-news/deploy/update-site.sh`.
+To redeploy even though `main` hasn't changed: `RSS_NEWS_FORCE=1 ~/homelab/dev/ai_projects/projects/rss-news/deploy/update-site.sh`.
 
 Settings are environment variables with defaults; the scripts do not read `.env`:
 
@@ -112,15 +112,15 @@ Settings are environment variables with defaults; the scripts do not read `.env`
 | `RSS_NEWS_ENV_FILE` | `~/homelab/env/rss-news.env` |
 | `RSS_NEWS_DATA_DIR` | `~/homelab/data/rss-news` |
 | `RSS_NEWS_NETWORK` | `homelab_default` |
-| `RSS_NEWS_SRC_DIR` | `~/homelab/dev/ai_slops` |
-| `RSS_NEWS_REPO_URL` | `https://github.com/rickphobia/ai_slops.git` |
+| `RSS_NEWS_SRC_DIR` | `~/homelab/dev/ai_projects` |
+| `RSS_NEWS_REPO_URL` | `https://github.com/rickphobia/ai_projects.git` |
 | `RSS_NEWS_BRANCH` | `main` |
 | `RSS_NEWS_FORCE` | `0` |
 
 ### Roll back
 
 ```bash
-~/homelab/dev/ai_slops/projects/rss-news/deploy/rollback.sh
+~/homelab/dev/ai_projects/projects/rss-news/deploy/rollback.sh
 ```
 
 Starts the previous image (recorded in `~/homelab/dev/rss-news.previous-tag`) the same way, health check and data folder included. Run it again to undo. The next `update-site.sh` run puts `main` back, so fix `main` first. Old images stay until you prune them; a pruned previous image can't be rolled back to.

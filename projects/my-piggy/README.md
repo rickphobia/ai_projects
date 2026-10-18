@@ -70,15 +70,15 @@ CI (`.github/workflows/my-piggy.yml`) runs `scripts/check.sh`, the web export an
 
 The game is a static site, served at `https://rickphobia.com/ai-projects/my-piggy/` by nginx in Docker on the Beelink, with `~/homelab/html` as the site root. GitHub can't reach the home network, so the server pulls: you run one script there.
 
-`deploy/update-site.sh` fetches `main` into `~/homelab/dev/ai_slops`, builds a small Docker image with the pinned Godot and its web export templates (`deploy/Dockerfile`, tagged with the Godot version, so it is built once per version), exports the web build inside it, copies the result to `~/homelab/html/ai-projects/my-piggy.new`, then renames it into place. The old build stays as `my-piggy.previous`. If any step fails, the script exits non-zero, names the step, and the live site stays as it was. If `main` hasn't moved since the last deploy, it does nothing.
+`deploy/update-site.sh` fetches `main` into `~/homelab/dev/ai_projects`, builds a small Docker image with the pinned Godot and its web export templates (`deploy/Dockerfile`, tagged with the Godot version, so it is built once per version), exports the web build inside it, copies the result to `~/homelab/html/ai-projects/my-piggy.new`, then renames it into place. The old build stays as `my-piggy.previous`. If any step fails, the script exits non-zero, names the step, and the live site stays as it was. If `main` hasn't moved since the last deploy, it does nothing.
 
 ### First-time setup (on the Beelink)
 
 Needs `git`, `docker` (your user can run it without sudo) and `flock` (part of `util-linux`, already on Ubuntu). The checkout is shared with `pawn-swarm`; skip the clone if it is already there.
 
 ```bash
-mkdir -p ~/homelab/dev && git clone https://github.com/rickphobia/ai_slops.git ~/homelab/dev/ai_slops
-~/homelab/dev/ai_slops/projects/my-piggy/deploy/update-site.sh
+mkdir -p ~/homelab/dev && git clone https://github.com/rickphobia/ai_projects.git ~/homelab/dev/ai_projects
+~/homelab/dev/ai_projects/projects/my-piggy/deploy/update-site.sh
 ```
 
 The first run downloads the Godot export templates (1.3 GB) while building the image, so it takes a few minutes. Later runs reuse the image.
@@ -118,17 +118,17 @@ Check it: run `curl -I https://rickphobia.com/ai-projects/my-piggy/index.wasm` t
 ### Update
 
 ```bash
-~/homelab/dev/ai_slops/projects/my-piggy/deploy/update-site.sh
+~/homelab/dev/ai_projects/projects/my-piggy/deploy/update-site.sh
 ```
 
-To rebuild even though `main` hasn't changed: `MY_PIGGY_FORCE=1 ~/homelab/dev/ai_slops/projects/my-piggy/deploy/update-site.sh`.
+To rebuild even though `main` hasn't changed: `MY_PIGGY_FORCE=1 ~/homelab/dev/ai_projects/projects/my-piggy/deploy/update-site.sh`.
 
 Settings (all optional, shown with defaults in `.env.example`) are environment variables: `MY_PIGGY_REPO_URL`, `MY_PIGGY_BRANCH`, `MY_PIGGY_SRC_DIR`, `MY_PIGGY_SITE_ROOT`, `MY_PIGGY_SITE_SUBPATH`, `MY_PIGGY_FORCE`. The scripts do not read `.env`. The Godot version comes from `scripts/godot-pin.env`, the same pin CI uses.
 
 ### Roll back
 
 ```bash
-~/homelab/dev/ai_slops/projects/my-piggy/deploy/rollback.sh
+~/homelab/dev/ai_projects/projects/my-piggy/deploy/rollback.sh
 ```
 
 Swaps `my-piggy` and `my-piggy.previous`. Run it again to undo. The next `update-site.sh` run puts the latest `main` back, so fix `main` first.
