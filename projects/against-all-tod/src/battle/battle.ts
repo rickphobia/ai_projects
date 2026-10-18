@@ -1,10 +1,16 @@
 import type { BattleRules } from "../catalog/battle-rules";
-import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
+import { DUDE_KINDS } from "../catalog/dudes";
 import { isOnBoard, tileKind } from "../maze/board";
 import type { Maze } from "../maze/maze";
 import { createRng } from "../rng/rng";
 import type { Army } from "./army";
-import { MAX_LANE, walk, type DudeState } from "./dudes";
+import {
+  hypeSpeedFactor,
+  MAX_LANE,
+  newDude,
+  walk,
+  type DudeState,
+} from "./dudes";
 import type { BattleEvent } from "./events";
 import { fireTowers, towersOf, type TowerState } from "./towers";
 
@@ -112,8 +118,15 @@ export function stepBattle(
   const events = volley.events;
   const dudes: DudeState[] = [];
   let goalHealth = state.goalHealth;
+  const hypeMen = volley.dudes.filter(
+    (dude) => DUDE_KINDS[dude.kind].hypeAura !== null,
+  );
   for (const dude of volley.dudes) {
-    const moved = walk(dude, setup.maze.route, STEP_SECONDS);
+    const speedFactor =
+      hypeMen.length === 0
+        ? 1
+        : hypeSpeedFactor(dude, hypeMen, setup.rules.volumeLevel);
+    const moved = walk(dude, setup.maze.route, STEP_SECONDS, speedFactor);
     if (moved !== "at-goal") {
       dudes.push(moved);
       continue;
@@ -186,22 +199,6 @@ function outcomeAfter(
     return { winner: "defense", reason: "time-up", step };
   }
   return null;
-}
-
-function newDude(
-  id: number,
-  kind: DudeKindId,
-  spawnRow: number,
-  lane: number,
-): DudeState {
-  return {
-    id,
-    kind,
-    x: 0.5,
-    y: spawnRow + 0.5 + lane,
-    lane,
-    health: DUDE_KINDS[kind].health,
-  };
 }
 
 function isSpawnLineRow(row: number): boolean {
