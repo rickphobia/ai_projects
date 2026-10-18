@@ -13,8 +13,9 @@ describe("the Dude kind catalog", () => {
     }
   });
 
-  it("has Interns that come 20 to a Squad", () => {
-    expect(DUDE_KINDS.intern.squadSize).toBe(20);
+  it("describes Interns with their real Squad size", () => {
+    const intern = DUDE_KINDS.intern;
+    expect(intern.description).toContain(String(intern.squadSize));
   });
 });
 

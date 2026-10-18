@@ -1,4 +1,5 @@
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
+import type { Tile } from "../maze/board";
 import { routeStep, type Route, type Step } from "../maze/route";
 
 /** One Dude on the Board. */
@@ -37,7 +38,7 @@ export function walk(
   route: Route,
   stepSeconds: number,
 ): DudeState | "at-goal" {
-  const tile = { column: Math.floor(dude.x), row: Math.floor(dude.y) };
+  const tile = tileUnder(dude);
   const step = routeStep(route, tile);
   if (step === "at-goal") return "at-goal";
   // The Maze never seals the Goal off, so this only happens on a hand-built Board; stand still.
@@ -57,6 +58,11 @@ export function walk(
     x: towards(dude.x, tile.column + 0.5 + dude.lane, distance),
     y: dude.y + dy * distance,
   };
+}
+
+/** The tile a Dude is standing on. */
+export function tileUnder(dude: DudeState): Tile {
+  return { column: Math.floor(dude.x), row: Math.floor(dude.y) };
 }
 
 function towards(value: number, target: number, maxChange: number): number {

@@ -1,6 +1,6 @@
 import { startRenderer } from "./adapters/renderer/game-renderer";
 import { loadConfig } from "./config";
-import { BUILD_PIECES, DefenseTurn } from "./defense-turn";
+import { BUILD_PIECES, DefenseTurn, FIRST_BUILD_PIECE } from "./defense-turn";
 import { chooseLogLevel, createConsoleLogger } from "./logger";
 import { BOARD_COLUMNS, BOARD_ROWS } from "./maze/board";
 import { Hud } from "./ui/hud";
@@ -18,11 +18,7 @@ async function start(): Promise<void> {
   logger.debug("config", { ...config });
 
   const host = requireElement("game");
-  const view = await startRenderer(
-    host,
-    logger,
-    BUILD_PIECES[0] ?? "crate-wall",
-  );
+  const view = await startRenderer(host, logger, FIRST_BUILD_PIECE);
   // Runs and the seed in the URL come later; until then every battle uses the default seed.
   const turn = new DefenseTurn(view, logger, config.defaultSeed);
   const hud = new Hud(requireElement("hud"), BUILD_PIECES, {

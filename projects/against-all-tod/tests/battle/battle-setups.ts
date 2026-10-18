@@ -2,7 +2,7 @@ import type { Army } from "../../src/battle/army";
 import type { BattleSetup } from "../../src/battle/battle";
 import { BATTLE_RULES, type BattleRules } from "../../src/catalog/battle-rules";
 import type { PieceId } from "../../src/catalog/pieces";
-import type { Tile } from "../../src/maze/board";
+import { BOARD_ROWS, type Tile } from "../../src/maze/board";
 import { emptyMaze, placePiece, type Maze } from "../../src/maze/maze";
 
 /** Small hand-built Boards and Armies shared by the battle tests. */
@@ -36,9 +36,10 @@ export function setupOf(
 
 /** A wall down `column` with a one-tile gap at `gapRow`. */
 export function wallWithGap(column: number, gapRow: number): Tile[] {
-  return Array.from({ length: 14 }, (_, row) => ({ column, row })).filter(
-    (tile) => tile.row !== gapRow,
-  );
+  return Array.from({ length: BOARD_ROWS }, (_, row) => ({
+    column,
+    row,
+  })).filter((tile) => tile.row !== gapRow);
 }
 
 export function crateWalls(tiles: readonly Tile[]) {

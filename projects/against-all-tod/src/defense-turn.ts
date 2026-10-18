@@ -17,6 +17,8 @@ import type { Hud } from "./ui/hud";
 
 /** The Pieces on offer until Draft Crates and the shop arrive. */
 export const BUILD_PIECES: readonly PieceId[] = ["crate-wall", "sniper-nest"];
+/** The Piece chosen when the page opens. */
+export const FIRST_BUILD_PIECE: PieceId = "crate-wall";
 
 type Phase =
   | { readonly kind: "building" }
@@ -38,7 +40,7 @@ type Phase =
  */
 export class DefenseTurn {
   private maze: Maze = emptyMaze();
-  private chosenPiece: PieceId = BUILD_PIECES[0] ?? "crate-wall";
+  private chosenPiece: PieceId = FIRST_BUILD_PIECE;
   private watchSpeed: WatchSpeed = 1;
   private phase: Phase = { kind: "building" };
   private hud: Hud | undefined;

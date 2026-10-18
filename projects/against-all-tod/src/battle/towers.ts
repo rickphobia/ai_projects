@@ -3,8 +3,13 @@ import { PIECES, type PieceId, type TowerStats } from "../catalog/pieces";
 import type { Tile } from "../maze/board";
 import { placedPieces, type Maze } from "../maze/maze";
 import { distanceToGoal, type Route } from "../maze/route";
-import type { DudeState } from "./dudes";
+import { tileUnder, type DudeState } from "./dudes";
 import type { BattleEvent, BoardPoint } from "./events";
+
+/** A Piece without tower stats was asked to shoot: a catalog or `towersOf` bug. */
+export class TowerStatsError extends Error {
+  override name = "TowerStatsError";
+}
 
 /** One shooting Piece during a battle. */
 export interface TowerState {
@@ -89,7 +94,7 @@ export function fireTowers(
       inRange.map((dude) => ({
         id: dude.id,
         size: DUDE_KINDS[dude.kind].size,
-        distanceToGoal: distanceToGoal(route, tileOf(dude)) ?? Infinity,
+        distanceToGoal: distanceToGoal(route, tileUnder(dude)) ?? Infinity,
       })),
     );
     const target = targetId === null ? undefined : alive.get(targetId);
@@ -129,14 +134,12 @@ function isInRange(tile: Tile, range: number, dude: DudeState): boolean {
   return dx * dx + dy * dy <= range * range;
 }
 
-function tileOf(dude: DudeState): Tile {
-  return { column: Math.floor(dude.x), row: Math.floor(dude.y) };
-}
-
 function statsOf(pieceId: PieceId): TowerStats {
   const stats = PIECES[pieceId].tower;
   if (stats === null) {
-    throw new Error(`${pieceId} has no tower stats but was made a tower.`);
+    throw new TowerStatsError(
+      `${pieceId} has no tower stats but was made a tower.`,
+    );
   }
   return stats;
 }
