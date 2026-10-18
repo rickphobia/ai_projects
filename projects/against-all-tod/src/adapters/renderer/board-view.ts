@@ -11,6 +11,8 @@ import { TILE_SIZE, type BoardTextures } from "./board-textures";
 /** One colour per side (spec story 101); the Goal and the Spawn line wear them from the start. */
 export const DEFENSE_COLOUR = 0x3d8bfd;
 export const ATTACK_COLOUR = 0xff5a36;
+/** Marks a tile where the chosen Piece can't go. */
+export const REFUSED_COLOUR = 0xff3030;
 
 export const BOARD_PIXEL_SIZE = {
   width: BOARD_COLUMNS * TILE_SIZE,

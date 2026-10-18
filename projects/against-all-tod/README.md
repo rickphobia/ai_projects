@@ -4,9 +4,9 @@ A solo Tower Offense Defense browser game: build a Maze, then switch sides and t
 
 ## Status
 
-`in progress`: walking skeleton. The page draws the empty 20×14 Board with PixiJS, with the Spawn line on the left column and the Goal on the right edge. Nothing is playable yet; the game comes in the next tickets (`docs/tickets/`). `docs/spec.md` describes the whole demo.
+`in progress`: building the Maze. The page draws the 20×14 Board with the Spawn line on the left column and the Goal on the right edge. Click a tile to place a Crate Wall; the route Dudes will walk is drawn from every Spawn line tile and redrawn after each placement, and a placement that would seal the Goal off is refused with a message. There are no Dudes, gold or Rounds yet; they come in the next tickets (`docs/tickets/`). `docs/spec.md` describes the whole demo.
 
-![The empty Board](docs/screenshots/01-empty-board.png)
+![Crate Walls and the route bending through their gaps](docs/screenshots/02-maze-and-route.png)
 
 ## Requirements
 
@@ -60,21 +60,28 @@ The deploy scripts read their own `AGAINST_ALL_TOD_*` variables from the shell; 
 
 The spec (`docs/spec.md`, "Modules") plans pure rule modules (maze, battle, run, economy and so on) with no DOM or PixiJS, and adapters around them. The skeleton has the first pieces:
 
-- `src/main.ts` is the entrypoint: it loads the config, makes the logger and starts the renderer. If anything throws, it logs the error and shows the start-up error screen.
+- `src/main.ts` is the entrypoint: it loads the config, makes the logger, starts the renderer and, for now, wires Board clicks to the maze rules (the run module takes that over when Rounds exist). If anything throws, it logs the error and shows the start-up error screen.
 - `src/maze/board.ts` is the Board's layout as data: 20 columns × 14 rows, the Spawn line on column 0, and the Goal on the right column in the middle two rows (6 and 7). Pure, so the maze and battle rules can share it.
-- `src/adapters/renderer/` draws with PixiJS. `game-renderer.ts` starts PixiJS in the page and keeps the Board scaled to fit the window (`fit-to-view.ts`); `board-view.ts` builds the Board from Kenney tiles, with faint lines between tiles, a stripe in the attack colour on the Spawn line and the Goal framed in the defense colour. `board-textures.ts` loads the tiles.
+- `src/maze/maze.ts` holds the placed Pieces and answers "may this Piece go here?" with a typed refusal (`off-board`, `spawn-line`, `goal`, `tile-taken`, `seals-goal`). A Maze is immutable and carries its route, recomputed on each placement.
+- `src/maze/route.ts` is the route: one breadth-first direction field from the Goal over walkable tiles, so every Dude on a tile shares one step. Equally short steps are broken toward the Goal's centre, so routes cut diagonally toward the Goal rather than run along an edge.
+- `src/catalog/pieces.ts` holds every Piece's tuning numbers (price, health, whether it blocks Dudes). Tests read numbers from it.
+- `src/adapters/renderer/` draws with PixiJS. `game-renderer.ts` starts PixiJS in the page and keeps the Board scaled to fit the window (`fit-to-view.ts`); `board-view.ts` builds the Board from Kenney tiles, with faint lines between tiles, a stripe in the attack colour on the Spawn line and the Goal framed in the defense colour. `board-textures.ts` loads the tiles. `pieces-view.ts` draws the Pieces, `route-view.ts` the route preview and `placement-cursor.ts` the tile under the mouse (a ghost Piece, or a red frame where it can't go).
+- `src/adapters/input/board-pointer.ts` turns mouse moves and clicks on the Board into tiles.
+- `src/ui/hud.ts` is the band above the Board: the turn, what to do, and why a placement was refused.
 - `src/ui/startup-error-screen.ts` shows why the game could not start, in plain DOM.
 
 ## Folder layout
 
 ```
 src/
-  main.ts              entrypoint: wires config, logger and renderer
+  main.ts              entrypoint: wires config, logger, renderer and the maze rules
   config.ts            reads and validates VITE_* settings
   logger.ts            levelled logger over the browser console
-  maze/                the Board's layout (more maze rules come in ticket 02)
-  adapters/renderer/   PixiJS: draws the Board, fits it to the window
-  ui/                  DOM screens (start-up error)
+  catalog/             tuning numbers for every Piece
+  maze/                the Board's layout, Piece placement and the route
+  adapters/input/      mouse to Board tiles
+  adapters/renderer/   PixiJS: draws the Board, Pieces and route, fits it to the window
+  ui/                  DOM: the HUD and the start-up error screen
 assets/                Kenney art, with its licence
 tests/                 mirrors src/ (Vitest)
 scripts/itch-zip.sh    builds and zips the game for itch.io
@@ -84,7 +91,7 @@ docs/                  spec, tickets, decisions, screenshots
 
 ## Debugging
 
-- Logs go to the browser console, prefixed `[against-all-tod]`. Start-up logs the build version and Board size at `info`, then `renderer ready` (with `webgl`, `webgpu` or `canvas`) and `Board drawn`.
+- Logs go to the browser console, prefixed `[against-all-tod]`. Start-up logs the build version and Board size at `info`, then `renderer ready` (with `webgl`, `webgpu` or `canvas`) and `Board drawn`. A refused placement logs `placement refused` at `info` with the tile and the reason; each placed Piece logs `Piece placed` at `debug`.
 - Add `?debug=1` to the page URL for debug-level logs without a rebuild (it also logs the config), or set `VITE_DEBUG=true` and rebuild.
 - A `WebGL is off or unavailable` warning means the browser fell back to a plain canvas: the game still draws but will be slower once there are hundreds of Dudes. Check `chrome://gpu` or `about:support`.
 - If start-up fails, the page shows "Against All TOD could not start" with the reason, and the console has a `start-up failed` error with its `kind` (`ConfigError`, `RendererStartError` or another).

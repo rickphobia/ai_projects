@@ -43,7 +43,22 @@ export function allTiles(): Tile[] {
   return tiles;
 }
 
-function isOnBoard(tile: Tile): boolean {
+/** The Goal's tiles, top to bottom. */
+export function goalTiles(): Tile[] {
+  return allTiles().filter((tile) => tileKind(tile) === "goal");
+}
+
+/** A tile as a string, for keying maps and sets. */
+export function tileKey(tile: Tile): string {
+  return `${String(tile.column)},${String(tile.row)}`;
+}
+
+/** The Spawn line's tiles, top to bottom. */
+export function spawnLineTiles(): Tile[] {
+  return allTiles().filter((tile) => tileKind(tile) === "spawn-line");
+}
+
+export function isOnBoard(tile: Tile): boolean {
   return (
     Number.isInteger(tile.column) &&
     Number.isInteger(tile.row) &&
