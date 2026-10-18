@@ -15,6 +15,7 @@ import { FpsMeter } from "./ui/fps-meter";
 import { CratePanel } from "./ui/crate";
 import { Hud } from "./ui/hud";
 import { PieceInfo } from "./ui/piece-info";
+import { RoundReportPanel } from "./ui/report";
 import { showStartupError } from "./ui/startup-error-screen";
 
 async function start(): Promise<void> {
@@ -96,7 +97,8 @@ async function start(): Promise<void> {
       run.rerollCrate();
     },
   });
-  run.begin(hud, endScreen, cratePanel);
+  const report = new RoundReportPanel(requireElement("round-report"));
+  run.begin(hud, endScreen, cratePanel, report);
   saves.save(firstRun);
   if (loaded.kind === "unreadable") {
     hud.showMessage("Your save couldn't be read, so this is a fresh start.");

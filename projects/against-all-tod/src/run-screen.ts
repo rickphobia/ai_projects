@@ -14,7 +14,7 @@ import { BATTLE_RULES } from "./catalog/battle-rules";
 import type { DudeKindId } from "./catalog/dudes";
 import { PIECES, type PieceId } from "./catalog/pieces";
 import { giveGold, jumpToRound } from "./debug/debug-options";
-import { goldEarned } from "./economy/economy";
+import { goldEarned, type BattleEnd } from "./economy/economy";
 import type { Logger } from "./logger";
 import type { Tile } from "./maze/board";
 import { pieceAt, type Maze } from "./maze/maze";
@@ -34,6 +34,7 @@ import type { CratePanel } from "./ui/crate";
 import type { EndScreen } from "./ui/end-screen";
 import type { Hud } from "./ui/hud";
 import type { PieceInfo } from "./ui/piece-info";
+import { roundReport, type RoundReportPanel } from "./ui/report";
 import type { ShopStock } from "./ui/shop";
 
 /** What the shop sells each side until Draft Crates and Unlocks arrive. */
@@ -70,6 +71,7 @@ export class RunScreen {
   private hud: Hud | undefined;
   private endScreen: EndScreen | undefined;
   private cratePanel: CratePanel | undefined;
+  private report: RoundReportPanel | undefined;
   /** The route preview; the debug options can hide it. */
   private routeVisible = true;
 
@@ -90,7 +92,13 @@ export class RunScreen {
    * one saved on a Round's result goes on to the next Round. The HUD, end screen and crate panel
    * are passed in late because their buttons call back here.
    */
-  begin(hud: Hud, endScreen: EndScreen, cratePanel: CratePanel): void {
+  begin(
+    hud: Hud,
+    endScreen: EndScreen,
+    cratePanel: CratePanel,
+    report: RoundReportPanel,
+  ): void {
+    this.report = report;
     this.hud = hud;
     this.endScreen = endScreen;
     this.cratePanel = cratePanel;
@@ -357,14 +365,15 @@ export class RunScreen {
     const side = sideOf(this.run);
     const bestBefore = this.run.bestScore;
     const end = battle.state;
-    const earned = goldEarned(battle.goldEvents, {
+    const battleEnd: BattleEnd = {
       winner: outcome.winner,
       goalHealth: end.goalHealth,
       survivors: [
         ...end.dudes.map((dude) => dude.kind),
         ...end.waiting.map(({ dude }) => dude.kind),
       ],
-    });
+    };
+    const earned = goldEarned(battle.goldEvents, battleEnd);
     if (
       !this.act({ type: "battle-finished", winner: outcome.winner, earned })
     ) {
@@ -387,6 +396,8 @@ export class RunScreen {
       score: this.run.score,
     });
     this.showRunStatus();
+    // Over the HUD or end screen; closing it shows what comes next.
+    this.report?.show(roundReport(battle.goldEvents, battleEnd), won);
     if (this.run.phase === "run-over") {
       this.logger.info("Run over", {
         seed: this.run.seed,

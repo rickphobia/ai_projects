@@ -37,33 +37,65 @@ export function startingWallets(rules: GoldRules = GOLD_RULES): Wallets {
   };
 }
 
+/** Where a battle's gold came from, source by source, for the Round report. */
+export interface GoldBreakdown {
+  readonly defense: {
+    readonly kills: number;
+    readonly goalHealthLeft: number;
+  };
+  readonly attack: {
+    readonly reachedGoal: number;
+    readonly survivors: number;
+    readonly piecesDestroyed: number;
+  };
+}
+
+/** The gold a battle earns each side by source, from everything it emitted and how it ended. */
+export function goldBreakdown(
+  events: readonly GoldEvent[],
+  end: BattleEnd,
+  rules: GoldRules = GOLD_RULES,
+): GoldBreakdown {
+  let kills = 0;
+  let reachedGoal = 0;
+  let piecesDestroyed = 0;
+  for (const event of events) {
+    if (event.type === "kill") {
+      kills += rules.perKill * DUDE_KINDS[event.dudeKind].goldValue;
+    } else if (event.type === "reach-goal") {
+      reachedGoal += rules.perReachGoal * DUDE_KINDS[event.dudeKind].goldValue;
+    } else if (event.type === "piece-destroyed") {
+      piecesDestroyed += rules.perPieceDestroyed;
+    }
+  }
+  let goalHealthLeft = 0;
+  let survivors = 0;
+  if (end.winner === "defense") {
+    goalHealthLeft = Math.floor(
+      Math.max(0, end.goalHealth) * rules.perGoalHealthLeft,
+    );
+  } else {
+    for (const kind of end.survivors) {
+      survivors += rules.perSurvivor * DUDE_KINDS[kind].goldValue;
+    }
+  }
+  return {
+    defense: { kills, goalHealthLeft },
+    attack: { reachedGoal, survivors, piecesDestroyed },
+  };
+}
+
 /** The gold a battle earns each side, from everything it emitted and how it ended. */
 export function goldEarned(
   events: readonly GoldEvent[],
   end: BattleEnd,
   rules: GoldRules = GOLD_RULES,
 ): Wallets {
-  let defense = 0;
-  let attack = 0;
-  for (const event of events) {
-    if (event.type === "kill") {
-      defense += rules.perKill * DUDE_KINDS[event.dudeKind].goldValue;
-    } else if (event.type === "reach-goal") {
-      attack += rules.perReachGoal * DUDE_KINDS[event.dudeKind].goldValue;
-    } else if (event.type === "piece-destroyed") {
-      attack += rules.perPieceDestroyed;
-    }
-  }
-  if (end.winner === "defense") {
-    defense += Math.floor(
-      Math.max(0, end.goalHealth) * rules.perGoalHealthLeft,
-    );
-  } else {
-    for (const kind of end.survivors) {
-      attack += rules.perSurvivor * DUDE_KINDS[kind].goldValue;
-    }
-  }
-  return { defense, attack };
+  const { defense, attack } = goldBreakdown(events, end, rules);
+  return {
+    defense: defense.kills + defense.goalHealthLeft,
+    attack: attack.reachedGoal + attack.survivors + attack.piecesDestroyed,
+  };
 }
 
 export function addGold(wallets: Wallets, gold: Wallets): Wallets {

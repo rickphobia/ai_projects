@@ -86,6 +86,7 @@ The spec (`docs/spec.md`, "Modules") plans pure rule modules (maze, battle, run,
 - `src/adapters/input/board-pointer.ts` turns mouse, wheel and touch events on the canvas into hovers, taps, pans and pinch zooms. A press that moves more than a few pixels, or gains a second finger, pans or zooms and never places.
 - `src/ui/hud.ts` is the band above the Board: the Round, side, Lives, Score and both wallets, the shop's Piece or Squad buttons with their prices (`shop.ts` lists them) and Fight, the watch speed buttons, the Goal's health and the battle clock, the winner with Continue, and why an action was refused.
 - `src/ui/end-screen.ts` is the end-of-Run screen: the Score, the best Score and a New Run button.
+- `src/ui/report.ts` is the Round report shown after every battle: Goal damage, kills per Piece kind, a heat map of where Dudes died and where each wallet's gold came from (`goldBreakdown` in `src/economy/economy.ts`). One click or tap anywhere closes it.
 - `src/ui/piece-info.ts` is the panel naming the Piece under the mouse or last tapped, with its one-line description.
 - `src/ui/device.ts` shows the turn-your-device screen while a touch device is held upright.
 - `src/ui/startup-error-screen.ts` shows why the game could not start, in plain DOM.
