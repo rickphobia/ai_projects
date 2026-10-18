@@ -6,12 +6,14 @@ import {
   type BattleOutcome,
   type BattleSetup,
   type BattleState,
+  type Side,
 } from "./battle/battle";
 import type { BattleEvent, ShotEvent } from "./battle/events";
 import { stepsDue, type WatchSpeed } from "./battle/watch-clock";
 import { BATTLE_RULES } from "./catalog/battle-rules";
 import type { DudeKindId } from "./catalog/dudes";
 import { PIECES, type PieceId } from "./catalog/pieces";
+import { giveGold, jumpToRound } from "./debug/debug-options";
 import { goldEarned } from "./economy/economy";
 import type { Logger } from "./logger";
 import type { Tile } from "./maze/board";
@@ -22,7 +24,6 @@ import {
   checkPiece,
   checkSquad,
   mazeOf,
-  newRun,
   roundOf,
   runStatusOf,
   sideOf,
@@ -67,18 +68,26 @@ export class RunScreen {
   private battle: Battle | null = null;
   private hud: Hud | undefined;
   private endScreen: EndScreen | undefined;
+  /** The route preview; the debug options can hide it. */
+  private routeVisible = true;
 
+  /** `run` is a new or loaded Run; `onRunChanged` saves it after every accepted action. */
   constructor(
     private readonly view: GameView,
     private readonly pieceInfo: PieceInfo,
     private readonly logger: Logger,
-    seed: number,
+    run: RunState,
+    private readonly onRunChanged: (run: RunState) => void,
   ) {
-    this.run = newRun(seed);
+    this.run = run;
     this.maze = mazeOf(this.run.pieces);
   }
 
-  /** Starts Round 1. The HUD and end screen are passed in late because their buttons call back here. */
+  /**
+   * Shows the Run where it stands. A Run saved mid-battle restarts that battle from its start;
+   * one saved on a Round's result goes on to the next Round. The HUD and end screen are passed
+   * in late because their buttons call back here.
+   */
   begin(hud: Hud, endScreen: EndScreen): void {
     this.hud = hud;
     this.endScreen = endScreen;
@@ -101,8 +110,26 @@ export class RunScreen {
         if (kind === "mouse") this.view.showPlacementCursor(tile, false);
       },
     });
-    this.logRoundStart();
-    this.showBuilding();
+    switch (this.run.phase) {
+      case "building":
+        this.logRoundStart();
+        this.showBuilding();
+        return;
+      case "fighting":
+        this.logRoundStart();
+        // The Maze is drawn while building; a battle restarted from a save needs it too.
+        this.showBuilding();
+        this.watchBattle();
+        return;
+      case "round-won":
+      case "round-lost":
+        this.continue();
+        return;
+      case "run-over":
+        this.showBuilding();
+        endScreen.show(this.run.score, this.run.bestScore);
+        return;
+    }
   }
 
   choosePiece(pieceId: PieceId): void {
@@ -119,6 +146,42 @@ export class RunScreen {
 
   fight(): void {
     if (!this.act({ type: "start-battle" })) return;
+    this.watchBattle();
+  }
+
+  /** Debug option: adds gold to one side's wallet. */
+  giveGold(side: Side, amount: number): void {
+    if (this.run.phase === "fighting") return;
+    this.replaceRun(giveGold(this.run, side, amount));
+    this.logger.info("debug: gave gold", { side, amount });
+  }
+
+  /** Debug option: starts Round `round` with the Board as it is. */
+  jumpToRound(round: number): void {
+    const jumped = jumpToRound(this.run, round);
+    if (jumped === null) {
+      this.hud?.showMessage("Can't jump now, or to that Round.");
+      return;
+    }
+    this.replaceRun(jumped);
+    this.logger.info("debug: jumped to Round", { round });
+    this.logRoundStart();
+  }
+
+  /** Debug option: shows or hides the route preview. */
+  toggleRoute(): void {
+    this.routeVisible = !this.routeVisible;
+    if (this.run.phase === "building") this.view.showRoute(this.routeVisible);
+  }
+
+  private replaceRun(run: RunState): void {
+    this.run = run;
+    this.onRunChanged(run);
+    this.showBuilding();
+  }
+
+  /** Starts watching the Round's battle; the Run is already in its fighting phase. */
+  private watchBattle(): void {
     const setup = battleSetupOf(this.run);
     this.logger.info("battle started", {
       round: roundOf(this.run),
@@ -182,6 +245,7 @@ export class RunScreen {
       this.maze = mazeOf(result.state.pieces);
     }
     this.run = result.state;
+    this.onRunChanged(this.run);
     if (action.type === "place-piece" || action.type === "place-squad") {
       this.logger.debug("placed", { ...action });
       this.showBuilding();
@@ -214,7 +278,7 @@ export class RunScreen {
   private showBuilding(): void {
     this.view.clearBattle();
     this.view.showMaze(this.maze);
-    this.view.showRoute(true);
+    this.view.showRoute(this.routeVisible);
     this.view.showArmy(this.run.army);
     this.view.showGoalHealth(BATTLE_RULES.goalHealth, BATTLE_RULES.goalHealth);
     this.showRunStatus();
