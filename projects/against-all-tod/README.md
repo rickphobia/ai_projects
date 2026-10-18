@@ -4,7 +4,7 @@ A solo Tower Offense Defense browser game: build a Maze, then switch sides and t
 
 ## Status
 
-`in progress`: building the Maze. The page draws the 20×14 Board with the Spawn line on the left column and the Goal on the right edge. Click a tile to place a Crate Wall; the route Dudes will walk is drawn from every Spawn line tile and redrawn after each placement, and a placement that would seal the Goal off is refused with a message. There are no Dudes, gold or Rounds yet; they come in the next tickets (`docs/tickets/`). `docs/spec.md` describes the whole demo.
+`in progress`: building the Maze. The page draws the 20×14 Board with the Spawn line on the left column and the Goal on the right edge. Click or tap a tile to place a Crate Wall, and click, tap or hover a Piece to see what it does. Scroll or pinch to zoom, drag to pan; a phone held upright asks to be turned to landscape. the route Dudes will walk is drawn from every Spawn line tile and redrawn after each placement, and a placement that would seal the Goal off is refused with a message. There are no Dudes, gold or Rounds yet; they come in the next tickets (`docs/tickets/`). `docs/spec.md` describes the whole demo.
 
 ![Crate Walls and the route bending through their gaps](docs/screenshots/02-maze-and-route.png)
 
@@ -65,9 +65,11 @@ The spec (`docs/spec.md`, "Modules") plans pure rule modules (maze, battle, run,
 - `src/maze/maze.ts` holds the placed Pieces and answers "may this Piece go here?" with a typed refusal (`off-board`, `spawn-line`, `goal`, `tile-taken`, `seals-goal`). A Maze is immutable and carries its route, recomputed on each placement.
 - `src/maze/route.ts` is the route: one breadth-first direction field from the Goal over walkable tiles, so every Dude on a tile shares one step. Equally short steps are broken toward the Goal's centre, so routes cut diagonally toward the Goal rather than run along an edge.
 - `src/catalog/pieces.ts` holds every Piece's tuning numbers (price, health, whether it blocks Dudes). Tests read numbers from it.
-- `src/adapters/renderer/` draws with PixiJS. `game-renderer.ts` starts PixiJS in the page and keeps the Board scaled to fit the window (`fit-to-view.ts`); `board-view.ts` builds the Board from Kenney tiles, with faint lines between tiles, a stripe in the attack colour on the Spawn line and the Goal framed in the defense colour. `board-textures.ts` loads the tiles. `pieces-view.ts` draws the Pieces, `route-view.ts` the route preview and `placement-cursor.ts` the tile under the mouse (a ghost Piece, or a red frame where it can't go).
-- `src/adapters/input/board-pointer.ts` turns mouse moves and clicks on the Board into tiles.
+- `src/adapters/renderer/` draws with PixiJS. `game-renderer.ts` starts PixiJS in the page and keeps the Board scaled to fit the window (`fit-to-view.ts`); `board-view.ts` builds the Board from Kenney tiles, with faint lines between tiles, a stripe in the attack colour on the Spawn line and the Goal framed in the defense colour. `board-textures.ts` loads the tiles. `pieces-view.ts` draws the Pieces, `route-view.ts` the route preview and `placement-cursor.ts` the tile under the mouse (a ghost Piece, or a red frame where it can't go). `camera.ts` is the zoom and pan: pure maths for screen-to-Board conversion and clamping, so the Board can't be zoomed out past fitting the window, in further than 2.5×, or dragged off screen.
+- `src/adapters/input/board-pointer.ts` turns mouse, wheel and touch events on the canvas into hovers, taps, pans and pinch zooms. A press that moves more than a few pixels, or gains a second finger, pans or zooms and never places.
 - `src/ui/hud.ts` is the band above the Board: the turn, what to do, and why a placement was refused.
+- `src/ui/piece-info.ts` is the panel naming the Piece under the mouse or last tapped, with its one-line description.
+- `src/ui/device.ts` shows the turn-your-device screen while a touch device is held upright.
 - `src/ui/startup-error-screen.ts` shows why the game could not start, in plain DOM.
 
 ## Folder layout
@@ -79,9 +81,9 @@ src/
   logger.ts            levelled logger over the browser console
   catalog/             tuning numbers for every Piece
   maze/                the Board's layout, Piece placement and the route
-  adapters/input/      mouse to Board tiles
+  adapters/input/      mouse, wheel and touch to taps, pans and zooms
   adapters/renderer/   PixiJS: draws the Board, Pieces and route, fits it to the window
-  ui/                  DOM: the HUD and the start-up error screen
+  ui/                  DOM: the HUD, piece info, turn-your-device and start-up error screens
 assets/                Kenney art, with its licence
 tests/                 mirrors src/ (Vitest)
 scripts/itch-zip.sh    builds and zips the game for itch.io
