@@ -4,14 +4,14 @@
 
 **Blocked by:** 05 (Hundreds of Dudes stay smooth)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** battle/pieces, catalog/pieces, maze, renderer/pieces
 
 **Effort:** low
 
-- [ ] Turnstile placement is legal only if the Goal stays reachable in both positions; Dudes re-route when it turns
-- [ ] Lighthouse beam sweeps, damages Dudes it touches, ignores darkness and marks lit tiles (darkness itself arrives in ticket 16)
-- [ ] Siren stuns Dudes in range on a cooldown; its range reads the Volume level (neutral until ticket 17)
-- [ ] Lighthouse and Sniper Nest can target Balloonists; the Siren can't (flag in catalog)
-- [ ] One battle test per Piece showing it does what its description says
+- [x] Turnstile placement is legal only if the Goal stays reachable in both positions; Dudes re-route when it turns
+- [x] Lighthouse beam sweeps, damages Dudes it touches, ignores darkness and marks lit tiles (darkness itself arrives in ticket 16)
+- [x] Siren stuns Dudes in range on a cooldown; its range reads the Volume level (neutral until ticket 17)
+- [x] Lighthouse and Sniper Nest can target Balloonists; the Siren can't (flag in catalog)
+- [x] One battle test per Piece showing it does what its description says

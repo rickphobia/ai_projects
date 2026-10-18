@@ -1,6 +1,12 @@
 import { Container, Graphics, Sprite, type Texture } from "pixi.js";
-import type { BattleState } from "../../battle/battle";
+import { beamAngle } from "../../battle/area-effects";
+import {
+  STEPS_PER_SECOND,
+  turnstilesTurned,
+  type BattleState,
+} from "../../battle/battle";
 import type { BoardPoint, ShotEvent } from "../../battle/events";
+import { PIECES } from "../../catalog/pieces";
 import { tileKey } from "../../maze/board";
 import { TILE_SIZE, type BoardTextures } from "./board-textures";
 import { ATTACK_COLOUR, DEFENSE_COLOUR } from "./board-view";
@@ -64,8 +70,9 @@ export class UnitsView {
       (shot) => state.step - shot.step < TRACER_STEPS,
     );
     this.drawTracers(state.step);
+    turnByClock(turrets, state.step);
     for (const tower of state.towers) {
-      const turret = turrets.get(tileKey(tower.tile));
+      const turret = turrets.get(tileKey(tower.tile))?.turret;
       if (turret === undefined || tower.aimedAt === null) continue;
       turret.rotation = facing(
         tower.tile.column + 0.5,
@@ -153,6 +160,19 @@ function destroy({ disc, body }: DudeSprites): void {
 }
 
 /** The rotation that points a sprite from (fromX, fromY) to `to`; the old one when they are the same point. */
+/** Turns the Pieces that follow the battle clock: Lighthouse lamps along their beam, Turnstile arms. */
+function turnByClock(turrets: Turrets, step: number): void {
+  const turned = turnstilesTurned(step);
+  for (const { pieceId, turret } of turrets.values()) {
+    const beam = PIECES[pieceId].beam;
+    if (beam !== null) {
+      turret.rotation = beamAngle(beam, step, STEPS_PER_SECOND) + SPRITE_FACING;
+    } else if (PIECES[pieceId].turnIntervalSeconds !== null) {
+      turret.rotation = turned ? Math.PI / 2 : 0;
+    }
+  }
+}
+
 function facing(
   fromX: number,
   fromY: number,
