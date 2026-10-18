@@ -1,9 +1,16 @@
 import type { Army, Squad } from "../battle/army";
 import type { BattleSetup, Side } from "../battle/battle";
 import { BATTLE_RULES, type BattleRules } from "../catalog/battle-rules";
-import { ROUND_ONE_ARMY, type DudeKindId } from "../catalog/dudes";
-import type { PieceId } from "../catalog/pieces";
+import { DUDE_KINDS, ROUND_ONE_ARMY, type DudeKindId } from "../catalog/dudes";
+import { GOLD_RULES } from "../catalog/gold-rules";
+import { PIECES, type PieceId } from "../catalog/pieces";
 import { RUN_RULES } from "../catalog/run-rules";
+import {
+  addGold,
+  spend,
+  startingWallets,
+  type Wallets,
+} from "../economy/economy";
 import { isOnBoard, tileKind, type Tile } from "../maze/board";
 import {
   emptyMaze,
@@ -26,14 +33,15 @@ export type RunPhase =
   | "round-lost"
   | "run-over";
 
-/** The Board and the Army: everything a Rewind puts back. */
-export interface BoardSnapshot {
+/** The Board, the Army and both wallets: everything a Rewind puts back. */
+export interface RoundSnapshot {
   readonly pieces: readonly PlacedPiece[];
   readonly army: Army;
+  readonly wallets: Wallets;
 }
 
 /** Plain data only (no Maps or classes), so a save can JSON it as it is. */
-export interface RunState extends BoardSnapshot {
+export interface RunState extends RoundSnapshot {
   readonly seed: number;
   readonly lives: number;
   /** Rounds won. The Round being played is always one more. */
@@ -41,8 +49,8 @@ export interface RunState extends BoardSnapshot {
   /** The best Score of this session, this Run included once it ends. */
   readonly bestScore: number;
   readonly phase: RunPhase;
-  /** The Board and Army as the current Round began. */
-  readonly roundStart: BoardSnapshot;
+  /** The Board, Army and wallets as the current Round began. */
+  readonly roundStart: RoundSnapshot;
 }
 
 export type RunAction =
@@ -58,7 +66,12 @@ export type RunAction =
       readonly dudeKind: DudeKindId;
     }
   | { readonly type: "start-battle" }
-  | { readonly type: "battle-finished"; readonly winner: Side }
+  | {
+      readonly type: "battle-finished";
+      readonly winner: Side;
+      /** What the battle earned each side (see economy); kept only if the Round is won. */
+      readonly earned: Wallets;
+    }
   | { readonly type: "continue" }
   | { readonly type: "new-run" };
 
@@ -69,8 +82,8 @@ export type RunRefusal =
   | "wrong-phase"
   /** Placing a Piece on an Attack turn, or a Squad on a Defense turn. */
   | "wrong-side"
-  /** This Round's placements are used up. */
-  | "none-left"
+  /** The side's own wallet can't pay for it. */
+  | "not-enough-gold"
   /** A Squad anywhere but the Spawn line. */
   | "not-spawn-line";
 
@@ -79,7 +92,11 @@ export type RunResult =
   | { readonly ok: false; readonly refusal: RunRefusal };
 
 export function newRun(seed: number, bestScore = 0): RunState {
-  const board: BoardSnapshot = { pieces: [], army: ROUND_ONE_ARMY };
+  const board: RoundSnapshot = {
+    pieces: [],
+    army: ROUND_ONE_ARMY,
+    wallets: startingWallets(),
+  };
   return {
     ...board,
     seed: seed >>> 0,
@@ -97,6 +114,7 @@ export interface RunStatus {
   readonly side: Side;
   readonly lives: number;
   readonly score: number;
+  readonly wallets: Wallets;
 }
 
 export function runStatusOf(state: RunState): RunStatus {
@@ -105,6 +123,7 @@ export function runStatusOf(state: RunState): RunStatus {
     side: sideOf(state),
     lives: state.lives,
     score: state.score,
+    wallets: state.wallets,
   };
 }
 
@@ -117,13 +136,14 @@ export function sideOf(state: RunState): Side {
   return roundOf(state) % 2 === 1 ? "defense" : "attack";
 }
 
-/** Pieces or Squads the player may still place this Round. */
-export function placementsLeft(state: RunState): number {
-  return sideOf(state) === "defense"
-    ? RUN_RULES.piecesPerDefenseTurn -
-        (state.pieces.length - state.roundStart.pieces.length)
-    : RUN_RULES.squadsPerAttackTurn -
-        (state.army.length - state.roundStart.army.length);
+/** What a Piece costs in Defense gold. */
+export function piecePrice(pieceId: PieceId): number {
+  return PIECES[pieceId].price;
+}
+
+/** What a Squad costs in Attack gold. */
+export function squadPrice(dudeKind: DudeKindId): number {
+  return DUDE_KINDS[dudeKind].squadPrice;
 }
 
 /** The Maze built from the placed Pieces, in the order they went down. */
@@ -157,8 +177,12 @@ export function battleSetupOf(
 }
 
 /** Null when a Squad may go on `tile` now; otherwise why not. Only Spawn line tiles take Squads. */
-export function checkSquad(state: RunState, tile: Tile): RunRefusal | null {
-  const refusal = checkPlacing(state, "attack");
+export function checkSquad(
+  state: RunState,
+  tile: Tile,
+  dudeKind: DudeKindId,
+): RunRefusal | null {
+  const refusal = checkPlacing(state, "attack", squadPrice(dudeKind));
   if (refusal !== null) return refusal;
   if (!isOnBoard(tile)) return "off-board";
   if (tileKind(tile) !== "spawn-line") return "not-spawn-line";
@@ -183,13 +207,17 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
     case "place-piece":
       return placeOnMaze(state, action.tile, action.pieceId);
     case "place-squad": {
-      const refusal = checkSquad(state, action.tile);
+      const refusal = checkSquad(state, action.tile, action.dudeKind);
       if (refusal !== null) return refuse(refusal);
       const squad: Squad = {
         dudeKind: action.dudeKind,
         spawnRow: action.tile.row,
       };
-      return accept({ ...state, army: [...state.army, squad] });
+      return accept({
+        ...state,
+        army: [...state.army, squad],
+        wallets: paid(state.wallets, "attack", squadPrice(action.dudeKind)),
+      });
     }
     case "start-battle":
       if (state.phase !== "building") return refuse("wrong-phase");
@@ -197,7 +225,9 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
     case "battle-finished":
       if (state.phase !== "fighting") return refuse("wrong-phase");
       return accept(
-        action.winner === sideOf(state) ? winRound(state) : loseRound(state),
+        action.winner === sideOf(state)
+          ? winRound(state, action.earned)
+          : loseRound(state),
       );
     case "continue":
       if (state.phase !== "round-won" && state.phase !== "round-lost") {
@@ -211,34 +241,69 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
 }
 
 function placeOnMaze(state: RunState, tile: Tile, pieceId: PieceId): RunResult {
-  const refusal = checkPlacing(state, "defense");
+  const refusal = checkPlacing(state, "defense", piecePrice(pieceId));
   if (refusal !== null) return refuse(refusal);
   const placed = placePiece(mazeOf(state.pieces), tile, pieceId);
   if (!placed.ok) return refuse(placed.refusal);
-  return accept({ ...state, pieces: [...state.pieces, { pieceId, tile }] });
+  return accept({
+    ...state,
+    pieces: [...state.pieces, { pieceId, tile }],
+    wallets: paid(state.wallets, "defense", piecePrice(pieceId)),
+  });
 }
 
-function checkPlacing(state: RunState, side: Side): RunRefusal | null {
+function checkPlacing(
+  state: RunState,
+  side: Side,
+  price: number,
+): RunRefusal | null {
   if (state.phase !== "building") return "wrong-phase";
   if (sideOf(state) !== side) return "wrong-side";
-  if (placementsLeft(state) <= 0) return "none-left";
+  if (spend(state.wallets, side, price) === null) return "not-enough-gold";
   return null;
 }
 
-/** Everything placed stays, and the next Round starts from here. */
-function winRound(state: RunState): RunState {
+/** For a purchase `checkPlacing` has already allowed. */
+function paid(wallets: Wallets, side: Side, price: number): Wallets {
+  const left = spend(wallets, side, price);
+  if (left === null) {
+    throw new RunStateError(
+      `${side} paid ${String(price)} gold it didn't have`,
+    );
+  }
+  return left;
+}
+
+/** Everything placed and earned stays, and the next Round starts from here. */
+function winRound(state: RunState, earned: Wallets): RunState {
+  const wallets = addGold(state.wallets, earned);
   return {
     ...state,
+    wallets,
     score: state.score + 1,
     phase: "round-won",
-    roundStart: { pieces: state.pieces, army: state.army },
+    roundStart: { pieces: state.pieces, army: state.army, wallets },
   };
 }
 
-/** One Life gone and the Board Rewound; the Round number stays, because the Score does. */
+/**
+ * One Life gone and the Board and wallets Rewound, with bonus gold for the side played. The
+ * Round number stays, because the Score does.
+ */
 function loseRound(state: RunState): RunState {
   const lives = state.lives - 1;
-  const rewound = { ...state, ...state.roundStart, lives };
+  const side = sideOf(state);
+  const wallets = {
+    ...state.roundStart.wallets,
+    [side]: state.roundStart.wallets[side] + GOLD_RULES.rewindBonus,
+  };
+  const rewound = {
+    ...state,
+    ...state.roundStart,
+    wallets,
+    lives,
+    roundStart: { ...state.roundStart, wallets },
+  };
   if (lives > 0) return { ...rewound, phase: "round-lost" };
   return {
     ...rewound,

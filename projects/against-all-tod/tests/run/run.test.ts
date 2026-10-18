@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { runBattle } from "../../src/battle/battle";
-import { ROUND_ONE_ARMY } from "../../src/catalog/dudes";
+import { DUDE_KINDS, ROUND_ONE_ARMY } from "../../src/catalog/dudes";
+import { GOLD_RULES } from "../../src/catalog/gold-rules";
+import { PIECES } from "../../src/catalog/pieces";
 import { RUN_RULES } from "../../src/catalog/run-rules";
 import { BOARD_ROWS } from "../../src/maze/board";
 import {
   applyRunAction,
   battleSetupOf,
   newRun,
-  placementsLeft,
   roundOf,
   sideOf,
   type RunAction,
@@ -25,12 +26,28 @@ function play(state: RunState, ...actions: RunAction[]): RunState {
   }, state);
 }
 
+/** Gold every test battle reports earning; the economy's own rules are tested in economy. */
+const EARNED = { defense: 7, attack: 3 };
+
 /** Starts the Round's battle, runs it with the real battle module and reports the winner. */
 function fight(state: RunState): RunState {
   const fighting = play(state, { type: "start-battle" });
   const outcome = runBattle(battleSetupOf(fighting)).state.outcome;
   if (outcome === null) throw new Error("the battle never ended");
-  return play(fighting, { type: "battle-finished", winner: outcome.winner });
+  return play(fighting, {
+    type: "battle-finished",
+    winner: outcome.winner,
+    earned: EARNED,
+  });
+}
+
+/** Ends the Round's battle with `winner`, without running it. */
+function finish(state: RunState, winner: "attack" | "defense"): RunState {
+  return play(play(state, { type: "start-battle" }), {
+    type: "battle-finished",
+    winner,
+    earned: EARNED,
+  });
 }
 
 function sniperNest(column: number, row: number): RunAction {
@@ -68,6 +85,10 @@ describe("a new Run", () => {
     expect(run.lives).toBe(RUN_RULES.startingLives);
     expect(run.score).toBe(0);
     expect(run.phase).toBe("building");
+    expect(run.wallets).toEqual({
+      defense: GOLD_RULES.startingDefenseGold,
+      attack: GOLD_RULES.startingAttackGold,
+    });
   });
 
   it("is plain data that survives a JSON round trip", () => {
@@ -133,22 +154,70 @@ describe("placing", () => {
     expect(refusalOf(run, sniperNest(9, 2))).toBe("tile-taken");
     expect(refusalOf(run, sniperNest(0, 2))).toBe("spawn-line");
   });
+});
 
-  it("allows only so many Pieces in a Defense turn", () => {
-    const actions = Array.from(
-      { length: RUN_RULES.piecesPerDefenseTurn },
-      (_, index) => sniperNest(9, index),
-    );
-    const full = play(newRun(1), ...actions);
-    expect(placementsLeft(full)).toBe(0);
-    expect(refusalOf(full, sniperNest(12, 0))).toBe("none-left");
+describe("wallets", () => {
+  const attacking = play(fight(play(newRun(1), ...HOLDING_MAZE)), CONTINUE);
+  const nestPrice = PIECES["sniper-nest"].price;
+  const squadPrice = DUDE_KINDS.intern.squadPrice;
+
+  it("pays for a Piece from Defense gold only", () => {
+    const run = newRun(1);
+    const placed = play(run, sniperNest(9, 2));
+    expect(placed.wallets).toEqual({
+      defense: run.wallets.defense - nestPrice,
+      attack: run.wallets.attack,
+    });
   });
 
-  it("allows only so many Squads in an Attack turn", () => {
-    const rows = [0, 1, 2, 4, 5, 6].slice(0, RUN_RULES.squadsPerAttackTurn);
-    const full = play(attacking, ...rows.map((row) => internSquad(row)));
-    expect(placementsLeft(full)).toBe(0);
-    expect(refusalOf(full, internSquad(13))).toBe("none-left");
+  it("pays for a Squad from Attack gold only", () => {
+    const placed = play(attacking, internSquad(0));
+    expect(placed.wallets).toEqual({
+      defense: attacking.wallets.defense,
+      attack: attacking.wallets.attack - squadPrice,
+    });
+  });
+
+  it("refuses a Piece Defense gold can't pay for, however much Attack gold there is", () => {
+    const run: RunState = {
+      ...newRun(1),
+      wallets: { defense: nestPrice - 1, attack: 1000 },
+    };
+    expect(refusalOf(run, sniperNest(9, 2))).toBe("not-enough-gold");
+  });
+
+  it("refuses a Squad Attack gold can't pay for, however much Defense gold there is", () => {
+    const run: RunState = {
+      ...attacking,
+      wallets: { defense: 1000, attack: squadPrice - 1 },
+    };
+    expect(refusalOf(run, internSquad(0))).toBe("not-enough-gold");
+  });
+
+  it("keeps what a won battle earned, into the next Round's start", () => {
+    const built = play(newRun(1), ...HOLDING_MAZE);
+    const won = finish(built, "defense");
+    const expected = {
+      defense: built.wallets.defense + EARNED.defense,
+      attack: built.wallets.attack + EARNED.attack,
+    };
+    expect(won.wallets).toEqual(expected);
+    expect(won.roundStart.wallets).toEqual(expected);
+  });
+
+  it("Rewinds both wallets to the start of the Round and adds the Rewind bonus to the side played", () => {
+    const spent = play(attacking, internSquad(0));
+    const lost = finish(spent, "defense");
+    expect(lost.wallets).toEqual({
+      defense: attacking.wallets.defense,
+      attack: attacking.wallets.attack + GOLD_RULES.rewindBonus,
+    });
+
+    // A second loss Rewinds to the gold after the first, bonus included, and adds another.
+    const lostAgain = finish(play(lost, CONTINUE, internSquad(0)), "defense");
+    expect(lostAgain.wallets.attack).toBe(
+      attacking.wallets.attack + 2 * GOLD_RULES.rewindBonus,
+    );
   });
 
   it("refuses placing during a battle and fighting twice", () => {
@@ -159,9 +228,13 @@ describe("placing", () => {
 
   it("refuses a battle result outside a battle, and continuing mid-Round", () => {
     const run = newRun(1);
-    expect(refusalOf(run, { type: "battle-finished", winner: "defense" })).toBe(
-      "wrong-phase",
-    );
+    expect(
+      refusalOf(run, {
+        type: "battle-finished",
+        winner: "defense",
+        earned: EARNED,
+      }),
+    ).toBe("wrong-phase");
     expect(refusalOf(run, CONTINUE)).toBe("wrong-phase");
     expect(refusalOf(run, { type: "new-run" })).toBe("wrong-phase");
   });
@@ -181,15 +254,11 @@ describe("losing a Round", () => {
     const retry = play(lost, CONTINUE);
     expect(roundOf(retry)).toBe(2);
     expect(sideOf(retry)).toBe("attack");
-    expect(placementsLeft(retry)).toBe(RUN_RULES.squadsPerAttackTurn);
   });
 
   it("replays a Rewound Round with the same battle seed", () => {
     const run = play(newRun(1), ...HOLDING_MAZE);
-    const lost = play(play(run, { type: "start-battle" }), {
-      type: "battle-finished",
-      winner: "attack",
-    });
+    const lost = finish(run, "attack");
     const retry = play(lost, CONTINUE, ...HOLDING_MAZE);
     expect(battleSetupOf(retry).seed).toBe(battleSetupOf(run).seed);
   });

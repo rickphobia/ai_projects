@@ -4,7 +4,7 @@ import { wantsSwarmScene } from "./debug/swarm-scene";
 import { playSwarm } from "./debug/swarm-screen";
 import { chooseLogLevel, createConsoleLogger } from "./logger";
 import { BOARD_COLUMNS, BOARD_ROWS } from "./maze/board";
-import { BUILD_CHOICES, FIRST_BUILD_PIECE, RunScreen } from "./run-screen";
+import { SHOP_STOCK, FIRST_BUILD_PIECE, RunScreen } from "./run-screen";
 import { PORTRAIT_TOUCH_QUERY, showTurnDeviceScreenWhile } from "./ui/device";
 import { EndScreen } from "./ui/end-screen";
 import { FpsMeter } from "./ui/fps-meter";
@@ -47,7 +47,7 @@ async function start(): Promise<void> {
     logger,
     config.defaultSeed,
   );
-  const hud = new Hud(requireElement("hud"), BUILD_CHOICES, {
+  const hud = new Hud(requireElement("hud"), SHOP_STOCK, {
     onChoosePiece: (pieceId) => {
       run.choosePiece(pieceId);
     },

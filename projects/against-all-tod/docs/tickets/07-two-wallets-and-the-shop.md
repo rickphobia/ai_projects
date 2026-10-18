@@ -4,15 +4,15 @@
 
 **Blocked by:** 06 (The Run)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** economy, run, ui/shop, ui/hud
 
 **Effort:** low
 
-- [ ] Economy turns battle events and end state into gold for each wallet using catalog numbers
-- [ ] Each side can only spend its own wallet; buying refuses with a typed reason when gold is short
-- [ ] Rewind restores both wallets to the start of the Round and adds the Rewind bonus
-- [ ] Shop lists the items for the side being played with prices
-- [ ] HUD shows both wallets
-- [ ] Tests: each gold rule with a hand-made event list; wallets never mix; Rewind bonus
+- [x] Economy turns battle events and end state into gold for each wallet using catalog numbers
+- [x] Each side can only spend its own wallet; buying refuses with a typed reason when gold is short
+- [x] Rewind restores both wallets to the start of the Round and adds the Rewind bonus
+- [x] Shop lists the items for the side being played with prices
+- [x] HUD shows both wallets
+- [x] Tests: each gold rule with a hand-made event list; wallets never mix; Rewind bonus

@@ -18,6 +18,10 @@ export interface DudeKindEntry {
   /** How big it is; the Sniper Nest shoots the biggest Dude in range. */
   readonly size: number;
   readonly squadSize: number;
+  /** In Attack gold, for one Squad from the shop. */
+  readonly squadPrice: number;
+  /** What one Dude is worth in gold, killed or getting through; bigger kinds are worth more. */
+  readonly goldValue: number;
   /** Time between one Dude of a Squad entering and the next, so a Squad files in. */
   readonly spawnIntervalSeconds: number;
 }
@@ -32,6 +36,8 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     goalDamage: 5,
     size: 1,
     squadSize: 20,
+    squadPrice: 20,
+    goldValue: 1,
     spawnIntervalSeconds: 0.25,
   },
 };
