@@ -1,7 +1,7 @@
 import type { BattleRules } from "../catalog/battle-rules";
 import { DUDE_KINDS } from "../catalog/dudes";
 import { PIECES } from "../catalog/pieces";
-import { isOnBoard, tileKind } from "../maze/board";
+import { isOnBoard, tileKey, tileKind } from "../maze/board";
 import type { Maze } from "../maze/maze";
 import type { Route } from "../maze/route";
 import { createRng } from "../rng/rng";
@@ -11,11 +11,20 @@ import {
   hypeSpeedFactor,
   MAX_LANE,
   newDude,
+  tileUnder,
   walk,
   type DudeState,
 } from "./dudes";
 import type { BattleEvent } from "./events";
 import { fireTowers, towersOf, type TowerState } from "./towers";
+import {
+  bounce,
+  crossFloor,
+  decoyRoutesOf,
+  walkerRoute,
+  type DecoyRoutes,
+  type TrapCooldowns,
+} from "./traps";
 import {
   breakerRoute,
   breakerRoutesOf,
@@ -65,6 +74,10 @@ export interface BattleState {
   readonly pieceHealth: ReadonlyMap<string, number>;
   /** The Wall-breakers' fields; null when the Army has no Wall-breakers. */
   readonly breakerRoutes: BreakerRoutes | null;
+  /** The fields to the Decoy Goals; null once none is standing. */
+  readonly decoyRoutes: DecoyRoutes | null;
+  /** When each jammed Grinder or spent Bouncer works again. */
+  readonly trapCooldowns: TrapCooldowns;
   readonly dudes: readonly DudeState[];
   readonly waiting: readonly WaitingDude[];
   readonly towers: readonly TowerState[];
@@ -110,6 +123,8 @@ export function startBattle(setup: BattleSetup): BattleState {
     maze: setup.maze,
     pieceHealth: new Map(),
     breakerRoutes: hasWallBreakers ? breakerRoutesOf(setup.maze) : null,
+    decoyRoutes: decoyRoutesOf(setup.maze),
+    trapCooldowns: new Map(),
     dudes: [],
     waiting,
     towers: towersOf(setup.maze),
@@ -163,12 +178,29 @@ export function stepBattle(
         ? state.breakerRoutes.turned
         : state.breakerRoutes.unturned;
   const pieceHits = new PieceHits(state.pieceHealth);
-  for (const dude of effects.dudes) {
+  const cooldowns = new Map(state.trapCooldowns);
+  const decoyRoute =
+    state.decoyRoutes === null
+      ? null
+      : turnstilesTurned(step)
+        ? state.decoyRoutes.turned
+        : state.decoyRoutes.unturned;
+  const bounced = bounce(
+    state.maze,
+    effects.dudes,
+    cooldowns,
+    step,
+    STEPS_PER_SECOND,
+  );
+  for (const dude of bounced) {
     if ((dude.stunnedUntilStep ?? 0) > step) {
       dudes.push(dude);
       continue;
     }
     let field = route;
+    if (!isWallBreaker(dude.kind) && !DUDE_KINDS[dude.kind].flies) {
+      field = walkerRoute(dude, decoyRoute, route);
+    }
     if (breakerRoutes !== null && isWallBreaker(dude.kind)) {
       field = breakerRoute(dude, breakerRoutes, route);
       const hit = pieceHits.hitInTheWay(
@@ -191,7 +223,20 @@ export function stepBattle(
       carrierSpeedFactor(dude);
     const moved = walk(dude, field, STEP_SECONDS, speedFactor);
     if (moved !== "at-goal") {
-      dudes.push(moved);
+      const crossed = crossFloor(
+        dude,
+        moved,
+        state.maze,
+        cooldowns,
+        step,
+        STEPS_PER_SECOND,
+        events,
+      );
+      if (crossed !== null) dudes.push(crossed);
+      continue;
+    }
+    if (field === decoyRoute) {
+      events.push(hitDecoy(dude, state.maze, pieceHits, step));
       continue;
     }
     const damage = DUDE_KINDS[dude.kind].goalDamage;
@@ -205,8 +250,14 @@ export function stepBattle(
     });
   }
 
+  const standing = withoutDestroyed(state, volley.towers, pieceHits.destroyed);
   return {
-    ...withoutDestroyed(state, volley.towers, pieceHits.destroyed),
+    ...standing,
+    decoyRoutes:
+      standing.maze === state.maze
+        ? state.decoyRoutes
+        : decoyRoutesOf(standing.maze),
+    trapCooldowns: cooldowns,
     step,
     goalHealth,
     pieceHealth: pieceHits.pieceHealth(),
@@ -214,6 +265,27 @@ export function stepBattle(
     waiting,
     events,
     outcome: outcomeAfter(setup.rules, step, goalHealth, dudes, waiting),
+  };
+}
+
+/** A Dude on a Decoy Goal hits it with its Goal damage and vanishes. */
+function hitDecoy(
+  dude: DudeState,
+  maze: Maze,
+  pieceHits: PieceHits,
+  step: number,
+): BattleEvent {
+  const tile = tileUnder(dude);
+  const damage = DUDE_KINDS[dude.kind].goalDamage;
+  const piece = maze.pieces.get(tileKey(tile));
+  if (piece !== undefined) pieceHits.damage(piece, damage);
+  return {
+    type: "decoy-hit",
+    step,
+    pieceTile: tile,
+    dudeId: dude.id,
+    dudeKind: dude.kind,
+    damage,
   };
 }
 

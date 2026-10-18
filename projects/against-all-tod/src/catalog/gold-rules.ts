@@ -16,6 +16,8 @@ export interface GoldRules {
   readonly perSurvivor: number;
   /** Attack gold per Piece a Wall-breaker destroys. */
   readonly perPieceDestroyed: number;
+  /** Gold moved from the Attack wallet to the Defense wallet per Dude crossing a Tax Booth. */
+  readonly perTaxedDude: number;
   /** Added to the played side's wallet after a Rewind, so the retry is not the same fight. */
   readonly rewindBonus: number;
 }
@@ -28,5 +30,6 @@ export const GOLD_RULES: GoldRules = {
   perReachGoal: 2,
   perSurvivor: 1,
   perPieceDestroyed: 10,
+  perTaxedDude: 1,
   rewindBonus: 15,
 };

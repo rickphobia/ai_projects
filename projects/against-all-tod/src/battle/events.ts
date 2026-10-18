@@ -13,7 +13,12 @@ export interface BoardPoint {
  * `step` is the step it happened in, counted from 1.
  */
 export type BattleEvent =
-  ShotEvent | KillEvent | ReachGoalEvent | PieceDestroyedEvent;
+  | ShotEvent
+  | KillEvent
+  | ReachGoalEvent
+  | PieceDestroyedEvent
+  | TaxedEvent
+  | DecoyHitEvent;
 
 export interface ShotEvent {
   readonly type: "shot";
@@ -54,4 +59,24 @@ export interface PieceDestroyedEvent {
   /** The Wall-breaker whose hit destroyed it. */
   readonly dudeId: number;
   readonly dudeKind: DudeKindId;
+}
+
+/** A Dude stepped onto a Tax Booth; the economy moves the gold. */
+export interface TaxedEvent {
+  readonly type: "taxed";
+  readonly step: number;
+  readonly pieceTile: Tile;
+  readonly dudeId: number;
+  readonly dudeKind: DudeKindId;
+}
+
+/** A Dude reached a Decoy Goal and vanished, earning nothing. */
+export interface DecoyHitEvent {
+  readonly type: "decoy-hit";
+  readonly step: number;
+  readonly pieceTile: Tile;
+  readonly dudeId: number;
+  readonly dudeKind: DudeKindId;
+  /** Decoy health it took. */
+  readonly damage: number;
 }

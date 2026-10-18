@@ -34,6 +34,10 @@ export const CRATE_POOLS: Readonly<Record<Side, readonly CrateItem[]>> = {
     { kind: "piece", id: "turnstile" },
     { kind: "piece", id: "lighthouse" },
     { kind: "piece", id: "siren" },
+    { kind: "piece", id: "tax-booth" },
+    { kind: "piece", id: "grinder" },
+    { kind: "piece", id: "bouncer" },
+    { kind: "piece", id: "decoy-goal" },
   ],
   attack: [
     ...Object.values(DUDE_KINDS).map(({ id }): CrateItem => ({

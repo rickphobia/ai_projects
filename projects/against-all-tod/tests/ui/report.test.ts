@@ -76,11 +76,13 @@ describe("roundReport", () => {
       defense: {
         kills: 3 * GOLD_RULES.perKill * value,
         goalHealthLeft: Math.floor(13 * GOLD_RULES.perGoalHealthLeft),
+        taxed: 0,
       },
       attack: {
         reachedGoal: 2 * GOLD_RULES.perReachGoal * value,
         survivors: 0,
         piecesDestroyed: 0,
+        taxPaid: 0,
       },
     });
     expect(goldLines(report.gold).defense[0]).toEqual([
