@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check": "npm run lint && npm run format:check && npm run typecheck && npm run test",
-    "itch-zip": "scripts/itch-zip.sh"
+    "itch-zip": "scripts/itch-zip.sh",
+    "bench": "rolldown scripts/swarm-bench.ts --platform node --format esm --file node_modules/.cache/swarm-bench.mjs --log-level warn && node node_modules/.cache/swarm-bench.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

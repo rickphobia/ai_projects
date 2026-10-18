@@ -25,7 +25,7 @@ import { GoalHealthBar } from "./goal-health-view";
 import { drawPieces, pieceView, type Turrets } from "./pieces-view";
 import { PlacementCursor } from "./placement-cursor";
 import { drawRoute } from "./route-view";
-import { UnitsView } from "./units-view";
+import { UnitsView, dudeDisc } from "./units-view";
 
 /** Space kept free around the Board, in screen pixels. */
 const VIEW_MARGIN = 16;
@@ -99,7 +99,15 @@ export async function startRenderer(
   const board = createBoardView(textures);
   const pieces = new Container({ label: "pieces" });
   const route = new Graphics({ label: "route" });
-  const units = new UnitsView(textures);
+  const disc = dudeDisc();
+  // Drawn at the closest zoom's resolution, so discs stay crisp zoomed in.
+  const discTexture = app.renderer.generateTexture({
+    target: disc,
+    resolution: window.devicePixelRatio * MAX_SCALE,
+    antialias: true,
+  });
+  disc.destroy();
+  const units = new UnitsView(textures, discTexture);
   const goalHealth = new GoalHealthBar();
   const cursor = new PlacementCursor(pieceView(textures, cursorPiece));
   let turrets: Turrets = new Map();

@@ -1,9 +1,22 @@
 import { startRenderer } from "./adapters/renderer/game-renderer";
 import { loadConfig } from "./config";
-import { BUILD_PIECES, DefenseTurn, FIRST_BUILD_PIECE } from "./defense-turn";
+import {
+  SWARM_ARMY,
+  SWARM_DUDES,
+  SWARM_RULES,
+  swarmMaze,
+  wantsSwarmScene,
+} from "./debug/swarm-scene";
+import {
+  BUILD_PIECES,
+  DefenseTurn,
+  FIRST_BUILD_PIECE,
+  roundOneScene,
+} from "./defense-turn";
 import { chooseLogLevel, createConsoleLogger } from "./logger";
 import { BOARD_COLUMNS, BOARD_ROWS } from "./maze/board";
 import { PORTRAIT_TOUCH_QUERY, showTurnDeviceScreenWhile } from "./ui/device";
+import { FpsMeter } from "./ui/fps-meter";
 import { Hud } from "./ui/hud";
 import { PieceInfo } from "./ui/piece-info";
 import { showStartupError } from "./ui/startup-error-screen";
@@ -25,12 +38,23 @@ async function start(): Promise<void> {
   );
   const host = requireElement("game");
   const view = await startRenderer(host, logger, FIRST_BUILD_PIECE);
+  const swarm = wantsSwarmScene(window.location.search);
+  if (swarm) {
+    logger.info("swarm scene", { dudes: SWARM_DUDES });
+    const meter = new FpsMeter(requireElement("fps"));
+    view.everyFrame((elapsedMs) => {
+      meter.frame(elapsedMs);
+    });
+  }
   // Runs and the seed in the URL come later; until then every battle uses the default seed.
   const turn = new DefenseTurn(
     view,
     new PieceInfo(requireElement("piece-info")),
     logger,
     config.defaultSeed,
+    swarm
+      ? { maze: swarmMaze(), army: SWARM_ARMY, rules: SWARM_RULES }
+      : roundOneScene(),
   );
   const hud = new Hud(requireElement("hud"), BUILD_PIECES, {
     onChoosePiece: (pieceId) => {

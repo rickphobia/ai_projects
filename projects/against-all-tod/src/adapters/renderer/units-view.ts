@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite } from "pixi.js";
+import { Container, Graphics, Sprite, type Texture } from "pixi.js";
 import type { BattleState } from "../../battle/battle";
 import type { BoardPoint, ShotEvent } from "../../battle/events";
 import { tileKey } from "../../maze/board";
@@ -15,20 +15,43 @@ const DUDE_DISC_RADIUS = 0.27;
 /** Kenney's sprites face up; PixiJS measures rotation from the right. */
 const SPRITE_FACING = Math.PI / 2;
 
+/** The disc drawn once, to be made into the texture every Dude's disc sprite shares. */
+export function dudeDisc(): Graphics {
+  const radius = DUDE_DISC_RADIUS * TILE_SIZE;
+  return new Graphics()
+    .circle(0, 0, radius)
+    .fill({ color: ATTACK_COLOUR })
+    .stroke({ color: 0xffffff, alpha: 0.7, width: 2 });
+}
+
+/** One Dude on screen: its disc, its body, and the frame it was last seen in. */
+interface DudeSprites {
+  readonly disc: Sprite;
+  readonly body: Sprite;
+  seenInFrame: number;
+}
+
 /**
- * The battle as it stands: one sprite per Dude on a disc in the attack colour, shot tracers in the
- * defense colour, and tower turrets turned toward their last shot. It reads battle state only.
+ * The battle as it stands: one sprite per Dude on a disc sprite in the attack colour, shot tracers
+ * in the defense colour, and tower turrets turned toward their last shot. It reads battle state only.
+ *
+ * Every Dude is two sprites sharing two textures, so PixiJS draws the whole swarm in a batch or
+ * two; a frame moves sprites and allocates nothing per Dude.
  */
 export class UnitsView {
   readonly view = new Container({ label: "units" });
-  private readonly discs = new Graphics({ label: "dude-discs" });
+  private readonly discLayer = new Container({ label: "dude-discs" });
   private readonly dudeLayer = new Container({ label: "dudes" });
   private readonly tracers = new Graphics({ label: "tracers" });
-  private readonly dudeSprites = new Map<number, Sprite>();
+  private readonly dudeSprites = new Map<number, DudeSprites>();
   private recentShots: ShotEvent[] = [];
+  private frame = 0;
 
-  constructor(private readonly textures: BoardTextures) {
-    this.view.addChild(this.discs, this.dudeLayer, this.tracers);
+  constructor(
+    private readonly textures: BoardTextures,
+    private readonly discTexture: Texture,
+  ) {
+    this.view.addChild(this.discLayer, this.dudeLayer, this.tracers);
   }
 
   show(
@@ -45,7 +68,8 @@ export class UnitsView {
       const turret = turrets.get(tileKey(tower.tile));
       if (turret === undefined || tower.aimedAt === null) continue;
       turret.rotation = facing(
-        { x: tower.tile.column + 0.5, y: tower.tile.row + 0.5 },
+        tower.tile.column + 0.5,
+        tower.tile.row + 0.5,
         tower.aimedAt,
         turret.rotation,
       );
@@ -53,49 +77,54 @@ export class UnitsView {
   }
 
   clear(): void {
-    for (const sprite of this.dudeSprites.values()) sprite.destroy();
+    for (const sprites of this.dudeSprites.values()) destroy(sprites);
     this.dudeSprites.clear();
     this.recentShots = [];
     this.tracers.clear();
-    this.discs.clear();
   }
 
   private drawDudes(state: BattleState): void {
-    const alive = new Set<number>();
-    this.discs.clear();
+    this.frame++;
     for (const dude of state.dudes) {
-      this.discs.circle(
-        dude.x * TILE_SIZE,
-        dude.y * TILE_SIZE,
-        DUDE_DISC_RADIUS * TILE_SIZE,
-      );
-      alive.add(dude.id);
-      let sprite = this.dudeSprites.get(dude.id);
-      if (sprite === undefined) {
-        sprite = new Sprite({
-          texture: this.textures.dude,
-          anchor: 0.5,
-          scale: DUDE_SCALE,
-          // Dudes enter walking right, off the Spawn line.
-          rotation: SPRITE_FACING,
-          x: dude.x * TILE_SIZE,
-          y: dude.y * TILE_SIZE,
-        });
-        this.dudeSprites.set(dude.id, sprite);
-        this.dudeLayer.addChild(sprite);
+      const x = dude.x * TILE_SIZE;
+      const y = dude.y * TILE_SIZE;
+      let sprites = this.dudeSprites.get(dude.id);
+      if (sprites === undefined) {
+        sprites = this.addDude(x, y);
+        this.dudeSprites.set(dude.id, sprites);
       }
-      const previous = { x: sprite.x / TILE_SIZE, y: sprite.y / TILE_SIZE };
-      sprite.rotation = facing(previous, dude, sprite.rotation);
-      sprite.position.set(dude.x * TILE_SIZE, dude.y * TILE_SIZE);
+      const { disc, body } = sprites;
+      body.rotation = facing(
+        body.x / TILE_SIZE,
+        body.y / TILE_SIZE,
+        dude,
+        body.rotation,
+      );
+      body.position.set(x, y);
+      disc.position.set(x, y);
+      sprites.seenInFrame = this.frame;
     }
-    this.discs
-      .fill({ color: ATTACK_COLOUR })
-      .stroke({ color: 0xffffff, alpha: 0.7, width: 2 });
-    for (const [id, sprite] of this.dudeSprites) {
-      if (alive.has(id)) continue;
-      sprite.destroy();
+    for (const [id, sprites] of this.dudeSprites) {
+      if (sprites.seenInFrame === this.frame) continue;
+      destroy(sprites);
       this.dudeSprites.delete(id);
     }
+  }
+
+  private addDude(x: number, y: number): DudeSprites {
+    const disc = new Sprite({ texture: this.discTexture, anchor: 0.5, x, y });
+    const body = new Sprite({
+      texture: this.textures.dude,
+      anchor: 0.5,
+      scale: DUDE_SCALE,
+      // Dudes enter walking right, off the Spawn line.
+      rotation: SPRITE_FACING,
+      x,
+      y,
+    });
+    this.discLayer.addChild(disc);
+    this.dudeLayer.addChild(body);
+    return { disc, body, seenInFrame: this.frame };
   }
 
   private drawTracers(step: number): void {
@@ -118,10 +147,20 @@ export class UnitsView {
   }
 }
 
-/** The rotation that points a sprite from `from` to `to`; the old one when they are the same point. */
-function facing(from: BoardPoint, to: BoardPoint, current: number): number {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
+function destroy({ disc, body }: DudeSprites): void {
+  disc.destroy();
+  body.destroy();
+}
+
+/** The rotation that points a sprite from (fromX, fromY) to `to`; the old one when they are the same point. */
+function facing(
+  fromX: number,
+  fromY: number,
+  to: BoardPoint,
+  current: number,
+): number {
+  const dx = to.x - fromX;
+  const dy = to.y - fromY;
   if (dx === 0 && dy === 0) return current;
   return Math.atan2(dy, dx) + SPRITE_FACING;
 }

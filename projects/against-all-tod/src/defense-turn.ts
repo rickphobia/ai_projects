@@ -8,7 +8,8 @@ import {
 } from "./battle/battle";
 import type { ShotEvent } from "./battle/events";
 import { stepsDue, type WatchSpeed } from "./battle/watch-clock";
-import { BATTLE_RULES } from "./catalog/battle-rules";
+import type { Army } from "./battle/army";
+import { BATTLE_RULES, type BattleRules } from "./catalog/battle-rules";
 import { ROUND_ONE_ARMY } from "./catalog/dudes";
 import { PIECES, type PieceId } from "./catalog/pieces";
 import type { Logger } from "./logger";
@@ -27,6 +28,18 @@ import type { PieceInfo } from "./ui/piece-info";
 export const BUILD_PIECES: readonly PieceId[] = ["crate-wall", "sniper-nest"];
 /** The Piece chosen when the page opens. */
 export const FIRST_BUILD_PIECE: PieceId = "crate-wall";
+
+/** What a Defense turn starts from and fights against. */
+export interface TurnScene {
+  readonly maze: Maze;
+  readonly army: Army;
+  readonly rules: BattleRules;
+}
+
+/** The normal turn: an empty Board against the Round 1 Army. Debug scenes swap in their own. */
+export function roundOneScene(): TurnScene {
+  return { maze: emptyMaze(), army: ROUND_ONE_ARMY, rules: BATTLE_RULES };
+}
 
 type Phase =
   | { readonly kind: "building" }
@@ -47,7 +60,7 @@ type Phase =
  * once Rounds exist.
  */
 export class DefenseTurn {
-  private maze: Maze = emptyMaze();
+  private maze: Maze;
   private chosenPiece: PieceId = FIRST_BUILD_PIECE;
   private watchSpeed: WatchSpeed = 1;
   private phase: Phase = { kind: "building" };
@@ -58,7 +71,10 @@ export class DefenseTurn {
     private readonly pieceInfo: PieceInfo,
     private readonly logger: Logger,
     private readonly seed: number,
-  ) {}
+    private readonly scene: TurnScene,
+  ) {
+    this.maze = scene.maze;
+  }
 
   /** Starts in the building phase. The HUD is passed in late because its buttons call back here. */
   begin(hud: Hud): void {
@@ -116,9 +132,9 @@ export class DefenseTurn {
     if (this.phase.kind !== "building") return;
     const setup: BattleSetup = {
       maze: this.maze,
-      army: ROUND_ONE_ARMY,
+      army: this.scene.army,
       seed: this.seed,
-      rules: BATTLE_RULES,
+      rules: this.scene.rules,
     };
     this.logger.info("battle started", {
       seed: setup.seed,
@@ -155,7 +171,10 @@ export class DefenseTurn {
     this.view.clearBattle();
     this.view.showMaze(this.maze);
     this.view.showRoute(true);
-    this.view.showGoalHealth(BATTLE_RULES.goalHealth, BATTLE_RULES.goalHealth);
+    this.view.showGoalHealth(
+      this.scene.rules.goalHealth,
+      this.scene.rules.goalHealth,
+    );
     this.hud?.showBuilding(this.chosenPiece);
   }
 
@@ -190,10 +209,10 @@ export class DefenseTurn {
 
   private showBattle(state: BattleState, newShots: readonly ShotEvent[]): void {
     this.view.showBattle(state, newShots);
-    this.view.showGoalHealth(state.goalHealth, BATTLE_RULES.goalHealth);
+    this.view.showGoalHealth(state.goalHealth, this.scene.rules.goalHealth);
     this.hud?.showBattleStatus(
       state.goalHealth,
-      BATTLE_RULES.goalHealth,
+      this.scene.rules.goalHealth,
       state.step / STEPS_PER_SECOND,
     );
   }

@@ -39,7 +39,10 @@ npm run itch-zip  # build and zip for itch.io: itch/against-all-tod-<commit>.zip
 npm run check     # lint, format check, type check and unit tests: what CI runs
 npm run test      # unit tests only
 npm run format    # fix formatting
+npm run bench     # times the 500-Intern swarm battle headless, in ms per step
 ```
+
+The performance target (`docs/spec.md`) is 500 Dudes at 60 fps on a mid-range laptop and at least 30 fps on a mid-range phone. To measure it, run `npm run dev` (or open any build) with `?debug=1&scene=swarm` added to the URL and press Fight: the swarm debug scene sends 500 Interns at a sample Maze of walls and Sniper Nests, and the corner shows the frame rate and the lowest it has been. `npm run bench` checks the battle rules alone, without drawing.
 
 CI (`.github/workflows/against-all-tod.yml`) runs `npm run check`, the build and `shellcheck` on the deploy and zip scripts on every push that touches this project.
 
@@ -62,18 +65,20 @@ The spec (`docs/spec.md`, "Modules") plans pure rule modules (maze, battle, run,
 
 - `src/main.ts` is the entrypoint: it loads the config, makes the logger, starts the renderer and the HUD, and hands them to `src/defense-turn.ts`. If anything throws, it logs the error and shows the start-up error screen.
 - `src/defense-turn.ts` wires one Defense turn until the run module owns Rounds: Board clicks go to the maze rules, Fight starts a battle against the Round 1 Army, each frame runs the steps the watch clock says are due and hands the state to the renderer, and the end shows the winner.
-- `src/battle/` is the battle, pure and headless. `battle.ts` starts a battle from a Maze, an Army, a seed and the battle rules, and steps it at a fixed 1/60 s: Dudes file onto the Board, towers fire, Dudes walk, then it checks the end (Goal at zero: attack wins; no Dudes left or 90 s of game time: defense wins). `dudes.ts` walks a Dude along the shared route, `towers.ts` fires the Sniper Nests (biggest Dude in range, then the one closest to the Goal), `events.ts` lists what a step emits (shot, kill, reach Goal) for gold and reports later, and `watch-clock.ts` turns real frame time into steps at 1x, 2x or 4x. Watch speed only changes how many steps run per real second, so the result is the same at every speed.
+- `src/battle/` is the battle, pure and headless. `battle.ts` starts a battle from a Maze, an Army, a seed and the battle rules, and steps it at a fixed 1/60 s: Dudes file onto the Board, towers fire, Dudes walk, then it checks the end (Goal at zero: attack wins; no Dudes left or 90 s of game time: defense wins). `dudes.ts` walks a Dude along the shared route, `towers.ts` fires the Sniper Nests (biggest Dude in range, then the one closest to the Goal; each step sorts the Dudes by tile, so a tower only looks at the tiles its range reaches), `events.ts` lists what a step emits (shot, kill, reach Goal) for gold and reports later, and `watch-clock.ts` turns real frame time into steps at 1x, 2x or 4x. Watch speed only changes how many steps run per real second, so the result is the same at every speed.
 - `src/rng/rng.ts` is the seeded random number source (Mulberry32). The battle uses it to spread each Squad's Dudes across their tile.
 - `src/maze/board.ts` is the Board's layout as data: 20 columns × 14 rows, the Spawn line on column 0, and the Goal on the right column in the middle two rows (6 and 7). Pure, so the maze and battle rules can share it.
 - `src/maze/maze.ts` holds the placed Pieces and answers "may this Piece go here?" with a typed refusal (`off-board`, `spawn-line`, `goal`, `tile-taken`, `seals-goal`). A Maze is immutable and carries its route, recomputed on each placement.
 - `src/maze/route.ts` is the route: one breadth-first direction field from the Goal over walkable tiles, so every Dude on a tile shares one step. Equally short steps are broken toward the Goal's centre, so routes cut diagonally toward the Goal rather than run along an edge.
 - `src/catalog/` holds every tuning number: `pieces.ts` for Pieces (price, health, whether it blocks Dudes, and range, damage and fire rate for towers), `dudes.ts` for Dude kinds (health, speed, Goal damage, size, Squad size) and the Round 1 Army, and `battle-rules.ts` for the Goal's health and the time limit. Tests read numbers from it.
-- `src/adapters/renderer/` draws with PixiJS. `game-renderer.ts` starts PixiJS in the page and keeps the Board scaled to fit the window (`fit-to-view.ts`); `board-view.ts` builds the Board from Kenney tiles, with faint lines between tiles, a stripe in the attack colour on the Spawn line and the Goal framed in the defense colour. `board-textures.ts` loads the tiles. `pieces-view.ts` draws the Pieces (a Sniper Nest's turret turns toward its last shot), `route-view.ts` the route preview and `placement-cursor.ts` the tile under the mouse (a ghost Piece, or a red frame where it can't go). `units-view.ts` draws a battle: each Dude on a disc in the attack colour, and shot tracers in the defense colour. `goal-health-view.ts` is the Goal's health bar. `camera.ts` is the zoom and pan: pure maths for screen-to-Board conversion and clamping, so the Board can't be zoomed out past fitting the window, in further than 2.5×, or dragged off screen.
+- `src/adapters/renderer/` draws with PixiJS. `game-renderer.ts` starts PixiJS in the page and keeps the Board scaled to fit the window (`fit-to-view.ts`); `board-view.ts` builds the Board from Kenney tiles, with faint lines between tiles, a stripe in the attack colour on the Spawn line and the Goal framed in the defense colour. `board-textures.ts` loads the tiles. `pieces-view.ts` draws the Pieces (a Sniper Nest's turret turns toward its last shot), `route-view.ts` the route preview and `placement-cursor.ts` the tile under the mouse (a ghost Piece, or a red frame where it can't go). `units-view.ts` draws a battle: each Dude on a disc in the attack colour, and shot tracers in the defense colour. Each Dude is two sprites sharing two textures (the disc is drawn once into a texture at start-up), so PixiJS batches the whole swarm, and a frame only moves sprites. `goal-health-view.ts` is the Goal's health bar. `camera.ts` is the zoom and pan: pure maths for screen-to-Board conversion and clamping, so the Board can't be zoomed out past fitting the window, in further than 2.5×, or dragged off screen.
 - `src/adapters/input/board-pointer.ts` turns mouse, wheel and touch events on the canvas into hovers, taps, pans and pinch zooms. A press that moves more than a few pixels, or gains a second finger, pans or zooms and never places.
 - `src/ui/hud.ts` is the band above the Board: the turn, the Piece buttons and Fight, the watch speed buttons, the Goal's health and the battle clock, the winner, and why a placement was refused.
 - `src/ui/piece-info.ts` is the panel naming the Piece under the mouse or last tapped, with its one-line description.
 - `src/ui/device.ts` shows the turn-your-device screen while a touch device is held upright.
 - `src/ui/startup-error-screen.ts` shows why the game could not start, in plain DOM.
+- `src/ui/fps-meter.ts` is the swarm scene's frame-rate reading.
+- `src/debug/swarm-scene.ts` is the swarm debug scene's Maze, Army and rules (a Goal that outlasts every Intern), and the URL check that picks it. `scripts/swarm-bench.ts` runs the same battle headless for `npm run bench`.
 
 ## Folder layout
 
@@ -89,10 +94,12 @@ src/
   rng/                 seeded random numbers
   adapters/input/      mouse, wheel and touch to taps, pans and zooms
   adapters/renderer/   PixiJS: draws the Board, Pieces, route and battle, fits it to the window
-  ui/                  DOM: the HUD, piece info, turn-your-device and start-up error screens
+  ui/                  DOM: the HUD, piece info, turn-your-device and start-up error screens, fps meter
+  debug/               debug scenes picked from the URL (the 500-Intern swarm)
 assets/                Kenney art, with its licence
 tests/                 mirrors src/ (Vitest)
 scripts/itch-zip.sh    builds and zips the game for itch.io
+scripts/swarm-bench.ts times the swarm battle headless (npm run bench)
 deploy/                update-site.sh and rollback.sh for the Beelink
 docs/                  spec, tickets, decisions, screenshots
 ```
@@ -101,6 +108,7 @@ docs/                  spec, tickets, decisions, screenshots
 
 - Logs go to the browser console, prefixed `[against-all-tod]`. Start-up logs the build version and Board size at `info`, then `renderer ready` (with `webgl`, `webgpu` or `canvas`) and `Board drawn`. A refused placement logs `placement refused` at `info` with the tile and the reason; each placed Piece logs `Piece placed` at `debug`. Fight logs `battle started` (seed, Piece and Squad counts) and the end logs `battle finished` (winner, reason, step, Goal health left, kills and Dudes that reached the Goal) at `info`. To replay a battle headless, build the same Maze in a test and call `runBattle` with that seed.
 - Add `?debug=1` to the page URL for debug-level logs without a rebuild (it also logs the config), or set `VITE_DEBUG=true` and rebuild.
+- Add `?debug=1&scene=swarm` for the swarm debug scene and its fps reading (see "Test"). It logs `swarm scene` at `info`.
 - A `WebGL is off or unavailable` warning means the browser fell back to a plain canvas: the game still draws but will be slower once there are hundreds of Dudes. Check `chrome://gpu` or `about:support`.
 - If start-up fails, the page shows "Against All TOD could not start" with the reason, and the console has a `start-up failed` error with its `kind` (`ConfigError`, `RendererStartError` or another).
 - A blank page with no log usually means the JS bundle didn't load: check the network tab for a 404 and that `VITE_BASE_PATH` matches where the page is served.

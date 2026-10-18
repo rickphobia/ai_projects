@@ -94,11 +94,16 @@ export function stepBattle(
   if (state.outcome !== null) return state;
   const step = state.step + 1;
 
-  const entering = state.waiting.filter((w) => w.entersAtStep < step);
-  const waiting = state.waiting.filter((w) => w.entersAtStep >= step);
+  const onBoard = [...state.dudes];
+  const waiting: WaitingDude[] = [];
+  for (const next of state.waiting) {
+    if (next.entersAtStep < step) onBoard.push(next.dude);
+    else waiting.push(next);
+  }
+  // The route belongs to the Maze, worked out when a Piece was placed; a step never recomputes it.
   const volley = fireTowers(
     state.towers,
-    [...state.dudes, ...entering.map((w) => w.dude)],
+    onBoard,
     setup.maze.route,
     step,
     STEPS_PER_SECOND,
