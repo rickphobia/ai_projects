@@ -3,7 +3,9 @@ import { loadConfig } from "./config";
 import { BUILD_PIECES, DefenseTurn, FIRST_BUILD_PIECE } from "./defense-turn";
 import { chooseLogLevel, createConsoleLogger } from "./logger";
 import { BOARD_COLUMNS, BOARD_ROWS } from "./maze/board";
+import { PORTRAIT_TOUCH_QUERY, showTurnDeviceScreenWhile } from "./ui/device";
 import { Hud } from "./ui/hud";
+import { PieceInfo } from "./ui/piece-info";
 import { showStartupError } from "./ui/startup-error-screen";
 
 async function start(): Promise<void> {
@@ -17,10 +19,19 @@ async function start(): Promise<void> {
   });
   logger.debug("config", { ...config });
 
+  showTurnDeviceScreenWhile(
+    requireElement("turn-device"),
+    window.matchMedia(PORTRAIT_TOUCH_QUERY),
+  );
   const host = requireElement("game");
   const view = await startRenderer(host, logger, FIRST_BUILD_PIECE);
   // Runs and the seed in the URL come later; until then every battle uses the default seed.
-  const turn = new DefenseTurn(view, logger, config.defaultSeed);
+  const turn = new DefenseTurn(
+    view,
+    new PieceInfo(requireElement("piece-info")),
+    logger,
+    config.defaultSeed,
+  );
   const hud = new Hud(requireElement("hud"), BUILD_PIECES, {
     onChoosePiece: (pieceId) => {
       turn.choosePiece(pieceId);

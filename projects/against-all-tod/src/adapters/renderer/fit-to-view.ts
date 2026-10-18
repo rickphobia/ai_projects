@@ -14,7 +14,7 @@ const MIN_SCALE = 0.01;
 
 /**
  * The scale and offset that show all of `content` centred in `view`, keeping its shape and
- * leaving `margin` pixels free on every side. The zoom and pan camera replaces this later.
+ * leaving `margin` pixels free on every side. The camera starts here and never zooms out past it.
  */
 export function fitToView(view: Size, content: Size, margin: number): Fit {
   const scale = Math.max(

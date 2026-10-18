@@ -86,7 +86,7 @@ export class Hud {
     const fight = this.button("Fight", null, this.handlers.onFight);
     fight.classList.add("hud-fight");
     this.controls.replaceChildren(...pieceButtons, fight);
-    this.hint.textContent = `Click a tile to place a ${PIECES[chosen].name}. The orange line is the route Dudes will walk.`;
+    this.hint.textContent = `Tap a tile to place a ${PIECES[chosen].name}, or a Piece to see what it does. Drag to pan; pinch or scroll to zoom.`;
   }
 
   showBattle(speed: WatchSpeed): void {

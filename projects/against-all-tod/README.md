@@ -4,7 +4,7 @@ A solo Tower Offense Defense browser game: build a Maze, then switch sides and t
 
 ## Status
 
-`in progress`: one Defense turn, played over and over. The page draws the 20×14 Board with the Spawn line on the left column and the Goal on the right edge. Pick Crate Wall or Sniper Nest and click tiles to place them; the route Dudes will walk is drawn and redrawn after each placement, and a placement that would seal the Goal off is refused with a message. Press Fight to watch a game-made Army of 40 Interns walk the route: Sniper Nests shoot the biggest Dude in range, Dudes that reach the Goal knock down its health bar, and the HUD names the winner. Watch at 1x, 2x or 4x; "Build again" keeps the Maze. There is no gold, Lives or Rounds yet; they come in the next tickets (`docs/tickets/`). `docs/spec.md` describes the whole demo.
+`in progress`: one Defense turn, played over and over. The page draws the 20×14 Board with the Spawn line on the left column and the Goal on the right edge. Pick Crate Wall or Sniper Nest and click or tap tiles to place them; click, tap or hover a Piece to see what it does. Scroll or pinch to zoom, drag to pan; a phone held upright asks to be turned to landscape. The route Dudes will walk is drawn and redrawn after each placement, and a placement that would seal the Goal off is refused with a message. Press Fight to watch a game-made Army of 40 Interns walk the route: Sniper Nests shoot the biggest Dude in range, Dudes that reach the Goal knock down its health bar, and the HUD names the winner. Watch at 1x, 2x or 4x; "Build again" keeps the Maze. There is no gold, Lives or Rounds yet; they come in the next tickets (`docs/tickets/`). `docs/spec.md` describes the whole demo.
 
 ![Interns filing down the Maze while Sniper Nests pick them off](docs/screenshots/03-defense-turn-battle.png)
 
@@ -68,9 +68,11 @@ The spec (`docs/spec.md`, "Modules") plans pure rule modules (maze, battle, run,
 - `src/maze/maze.ts` holds the placed Pieces and answers "may this Piece go here?" with a typed refusal (`off-board`, `spawn-line`, `goal`, `tile-taken`, `seals-goal`). A Maze is immutable and carries its route, recomputed on each placement.
 - `src/maze/route.ts` is the route: one breadth-first direction field from the Goal over walkable tiles, so every Dude on a tile shares one step. Equally short steps are broken toward the Goal's centre, so routes cut diagonally toward the Goal rather than run along an edge.
 - `src/catalog/` holds every tuning number: `pieces.ts` for Pieces (price, health, whether it blocks Dudes, and range, damage and fire rate for towers), `dudes.ts` for Dude kinds (health, speed, Goal damage, size, Squad size) and the Round 1 Army, and `battle-rules.ts` for the Goal's health and the time limit. Tests read numbers from it.
-- `src/adapters/renderer/` draws with PixiJS. `game-renderer.ts` starts PixiJS in the page and keeps the Board scaled to fit the window (`fit-to-view.ts`); `board-view.ts` builds the Board from Kenney tiles, with faint lines between tiles, a stripe in the attack colour on the Spawn line and the Goal framed in the defense colour. `board-textures.ts` loads the tiles. `pieces-view.ts` draws the Pieces (a Sniper Nest's turret turns toward its last shot), `route-view.ts` the route preview and `placement-cursor.ts` the tile under the mouse (a ghost Piece, or a red frame where it can't go). `units-view.ts` draws a battle: each Dude on a disc in the attack colour, and shot tracers in the defense colour. `goal-health-view.ts` is the Goal's health bar.
-- `src/adapters/input/board-pointer.ts` turns mouse moves and clicks on the Board into tiles.
+- `src/adapters/renderer/` draws with PixiJS. `game-renderer.ts` starts PixiJS in the page and keeps the Board scaled to fit the window (`fit-to-view.ts`); `board-view.ts` builds the Board from Kenney tiles, with faint lines between tiles, a stripe in the attack colour on the Spawn line and the Goal framed in the defense colour. `board-textures.ts` loads the tiles. `pieces-view.ts` draws the Pieces (a Sniper Nest's turret turns toward its last shot), `route-view.ts` the route preview and `placement-cursor.ts` the tile under the mouse (a ghost Piece, or a red frame where it can't go). `units-view.ts` draws a battle: each Dude on a disc in the attack colour, and shot tracers in the defense colour. `goal-health-view.ts` is the Goal's health bar. `camera.ts` is the zoom and pan: pure maths for screen-to-Board conversion and clamping, so the Board can't be zoomed out past fitting the window, in further than 2.5×, or dragged off screen.
+- `src/adapters/input/board-pointer.ts` turns mouse, wheel and touch events on the canvas into hovers, taps, pans and pinch zooms. A press that moves more than a few pixels, or gains a second finger, pans or zooms and never places.
 - `src/ui/hud.ts` is the band above the Board: the turn, the Piece buttons and Fight, the watch speed buttons, the Goal's health and the battle clock, the winner, and why a placement was refused.
+- `src/ui/piece-info.ts` is the panel naming the Piece under the mouse or last tapped, with its one-line description.
+- `src/ui/device.ts` shows the turn-your-device screen while a touch device is held upright.
 - `src/ui/startup-error-screen.ts` shows why the game could not start, in plain DOM.
 
 ## Folder layout
@@ -85,9 +87,9 @@ src/
   maze/                the Board's layout, Piece placement and the route
   battle/              the fixed-step battle, its events and the watch clock
   rng/                 seeded random numbers
-  adapters/input/      mouse to Board tiles
+  adapters/input/      mouse, wheel and touch to taps, pans and zooms
   adapters/renderer/   PixiJS: draws the Board, Pieces, route and battle, fits it to the window
-  ui/                  DOM: the HUD and the start-up error screen
+  ui/                  DOM: the HUD, piece info, turn-your-device and start-up error screens
 assets/                Kenney art, with its licence
 tests/                 mirrors src/ (Vitest)
 scripts/itch-zip.sh    builds and zips the game for itch.io

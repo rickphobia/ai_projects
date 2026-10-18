@@ -10,10 +10,18 @@ import type { ShotEvent } from "./battle/events";
 import { stepsDue, type WatchSpeed } from "./battle/watch-clock";
 import { BATTLE_RULES } from "./catalog/battle-rules";
 import { ROUND_ONE_ARMY } from "./catalog/dudes";
-import type { PieceId } from "./catalog/pieces";
+import { PIECES, type PieceId } from "./catalog/pieces";
 import type { Logger } from "./logger";
-import { checkPlacement, emptyMaze, placePiece, type Maze } from "./maze/maze";
+import type { Tile } from "./maze/board";
+import {
+  checkPlacement,
+  emptyMaze,
+  pieceAt,
+  placePiece,
+  type Maze,
+} from "./maze/maze";
 import type { Hud } from "./ui/hud";
+import type { PieceInfo } from "./ui/piece-info";
 
 /** The Pieces on offer until Draft Crates and the shop arrive. */
 export const BUILD_PIECES: readonly PieceId[] = ["crate-wall", "sniper-nest"];
@@ -47,6 +55,7 @@ export class DefenseTurn {
 
   constructor(
     private readonly view: GameView,
+    private readonly pieceInfo: PieceInfo,
     private readonly logger: Logger,
     private readonly seed: number,
   ) {}
@@ -56,6 +65,7 @@ export class DefenseTurn {
     this.hud = hud;
     this.view.listenToBoard({
       onHover: (tile) => {
+        if (!this.showPieceInfo(tile)) this.pieceInfo.hide();
         if (this.phase.kind !== "building") return;
         this.view.showPlacementCursor(
           tile,
@@ -63,7 +73,10 @@ export class DefenseTurn {
             checkPlacement(this.maze, tile, this.chosenPiece) === null,
         );
       },
-      onTap: (tile) => {
+      onTap: (tile, kind) => {
+        // Tapping a Piece asks what it does; on touch that is the only way to ask.
+        if (this.showPieceInfo(tile)) return;
+        this.pieceInfo.hide();
         if (this.phase.kind !== "building") return;
         const result = placePiece(this.maze, tile, this.chosenPiece);
         if (!result.ok) {
@@ -77,11 +90,19 @@ export class DefenseTurn {
         this.maze = result.maze;
         this.logger.debug("Piece placed", { tile, piece: this.chosenPiece });
         this.view.showMaze(this.maze);
-        // The tile under the mouse is now taken.
-        this.view.showPlacementCursor(tile, false);
+        // The tile under the mouse is now taken; a finger has lifted, so there is no cursor.
+        if (kind === "mouse") this.view.showPlacementCursor(tile, false);
       },
     });
     this.build();
+  }
+
+  /** Shows the Piece on `tile` in the info panel; false if there is none. */
+  private showPieceInfo(tile: Tile | null): boolean {
+    const id = tile === null ? undefined : pieceAt(this.maze, tile);
+    if (id === undefined) return false;
+    this.pieceInfo.show(PIECES[id]);
+    return true;
   }
 
   choosePiece(pieceId: PieceId): void {

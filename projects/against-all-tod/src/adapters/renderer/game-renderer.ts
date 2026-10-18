@@ -6,12 +6,21 @@ import type { Logger } from "../../logger";
 import type { Tile } from "../../maze/board";
 import type { Maze } from "../../maze/maze";
 import {
-  listenToBoardPointer,
-  type BoardPointerHandlers,
+  listenToPointer,
+  tileAtPoint,
+  type PointerKind,
 } from "../input/board-pointer";
 import { TILE_SIZE, loadBoardTextures } from "./board-textures";
 import { BOARD_PIXEL_SIZE, createBoardView } from "./board-view";
-import { fitToView } from "./fit-to-view";
+import {
+  clampCamera,
+  fittedCamera,
+  panBy,
+  screenToBoard,
+  zoomAt,
+  type Camera,
+  type CameraBounds,
+} from "./camera";
 import { GoalHealthBar } from "./goal-health-view";
 import { drawPieces, pieceView, type Turrets } from "./pieces-view";
 import { PlacementCursor } from "./placement-cursor";
@@ -20,6 +29,8 @@ import { UnitsView } from "./units-view";
 
 /** Space kept free around the Board, in screen pixels. */
 const VIEW_MARGIN = 16;
+/** Closest zoom: a tile is at most this many times its 64 px art. */
+const MAX_SCALE = 2.5;
 const BACKGROUND_COLOUR = 0x16201a;
 
 export class RendererStartError extends Error {
@@ -42,7 +53,14 @@ export interface GameView {
   showGoalHealth(health: number, maxHealth: number): void;
   /** Calls `onFrame` with the real time since the last frame, until the returned stop is called. */
   everyFrame(onFrame: (elapsedMs: number) => void): () => void;
-  listenToBoard(handlers: BoardPointerHandlers): void;
+  listenToBoard(handlers: BoardTileHandlers): void;
+}
+
+/** Pointer input after the camera: which tile, not which pixel. Pans and zooms stay inside the renderer. */
+export interface BoardTileHandlers {
+  /** The tile under the mouse, or null off the Board. Touch never hovers. */
+  readonly onHover: (tile: Tile | null) => void;
+  readonly onTap: (tile: Tile, kind: PointerKind) => void;
 }
 
 /** Starts PixiJS in `host` and draws the Board, scaled to fit whenever the host resizes. */
@@ -89,13 +107,24 @@ export async function startRenderer(
   board.addChild(pieces, route, units.view, goalHealth.view, cursor.view);
   app.stage.addChild(board);
 
-  const fitBoard = (width: number, height: number): void => {
-    const fit = fitToView({ width, height }, BOARD_PIXEL_SIZE, VIEW_MARGIN);
-    board.scale.set(fit.scale);
-    board.position.set(fit.x, fit.y);
+  const boundsFor = (width: number, height: number): CameraBounds => ({
+    view: { width, height },
+    content: BOARD_PIXEL_SIZE,
+    margin: VIEW_MARGIN,
+    maxScale: MAX_SCALE,
+  });
+  let bounds = boundsFor(app.screen.width, app.screen.height);
+  let camera: Camera = fittedCamera(bounds);
+  const aim = (next: Camera): void => {
+    camera = next;
+    board.scale.set(camera.scale);
+    board.position.set(camera.x, camera.y);
   };
-  fitBoard(app.screen.width, app.screen.height);
-  app.renderer.on("resize", fitBoard);
+  aim(camera);
+  app.renderer.on("resize", (width: number, height: number) => {
+    bounds = boundsFor(width, height);
+    aim(clampCamera(camera, bounds));
+  });
 
   return {
     showMaze: (maze) => {
@@ -130,7 +159,23 @@ export async function startRenderer(
       };
     },
     listenToBoard: (handlers) => {
-      listenToBoardPointer(board, TILE_SIZE, handlers);
+      const tileAt = (point: { x: number; y: number }) =>
+        tileAtPoint(screenToBoard(point, camera), TILE_SIZE);
+      listenToPointer(app.canvas, {
+        onHover: (point) => {
+          handlers.onHover(point === null ? null : tileAt(point));
+        },
+        onTap: (point, kind) => {
+          const tile = tileAt(point);
+          if (tile !== null) handlers.onTap(tile, kind);
+        },
+        onPan: (dx, dy) => {
+          aim(panBy(camera, dx, dy, bounds));
+        },
+        onZoom: (centre, factor) => {
+          aim(zoomAt(camera, centre, factor, bounds));
+        },
+      });
     },
   };
 }
