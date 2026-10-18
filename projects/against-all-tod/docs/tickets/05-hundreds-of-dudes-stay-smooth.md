@@ -17,4 +17,4 @@
 - [ ] Measured fps on a laptop and a phone reported in the PR
 - [x] Existing battle tests still pass unchanged
 
-**Owner steps:** open the PR preview with `?debug=1&scene=swarm` on a laptop and a phone, press Fight, and add both fps readings (current and lowest) to the PR.
+**Owner steps:** open the PR preview with `?debug=1&scene=swarm` on a laptop and a phone, wait until all 500 Interns are on (the corner counts them), and add both fps readings (current and lowest) to the PR.

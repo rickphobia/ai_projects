@@ -1,21 +1,12 @@
 import { startRenderer } from "./adapters/renderer/game-renderer";
 import { loadConfig } from "./config";
-import {
-  SWARM_ARMY,
-  SWARM_DUDES,
-  SWARM_RULES,
-  swarmMaze,
-  wantsSwarmScene,
-} from "./debug/swarm-scene";
-import {
-  BUILD_PIECES,
-  DefenseTurn,
-  FIRST_BUILD_PIECE,
-  roundOneScene,
-} from "./defense-turn";
+import { wantsSwarmScene } from "./debug/swarm-scene";
+import { playSwarm } from "./debug/swarm-screen";
 import { chooseLogLevel, createConsoleLogger } from "./logger";
 import { BOARD_COLUMNS, BOARD_ROWS } from "./maze/board";
+import { BUILD_CHOICES, FIRST_BUILD_PIECE, RunScreen } from "./run-screen";
 import { PORTRAIT_TOUCH_QUERY, showTurnDeviceScreenWhile } from "./ui/device";
+import { EndScreen } from "./ui/end-screen";
 import { FpsMeter } from "./ui/fps-meter";
 import { Hud } from "./ui/hud";
 import { PieceInfo } from "./ui/piece-info";
@@ -38,39 +29,45 @@ async function start(): Promise<void> {
   );
   const host = requireElement("game");
   const view = await startRenderer(host, logger, FIRST_BUILD_PIECE);
-  const swarm = wantsSwarmScene(window.location.search);
-  if (swarm) {
-    logger.info("swarm scene", { dudes: SWARM_DUDES });
-    const meter = new FpsMeter(requireElement("fps"));
-    view.everyFrame((elapsedMs) => {
-      meter.frame(elapsedMs);
-    });
+  if (wantsSwarmScene(window.location.search)) {
+    requireElement("hud").textContent =
+      "Swarm debug scene: 500 Interns, replayed at 1x";
+    playSwarm(
+      view,
+      new FpsMeter(requireElement("fps")),
+      logger,
+      config.defaultSeed,
+    );
+    return;
   }
-  // Runs and the seed in the URL come later; until then every battle uses the default seed.
-  const turn = new DefenseTurn(
+  // The seed in the URL comes in ticket 08; until then every first Run uses the default seed.
+  const run = new RunScreen(
     view,
     new PieceInfo(requireElement("piece-info")),
     logger,
     config.defaultSeed,
-    swarm
-      ? { maze: swarmMaze(), army: SWARM_ARMY, rules: SWARM_RULES }
-      : roundOneScene(),
   );
-  const hud = new Hud(requireElement("hud"), BUILD_PIECES, {
+  const hud = new Hud(requireElement("hud"), BUILD_CHOICES, {
     onChoosePiece: (pieceId) => {
-      turn.choosePiece(pieceId);
+      run.choosePiece(pieceId);
+    },
+    onChooseDudeKind: (dudeKind) => {
+      run.chooseDudeKind(dudeKind);
     },
     onFight: () => {
-      turn.fight();
+      run.fight();
     },
     onWatchSpeed: (speed) => {
-      turn.setWatchSpeed(speed);
+      run.setWatchSpeed(speed);
     },
-    onBuildAgain: () => {
-      turn.build();
+    onContinue: () => {
+      run.continue();
     },
   });
-  turn.begin(hud);
+  const endScreen = new EndScreen(requireElement("end-screen"), () => {
+    run.newRun();
+  });
+  run.begin(hud, endScreen);
   logger.info("Board drawn");
 }
 

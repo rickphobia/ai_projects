@@ -54,10 +54,21 @@
         gap: 12px;
         flex-wrap: nowrap;
       }
+      #hud {
+        --side: var(--defense);
+      }
+      #hud[data-side="attack"] {
+        --side: var(--attack);
+      }
       #hud h1 {
         margin: 0;
         font-size: 1rem;
-        color: var(--defense);
+        color: var(--side);
+        white-space: nowrap;
+      }
+      .hud-status {
+        font-size: 0.85rem;
+        font-weight: 600;
         white-space: nowrap;
       }
       .hud-controls {
@@ -75,8 +86,8 @@
         cursor: pointer;
       }
       #hud button[aria-pressed="true"] {
-        border-color: var(--defense);
-        background: var(--defense);
+        border-color: var(--side);
+        background: var(--side);
         color: #fff;
       }
       #hud button.hud-fight {
@@ -127,8 +138,41 @@
       }
       #fps[hidden],
       #piece-info[hidden],
+      #end-screen[hidden],
       #turn-device[hidden] {
         display: none;
+      }
+      #end-screen {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 16px;
+        text-align: center;
+        background: rgb(22 32 26 / 0.88);
+      }
+      #end-screen h1 {
+        margin: 0;
+        font-size: 1.6rem;
+      }
+      #end-screen p {
+        margin: 0;
+        font-size: 1.1rem;
+        color: var(--muted);
+      }
+      #end-screen button {
+        font: inherit;
+        font-size: 1.1rem;
+        font-weight: 600;
+        padding: 8px 24px;
+        border-radius: 8px;
+        border: none;
+        background: var(--attack);
+        color: #fff;
+        cursor: pointer;
       }
       #piece-info h2 {
         margin: 0;
@@ -187,6 +231,12 @@
     <div id="hud"></div>
     <aside id="piece-info" aria-live="polite" hidden></aside>
     <output id="fps" hidden></output>
+    <section
+      id="end-screen"
+      role="dialog"
+      aria-label="End of Run"
+      hidden
+    ></section>
     <section id="turn-device" hidden>
       <h1>Turn your device</h1>
       <p>Against All TOD is played in landscape.</p>

@@ -24,7 +24,9 @@ describe("FpsCounter", () => {
 });
 
 describe("fpsText", () => {
-  it("rounds to whole frames", () => {
-    expect(fpsText({ fps: 58.4, lowestFps: 51.6 })).toBe("58 fps (lowest 52)");
+  it("rounds to whole frames and names the Dudes on the Board", () => {
+    expect(fpsText({ fps: 58.4, lowestFps: 51.6 }, 456)).toBe(
+      "58 fps (lowest 52) · 456 Dudes",
+    );
   });
 });

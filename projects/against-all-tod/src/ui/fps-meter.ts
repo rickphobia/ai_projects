@@ -27,9 +27,9 @@ export class FpsCounter {
   }
 }
 
-/** "58 fps (lowest 51)" */
-export function fpsText(reading: FpsReading): string {
-  return `${reading.fps.toFixed(0)} fps (lowest ${reading.lowestFps.toFixed(0)})`;
+/** "58 fps (lowest 51) · 456 Dudes" */
+export function fpsText(reading: FpsReading, dudesOnBoard: number): string {
+  return `${reading.fps.toFixed(0)} fps (lowest ${reading.lowestFps.toFixed(0)}) · ${String(dudesOnBoard)} Dudes`;
 }
 
 /** The debug fps reading in a corner of the page. */
@@ -40,8 +40,11 @@ export class FpsMeter {
     host.hidden = false;
   }
 
-  frame(elapsedMs: number): void {
+  /** Records a frame, with how many Dudes it drew, since frame rate depends on it. */
+  frame(elapsedMs: number, dudesOnBoard: number): void {
     const reading = this.counter.frame(elapsedMs);
-    if (reading !== null) this.host.textContent = fpsText(reading);
+    if (reading !== null) {
+      this.host.textContent = fpsText(reading, dudesOnBoard);
+    }
   }
 }
