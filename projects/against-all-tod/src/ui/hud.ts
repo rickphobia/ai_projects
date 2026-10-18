@@ -172,7 +172,12 @@ export class Hud {
   }
 
   showRefusal(refusal: RunRefusal): void {
-    this.message.textContent = refusalMessage(refusal);
+    this.showMessage(refusalMessage(refusal));
+  }
+
+  /** A short message under the heading that fades after a few seconds. */
+  showMessage(text: string): void {
+    this.message.textContent = text;
     this.message.hidden = false;
     clearTimeout(this.hideTimer);
     this.hideTimer = setTimeout(() => {

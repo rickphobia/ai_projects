@@ -1,5 +1,9 @@
 import { startRenderer } from "./adapters/renderer/game-renderer";
+import { SaveStore } from "./adapters/storage/save-store";
 import { loadConfig } from "./config";
+import { seedFromUrl, wantsDebugOptions } from "./debug/debug-options";
+import { showDebugPanel } from "./debug/debug-panel";
+import { newRun } from "./run/run";
 import { wantsSwarmScene } from "./debug/swarm-scene";
 import { playSwarm } from "./debug/swarm-screen";
 import { chooseLogLevel, createConsoleLogger } from "./logger";
@@ -40,12 +44,28 @@ async function start(): Promise<void> {
     );
     return;
   }
-  // The seed in the URL comes in ticket 08; until then every first Run uses the default seed.
+  const saves = new SaveStore(() => window.localStorage, logger);
+  const loaded = saves.load();
+  const urlSeed = seedFromUrl(window.location.search);
+  const savedRun = loaded.kind === "loaded" ? loaded.run : null;
+  // A seed in the URL starts its own Run, unless the saved Run is that seed's (a reload).
+  const keepSaved =
+    savedRun !== null && (urlSeed === null || urlSeed === savedRun.seed);
+  const firstRun = keepSaved
+    ? savedRun
+    : newRun(urlSeed ?? config.defaultSeed, savedRun?.bestScore ?? 0);
+  logger.info(keepSaved ? "Run loaded" : "Run started", {
+    seed: firstRun.seed,
+    save: loaded.kind,
+  });
   const run = new RunScreen(
     view,
     new PieceInfo(requireElement("piece-info")),
     logger,
-    config.defaultSeed,
+    firstRun,
+    (changed) => {
+      saves.save(changed);
+    },
   );
   const hud = new Hud(requireElement("hud"), SHOP_STOCK, {
     onChoosePiece: (pieceId) => {
@@ -68,6 +88,23 @@ async function start(): Promise<void> {
     run.newRun();
   });
   run.begin(hud, endScreen);
+  saves.save(firstRun);
+  if (loaded.kind === "unreadable") {
+    hud.showMessage("Your save couldn't be read, so this is a fresh start.");
+  }
+  if (wantsDebugOptions(window.location.search)) {
+    showDebugPanel(requireElement("debug-panel"), {
+      onGiveGold: (side, amount) => {
+        run.giveGold(side, amount);
+      },
+      onJumpToRound: (round) => {
+        run.jumpToRound(round);
+      },
+      onToggleRoute: () => {
+        run.toggleRoute();
+      },
+    });
+  }
   logger.info("Board drawn");
 }
 

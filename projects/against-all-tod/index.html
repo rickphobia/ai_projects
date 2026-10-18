@@ -136,7 +136,24 @@
           monospace;
         pointer-events: none;
       }
+      /* The ?debug=1 buttons. */
+      #debug-panel {
+        position: fixed;
+        right: 12px;
+        top: calc(var(--hud-height) + 8px);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 6px;
+        border-radius: 6px;
+        background: rgb(0 0 0 / 0.75);
+        font-size: 0.8rem;
+      }
+      #debug-panel input {
+        width: 4rem;
+      }
       #fps[hidden],
+      #debug-panel[hidden],
       #piece-info[hidden],
       #end-screen[hidden],
       #turn-device[hidden] {
@@ -231,6 +248,7 @@
     <div id="hud"></div>
     <aside id="piece-info" aria-live="polite" hidden></aside>
     <output id="fps" hidden></output>
+    <aside id="debug-panel" aria-label="Debug options" hidden></aside>
     <section
       id="end-screen"
       role="dialog"
