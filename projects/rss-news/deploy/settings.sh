@@ -2,9 +2,9 @@
 # Every setting is an environment variable with a default; see "Deploy" in the project README.
 # shellcheck shell=bash disable=SC2034  # variables are used by the scripts that source this
 
-REPO_URL="${RSS_NEWS_REPO_URL:-https://github.com/rickphobia/ai_slops.git}"
+REPO_URL="${RSS_NEWS_REPO_URL:-https://github.com/rickphobia/ai_projects.git}"
 BRANCH="${RSS_NEWS_BRANCH:-main}"
-SRC_DIR="${RSS_NEWS_SRC_DIR:-$HOME/homelab/dev/ai_slops}"
+SRC_DIR="${RSS_NEWS_SRC_DIR:-$HOME/homelab/dev/ai_projects}"
 ENV_FILE="${RSS_NEWS_ENV_FILE:-$HOME/homelab/env/rss-news.env}"
 DATA_DIR="${RSS_NEWS_DATA_DIR:-$HOME/homelab/data/rss-news}"
 NETWORK="${RSS_NEWS_NETWORK:-homelab_default}"

@@ -4,9 +4,9 @@
 # Settings come from environment variables; see "Deploy" in the project README.
 set -Eeuo pipefail
 
-REPO_URL="${ASCII_SKY_REPO_URL:-https://github.com/rickphobia/ai_slops.git}"
+REPO_URL="${ASCII_SKY_REPO_URL:-https://github.com/rickphobia/ai_projects.git}"
 BRANCH="${ASCII_SKY_BRANCH:-main}"
-SRC_DIR="${ASCII_SKY_SRC_DIR:-$HOME/homelab/dev/ai_slops}"
+SRC_DIR="${ASCII_SKY_SRC_DIR:-$HOME/homelab/dev/ai_projects}"
 SITE_ROOT="${ASCII_SKY_SITE_ROOT:-$HOME/homelab/html}"
 SITE_SUBPATH="${ASCII_SKY_SITE_SUBPATH:-ai-projects/ascii-sky}"
 # Keep in step with .nvmrc.

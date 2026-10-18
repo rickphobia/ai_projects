@@ -4,9 +4,9 @@
 # Settings come from environment variables; see "Deploy" in the project README.
 set -Eeuo pipefail
 
-REPO_URL="${HAPPY_COTTON_REPO_URL:-https://github.com/rickphobia/ai_slops.git}"
+REPO_URL="${HAPPY_COTTON_REPO_URL:-https://github.com/rickphobia/ai_projects.git}"
 BRANCH="${HAPPY_COTTON_BRANCH:-main}"
-SRC_DIR="${HAPPY_COTTON_SRC_DIR:-$HOME/homelab/dev/ai_slops}"
+SRC_DIR="${HAPPY_COTTON_SRC_DIR:-$HOME/homelab/dev/ai_projects}"
 SITE_ROOT="${HAPPY_COTTON_SITE_ROOT:-$HOME/homelab/html}"
 SITE_SUBPATH="${HAPPY_COTTON_SITE_SUBPATH:-ai-projects/happy-cotton}"
 FORCE="${HAPPY_COTTON_FORCE:-0}"

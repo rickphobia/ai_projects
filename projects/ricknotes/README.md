@@ -68,7 +68,7 @@ CI (`.github/workflows/ricknotes.yml`) runs shellcheck, the script tests and `./
 [Obtainium](https://github.com/ImranR98/Obtainium) installs RickNotes from GitHub Releases and updates it. Checked against Obtainium 1.6.17 (its GitHub source in `lib/app_sources/github.dart`). The repo holds other projects too, so RickNotes must be told to follow only `ricknotes-v*` releases:
 
 1. Install Obtainium from its GitHub releases page. Allow it to install apps when Android asks ("Install unknown apps").
-2. In Obtainium, **Add app**, App source URL `https://github.com/rickphobia/ai_slops`.
+2. In Obtainium, **Add app**, App source URL `https://github.com/rickphobia/ai_projects`.
 3. In the GitHub options, set **Filter release titles by regular expression** to `^ricknotes-v[0-9]+$`. Leave **Include prereleases** off and **Fallback to older releases** on (both are the defaults): the newest release in the repo may be a Preview or another project's, and the fallback makes Obtainium look further back for a matching one.
 4. **Add**, then **Install**. Obtainium checks for updates in the background and notifies you.
 

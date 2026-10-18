@@ -2,9 +2,9 @@
 # Every setting is an environment variable with a default; see "Deploy" in the project README.
 # shellcheck shell=bash disable=SC2034  # variables are used by the scripts that source this
 
-REPO_URL="${COURT_BOOKER_REPO_URL:-https://github.com/rickphobia/ai_slops.git}"
+REPO_URL="${COURT_BOOKER_REPO_URL:-https://github.com/rickphobia/ai_projects.git}"
 BRANCH="${COURT_BOOKER_BRANCH:-main}"
-SRC_DIR="${COURT_BOOKER_SRC_DIR:-$HOME/homelab/dev/ai_slops}"
+SRC_DIR="${COURT_BOOKER_SRC_DIR:-$HOME/homelab/dev/ai_projects}"
 ENV_FILE="${COURT_BOOKER_ENV_FILE:-$HOME/homelab/env/court-booker.env}"
 DATA_DIR="${COURT_BOOKER_DATA_DIR:-$HOME/homelab/data/court-booker}"
 NETWORK="${COURT_BOOKER_NETWORK:-homelab_default}"

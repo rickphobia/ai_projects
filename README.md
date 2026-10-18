@@ -1,4 +1,4 @@
-# ai_slops
+# ai_projects
 
 A home for the AI projects I build with Claude Code. Each project lives in its own folder and stands on its own.
 
@@ -7,7 +7,7 @@ Think of this repo as a bookshelf: every project is a separate book. Books sit s
 ## Layout
 
 ```
-ai_slops/
+ai_projects/
 ├── README.md            # this file: what the repo is and the project index
 ├── CLAUDE.md            # rules Claude Code follows when working here
 ├── .claude/skills/      # shared workflow skills: /grill-with-docs, /to-spec, /to-tickets, /implement ...
@@ -40,11 +40,11 @@ ai_slops/
 Start Claude Code **inside the project folder**:
 
 ```bash
-cd ai_slops/projects/my-project
+cd ai_projects/projects/my-project
 claude
 ```
 
-Claude Code loads every `CLAUDE.md` from the folder you start in up to the repo root. So it reads the shared rules in `ai_slops/CLAUDE.md` **and** the project's own `projects/my-project/CLAUDE.md` (if it has one). It also picks up that project's `.mcp.json`, so each project only gets its own tools.
+Claude Code loads every `CLAUDE.md` from the folder you start in up to the repo root. So it reads the shared rules in `ai_projects/CLAUDE.md` **and** the project's own `projects/my-project/CLAUDE.md` (if it has one). It also picks up that project's `.mcp.json`, so each project only gets its own tools.
 
 The rules are shared; the code is not. Like a company handbook that every team follows, while each team keeps its own codebase.
 
@@ -55,7 +55,7 @@ Claude Code reads `.claude/settings.json` (the guardrails: no reading `.env`, as
 **Two local sessions at once** (on the Beelink) must not share a checkout, or they switch branches under each other. Start the second one from the repo root in its own worktree:
 
 ```bash
-cd ~/homelab/code/ai_slops
+cd ~/homelab/code/ai_projects
 claude -w pawn-swarm-16    # worktree in .claude/worktrees/pawn-swarm-16, on its own branch
 ```
 

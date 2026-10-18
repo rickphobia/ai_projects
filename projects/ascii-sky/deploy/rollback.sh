@@ -3,7 +3,7 @@
 # Settings come from the same environment variables as update-site.sh.
 set -euo pipefail
 
-SRC_DIR="${ASCII_SKY_SRC_DIR:-$HOME/homelab/dev/ai_slops}"
+SRC_DIR="${ASCII_SKY_SRC_DIR:-$HOME/homelab/dev/ai_projects}"
 SITE_ROOT="${ASCII_SKY_SITE_ROOT:-$HOME/homelab/html}"
 SITE_SUBPATH="${ASCII_SKY_SITE_SUBPATH:-ai-projects/ascii-sky}"
 

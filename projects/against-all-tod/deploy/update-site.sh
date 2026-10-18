@@ -4,9 +4,9 @@
 # Settings come from environment variables; see "Deploy" in the project README.
 set -Eeuo pipefail
 
-REPO_URL="${AGAINST_ALL_TOD_REPO_URL:-https://github.com/rickphobia/ai_slops.git}"
+REPO_URL="${AGAINST_ALL_TOD_REPO_URL:-https://github.com/rickphobia/ai_projects.git}"
 BRANCH="${AGAINST_ALL_TOD_BRANCH:-main}"
-SRC_DIR="${AGAINST_ALL_TOD_SRC_DIR:-$HOME/homelab/dev/ai_slops}"
+SRC_DIR="${AGAINST_ALL_TOD_SRC_DIR:-$HOME/homelab/dev/ai_projects}"
 SITE_ROOT="${AGAINST_ALL_TOD_SITE_ROOT:-$HOME/homelab/html}"
 SITE_SUBPATH="${AGAINST_ALL_TOD_SITE_SUBPATH:-ai-projects/against-all-tod}"
 # Keep in step with .nvmrc.

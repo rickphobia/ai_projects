@@ -3,7 +3,7 @@
 # Settings come from the same environment variables as update-site.sh.
 set -euo pipefail
 
-SRC_DIR="${AGAINST_ALL_TOD_SRC_DIR:-$HOME/homelab/dev/ai_slops}"
+SRC_DIR="${AGAINST_ALL_TOD_SRC_DIR:-$HOME/homelab/dev/ai_projects}"
 SITE_ROOT="${AGAINST_ALL_TOD_SITE_ROOT:-$HOME/homelab/html}"
 SITE_SUBPATH="${AGAINST_ALL_TOD_SITE_SUBPATH:-ai-projects/against-all-tod}"
 

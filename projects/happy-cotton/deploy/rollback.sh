@@ -3,7 +3,7 @@
 # Settings come from the same environment variables as update-site.sh.
 set -euo pipefail
 
-SRC_DIR="${HAPPY_COTTON_SRC_DIR:-$HOME/homelab/dev/ai_slops}"
+SRC_DIR="${HAPPY_COTTON_SRC_DIR:-$HOME/homelab/dev/ai_projects}"
 SITE_ROOT="${HAPPY_COTTON_SITE_ROOT:-$HOME/homelab/html}"
 SITE_SUBPATH="${HAPPY_COTTON_SITE_SUBPATH:-ai-projects/happy-cotton}"
 

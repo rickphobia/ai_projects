@@ -110,7 +110,7 @@ Every setting is an environment variable, read and validated once at startup by 
 
 The app runs as a Docker container on the Beelink, on the shared `homelab_default` network, behind the host nginx (`portfolio-nginx`) at `https://rickphobia.com/ai-projects/court-booker/`. GitHub can't reach the home network, so the server pulls: you run one script there.
 
-`deploy/update-site.sh` fetches `main` into `~/homelab/dev/ai_slops`, builds the image `court-booker:<commit>`, loads `deploy/settings.sh` again from that commit, starts a new container with the env file and the data folder mounted at `/app/data` (where the image keeps the database and screenshots), and waits up to 60 seconds for `/healthz`. Only then does it give the new container the network name `court-booker` (which nginx proxies to) and remove the old one. If any step fails, the script exits non-zero, names the step, and the old container keeps serving. If `main` hasn't moved and its container is running, it does nothing.
+`deploy/update-site.sh` fetches `main` into `~/homelab/dev/ai_projects`, builds the image `court-booker:<commit>`, loads `deploy/settings.sh` again from that commit, starts a new container with the env file and the data folder mounted at `/app/data` (where the image keeps the database and screenshots), and waits up to 60 seconds for `/healthz`. Only then does it give the new container the network name `court-booker` (which nginx proxies to) and remove the old one. If any step fails, the script exits non-zero, names the step, and the old container keeps serving. If `main` hasn't moved and its container is running, it does nothing.
 
 ### One-time setup (on the Beelink)
 
@@ -136,16 +136,16 @@ Needs `git`, `docker` (your user can run it without sudo) and `flock` (already o
    }
    ```
 
-4. **First deploy:** `mkdir -p ~/homelab/dev && git clone https://github.com/rickphobia/ai_slops.git ~/homelab/dev/ai_slops`, then `~/homelab/dev/ai_slops/projects/court-booker/deploy/update-site.sh`.
+4. **First deploy:** `mkdir -p ~/homelab/dev && git clone https://github.com/rickphobia/ai_projects.git ~/homelab/dev/ai_projects`, then `~/homelab/dev/ai_projects/projects/court-booker/deploy/update-site.sh`.
 5. **Uptime Kuma:** add an HTTP(s) monitor on `https://rickphobia.com/ai-projects/court-booker/healthz`, expecting status 200, every 60 seconds.
 
 ### Update
 
 ```bash
-~/homelab/dev/ai_slops/projects/court-booker/deploy/update-site.sh
+~/homelab/dev/ai_projects/projects/court-booker/deploy/update-site.sh
 ```
 
-To redeploy even though `main` hasn't changed: `COURT_BOOKER_FORCE=1 ~/homelab/dev/ai_slops/projects/court-booker/deploy/update-site.sh`.
+To redeploy even though `main` hasn't changed: `COURT_BOOKER_FORCE=1 ~/homelab/dev/ai_projects/projects/court-booker/deploy/update-site.sh`.
 
 Settings are environment variables with defaults; the scripts do not read `.env`:
 
@@ -154,15 +154,15 @@ Settings are environment variables with defaults; the scripts do not read `.env`
 | `COURT_BOOKER_ENV_FILE` | `~/homelab/env/court-booker.env` |
 | `COURT_BOOKER_DATA_DIR` | `~/homelab/data/court-booker` |
 | `COURT_BOOKER_NETWORK` | `homelab_default` |
-| `COURT_BOOKER_SRC_DIR` | `~/homelab/dev/ai_slops` |
-| `COURT_BOOKER_REPO_URL` | `https://github.com/rickphobia/ai_slops.git` |
+| `COURT_BOOKER_SRC_DIR` | `~/homelab/dev/ai_projects` |
+| `COURT_BOOKER_REPO_URL` | `https://github.com/rickphobia/ai_projects.git` |
 | `COURT_BOOKER_BRANCH` | `main` |
 | `COURT_BOOKER_FORCE` | `0` |
 
 ### Roll back
 
 ```bash
-~/homelab/dev/ai_slops/projects/court-booker/deploy/rollback.sh
+~/homelab/dev/ai_projects/projects/court-booker/deploy/rollback.sh
 ```
 
 Starts the previous image (recorded in `~/homelab/dev/court-booker.previous-tag`) the same way, health check included. Run it again to undo. The next `update-site.sh` run puts `main` back, so fix `main` first. Old images stay until you prune them; a pruned previous image can't be rolled back to.

@@ -3,7 +3,7 @@
 # Settings come from the same environment variables as update-site.sh.
 set -euo pipefail
 
-SRC_DIR="${PAWN_SWARM_SRC_DIR:-$HOME/homelab/dev/ai_slops}"
+SRC_DIR="${PAWN_SWARM_SRC_DIR:-$HOME/homelab/dev/ai_projects}"
 SITE_ROOT="${PAWN_SWARM_SITE_ROOT:-$HOME/homelab/html}"
 SITE_SUBPATH="${PAWN_SWARM_SITE_SUBPATH:-ai-projects/pawn-swarm}"
 

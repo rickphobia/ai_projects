@@ -3,7 +3,7 @@
 # Settings come from the same environment variables as update-site.sh.
 set -euo pipefail
 
-SRC_DIR="${MY_PIGGY_SRC_DIR:-$HOME/homelab/dev/ai_slops}"
+SRC_DIR="${MY_PIGGY_SRC_DIR:-$HOME/homelab/dev/ai_projects}"
 SITE_ROOT="${MY_PIGGY_SITE_ROOT:-$HOME/homelab/html}"
 SITE_SUBPATH="${MY_PIGGY_SITE_SUBPATH:-ai-projects/my-piggy}"
 
