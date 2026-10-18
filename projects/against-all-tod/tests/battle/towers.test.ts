@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { STEPS_PER_SECOND, runBattle } from "../../src/battle/battle";
-import { pickTarget } from "../../src/battle/towers";
+import { tileUnder, type DudeState } from "../../src/battle/dudes";
+import { fireTowers, pickTarget } from "../../src/battle/towers";
 import { DUDE_KINDS } from "../../src/catalog/dudes";
 import { PIECES } from "../../src/catalog/pieces";
+import { BOARD_COLUMNS, BOARD_ROWS } from "../../src/maze/board";
+import { emptyMaze } from "../../src/maze/maze";
+import { distanceToGoal } from "../../src/maze/route";
+import { createRng } from "../../src/rng/rng";
 import { internSquads, mazeWith, setupOf } from "./battle-setups";
 
 const SNIPER = PIECES["sniper-nest"];
@@ -84,6 +89,75 @@ describe("a Sniper Nest in battle", () => {
       expect(shots.filter((shot) => shot.dudeId === kill.dudeId)).toHaveLength(
         shotsToKill,
       );
+    }
+  });
+});
+
+describe("a Sniper Nest among many Dudes", () => {
+  const route = emptyMaze().route;
+  const range = SNIPER_STATS.range;
+
+  /** Dudes scattered anywhere off the Spawn line and the Goal column. */
+  function scatter(count: number, seed: number): DudeState[] {
+    const random = createRng(seed);
+    return Array.from({ length: count }, (_, id) => ({
+      id,
+      kind: "intern",
+      x: 1 + random() * (BOARD_COLUMNS - 2),
+      y: random() * BOARD_ROWS,
+      lane: 0,
+      health: DUDE_KINDS.intern.health,
+    }));
+  }
+
+  /** The target found by weighing every Dude on the Board. */
+  function targetByCheckingEveryone(
+    nest: { column: number; row: number },
+    dudes: readonly DudeState[],
+  ): number | null {
+    const inRange = dudes.filter(
+      (dude) =>
+        Math.hypot(dude.x - (nest.column + 0.5), dude.y - (nest.row + 0.5)) <=
+        range,
+    );
+    return pickTarget(
+      inRange.map((dude) => ({
+        id: dude.id,
+        size: DUDE_KINDS[dude.kind].size,
+        distanceToGoal: distanceToGoal(route, tileUnder(dude)) ?? Infinity,
+      })),
+    );
+  }
+
+  function shotAt(
+    nest: { column: number; row: number },
+    dudes: readonly DudeState[],
+  ): number | null {
+    const tower = {
+      pieceId: "sniper-nest" as const,
+      tile: nest,
+      cooldownSteps: 0,
+      aimedAt: null,
+    };
+    const { events } = fireTowers([tower], dudes, route, 1, STEPS_PER_SECOND);
+    const shot = events.find((event) => event.type === "shot");
+    return shot?.dudeId ?? null;
+  }
+
+  it("picks the same target as weighing every Dude, in a crowd of 500", () => {
+    const nest = { column: 9, row: 6 };
+    const crowd = scatter(500, 7);
+    expect(shotAt(nest, crowd)).toBe(targetByCheckingEveryone(nest, crowd));
+  });
+
+  it("picks the same target as weighing every Dude, wherever the few in range stand", () => {
+    for (let seed = 1; seed <= 200; seed++) {
+      const nest = {
+        column: 1 + (seed % (BOARD_COLUMNS - 2)),
+        row: seed % BOARD_ROWS,
+      };
+      const few = scatter(6, seed);
+      expect(shotAt(nest, few)).toBe(targetByCheckingEveryone(nest, few));
     }
   });
 });

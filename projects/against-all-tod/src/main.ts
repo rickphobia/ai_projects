@@ -1,10 +1,13 @@
 import { startRenderer } from "./adapters/renderer/game-renderer";
 import { loadConfig } from "./config";
+import { wantsSwarmScene } from "./debug/swarm-scene";
+import { playSwarm } from "./debug/swarm-screen";
 import { chooseLogLevel, createConsoleLogger } from "./logger";
 import { BOARD_COLUMNS, BOARD_ROWS } from "./maze/board";
 import { BUILD_CHOICES, FIRST_BUILD_PIECE, RunScreen } from "./run-screen";
 import { PORTRAIT_TOUCH_QUERY, showTurnDeviceScreenWhile } from "./ui/device";
 import { EndScreen } from "./ui/end-screen";
+import { FpsMeter } from "./ui/fps-meter";
 import { Hud } from "./ui/hud";
 import { PieceInfo } from "./ui/piece-info";
 import { showStartupError } from "./ui/startup-error-screen";
@@ -26,6 +29,17 @@ async function start(): Promise<void> {
   );
   const host = requireElement("game");
   const view = await startRenderer(host, logger, FIRST_BUILD_PIECE);
+  if (wantsSwarmScene(window.location.search)) {
+    requireElement("hud").textContent =
+      "Swarm debug scene: 500 Interns, replayed at 1x";
+    playSwarm(
+      view,
+      new FpsMeter(requireElement("fps")),
+      logger,
+      config.defaultSeed,
+    );
+    return;
+  }
   // The seed in the URL comes in ticket 08; until then every first Run uses the default seed.
   const run = new RunScreen(
     view,

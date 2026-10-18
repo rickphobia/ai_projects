@@ -32,5 +32,11 @@ export default defineConfig(
     files: ["src/logger.ts"],
     rules: { "no-console": "off" },
   },
+  {
+    // The benchmark is a Node command-line script; printing its result is its job.
+    files: ["scripts/swarm-bench.ts"],
+    languageOptions: { globals: globals.node },
+    rules: { "no-console": "off" },
+  },
   prettier,
 );

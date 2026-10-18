@@ -1,6 +1,6 @@
 import { DUDE_KINDS } from "../catalog/dudes";
 import { PIECES, type PieceId, type TowerStats } from "../catalog/pieces";
-import type { Tile } from "../maze/board";
+import { BOARD_COLUMNS, BOARD_ROWS, type Tile } from "../maze/board";
 import { placedPieces, type Maze } from "../maze/maze";
 import { distanceToGoal, type Route } from "../maze/route";
 import { tileUnder, type DudeState } from "./dudes";
@@ -53,16 +53,29 @@ export function pickTarget(
   for (const candidate of candidates) {
     if (
       best === null ||
-      candidate.size > best.size ||
-      (candidate.size === best.size &&
-        (candidate.distanceToGoal < best.distanceToGoal ||
-          (candidate.distanceToGoal === best.distanceToGoal &&
-            candidate.id < best.id)))
+      outranks(candidate.size, candidate.distanceToGoal, candidate.id, best)
     ) {
       best = candidate;
     }
   }
   return best?.id ?? null;
+}
+
+/**
+ * True when a Dude of this size, distance and id is a better target than `best`. A strict
+ * order, so the choice never depends on the order Dudes are looked at in.
+ */
+function outranks(
+  size: number,
+  distanceToGoal: number,
+  id: number,
+  best: TargetCandidate,
+): boolean {
+  if (size !== best.size) return size > best.size;
+  if (distanceToGoal !== best.distanceToGoal) {
+    return distanceToGoal < best.distanceToGoal;
+  }
+  return id < best.id;
 }
 
 export interface VolleyResult {
@@ -80,32 +93,24 @@ export function fireTowers(
   step: number,
   stepsPerSecond: number,
 ): VolleyResult {
-  const alive = new Map(dudes.map((dude) => [dude.id, dude]));
+  const byTile = dudesByTile(dudes);
+  // Only the Dudes a shot hit get a new state; null marks a kill.
+  const hit = new Map<number, DudeState | null>();
   const events: BattleEvent[] = [];
   const nextTowers = towers.map((tower): TowerState => {
     const stats = statsOf(tower.pieceId);
     if (tower.cooldownSteps > 1) {
       return { ...tower, cooldownSteps: tower.cooldownSteps - 1 };
     }
-    const inRange = [...alive.values()].filter((dude) =>
-      isInRange(tower.tile, stats.range, dude),
-    );
-    const targetId = pickTarget(
-      inRange.map((dude) => ({
-        id: dude.id,
-        size: DUDE_KINDS[dude.kind].size,
-        distanceToGoal: distanceToGoal(route, tileUnder(dude)) ?? Infinity,
-      })),
-    );
-    const target = targetId === null ? undefined : alive.get(targetId);
-    if (target === undefined) return { ...tower, cooldownSteps: 0 };
+    const target = targetFor(tower.tile, stats.range, byTile, hit, route);
+    if (target === null) return { ...tower, cooldownSteps: 0 };
 
     const at = { x: target.x, y: target.y };
     const shotAt = { step, pieceId: tower.pieceId, pieceTile: tower.tile, at };
     events.push({ type: "shot", dudeId: target.id, ...shotAt });
     const health = target.health - stats.damage;
     if (health <= 0) {
-      alive.delete(target.id);
+      hit.set(target.id, null);
       events.push({
         type: "kill",
         dudeId: target.id,
@@ -113,7 +118,7 @@ export function fireTowers(
         ...shotAt,
       });
     } else {
-      alive.set(target.id, { ...target, health });
+      hit.set(target.id, { ...target, health });
     }
     return {
       ...tower,
@@ -124,13 +129,89 @@ export function fireTowers(
       aimedAt: at,
     };
   });
-  return { towers: nextTowers, dudes: [...alive.values()], events };
+  return { towers: nextTowers, dudes: afterHits(dudes, hit), events };
+}
+
+/**
+ * The tower's pick among the living Dudes in range. It looks only at the tiles its range
+ * reaches, so its cost grows with the Dudes near it rather than with the whole Army.
+ */
+function targetFor(
+  tile: Tile,
+  range: number,
+  byTile: readonly (readonly DudeState[])[],
+  hit: ReadonlyMap<number, DudeState | null>,
+  route: Route,
+): DudeState | null {
+  const centreX = tile.column + 0.5;
+  const centreY = tile.row + 0.5;
+  const firstColumn = Math.max(0, Math.floor(centreX - range));
+  const lastColumn = Math.min(BOARD_COLUMNS - 1, Math.floor(centreX + range));
+  const firstRow = Math.max(0, Math.floor(centreY - range));
+  const lastRow = Math.min(BOARD_ROWS - 1, Math.floor(centreY + range));
+  let best: { dude: DudeState; candidate: TargetCandidate } | null = null;
+  for (let row = firstRow; row <= lastRow; row++) {
+    for (let column = firstColumn; column <= lastColumn; column++) {
+      const here = byTile[row * BOARD_COLUMNS + column] ?? [];
+      if (here.length === 0) continue;
+      const stepsLeft = distanceToGoal(route, { column, row }) ?? Infinity;
+      for (const placed of here) {
+        const dude = hit.has(placed.id) ? hit.get(placed.id) : placed;
+        if (dude == null || !isInRange(centreX, centreY, range, dude)) {
+          continue;
+        }
+        const size = DUDE_KINDS[dude.kind].size;
+        if (
+          best === null ||
+          outranks(size, stepsLeft, dude.id, best.candidate)
+        ) {
+          best = {
+            dude,
+            candidate: { id: dude.id, size, distanceToGoal: stepsLeft },
+          };
+        }
+      }
+    }
+  }
+  return best?.dude ?? null;
+}
+
+/** The Dudes standing on each tile, by tile index (row by row from the top left). */
+function dudesByTile(dudes: readonly DudeState[]): DudeState[][] {
+  const byTile = Array.from(
+    { length: BOARD_COLUMNS * BOARD_ROWS },
+    (): DudeState[] => [],
+  );
+  for (const dude of dudes) {
+    const { column, row } = tileUnder(dude);
+    byTile[row * BOARD_COLUMNS + column]?.push(dude);
+  }
+  return byTile;
+}
+
+/** The Dudes in their order, with the hit ones changed and the killed ones gone. */
+function afterHits(
+  dudes: readonly DudeState[],
+  hit: ReadonlyMap<number, DudeState | null>,
+): DudeState[] {
+  if (hit.size === 0) return [...dudes];
+  const alive: DudeState[] = [];
+  for (const dude of dudes) {
+    const now = hit.has(dude.id) ? hit.get(dude.id) : dude;
+    if (now != null) alive.push(now);
+  }
+  return alive;
 }
 
 /** Compares squared distances: no square roots, so the result is exact on every machine. */
-function isInRange(tile: Tile, range: number, dude: DudeState): boolean {
-  const dx = dude.x - (tile.column + 0.5);
-  const dy = dude.y - (tile.row + 0.5);
+function isInRange(
+  centreX: number,
+  centreY: number,
+  range: number,
+  dude: DudeState,
+): boolean {
+  const dx = dude.x - centreX;
+  const dy = dude.y - centreY;
   return dx * dx + dy * dy <= range * range;
 }
 

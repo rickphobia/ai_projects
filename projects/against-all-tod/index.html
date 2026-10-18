@@ -123,6 +123,20 @@
         background: rgb(0 0 0 / 0.75);
         pointer-events: none;
       }
+      /* The swarm debug scene's frame rate. */
+      #fps {
+        position: fixed;
+        right: 12px;
+        bottom: 12px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        background: rgb(0 0 0 / 0.75);
+        font:
+          0.85rem ui-monospace,
+          monospace;
+        pointer-events: none;
+      }
+      #fps[hidden],
       #piece-info[hidden],
       #end-screen[hidden],
       #turn-device[hidden] {
@@ -216,6 +230,7 @@
     <div id="game" aria-label="Against All TOD board"></div>
     <div id="hud"></div>
     <aside id="piece-info" aria-live="polite" hidden></aside>
+    <output id="fps" hidden></output>
     <section
       id="end-screen"
       role="dialog"
