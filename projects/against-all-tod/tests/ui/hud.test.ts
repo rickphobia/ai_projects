@@ -17,7 +17,7 @@ describe("refusalMessage", () => {
     "seals-goal",
     "wrong-phase",
     "wrong-side",
-    "none-left",
+    "not-enough-gold",
     "not-spawn-line",
   ])("explains a %s refusal", (refusal) => {
     expect(refusalMessage(refusal).length).toBeGreaterThan(0);
@@ -29,12 +29,17 @@ describe("refusalMessage", () => {
 });
 
 describe("runStatus", () => {
-  it("shows the Round, the side, the Lives and the Score", () => {
-    expect(runStatus({ round: 3, side: "defense", lives: 2, score: 2 })).toBe(
-      "Round 3 · Defense turn · Lives 2 · Score 2",
+  it("shows the Round, the side, the Lives, the Score and both wallets", () => {
+    const wallets = { defense: 50, attack: 40 };
+    expect(
+      runStatus({ round: 3, side: "defense", lives: 2, score: 2, wallets }),
+    ).toBe(
+      "Round 3 · Defense turn · Lives 2 · Score 2 · Defense gold 50 · Attack gold 40",
     );
-    expect(runStatus({ round: 4, side: "attack", lives: 1, score: 3 })).toBe(
-      "Round 4 · Attack turn · Lives 1 · Score 3",
+    expect(
+      runStatus({ round: 4, side: "attack", lives: 1, score: 3, wallets }),
+    ).toBe(
+      "Round 4 · Attack turn · Lives 1 · Score 3 · Defense gold 50 · Attack gold 40",
     );
   });
 });

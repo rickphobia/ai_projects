@@ -7,11 +7,12 @@ import {
   type BattleSetup,
   type BattleState,
 } from "./battle/battle";
-import type { ShotEvent } from "./battle/events";
+import type { BattleEvent, ShotEvent } from "./battle/events";
 import { stepsDue, type WatchSpeed } from "./battle/watch-clock";
 import { BATTLE_RULES } from "./catalog/battle-rules";
 import type { DudeKindId } from "./catalog/dudes";
 import { PIECES, type PieceId } from "./catalog/pieces";
+import { goldEarned } from "./economy/economy";
 import type { Logger } from "./logger";
 import type { Tile } from "./maze/board";
 import { pieceAt, type Maze } from "./maze/maze";
@@ -22,7 +23,6 @@ import {
   checkSquad,
   mazeOf,
   newRun,
-  placementsLeft,
   roundOf,
   runStatusOf,
   sideOf,
@@ -30,11 +30,12 @@ import {
   type RunState,
 } from "./run/run";
 import type { EndScreen } from "./ui/end-screen";
-import type { BuildChoices, Hud } from "./ui/hud";
+import type { Hud } from "./ui/hud";
 import type { PieceInfo } from "./ui/piece-info";
+import type { ShopStock } from "./ui/shop";
 
-/** What each side can place until Draft Crates and the shop arrive. */
-export const BUILD_CHOICES: BuildChoices = {
+/** What the shop sells each side until Draft Crates and Unlocks arrive. */
+export const SHOP_STOCK: ShopStock = {
   pieces: ["crate-wall", "sniper-nest"],
   dudeKinds: ["intern"],
 };
@@ -46,8 +47,8 @@ interface Battle {
   readonly setup: BattleSetup;
   state: BattleState;
   carryMs: number;
-  kills: number;
-  reachedGoal: number;
+  /** Every kill and Goal hit so far, for the gold. */
+  readonly goldEvents: BattleEvent[];
   readonly stop: () => void;
 }
 
@@ -136,8 +137,7 @@ export class RunScreen {
       setup,
       state: startBattle(setup),
       carryMs: 0,
-      kills: 0,
-      reachedGoal: 0,
+      goldEvents: [],
       stop,
     };
     this.hud?.showBattle(sideOf(this.run), this.watchSpeed);
@@ -199,7 +199,7 @@ export class RunScreen {
     if (sideOf(this.run) === "defense") {
       return checkPiece(this.run, tile, this.chosenPiece) === null;
     }
-    return checkSquad(this.run, tile) === null;
+    return checkSquad(this.run, tile, this.chosenDudeKind) === null;
   }
 
   /** Shows the Piece on `tile` in the info panel; false if there is none. */
@@ -218,13 +218,12 @@ export class RunScreen {
     this.view.showArmy(this.run.army);
     this.view.showGoalHealth(BATTLE_RULES.goalHealth, BATTLE_RULES.goalHealth);
     this.showRunStatus();
-    const left = placementsLeft(this.run);
     if (sideOf(this.run) === "defense") {
       this.view.choosePiece(this.chosenPiece);
-      this.hud?.showDefenseBuilding(this.chosenPiece, left);
+      this.hud?.showDefenseBuilding(this.chosenPiece);
     } else {
       this.view.chooseSquad(this.chosenDudeKind);
-      this.hud?.showAttackBuilding(this.chosenDudeKind, left);
+      this.hud?.showAttackBuilding(this.chosenDudeKind);
     }
   }
 
@@ -240,8 +239,7 @@ export class RunScreen {
     const ran = stepBattleTimes(battle.setup, battle.state, due.steps);
     battle.state = ran.state;
     for (const event of ran.events) {
-      if (event.type === "kill") battle.kills++;
-      if (event.type === "reach-goal") battle.reachedGoal++;
+      if (event.type !== "shot") battle.goldEvents.push(event);
     }
     this.showBattle(
       ran.state,
@@ -259,7 +257,20 @@ export class RunScreen {
     const round = roundOf(this.run);
     const side = sideOf(this.run);
     const bestBefore = this.run.bestScore;
-    if (!this.act({ type: "battle-finished", winner: outcome.winner })) return;
+    const end = battle.state;
+    const earned = goldEarned(battle.goldEvents, {
+      winner: outcome.winner,
+      goalHealth: end.goalHealth,
+      survivors: [
+        ...end.dudes.map((dude) => dude.kind),
+        ...end.waiting.map(({ dude }) => dude.kind),
+      ],
+    });
+    if (
+      !this.act({ type: "battle-finished", winner: outcome.winner, earned })
+    ) {
+      return;
+    }
     const won = outcome.winner === side;
     this.logger.info("Round finished", {
       round,
@@ -267,8 +278,12 @@ export class RunScreen {
       won,
       ...outcome,
       goalHealth: battle.state.goalHealth,
-      kills: battle.kills,
-      reachedGoal: battle.reachedGoal,
+      kills: battle.goldEvents.filter((event) => event.type === "kill").length,
+      reachedGoal: battle.goldEvents.filter(
+        (event) => event.type === "reach-goal",
+      ).length,
+      earned,
+      wallets: this.run.wallets,
       lives: this.run.lives,
       score: this.run.score,
     });

@@ -3,6 +3,13 @@ import { WATCH_SPEEDS, type WatchSpeed } from "../battle/watch-clock";
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { PIECES, type PieceId } from "../catalog/pieces";
 import type { RunRefusal, RunStatus } from "../run/run";
+import {
+  attackItems,
+  defenseItems,
+  itemLabel,
+  type ShopItem,
+  type ShopStock,
+} from "./shop";
 
 /** How long a refusal stays on screen. */
 const MESSAGE_MS = 3000;
@@ -16,7 +23,8 @@ const REFUSAL_MESSAGES: Readonly<Record<RunRefusal, string>> = {
     "That would seal the Goal off. Dudes must always have a route to it.",
   "wrong-phase": "Not now: wait for the battle to end.",
   "wrong-side": "That belongs to the other side's turn.",
-  "none-left": "Nothing left to place this Round. Press Fight.",
+  "not-enough-gold":
+    "Not enough gold. Each side pays from its own wallet; press Fight when you're done.",
   "not-spawn-line": "Squads go on the Spawn line, the Board's left edge.",
 };
 
@@ -50,13 +58,15 @@ export function battleStatus(
   return `Goal ${String(Math.ceil(goalHealth))}/${String(maxHealth)} · ${clock}`;
 }
 
-/** "Round 3 · Defense turn · Lives 2 · Score 2". */
+/** "Round 3 · Defense turn · Lives 2 · Score 2 · Defense gold 50 · Attack gold 40". */
 export function runStatus(status: RunStatus): string {
   return [
     `Round ${String(status.round)}`,
     SIDE_NAMES[status.side],
     `Lives ${String(status.lives)}`,
     `Score ${String(status.score)}`,
+    `Defense gold ${String(status.wallets.defense)}`,
+    `Attack gold ${String(status.wallets.attack)}`,
   ].join(" · ");
 }
 
@@ -75,12 +85,6 @@ export interface HudHandlers {
   readonly onContinue: () => void;
 }
 
-/** What each side can place until Draft Crates and the shop arrive. */
-export interface BuildChoices {
-  readonly pieces: readonly PieceId[];
-  readonly dudeKinds: readonly DudeKindId[];
-}
-
 /** The DOM band over the Board: the Run's status, the turn, its buttons, what to do, and why an action was refused. */
 export class Hud {
   private readonly doc: Document;
@@ -93,7 +97,7 @@ export class Hud {
 
   constructor(
     private readonly host: HTMLElement,
-    private readonly choices: BuildChoices,
+    private readonly stock: ShopStock,
     private readonly handlers: HudHandlers,
   ) {
     this.doc = host.ownerDocument;
@@ -119,26 +123,24 @@ export class Hud {
     this.host.setAttribute("data-side", status.side);
   }
 
-  showDefenseBuilding(chosen: PieceId, placementsLeft: number): void {
+  showDefenseBuilding(chosen: PieceId): void {
     this.heading.textContent = SIDE_NAMES.defense;
-    this.showBuildControls(
-      this.choices.pieces,
+    this.showShop(
+      defenseItems(this.stock),
       chosen,
-      (pieceId) => PIECES[pieceId].name,
       this.handlers.onChoosePiece,
     );
-    this.hint.textContent = `${leftText(placementsLeft, "Piece")}. Tap a tile to place a ${PIECES[chosen].name}, or a Piece to see what it does. Drag to pan; pinch or scroll to zoom.`;
+    this.hint.textContent = `Shop: pick a Piece, then tap a tile to buy it with Defense gold, or tap a Piece to see what it does. Placing a ${PIECES[chosen].name} now. Drag to pan; pinch or scroll to zoom.`;
   }
 
-  showAttackBuilding(chosen: DudeKindId, placementsLeft: number): void {
+  showAttackBuilding(chosen: DudeKindId): void {
     this.heading.textContent = SIDE_NAMES.attack;
-    this.showBuildControls(
-      this.choices.dudeKinds,
+    this.showShop(
+      attackItems(this.stock),
       chosen,
-      (dudeKind) => `${DUDE_KINDS[dudeKind].name} Squad`,
       this.handlers.onChooseDudeKind,
     );
-    this.hint.textContent = `${leftText(placementsLeft, "Squad")}. Tap a Spawn line tile on the left edge to add a Squad of ${DUDE_KINDS[chosen].name}s. The whole Army attacks your own Maze.`;
+    this.hint.textContent = `Shop: pick a Squad, then tap a Spawn line tile on the left edge to buy it with Attack gold. Adding ${DUDE_KINDS[chosen].name}s now. The whole Army attacks your own Maze.`;
   }
 
   showBattle(side: Side, speed: WatchSpeed): void {
@@ -178,16 +180,15 @@ export class Hud {
     }, MESSAGE_MS);
   }
 
-  /** One button per thing the side can place, the chosen one pressed, then Fight. */
-  private showBuildControls<Choice extends string>(
-    options: readonly Choice[],
-    chosen: Choice,
-    label: (option: Choice) => string,
-    onChoose: (option: Choice) => void,
+  /** One button per item the side's shop sells, with its price, the chosen one pressed, then Fight. */
+  private showShop<Id extends string>(
+    items: readonly ShopItem<Id>[],
+    chosen: Id,
+    onChoose: (id: Id) => void,
   ): void {
-    const choiceButtons = options.map((option) =>
-      this.button(label(option), option === chosen, () => {
-        onChoose(option);
+    const choiceButtons = items.map((item) =>
+      this.button(itemLabel(item), item.id === chosen, () => {
+        onChoose(item.id);
       }),
     );
     const fight = this.button("Fight", null, this.handlers.onFight);
@@ -208,10 +209,4 @@ export class Hud {
     button.addEventListener("click", onClick);
     return button;
   }
-}
-
-/** "2 Pieces left", "1 Squad left", "No Squads left". */
-function leftText(count: number, thing: string): string {
-  if (count <= 0) return `No ${thing}s left`;
-  return `${String(count)} ${count === 1 ? thing : `${thing}s`} left`;
 }
