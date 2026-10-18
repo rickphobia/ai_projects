@@ -3,7 +3,15 @@
  * number here, and tests read the numbers from here rather than copying them.
  */
 export type DudeKindId =
-  "intern" | "balloonist" | "shield-bro" | "hype-man" | "mole" | "streaker";
+  | "intern"
+  | "termite"
+  | "ram-crew"
+  | "balloonist"
+  | "shield-bro"
+  | "hype-man"
+  | "sapper"
+  | "mole"
+  | "streaker";
 
 export interface DudeKindEntry {
   /** Stable id that saves and tests refer to. */
@@ -35,6 +43,8 @@ export interface DudeKindEntry {
   readonly tunnelTiles: number;
   /** Every tower in range shoots it before anything else. */
   readonly drawsFire: boolean;
+  /** How it damages Pieces, for Wall-breakers; null for kinds that only walk. */
+  readonly wallBreaker: WallBreakerStats | null;
   /** Best Score that Unlocks it; null for kinds every Run starts with. Gating arrives with Unlocks. */
   readonly unlockScore: number | null;
 }
@@ -55,12 +65,35 @@ export interface HypeAuraStats {
   readonly boostPerVolumeStep: number;
 }
 
+/**
+ * How a Wall-breaker damages the blocking Piece in its way: chewing it a little every step,
+ * ramming it once per cooldown, or blowing up itself and the Piece.
+ */
+export type WallBreakerStats =
+  | { readonly attack: "chew"; readonly damagePerSecond: number }
+  | {
+      readonly attack: "ram";
+      /** Piece health taken per hit; more than any Piece has, so one hit destroys it. */
+      readonly damage: number;
+      readonly cooldownSeconds: number;
+      /** The crew splits its health evenly; each carrier down slows the ram by one share. */
+      readonly carriers: number;
+    }
+  | { readonly attack: "blast" };
+
+/**
+ * What a blocking Piece costs a Wall-breaker's route, in tiles of walking: through a wall when
+ * the way round is longer than this, round it otherwise.
+ */
+export const WALL_BREAKER_PIECE_COST = 8;
+
 const ORDINARY = {
   flies: false,
   shield: null,
   hypeAura: null,
   tunnelTiles: 0,
   drawsFire: false,
+  wallBreaker: null,
   unlockScore: null,
 } as const;
 
@@ -78,6 +111,42 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     squadPrice: 20,
     goldValue: 1,
     spawnIntervalSeconds: 0.25,
+  },
+  termite: {
+    ...ORDINARY,
+    id: "termite",
+    name: "Termite",
+    description: "Slowly chews through a wall so the others can follow.",
+    health: 25,
+    speed: 1.4,
+    goalDamage: 3,
+    size: 1,
+    squadSize: 10,
+    squadPrice: 30,
+    goldValue: 1,
+    spawnIntervalSeconds: 0.3,
+    wallBreaker: { attack: "chew", damagePerSecond: 4 },
+  },
+  "ram-crew": {
+    ...ORDINARY,
+    id: "ram-crew",
+    name: "Ram Crew",
+    description:
+      "Four carry a ram that smashes a wall or tower in one hit. Slower as carriers fall.",
+    health: 240,
+    speed: 1,
+    goalDamage: 20,
+    size: 4,
+    squadSize: 1,
+    squadPrice: 60,
+    goldValue: 8,
+    spawnIntervalSeconds: 1,
+    wallBreaker: {
+      attack: "ram",
+      damage: 1000,
+      cooldownSeconds: 3,
+      carriers: 4,
+    },
   },
   balloonist: {
     ...ORDINARY,
@@ -124,6 +193,22 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     goldValue: 3,
     spawnIntervalSeconds: 1,
     hypeAura: { range: 2, speedBoost: 0.4, boostPerVolumeStep: 0.25 },
+  },
+  sapper: {
+    ...ORDINARY,
+    id: "sapper",
+    name: "Sapper",
+    description: "Runs to the nearest wall and blows up himself and the wall.",
+    health: 45,
+    speed: 2,
+    goalDamage: 5,
+    size: 1,
+    squadSize: 3,
+    squadPrice: 45,
+    goldValue: 2,
+    spawnIntervalSeconds: 0.7,
+    wallBreaker: { attack: "blast" },
+    unlockScore: 5,
   },
   mole: {
     ...ORDINARY,

@@ -1,10 +1,10 @@
 import type { Side } from "../battle/battle";
+import type { BattleEvent } from "../battle/events";
 import { PIECES, type PieceId } from "../catalog/pieces";
 import {
   goldBreakdown,
   type BattleEnd,
   type GoldBreakdown,
-  type GoldEvent,
 } from "../economy/economy";
 import { BOARD_COLUMNS, BOARD_ROWS } from "../maze/board";
 
@@ -23,7 +23,7 @@ export interface RoundReport {
 }
 
 export function roundReport(
-  events: readonly GoldEvent[],
+  events: readonly BattleEvent[],
   end: BattleEnd,
 ): RoundReport {
   let goalDamage = 0;

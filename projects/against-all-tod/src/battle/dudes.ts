@@ -30,6 +30,8 @@ export interface DudeState {
   readonly burrowTo: BoardPoint | null;
   /** A Siren stunned it: it stands still until this step. Absent if never stunned. */
   readonly stunnedUntilStep?: number;
+  /** A Ram Crew's ram swings again from this step. Absent before its first hit. */
+  readonly ramReadyAtStep?: number;
 }
 
 /** The widest a lane may be, in tiles either side of the centre line. */

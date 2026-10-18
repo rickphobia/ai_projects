@@ -1,3 +1,4 @@
+import { WALL_BREAKER_PIECE_COST } from "../catalog/dudes";
 import { PIECES, type PieceId } from "../catalog/pieces";
 import {
   isOnBoard,
@@ -6,7 +7,12 @@ import {
   tileKind,
   type Tile,
 } from "./board";
-import { computeRoute, reachesGoal, type Route } from "./route";
+import {
+  computeRoute,
+  computeWeightedRoute,
+  reachesGoal,
+  type Route,
+} from "./route";
 
 /**
  * Everything the defender has placed on the Board, plus the route Dudes take through it.
@@ -103,24 +109,83 @@ export function turnstileArms(tile: Tile, turned: boolean): Tile[] {
   return arms.filter((arm) => isOnBoard(arm) && tileKind(arm) === "open");
 }
 
+/** The Maze without the Piece on `tile`, with its routes worked out again; unchanged if the tile is empty. */
+export function removePiece(maze: Maze, tile: Tile): Maze {
+  const key = tileKey(tile);
+  if (!maze.pieces.has(key)) return maze;
+  const pieces = new Map(maze.pieces);
+  pieces.delete(key);
+  return withPieces(pieces);
+}
+
+/** The direction fields Wall-breakers follow instead of the route, for one Turnstile layout. */
+export interface WallBreakerRoutes {
+  /**
+   * To the Goal, with blocking Pieces passable at `WALL_BREAKER_PIECE_COST`, so a Wall-breaker
+   * heads for the wall that matters: where a step leads into a Piece, that Piece is in its way.
+   */
+  readonly throughWalls: Route;
+  /** To the nearest blocking Piece, for the Sapper; it reaches nothing in a Maze without one. */
+  readonly toNearestWall: Route;
+}
+
+/**
+ * Worked out for the battle rather than kept on the Maze: only a battle with Wall-breakers
+ * needs them, and placing a Piece shouldn't pay for them.
+ */
+export function wallBreakerRoutes(
+  maze: Maze,
+  turned: boolean,
+): WallBreakerRoutes {
+  const arms = armsOf(maze.pieces, turned);
+  const blocking = placedPieces(maze).filter(
+    ({ pieceId }) => PIECES[pieceId].blocksDudes,
+  );
+  const blocks = new Set(blocking.map(({ tile }) => tileKey(tile)));
+  const throughWalls = computeWeightedRoute((tile) => {
+    const key = tileKey(tile);
+    if (arms.has(key)) return null;
+    return blocks.has(key) ? WALL_BREAKER_PIECE_COST : 1;
+  });
+  const toNearestWall = computeWeightedRoute(
+    (tile) => {
+      const key = tileKey(tile);
+      return arms.has(key) || blocks.has(key) ? null : 1;
+    },
+    blocking.map(({ tile }) => tile),
+  );
+  return { throughWalls, toNearestWall };
+}
+
 function withPieces(pieces: ReadonlyMap<string, PlacedPiece>): Maze {
-  const turnstiles = [...pieces.values()].filter(
+  const route = routeAround(pieces, false);
+  const turnedRoute = hasTurnstile(pieces) ? routeAround(pieces, true) : route;
+  return { pieces, route, turnedRoute };
+}
+
+function hasTurnstile(pieces: ReadonlyMap<string, PlacedPiece>): boolean {
+  return [...pieces.values()].some(
     ({ pieceId }) => PIECES[pieceId].turnIntervalSeconds !== null,
   );
-  const route = routeAround(pieces, turnstiles, false);
-  const turnedRoute =
-    turnstiles.length === 0 ? route : routeAround(pieces, turnstiles, true);
-  return { pieces, route, turnedRoute };
+}
+
+/** The tiles every Turnstile's arms block in one layout, by `tileKey`. */
+function armsOf(
+  pieces: ReadonlyMap<string, PlacedPiece>,
+  turned: boolean,
+): Set<string> {
+  return new Set(
+    [...pieces.values()]
+      .filter(({ pieceId }) => PIECES[pieceId].turnIntervalSeconds !== null)
+      .flatMap(({ tile }) => turnstileArms(tile, turned).map(tileKey)),
+  );
 }
 
 function routeAround(
   pieces: ReadonlyMap<string, PlacedPiece>,
-  turnstiles: readonly PlacedPiece[],
   turned: boolean,
 ): Route {
-  const arms = new Set(
-    turnstiles.flatMap(({ tile }) => turnstileArms(tile, turned).map(tileKey)),
-  );
+  const arms = armsOf(pieces, turned);
   return computeRoute((tile) => {
     const key = tileKey(tile);
     const piece = pieces.get(key);

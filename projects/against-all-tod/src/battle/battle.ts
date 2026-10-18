@@ -1,8 +1,8 @@
 import type { BattleRules } from "../catalog/battle-rules";
 import { DUDE_KINDS } from "../catalog/dudes";
 import { PIECES } from "../catalog/pieces";
-import { isOnBoard, tileKind } from "../maze/board";
-import type { Maze } from "../maze/maze";
+import { isOnBoard, tileKey, tileKind, type Tile } from "../maze/board";
+import { removePiece, type Maze, type PlacedPiece } from "../maze/maze";
 import type { Route } from "../maze/route";
 import { createRng } from "../rng/rng";
 import { applyEffects, effectPiecesOf, type EffectPiece } from "./area-effects";
@@ -16,6 +16,15 @@ import {
 } from "./dudes";
 import type { BattleEvent } from "./events";
 import { fireTowers, towersOf, type TowerState } from "./towers";
+import {
+  breakerRoute,
+  breakerRoutesOf,
+  carrierSpeedFactor,
+  isWallBreaker,
+  PieceHits,
+  pieceInTheWay,
+  type BreakerRoutes,
+} from "./wall-breakers";
 
 /**
  * The battle: a pure function of its setup, stepped at a fixed 1/60 s. No DOM or PixiJS here,
@@ -50,6 +59,12 @@ export interface BattleState {
   /** Steps run so far; 0 before the first. */
   readonly step: number;
   readonly goalHealth: number;
+  /** The Maze as it stands: the setup's, less the Pieces Wall-breakers have destroyed. */
+  readonly maze: Maze;
+  /** Health of each Piece a Wall-breaker has damaged, by `tileKey`; the rest are at full health. */
+  readonly pieceHealth: ReadonlyMap<string, number>;
+  /** The Wall-breakers' fields; null when the Army has no Wall-breakers. */
+  readonly breakerRoutes: BreakerRoutes | null;
   readonly dudes: readonly DudeState[];
   readonly waiting: readonly WaitingDude[];
   readonly towers: readonly TowerState[];
@@ -86,9 +101,15 @@ export function startBattle(setup: BattleSetup): BattleState {
       });
     }
   }
+  const hasWallBreakers = setup.army.some(
+    ({ dudeKind }) => DUDE_KINDS[dudeKind].wallBreaker !== null,
+  );
   return {
     step: 0,
     goalHealth: setup.rules.goalHealth,
+    maze: setup.maze,
+    pieceHealth: new Map(),
+    breakerRoutes: hasWallBreakers ? breakerRoutesOf(setup.maze) : null,
     dudes: [],
     waiting,
     towers: towersOf(setup.maze),
@@ -112,8 +133,8 @@ export function stepBattle(
     if (next.entersAtStep < step) onBoard.push(next.dude);
     else waiting.push(next);
   }
-  // The routes belong to the Maze, worked out when a Piece was placed; a step never recomputes them.
-  const route = routeAt(setup.maze, step);
+  // The routes belong to the Maze, worked out again only when a Wall-breaker destroys a Piece.
+  const route = routeAt(state.maze, step);
   const volley = fireTowers(
     state.towers,
     onBoard,
@@ -135,16 +156,44 @@ export function stepBattle(
   const hypeMen = effects.dudes.filter(
     (dude) => DUDE_KINDS[dude.kind].hypeAura !== null,
   );
+  const breakerRoutes =
+    state.breakerRoutes === null
+      ? null
+      : turnstilesTurned(step)
+        ? state.breakerRoutes.turned
+        : state.breakerRoutes.unturned;
+  const pieceHits = new PieceHits(state.pieceHealth);
   for (const dude of effects.dudes) {
     if ((dude.stunnedUntilStep ?? 0) > step) {
       dudes.push(dude);
       continue;
     }
+    let field = route;
+    if (breakerRoutes !== null && isWallBreaker(dude)) {
+      field = breakerRoute(dude, breakerRoutes, route);
+      const piece = pieceInTheWay(dude, field, state.maze);
+      if (piece !== null) {
+        const hit = pieceHits.hit(dude, piece, step, STEPS_PER_SECOND);
+        if (hit.dude !== null) dudes.push(hit.dude);
+        if (hit.destroyedIt) {
+          events.push({
+            type: "piece-destroyed",
+            step,
+            pieceId: piece.pieceId,
+            pieceTile: piece.tile,
+            dudeId: dude.id,
+            dudeKind: dude.kind,
+          });
+        }
+        continue;
+      }
+    }
     const speedFactor =
-      hypeMen.length === 0
+      (hypeMen.length === 0
         ? 1
-        : hypeSpeedFactor(dude, hypeMen, setup.rules.volumeLevel);
-    const moved = walk(dude, route, STEP_SECONDS, speedFactor);
+        : hypeSpeedFactor(dude, hypeMen, setup.rules.volumeLevel)) *
+      carrierSpeedFactor(dude);
+    const moved = walk(dude, field, STEP_SECONDS, speedFactor);
     if (moved !== "at-goal") {
       dudes.push(moved);
       continue;
@@ -161,14 +210,42 @@ export function stepBattle(
   }
 
   return {
+    ...withoutDestroyed(state, volley.towers, pieceHits.destroyed),
     step,
     goalHealth,
+    pieceHealth: pieceHits.pieceHealth(),
     dudes,
     waiting,
-    towers: volley.towers,
-    effectPieces: state.effectPieces,
     events,
     outcome: outcomeAfter(setup.rules, step, goalHealth, dudes, waiting),
+  };
+}
+
+/** The Maze and what acts from it, less the Pieces destroyed this step, with the routes worked out again. */
+function withoutDestroyed(
+  state: BattleState,
+  towers: readonly TowerState[],
+  destroyed: readonly PlacedPiece[],
+): Pick<BattleState, "maze" | "towers" | "effectPieces" | "breakerRoutes"> {
+  if (destroyed.length === 0) {
+    return {
+      maze: state.maze,
+      towers,
+      effectPieces: state.effectPieces,
+      breakerRoutes: state.breakerRoutes,
+    };
+  }
+  const maze = destroyed.reduce(
+    (current, { tile }) => removePiece(current, tile),
+    state.maze,
+  );
+  const standing = ({ tile }: { readonly tile: Tile }) =>
+    maze.pieces.has(tileKey(tile));
+  return {
+    maze,
+    towers: towers.filter(standing),
+    effectPieces: state.effectPieces.filter(standing),
+    breakerRoutes: breakerRoutesOf(maze),
   };
 }
 

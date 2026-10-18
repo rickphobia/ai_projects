@@ -124,6 +124,8 @@ export async function startRenderer(
   const goalHealth = new GoalHealthBar();
   const cursor = new PlacementCursor(pieceView(textures, cursorPiece));
   let turrets: Turrets = new Map();
+  // The Maze last drawn; a battle's differs once a Wall-breaker destroys a Piece.
+  let drawnMaze: Maze | null = null;
   // The route goes over the Pieces so a path squeezing past walls stays readable.
   board.addChild(
     pieces,
@@ -157,6 +159,7 @@ export async function startRenderer(
   return {
     showMaze: (maze) => {
       turrets = drawPieces(pieces, textures, maze);
+      drawnMaze = maze;
       drawRoute(route, maze.route);
     },
     showRoute: (visible) => {
@@ -175,6 +178,10 @@ export async function startRenderer(
       cursor.show(tile, allowed);
     },
     showBattle: (state, newShots) => {
+      if (state.maze !== drawnMaze) {
+        turrets = drawPieces(pieces, textures, state.maze);
+        drawnMaze = state.maze;
+      }
       units.show(state, newShots, turrets);
     },
     clearBattle: () => {
