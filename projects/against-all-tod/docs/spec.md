@@ -226,6 +226,19 @@ Engine and tools follow decision 0001: TypeScript (strict), Vite, PixiJS for ren
 - Phones and tablets play in landscape. Portrait shows the turn-your-device screen. Nothing depends on hover.
 - Performance target: 500 Dudes at 60 fps on a mid-range laptop and at least 30 fps on a mid-range phone from the last three years.
 
+### Look
+
+Every ticket that draws something new follows these rules, so the game looks like one game before any polish pass. Tickets 01–09 set this look; `docs/screenshots/03-defense-turn-battle.png` shows it.
+
+- **One art pack.** Sprites come from Kenney's Tower Defense (top-down) pack: flat, top-down, 64 px tiles, soft outlines. When it has nothing that fits, use another Kenney CC0 pack in the same flat top-down style, never pixel art, isometric or 3D-rendered sprites. Copy only the tiles used into `assets/<pack>/` with its licence, and add the pack to the README credits.
+- **Palette.** Background `#16201a`, text `#e8efe9`, muted text `#9fb3a5`, defense `#3d8bfd`, attack `#ff5a36`, refused `#ff3030`. The Board itself keeps the pack's own grass, dirt and stone colours. A new colour is added next to these (the CSS variables in `index.html` and the constants in `adapters/renderer/board-view.ts`, kept matching), never written inline.
+- **Side colours mean side.** Anything that belongs to the defense is marked in the defense colour (turrets, tracers, the Goal frame); anything that belongs to the attack in the attack colour (Dude discs, Squads, the Spawn line stripe). Blue and orange-red are used for nothing else, so a glance at the Board tells who owns what.
+- **Dudes.** Every Dude stands on a disc in the attack colour with a light rim. Dude kinds differ by sprite shape and disc size (small kinds smaller, big kinds bigger), not by colour. A Dude must stay readable on a phone at fit-to-window zoom. Mutations add a small mark or outline, not a new colour.
+- **Pieces.** A Piece is a Kenney base tile with its own top sprite, tinted in the defense colour where it has a working part. Each Piece kind has its own silhouette, so it is recognised without reading its name.
+- **Effects.** Short and flat: tracers, hit flashes and death puffs last about a fifth of a second. No screen shake or full-screen flashes for ordinary hits; save those for the Goal breaking and boss moments. Effects reuse shared textures and pooled sprites, so 500 Dudes still run at 60 fps.
+- **Tricks.** In the dark (Brightness down) units keep a glowing outline in their side colour. Every trick shows its state on the Board, not only in the Settings menu.
+- **UI.** DOM overlays use the CSS variables above, the system font, 6 px rounded buttons, and the current side's colour for the active choice. New buttons are at least 44 px tall on touch devices (the HUD's existing buttons are smaller; the polish pass fixes them). Nothing depends on hover.
+
 ### Delivery
 
 - Built as static files, deployed by `deploy/update-site.sh` like pawn-swarm, and zipped for itch.io from the same build.
