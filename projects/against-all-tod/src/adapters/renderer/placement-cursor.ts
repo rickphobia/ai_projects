@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, type Texture } from "pixi.js";
+import { Container, Graphics } from "pixi.js";
 import type { Tile } from "../../maze/board";
 import { TILE_SIZE } from "./board-textures";
 import { DEFENSE_COLOUR, REFUSED_COLOUR } from "./board-view";
@@ -6,14 +6,22 @@ import { DEFENSE_COLOUR, REFUSED_COLOUR } from "./board-view";
 /** The tile under the mouse: a faint ghost of the Piece where it may go, a red frame where it may not. */
 export class PlacementCursor {
   readonly view = new Container({ label: "placement-cursor" });
-  private readonly ghost: Sprite;
+  private ghost: Container;
   private readonly frame = new Graphics();
 
-  constructor(pieceTexture: Texture) {
-    this.ghost = new Sprite(pieceTexture);
+  constructor(ghost: Container) {
+    this.ghost = ghost;
     this.ghost.alpha = 0.5;
     this.view.addChild(this.ghost, this.frame);
     this.view.visible = false;
+  }
+
+  /** Swaps the ghost when the player picks another Piece. */
+  setGhost(ghost: Container): void {
+    this.ghost.destroy({ children: true });
+    this.ghost = ghost;
+    this.ghost.alpha = 0.5;
+    this.view.addChildAt(this.ghost, 0);
   }
 
   show(tile: Tile | null, allowed: boolean): void {

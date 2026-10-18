@@ -15,7 +15,7 @@
         --muted: #9fb3a5;
         --attack: #ff5a36;
         --defense: #3d8bfd;
-        --hud-height: 68px;
+        --hud-height: 80px;
       }
       html,
       body {
@@ -47,10 +47,43 @@
         overflow: hidden;
         text-align: center;
       }
+      .hud-top {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: nowrap;
+      }
       #hud h1 {
         margin: 0;
         font-size: 1rem;
         color: var(--defense);
+        white-space: nowrap;
+      }
+      .hud-controls {
+        display: flex;
+        gap: 6px;
+      }
+      #hud button {
+        font: inherit;
+        font-size: 0.85rem;
+        padding: 3px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--muted);
+        background: transparent;
+        color: var(--fg);
+        cursor: pointer;
+      }
+      #hud button[aria-pressed="true"] {
+        border-color: var(--defense);
+        background: var(--defense);
+        color: #fff;
+      }
+      #hud button.hud-fight {
+        border-color: var(--attack);
+        background: var(--attack);
+        color: #fff;
+        font-weight: 600;
       }
       #hud p {
         margin: 2px 0 0;

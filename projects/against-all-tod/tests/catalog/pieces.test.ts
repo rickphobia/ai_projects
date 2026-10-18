@@ -14,5 +14,14 @@ describe("the Piece catalog", () => {
     expect(crateWall.blocksDudes).toBe(true);
     expect(crateWall.price).toBeGreaterThan(0);
     expect(crateWall.health).toBeGreaterThan(0);
+    expect(crateWall.tower).toBeNull();
+  });
+
+  it("has a Sniper Nest that blocks Dudes and shoots", () => {
+    const sniperNest = PIECES["sniper-nest"];
+    expect(sniperNest.blocksDudes).toBe(true);
+    expect(sniperNest.tower?.range).toBeGreaterThan(0);
+    expect(sniperNest.tower?.damage).toBeGreaterThan(0);
+    expect(sniperNest.tower?.fireIntervalSeconds).toBeGreaterThan(0);
   });
 });

@@ -69,6 +69,11 @@ export function reachesGoal(route: Route, tile: Tile): boolean {
   return route.distances[indexOf(tile)] != null;
 }
 
+/** Steps left from `tile` to the Goal; null where the Goal can't be reached. */
+export function distanceToGoal(route: Route, tile: Tile): number | null {
+  return route.distances[indexOf(tile)] ?? null;
+}
+
 /** The tiles a Dude walks from `start` to a Goal tile, both included; empty if there is no route. */
 export function pathToGoal(route: Route, start: Tile): Tile[] {
   if (!reachesGoal(route, start)) return [];

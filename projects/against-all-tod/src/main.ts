@@ -1,25 +1,12 @@
-import {
-  startRenderer,
-  type GameView,
-} from "./adapters/renderer/game-renderer";
-import { PIECES } from "./catalog/pieces";
+import { startRenderer } from "./adapters/renderer/game-renderer";
 import { loadConfig } from "./config";
-import { chooseLogLevel, createConsoleLogger, type Logger } from "./logger";
-import { BOARD_COLUMNS, BOARD_ROWS, type Tile } from "./maze/board";
-import {
-  checkPlacement,
-  emptyMaze,
-  pieceAt,
-  placePiece,
-  type Maze,
-} from "./maze/maze";
+import { BUILD_PIECES, DefenseTurn, FIRST_BUILD_PIECE } from "./defense-turn";
+import { chooseLogLevel, createConsoleLogger } from "./logger";
+import { BOARD_COLUMNS, BOARD_ROWS } from "./maze/board";
 import { PORTRAIT_TOUCH_QUERY, showTurnDeviceScreenWhile } from "./ui/device";
 import { Hud } from "./ui/hud";
 import { PieceInfo } from "./ui/piece-info";
 import { showStartupError } from "./ui/startup-error-screen";
-
-/** The only Piece until Draft Crates and the shop arrive. */
-const BUILD_PIECE = PIECES["crate-wall"];
 
 async function start(): Promise<void> {
   const config = loadConfig(import.meta.env);
@@ -37,62 +24,30 @@ async function start(): Promise<void> {
     window.matchMedia(PORTRAIT_TOUCH_QUERY),
   );
   const host = requireElement("game");
-  const view = await startRenderer(host, logger, BUILD_PIECE.id);
-  const hud = new Hud(
-    requireElement("hud"),
-    "Defense turn",
-    `Tap a tile to place a ${BUILD_PIECE.name}, or a Piece to see what it does. Drag to pan; pinch or scroll to zoom.`,
+  const view = await startRenderer(host, logger, FIRST_BUILD_PIECE);
+  // Runs and the seed in the URL come later; until then every battle uses the default seed.
+  const turn = new DefenseTurn(
+    view,
+    new PieceInfo(requireElement("piece-info")),
+    logger,
+    config.defaultSeed,
   );
-  buildTheMaze(view, hud, new PieceInfo(requireElement("piece-info")), logger);
-  logger.info("Board drawn");
-}
-
-/** Wires clicks to the maze rules until the run module owns the Round. */
-function buildTheMaze(
-  view: GameView,
-  hud: Hud,
-  pieceInfo: PieceInfo,
-  logger: Logger,
-): void {
-  let maze = emptyMaze();
-  view.showMaze(maze);
-  view.listenToBoard({
-    onHover: (tile) => {
-      view.showPlacementCursor(
-        tile,
-        tile !== null && checkPlacement(maze, tile, BUILD_PIECE.id) === null,
-      );
-      if (!showPieceInfo(pieceInfo, maze, tile)) pieceInfo.hide();
+  const hud = new Hud(requireElement("hud"), BUILD_PIECES, {
+    onChoosePiece: (pieceId) => {
+      turn.choosePiece(pieceId);
     },
-    onTap: (tile, kind) => {
-      // Tapping a Piece asks what it does; on touch that is the only way to ask.
-      if (showPieceInfo(pieceInfo, maze, tile)) return;
-      pieceInfo.hide();
-      const result = placePiece(maze, tile, BUILD_PIECE.id);
-      if (!result.ok) {
-        logger.info("placement refused", { tile, refusal: result.refusal });
-        hud.showRefusal(result.refusal);
-        return;
-      }
-      maze = result.maze;
-      logger.debug("Piece placed", { tile, piece: BUILD_PIECE.id });
-      view.showMaze(maze);
-      // The tile under the mouse is now taken; a finger has lifted, so there is no cursor.
-      if (kind === "mouse") view.showPlacementCursor(tile, false);
+    onFight: () => {
+      turn.fight();
+    },
+    onWatchSpeed: (speed) => {
+      turn.setWatchSpeed(speed);
+    },
+    onBuildAgain: () => {
+      turn.build();
     },
   });
-}
-
-/** Shows the Piece on `tile` in the info panel; false if there is none. */
-function showPieceInfo(
-  info: PieceInfo,
-  maze: Maze,
-  tile: Tile | null,
-): boolean {
-  const id = tile === null ? undefined : pieceAt(maze, tile);
-  if (id === undefined) return false;
-  info.show(PIECES[id]);
-  return true;
+  turn.begin(hud);
+  logger.info("Board drawn");
 }
 
 function requireElement(id: string): HTMLElement {
