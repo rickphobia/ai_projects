@@ -1,4 +1,6 @@
-import { Application, Container, Graphics } from "pixi.js";
+import { Application, Container, Graphics, type Ticker } from "pixi.js";
+import type { BattleState } from "../../battle/battle";
+import type { ShotEvent } from "../../battle/events";
 import type { PieceId } from "../../catalog/pieces";
 import type { Logger } from "../../logger";
 import type { Tile } from "../../maze/board";
@@ -10,9 +12,11 @@ import {
 import { TILE_SIZE, loadBoardTextures } from "./board-textures";
 import { BOARD_PIXEL_SIZE, createBoardView } from "./board-view";
 import { fitToView } from "./fit-to-view";
-import { drawPieces, pieceTexture } from "./pieces-view";
+import { GoalHealthBar } from "./goal-health-view";
+import { drawPieces, pieceView, type Turrets } from "./pieces-view";
 import { PlacementCursor } from "./placement-cursor";
 import { drawRoute } from "./route-view";
+import { UnitsView } from "./units-view";
 
 /** Space kept free around the Board, in screen pixels. */
 const VIEW_MARGIN = 16;
@@ -26,8 +30,18 @@ export class RendererStartError extends Error {
 export interface GameView {
   /** Redraws the Pieces and the route preview. */
   showMaze(maze: Maze): void;
+  /** Hides the route preview, which would hide Dudes during a battle. */
+  showRoute(visible: boolean): void;
+  /** The Piece the placement cursor shows. */
+  choosePiece(pieceId: PieceId): void;
   /** Marks the tile under the mouse as a place the Piece may or may not go; null hides it. */
   showPlacementCursor(tile: Tile | null, allowed: boolean): void;
+  /** Draws a battle's Dudes, shots and turrets; `newShots` are the shots since the last call. */
+  showBattle(state: BattleState, newShots: readonly ShotEvent[]): void;
+  clearBattle(): void;
+  showGoalHealth(health: number, maxHealth: number): void;
+  /** Calls `onFrame` with the real time since the last frame, until the returned stop is called. */
+  everyFrame(onFrame: (elapsedMs: number) => void): () => void;
   listenToBoard(handlers: BoardPointerHandlers): void;
 }
 
@@ -67,9 +81,12 @@ export async function startRenderer(
   const board = createBoardView(textures);
   const pieces = new Container({ label: "pieces" });
   const route = new Graphics({ label: "route" });
-  const cursor = new PlacementCursor(pieceTexture(textures, cursorPiece));
+  const units = new UnitsView(textures);
+  const goalHealth = new GoalHealthBar();
+  const cursor = new PlacementCursor(pieceView(textures, cursorPiece));
+  let turrets: Turrets = new Map();
   // The route goes over the Pieces so a path squeezing past walls stays readable.
-  board.addChild(pieces, route, cursor.view);
+  board.addChild(pieces, route, units.view, goalHealth.view, cursor.view);
   app.stage.addChild(board);
 
   const fitBoard = (width: number, height: number): void => {
@@ -82,11 +99,35 @@ export async function startRenderer(
 
   return {
     showMaze: (maze) => {
-      drawPieces(pieces, textures, maze);
+      turrets = drawPieces(pieces, textures, maze);
       drawRoute(route, maze.route);
+    },
+    showRoute: (visible) => {
+      route.visible = visible;
+    },
+    choosePiece: (pieceId) => {
+      cursor.setGhost(pieceView(textures, pieceId));
     },
     showPlacementCursor: (tile, allowed) => {
       cursor.show(tile, allowed);
+    },
+    showBattle: (state, newShots) => {
+      units.show(state, newShots, turrets);
+    },
+    clearBattle: () => {
+      units.clear();
+    },
+    showGoalHealth: (health, maxHealth) => {
+      goalHealth.show(health, maxHealth);
+    },
+    everyFrame: (onFrame) => {
+      const tick = (ticker: Ticker): void => {
+        onFrame(ticker.deltaMS);
+      };
+      app.ticker.add(tick);
+      return () => {
+        app.ticker.remove(tick);
+      };
     },
     listenToBoard: (handlers) => {
       listenToBoardPointer(board, TILE_SIZE, handlers);

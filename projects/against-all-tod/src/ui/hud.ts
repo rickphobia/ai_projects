@@ -1,3 +1,6 @@
+import type { BattleOutcome } from "../battle/battle";
+import { WATCH_SPEEDS, type WatchSpeed } from "../battle/watch-clock";
+import { PIECES, type PieceId } from "../catalog/pieces";
 import type { PlacementRefusal } from "../maze/maze";
 
 /** How long a refusal stays on screen. */
@@ -12,26 +15,104 @@ const REFUSAL_MESSAGES: Readonly<Record<PlacementRefusal, string>> = {
     "That would seal the Goal off. Dudes must always have a route to it.",
 };
 
+const OUTCOME_MESSAGES: Readonly<Record<BattleOutcome["reason"], string>> = {
+  "goal-destroyed": "Attack wins: the Goal broke.",
+  "army-gone": "Defense wins: the whole Army is gone.",
+  "time-up": "Defense wins: the Army ran out of time.",
+};
+
 export function refusalMessage(refusal: PlacementRefusal): string {
   return REFUSAL_MESSAGES[refusal];
 }
 
-/** The DOM overlay over the Board: which turn it is, what to do, and why a placement was refused. */
+export function outcomeMessage(outcome: BattleOutcome): string {
+  return OUTCOME_MESSAGES[outcome.reason];
+}
+
+/** "Goal 85/100 · 0:23", for the line under the heading during a battle. */
+export function battleStatus(
+  goalHealth: number,
+  maxHealth: number,
+  seconds: number,
+): string {
+  const whole = Math.floor(seconds);
+  const clock = `${String(Math.floor(whole / 60))}:${String(whole % 60).padStart(2, "0")}`;
+  return `Goal ${String(Math.ceil(goalHealth))}/${String(maxHealth)} · ${clock}`;
+}
+
+export interface HudHandlers {
+  readonly onChoosePiece: (pieceId: PieceId) => void;
+  readonly onFight: () => void;
+  readonly onWatchSpeed: (speed: WatchSpeed) => void;
+  readonly onBuildAgain: () => void;
+}
+
+/** The DOM band over the Board: the turn, its buttons, what to do, and why a placement was refused. */
 export class Hud {
+  private readonly doc: Document;
+  private readonly heading: HTMLElement;
+  private readonly controls: HTMLElement;
+  private readonly hint: HTMLElement;
   private readonly message: HTMLElement;
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(host: HTMLElement, turn: string, instruction: string) {
-    const doc = host.ownerDocument;
-    const heading = doc.createElement("h1");
-    heading.textContent = turn;
-    const hint = doc.createElement("p");
-    hint.textContent = instruction;
-    this.message = doc.createElement("p");
+  constructor(
+    host: HTMLElement,
+    private readonly buildPieces: readonly PieceId[],
+    private readonly handlers: HudHandlers,
+  ) {
+    this.doc = host.ownerDocument;
+    const top = this.doc.createElement("div");
+    top.className = "hud-top";
+    this.heading = this.doc.createElement("h1");
+    this.controls = this.doc.createElement("div");
+    this.controls.className = "hud-controls";
+    top.append(this.heading, this.controls);
+    this.hint = this.doc.createElement("p");
+    this.message = this.doc.createElement("p");
     this.message.className = "hud-message";
     this.message.setAttribute("role", "status");
     this.message.hidden = true;
-    host.replaceChildren(heading, hint, this.message);
+    host.replaceChildren(top, this.hint, this.message);
+  }
+
+  showBuilding(chosen: PieceId): void {
+    this.heading.textContent = "Defense turn";
+    const pieceButtons = this.buildPieces.map((pieceId) =>
+      this.button(PIECES[pieceId].name, pieceId === chosen, () => {
+        this.handlers.onChoosePiece(pieceId);
+      }),
+    );
+    const fight = this.button("Fight", null, this.handlers.onFight);
+    fight.classList.add("hud-fight");
+    this.controls.replaceChildren(...pieceButtons, fight);
+    this.hint.textContent = `Click a tile to place a ${PIECES[chosen].name}. The orange line is the route Dudes will walk.`;
+  }
+
+  showBattle(speed: WatchSpeed): void {
+    this.heading.textContent = "Defense turn: fight";
+    this.controls.replaceChildren(
+      ...WATCH_SPEEDS.map((option) =>
+        this.button(`${String(option)}x`, option === speed, () => {
+          this.handlers.onWatchSpeed(option);
+        }),
+      ),
+    );
+  }
+
+  showBattleStatus(
+    goalHealth: number,
+    maxHealth: number,
+    seconds: number,
+  ): void {
+    this.hint.textContent = battleStatus(goalHealth, maxHealth, seconds);
+  }
+
+  showOutcome(outcome: BattleOutcome): void {
+    this.heading.textContent = outcomeMessage(outcome);
+    this.controls.replaceChildren(
+      this.button("Build again", null, this.handlers.onBuildAgain),
+    );
   }
 
   showRefusal(refusal: PlacementRefusal): void {
@@ -41,5 +122,19 @@ export class Hud {
     this.hideTimer = setTimeout(() => {
       this.message.hidden = true;
     }, MESSAGE_MS);
+  }
+
+  /** `pressed` is null for a plain button, true or false for one of a set of choices. */
+  private button(
+    label: string,
+    pressed: boolean | null,
+    onClick: () => void,
+  ): HTMLButtonElement {
+    const button = this.doc.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    if (pressed !== null) button.setAttribute("aria-pressed", String(pressed));
+    button.addEventListener("click", onClick);
+    return button;
   }
 }

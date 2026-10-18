@@ -4,9 +4,9 @@ A solo Tower Offense Defense browser game: build a Maze, then switch sides and t
 
 ## Status
 
-`in progress`: building the Maze. The page draws the 20×14 Board with the Spawn line on the left column and the Goal on the right edge. Click a tile to place a Crate Wall; the route Dudes will walk is drawn from every Spawn line tile and redrawn after each placement, and a placement that would seal the Goal off is refused with a message. There are no Dudes, gold or Rounds yet; they come in the next tickets (`docs/tickets/`). `docs/spec.md` describes the whole demo.
+`in progress`: one Defense turn, played over and over. The page draws the 20×14 Board with the Spawn line on the left column and the Goal on the right edge. Pick Crate Wall or Sniper Nest and click tiles to place them; the route Dudes will walk is drawn and redrawn after each placement, and a placement that would seal the Goal off is refused with a message. Press Fight to watch a game-made Army of 40 Interns walk the route: Sniper Nests shoot the biggest Dude in range, Dudes that reach the Goal knock down its health bar, and the HUD names the winner. Watch at 1x, 2x or 4x; "Build again" keeps the Maze. There is no gold, Lives or Rounds yet; they come in the next tickets (`docs/tickets/`). `docs/spec.md` describes the whole demo.
 
-![Crate Walls and the route bending through their gaps](docs/screenshots/02-maze-and-route.png)
+![Interns filing down the Maze while Sniper Nests pick them off](docs/screenshots/03-defense-turn-battle.png)
 
 ## Requirements
 
@@ -51,7 +51,7 @@ Read from `.env` at build time (Vite bakes `VITE_*` variables into the page) and
 |----------|----------|--------------|
 | `VITE_BASE_PATH` | yes | Where the site is served from. `./` (the default) works from any folder, so the live site, PR previews and itch.io use the same build. An absolute path must start and end with `/`. |
 | `VITE_DEBUG` | yes | `true` logs at debug level in the browser console; `false` logs info and above. |
-| `VITE_DEFAULT_SEED` | yes | Seed for a new Run when the URL gives none, a whole number from 0 to 4294967295. Used once Runs exist. |
+| `VITE_DEFAULT_SEED` | yes | Seed for a new Run when the URL gives none, a whole number from 0 to 4294967295. Until Runs exist, every battle uses it. |
 | `VITE_BUILD_VERSION` | no | Names the build in the start-up log. `deploy/update-site.sh` and `npm run itch-zip` set it to the commit, `scripts/try-pr.sh` to the PR and commit; otherwise `dev`. |
 
 The deploy scripts read their own `AGAINST_ALL_TOD_*` variables from the shell; see "Deploy".
@@ -60,27 +60,33 @@ The deploy scripts read their own `AGAINST_ALL_TOD_*` variables from the shell; 
 
 The spec (`docs/spec.md`, "Modules") plans pure rule modules (maze, battle, run, economy and so on) with no DOM or PixiJS, and adapters around them. The skeleton has the first pieces:
 
-- `src/main.ts` is the entrypoint: it loads the config, makes the logger, starts the renderer and, for now, wires Board clicks to the maze rules (the run module takes that over when Rounds exist). If anything throws, it logs the error and shows the start-up error screen.
+- `src/main.ts` is the entrypoint: it loads the config, makes the logger, starts the renderer and the HUD, and hands them to `src/defense-turn.ts`. If anything throws, it logs the error and shows the start-up error screen.
+- `src/defense-turn.ts` wires one Defense turn until the run module owns Rounds: Board clicks go to the maze rules, Fight starts a battle against the Round 1 Army, each frame runs the steps the watch clock says are due and hands the state to the renderer, and the end shows the winner.
+- `src/battle/` is the battle, pure and headless. `battle.ts` starts a battle from a Maze, an Army, a seed and the battle rules, and steps it at a fixed 1/60 s: Dudes file onto the Board, towers fire, Dudes walk, then it checks the end (Goal at zero: attack wins; no Dudes left or 90 s of game time: defense wins). `dudes.ts` walks a Dude along the shared route, `towers.ts` fires the Sniper Nests (biggest Dude in range, then the one closest to the Goal), `events.ts` lists what a step emits (shot, kill, reach Goal) for gold and reports later, and `watch-clock.ts` turns real frame time into steps at 1x, 2x or 4x. Watch speed only changes how many steps run per real second, so the result is the same at every speed.
+- `src/rng/rng.ts` is the seeded random number source (Mulberry32). The battle uses it to spread each Squad's Dudes across their tile.
 - `src/maze/board.ts` is the Board's layout as data: 20 columns × 14 rows, the Spawn line on column 0, and the Goal on the right column in the middle two rows (6 and 7). Pure, so the maze and battle rules can share it.
 - `src/maze/maze.ts` holds the placed Pieces and answers "may this Piece go here?" with a typed refusal (`off-board`, `spawn-line`, `goal`, `tile-taken`, `seals-goal`). A Maze is immutable and carries its route, recomputed on each placement.
 - `src/maze/route.ts` is the route: one breadth-first direction field from the Goal over walkable tiles, so every Dude on a tile shares one step. Equally short steps are broken toward the Goal's centre, so routes cut diagonally toward the Goal rather than run along an edge.
-- `src/catalog/pieces.ts` holds every Piece's tuning numbers (price, health, whether it blocks Dudes). Tests read numbers from it.
-- `src/adapters/renderer/` draws with PixiJS. `game-renderer.ts` starts PixiJS in the page and keeps the Board scaled to fit the window (`fit-to-view.ts`); `board-view.ts` builds the Board from Kenney tiles, with faint lines between tiles, a stripe in the attack colour on the Spawn line and the Goal framed in the defense colour. `board-textures.ts` loads the tiles. `pieces-view.ts` draws the Pieces, `route-view.ts` the route preview and `placement-cursor.ts` the tile under the mouse (a ghost Piece, or a red frame where it can't go).
+- `src/catalog/` holds every tuning number: `pieces.ts` for Pieces (price, health, whether it blocks Dudes, and range, damage and fire rate for towers), `dudes.ts` for Dude kinds (health, speed, Goal damage, size, Squad size) and the Round 1 Army, and `battle-rules.ts` for the Goal's health and the time limit. Tests read numbers from it.
+- `src/adapters/renderer/` draws with PixiJS. `game-renderer.ts` starts PixiJS in the page and keeps the Board scaled to fit the window (`fit-to-view.ts`); `board-view.ts` builds the Board from Kenney tiles, with faint lines between tiles, a stripe in the attack colour on the Spawn line and the Goal framed in the defense colour. `board-textures.ts` loads the tiles. `pieces-view.ts` draws the Pieces (a Sniper Nest's turret turns toward its last shot), `route-view.ts` the route preview and `placement-cursor.ts` the tile under the mouse (a ghost Piece, or a red frame where it can't go). `units-view.ts` draws a battle: each Dude on a disc in the attack colour, and shot tracers in the defense colour. `goal-health-view.ts` is the Goal's health bar.
 - `src/adapters/input/board-pointer.ts` turns mouse moves and clicks on the Board into tiles.
-- `src/ui/hud.ts` is the band above the Board: the turn, what to do, and why a placement was refused.
+- `src/ui/hud.ts` is the band above the Board: the turn, the Piece buttons and Fight, the watch speed buttons, the Goal's health and the battle clock, the winner, and why a placement was refused.
 - `src/ui/startup-error-screen.ts` shows why the game could not start, in plain DOM.
 
 ## Folder layout
 
 ```
 src/
-  main.ts              entrypoint: wires config, logger, renderer and the maze rules
+  main.ts              entrypoint: wires config, logger, renderer and HUD
+  defense-turn.ts      one Defense turn: build, Fight, watch, winner
   config.ts            reads and validates VITE_* settings
   logger.ts            levelled logger over the browser console
-  catalog/             tuning numbers for every Piece
+  catalog/             tuning numbers for every Piece, Dude kind and the battle
   maze/                the Board's layout, Piece placement and the route
+  battle/              the fixed-step battle, its events and the watch clock
+  rng/                 seeded random numbers
   adapters/input/      mouse to Board tiles
-  adapters/renderer/   PixiJS: draws the Board, Pieces and route, fits it to the window
+  adapters/renderer/   PixiJS: draws the Board, Pieces, route and battle, fits it to the window
   ui/                  DOM: the HUD and the start-up error screen
 assets/                Kenney art, with its licence
 tests/                 mirrors src/ (Vitest)
@@ -91,7 +97,7 @@ docs/                  spec, tickets, decisions, screenshots
 
 ## Debugging
 
-- Logs go to the browser console, prefixed `[against-all-tod]`. Start-up logs the build version and Board size at `info`, then `renderer ready` (with `webgl`, `webgpu` or `canvas`) and `Board drawn`. A refused placement logs `placement refused` at `info` with the tile and the reason; each placed Piece logs `Piece placed` at `debug`.
+- Logs go to the browser console, prefixed `[against-all-tod]`. Start-up logs the build version and Board size at `info`, then `renderer ready` (with `webgl`, `webgpu` or `canvas`) and `Board drawn`. A refused placement logs `placement refused` at `info` with the tile and the reason; each placed Piece logs `Piece placed` at `debug`. Fight logs `battle started` (seed, Piece and Squad counts) and the end logs `battle finished` (winner, reason, step, Goal health left, kills and Dudes that reached the Goal) at `info`. To replay a battle headless, build the same Maze in a test and call `runBattle` with that seed.
 - Add `?debug=1` to the page URL for debug-level logs without a rebuild (it also logs the config), or set `VITE_DEBUG=true` and rebuild.
 - A `WebGL is off or unavailable` warning means the browser fell back to a plain canvas: the game still draws but will be slower once there are hundreds of Dudes. Check `chrome://gpu` or `about:support`.
 - If start-up fails, the page shows "Against All TOD could not start" with the reason, and the console has a `start-up failed` error with its `kind` (`ConfigError`, `RendererStartError` or another).
@@ -153,7 +159,7 @@ Then open the URL: the console's `starting` line shows the same commit.
 
 Art from [Kenney](https://kenney.nl), CC0 (public domain); the licence ships in `assets/`:
 
-- [Tower Defense (top-down)](https://kenney.nl/assets/tower-defense-top-down): grass, dirt and stone base tiles (`assets/kenney-tower-defense-top-down/`)
+- [Tower Defense (top-down)](https://kenney.nl/assets/tower-defense-top-down): grass, dirt, stone base, crate, tower base, turret and soldier tiles (`assets/kenney-tower-defense-top-down/`)
 
 ## Decisions
 

@@ -1,0 +1,177 @@
+import type { GameView } from "./adapters/renderer/game-renderer";
+import {
+  STEPS_PER_SECOND,
+  startBattle,
+  stepBattleTimes,
+  type BattleSetup,
+  type BattleState,
+} from "./battle/battle";
+import type { ShotEvent } from "./battle/events";
+import { stepsDue, type WatchSpeed } from "./battle/watch-clock";
+import { BATTLE_RULES } from "./catalog/battle-rules";
+import { ROUND_ONE_ARMY } from "./catalog/dudes";
+import type { PieceId } from "./catalog/pieces";
+import type { Logger } from "./logger";
+import { checkPlacement, emptyMaze, placePiece, type Maze } from "./maze/maze";
+import type { Hud } from "./ui/hud";
+
+/** The Pieces on offer until Draft Crates and the shop arrive. */
+export const BUILD_PIECES: readonly PieceId[] = ["crate-wall", "sniper-nest"];
+
+type Phase =
+  | { readonly kind: "building" }
+  | {
+      readonly kind: "fighting";
+      readonly setup: BattleSetup;
+      state: BattleState;
+      carryMs: number;
+      kills: number;
+      reachedGoal: number;
+      readonly stop: () => void;
+    }
+  | { readonly kind: "finished" };
+
+/**
+ * One Defense turn, over and over: build, press Fight, watch the game-made Army attack, see who
+ * won, build on. Wiring only; the rules are in maze and battle. The run module replaces this
+ * once Rounds exist.
+ */
+export class DefenseTurn {
+  private maze: Maze = emptyMaze();
+  private chosenPiece: PieceId = BUILD_PIECES[0] ?? "crate-wall";
+  private watchSpeed: WatchSpeed = 1;
+  private phase: Phase = { kind: "building" };
+  private hud: Hud | undefined;
+
+  constructor(
+    private readonly view: GameView,
+    private readonly logger: Logger,
+    private readonly seed: number,
+  ) {}
+
+  /** Starts in the building phase. The HUD is passed in late because its buttons call back here. */
+  begin(hud: Hud): void {
+    this.hud = hud;
+    this.view.listenToBoard({
+      onHover: (tile) => {
+        if (this.phase.kind !== "building") return;
+        this.view.showPlacementCursor(
+          tile,
+          tile !== null &&
+            checkPlacement(this.maze, tile, this.chosenPiece) === null,
+        );
+      },
+      onTap: (tile) => {
+        if (this.phase.kind !== "building") return;
+        const result = placePiece(this.maze, tile, this.chosenPiece);
+        if (!result.ok) {
+          this.logger.info("placement refused", {
+            tile,
+            refusal: result.refusal,
+          });
+          hud.showRefusal(result.refusal);
+          return;
+        }
+        this.maze = result.maze;
+        this.logger.debug("Piece placed", { tile, piece: this.chosenPiece });
+        this.view.showMaze(this.maze);
+        // The tile under the mouse is now taken.
+        this.view.showPlacementCursor(tile, false);
+      },
+    });
+    this.build();
+  }
+
+  choosePiece(pieceId: PieceId): void {
+    if (this.phase.kind !== "building") return;
+    this.chosenPiece = pieceId;
+    this.view.choosePiece(pieceId);
+    this.hud?.showBuilding(pieceId);
+  }
+
+  fight(): void {
+    if (this.phase.kind !== "building") return;
+    const setup: BattleSetup = {
+      maze: this.maze,
+      army: ROUND_ONE_ARMY,
+      seed: this.seed,
+      rules: BATTLE_RULES,
+    };
+    this.logger.info("battle started", {
+      seed: setup.seed,
+      pieces: this.maze.pieces.size,
+      squads: setup.army.length,
+    });
+    this.view.showPlacementCursor(null, false);
+    this.view.showRoute(false);
+    const stop = this.view.everyFrame((elapsedMs) => {
+      this.watchFrame(elapsedMs);
+    });
+    this.phase = {
+      kind: "fighting",
+      setup,
+      state: startBattle(setup),
+      carryMs: 0,
+      kills: 0,
+      reachedGoal: 0,
+      stop,
+    };
+    this.hud?.showBattle(this.watchSpeed);
+    this.showBattle(this.phase.state, []);
+  }
+
+  setWatchSpeed(speed: WatchSpeed): void {
+    this.watchSpeed = speed;
+    if (this.phase.kind === "fighting") this.hud?.showBattle(speed);
+  }
+
+  /** Back to building on the same Maze: nothing on the Board despawns. */
+  build(): void {
+    if (this.phase.kind === "fighting") return;
+    this.phase = { kind: "building" };
+    this.view.clearBattle();
+    this.view.showMaze(this.maze);
+    this.view.showRoute(true);
+    this.view.showGoalHealth(BATTLE_RULES.goalHealth, BATTLE_RULES.goalHealth);
+    this.hud?.showBuilding(this.chosenPiece);
+  }
+
+  private watchFrame(elapsedMs: number): void {
+    const phase = this.phase;
+    if (phase.kind !== "fighting") return;
+    const due = stepsDue(phase.carryMs, elapsedMs, this.watchSpeed);
+    phase.carryMs = due.carryMs;
+    const ran = stepBattleTimes(phase.setup, phase.state, due.steps);
+    phase.state = ran.state;
+    for (const event of ran.events) {
+      if (event.type === "kill") phase.kills++;
+      if (event.type === "reach-goal") phase.reachedGoal++;
+    }
+    this.showBattle(
+      ran.state,
+      ran.events.filter((event): event is ShotEvent => event.type === "shot"),
+    );
+    const outcome = ran.state.outcome;
+    if (outcome === null) return;
+
+    phase.stop();
+    this.phase = { kind: "finished" };
+    this.logger.info("battle finished", {
+      ...outcome,
+      goalHealth: ran.state.goalHealth,
+      kills: phase.kills,
+      reachedGoal: phase.reachedGoal,
+    });
+    this.hud?.showOutcome(outcome);
+  }
+
+  private showBattle(state: BattleState, newShots: readonly ShotEvent[]): void {
+    this.view.showBattle(state, newShots);
+    this.view.showGoalHealth(state.goalHealth, BATTLE_RULES.goalHealth);
+    this.hud?.showBattleStatus(
+      state.goalHealth,
+      BATTLE_RULES.goalHealth,
+      state.step / STEPS_PER_SECOND,
+    );
+  }
+}

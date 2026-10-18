@@ -1,17 +1,10 @@
-import {
-  startRenderer,
-  type GameView,
-} from "./adapters/renderer/game-renderer";
-import { PIECES } from "./catalog/pieces";
+import { startRenderer } from "./adapters/renderer/game-renderer";
 import { loadConfig } from "./config";
-import { chooseLogLevel, createConsoleLogger, type Logger } from "./logger";
+import { BUILD_PIECES, DefenseTurn } from "./defense-turn";
+import { chooseLogLevel, createConsoleLogger } from "./logger";
 import { BOARD_COLUMNS, BOARD_ROWS } from "./maze/board";
-import { checkPlacement, emptyMaze, placePiece } from "./maze/maze";
 import { Hud } from "./ui/hud";
 import { showStartupError } from "./ui/startup-error-screen";
-
-/** The only Piece until Draft Crates and the shop arrive. */
-const BUILD_PIECE = PIECES["crate-wall"];
 
 async function start(): Promise<void> {
   const config = loadConfig(import.meta.env);
@@ -25,41 +18,29 @@ async function start(): Promise<void> {
   logger.debug("config", { ...config });
 
   const host = requireElement("game");
-  const view = await startRenderer(host, logger, BUILD_PIECE.id);
-  const hud = new Hud(
-    requireElement("hud"),
-    "Defense turn",
-    `Click a tile to place a ${BUILD_PIECE.name}. The orange line is the route Dudes will walk.`,
+  const view = await startRenderer(
+    host,
+    logger,
+    BUILD_PIECES[0] ?? "crate-wall",
   );
-  buildTheMaze(view, hud, logger);
-  logger.info("Board drawn");
-}
-
-/** Wires clicks to the maze rules until the run module owns the Round. */
-function buildTheMaze(view: GameView, hud: Hud, logger: Logger): void {
-  let maze = emptyMaze();
-  view.showMaze(maze);
-  view.listenToBoard({
-    onHover: (tile) => {
-      view.showPlacementCursor(
-        tile,
-        tile !== null && checkPlacement(maze, tile, BUILD_PIECE.id) === null,
-      );
+  // Runs and the seed in the URL come later; until then every battle uses the default seed.
+  const turn = new DefenseTurn(view, logger, config.defaultSeed);
+  const hud = new Hud(requireElement("hud"), BUILD_PIECES, {
+    onChoosePiece: (pieceId) => {
+      turn.choosePiece(pieceId);
     },
-    onTap: (tile) => {
-      const result = placePiece(maze, tile, BUILD_PIECE.id);
-      if (!result.ok) {
-        logger.info("placement refused", { tile, refusal: result.refusal });
-        hud.showRefusal(result.refusal);
-        return;
-      }
-      maze = result.maze;
-      logger.debug("Piece placed", { tile, piece: BUILD_PIECE.id });
-      view.showMaze(maze);
-      // The tile under the mouse is now taken.
-      view.showPlacementCursor(tile, false);
+    onFight: () => {
+      turn.fight();
+    },
+    onWatchSpeed: (speed) => {
+      turn.setWatchSpeed(speed);
+    },
+    onBuildAgain: () => {
+      turn.build();
     },
   });
+  turn.begin(hud);
+  logger.info("Board drawn");
 }
 
 function requireElement(id: string): HTMLElement {
