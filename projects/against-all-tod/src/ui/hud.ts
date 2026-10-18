@@ -1,18 +1,22 @@
-import type { BattleOutcome } from "../battle/battle";
+import type { BattleOutcome, Side } from "../battle/battle";
 import { WATCH_SPEEDS, type WatchSpeed } from "../battle/watch-clock";
+import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { PIECES, type PieceId } from "../catalog/pieces";
-import type { PlacementRefusal } from "../maze/maze";
+import type { RunRefusal } from "../run/run";
 
 /** How long a refusal stays on screen. */
 const MESSAGE_MS = 3000;
 
-const REFUSAL_MESSAGES: Readonly<Record<PlacementRefusal, string>> = {
+const REFUSAL_MESSAGES: Readonly<Record<RunRefusal, string>> = {
   "off-board": "That's off the Board.",
   "spawn-line": "You can't build on the Spawn line: the Army enters there.",
   goal: "You can't build on the Goal.",
-  "tile-taken": "That tile already has a Piece.",
+  "tile-taken": "That tile is already taken.",
   "seals-goal":
     "That would seal the Goal off. Dudes must always have a route to it.",
+  "wrong-phase": "Not now: wait for the battle to end.",
+  "wrong-side": "That belongs to the other side's turn.",
+  "none-left": "Nothing left to place this Round. Press Fight.",
 };
 
 const OUTCOME_MESSAGES: Readonly<Record<BattleOutcome["reason"], string>> = {
@@ -21,7 +25,12 @@ const OUTCOME_MESSAGES: Readonly<Record<BattleOutcome["reason"], string>> = {
   "time-up": "Defense wins: the Army ran out of time.",
 };
 
-export function refusalMessage(refusal: PlacementRefusal): string {
+const SIDE_NAMES: Readonly<Record<Side, string>> = {
+  defense: "Defense turn",
+  attack: "Attack turn",
+};
+
+export function refusalMessage(refusal: RunRefusal): string {
   return REFUSAL_MESSAGES[refusal];
 }
 
@@ -40,16 +49,49 @@ export function battleStatus(
   return `Goal ${String(Math.ceil(goalHealth))}/${String(maxHealth)} · ${clock}`;
 }
 
-export interface HudHandlers {
-  readonly onChoosePiece: (pieceId: PieceId) => void;
-  readonly onFight: () => void;
-  readonly onWatchSpeed: (speed: WatchSpeed) => void;
-  readonly onBuildAgain: () => void;
+/** Where the player stands in the Run, always on screen. */
+export interface RunStatus {
+  readonly round: number;
+  readonly side: Side;
+  readonly lives: number;
+  readonly score: number;
 }
 
-/** The DOM band over the Board: the turn, its buttons, what to do, and why a placement was refused. */
+/** "Round 3 · Defense turn · Lives 2 · Score 2". */
+export function runStatus(status: RunStatus): string {
+  return [
+    `Round ${String(status.round)}`,
+    SIDE_NAMES[status.side],
+    `Lives ${String(status.lives)}`,
+    `Score ${String(status.score)}`,
+  ].join(" · ");
+}
+
+/** The line under the heading after a battle: what the result means for the Run. */
+export function roundOverMessage(won: boolean, livesLeft: number): string {
+  if (won) return "Round won. Next you switch sides.";
+  const lives = livesLeft === 1 ? "1 Life" : `${String(livesLeft)} Lives`;
+  return `Round lost: ${lives} left. The Board Rewinds to the start of the Round.`;
+}
+
+export interface HudHandlers {
+  readonly onChoosePiece: (pieceId: PieceId) => void;
+  readonly onChooseDudeKind: (dudeKind: DudeKindId) => void;
+  readonly onFight: () => void;
+  readonly onWatchSpeed: (speed: WatchSpeed) => void;
+  readonly onContinue: () => void;
+}
+
+/** What each side can place until Draft Crates and the shop arrive. */
+export interface BuildChoices {
+  readonly pieces: readonly PieceId[];
+  readonly dudeKinds: readonly DudeKindId[];
+}
+
+/** The DOM band over the Board: the Run's status, the turn, its buttons, what to do, and why an action was refused. */
 export class Hud {
   private readonly doc: Document;
+  private readonly status: HTMLElement;
   private readonly heading: HTMLElement;
   private readonly controls: HTMLElement;
   private readonly hint: HTMLElement;
@@ -57,17 +99,19 @@ export class Hud {
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
-    host: HTMLElement,
-    private readonly buildPieces: readonly PieceId[],
+    private readonly host: HTMLElement,
+    private readonly choices: BuildChoices,
     private readonly handlers: HudHandlers,
   ) {
     this.doc = host.ownerDocument;
     const top = this.doc.createElement("div");
     top.className = "hud-top";
+    this.status = this.doc.createElement("span");
+    this.status.className = "hud-status";
     this.heading = this.doc.createElement("h1");
     this.controls = this.doc.createElement("div");
     this.controls.className = "hud-controls";
-    top.append(this.heading, this.controls);
+    top.append(this.status, this.heading, this.controls);
     this.hint = this.doc.createElement("p");
     this.message = this.doc.createElement("p");
     this.message.className = "hud-message";
@@ -76,21 +120,36 @@ export class Hud {
     host.replaceChildren(top, this.hint, this.message);
   }
 
-  showBuilding(chosen: PieceId): void {
-    this.heading.textContent = "Defense turn";
-    const pieceButtons = this.buildPieces.map((pieceId) =>
-      this.button(PIECES[pieceId].name, pieceId === chosen, () => {
-        this.handlers.onChoosePiece(pieceId);
-      }),
-    );
-    const fight = this.button("Fight", null, this.handlers.onFight);
-    fight.classList.add("hud-fight");
-    this.controls.replaceChildren(...pieceButtons, fight);
-    this.hint.textContent = `Tap a tile to place a ${PIECES[chosen].name}, or a Piece to see what it does. Drag to pan; pinch or scroll to zoom.`;
+  showRunStatus(status: RunStatus): void {
+    this.status.textContent = runStatus(status);
+    // The heading and the chosen button wear the side's colour.
+    this.host.setAttribute("data-side", status.side);
   }
 
-  showBattle(speed: WatchSpeed): void {
-    this.heading.textContent = "Defense turn: fight";
+  showDefenseBuilding(chosen: PieceId, placementsLeft: number): void {
+    this.heading.textContent = SIDE_NAMES.defense;
+    this.showBuildControls(
+      this.choices.pieces,
+      chosen,
+      (pieceId) => PIECES[pieceId].name,
+      this.handlers.onChoosePiece,
+    );
+    this.hint.textContent = `${leftText(placementsLeft, "Piece")}. Tap a tile to place a ${PIECES[chosen].name}, or a Piece to see what it does. Drag to pan; pinch or scroll to zoom.`;
+  }
+
+  showAttackBuilding(chosen: DudeKindId, placementsLeft: number): void {
+    this.heading.textContent = SIDE_NAMES.attack;
+    this.showBuildControls(
+      this.choices.dudeKinds,
+      chosen,
+      (dudeKind) => `${DUDE_KINDS[dudeKind].name} Squad`,
+      this.handlers.onChooseDudeKind,
+    );
+    this.hint.textContent = `${leftText(placementsLeft, "Squad")}. Tap a Spawn line tile on the left edge to add a Squad of ${DUDE_KINDS[chosen].name}s. The whole Army attacks your own Maze.`;
+  }
+
+  showBattle(side: Side, speed: WatchSpeed): void {
+    this.heading.textContent = `${SIDE_NAMES[side]}: fight`;
     this.controls.replaceChildren(
       ...WATCH_SPEEDS.map((option) =>
         this.button(`${String(option)}x`, option === speed, () => {
@@ -108,20 +167,39 @@ export class Hud {
     this.hint.textContent = battleStatus(goalHealth, maxHealth, seconds);
   }
 
-  showOutcome(outcome: BattleOutcome): void {
+  /** The battle's winner and what it means for the Run. Not shown when the Run is over: the end screen is. */
+  showRoundOver(outcome: BattleOutcome, won: boolean, livesLeft: number): void {
     this.heading.textContent = outcomeMessage(outcome);
-    this.controls.replaceChildren(
-      this.button("Build again", null, this.handlers.onBuildAgain),
-    );
+    this.hint.textContent = roundOverMessage(won, livesLeft);
+    const next = this.button("Continue", null, this.handlers.onContinue);
+    next.classList.add("hud-fight");
+    this.controls.replaceChildren(next);
   }
 
-  showRefusal(refusal: PlacementRefusal): void {
+  showRefusal(refusal: RunRefusal): void {
     this.message.textContent = refusalMessage(refusal);
     this.message.hidden = false;
     clearTimeout(this.hideTimer);
     this.hideTimer = setTimeout(() => {
       this.message.hidden = true;
     }, MESSAGE_MS);
+  }
+
+  /** One button per thing the side can place, the chosen one pressed, then Fight. */
+  private showBuildControls<Choice extends string>(
+    options: readonly Choice[],
+    chosen: Choice,
+    label: (option: Choice) => string,
+    onChoose: (option: Choice) => void,
+  ): void {
+    const choiceButtons = options.map((option) =>
+      this.button(label(option), option === chosen, () => {
+        onChoose(option);
+      }),
+    );
+    const fight = this.button("Fight", null, this.handlers.onFight);
+    fight.classList.add("hud-fight");
+    this.controls.replaceChildren(...choiceButtons, fight);
   }
 
   /** `pressed` is null for a plain button, true or false for one of a set of choices. */
@@ -137,4 +215,10 @@ export class Hud {
     button.addEventListener("click", onClick);
     return button;
   }
+}
+
+/** "2 Pieces left", "1 Squad left", "No Squads left". */
+function leftText(count: number, thing: string): string {
+  if (count <= 0) return `No ${thing}s left`;
+  return `${String(count)} ${count === 1 ? thing : `${thing}s`} left`;
 }

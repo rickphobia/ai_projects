@@ -1,6 +1,8 @@
 import { Application, Container, Graphics, type Ticker } from "pixi.js";
+import type { Army } from "../../battle/army";
 import type { BattleState } from "../../battle/battle";
 import type { ShotEvent } from "../../battle/events";
+import type { DudeKindId } from "../../catalog/dudes";
 import type { PieceId } from "../../catalog/pieces";
 import type { Logger } from "../../logger";
 import type { Tile } from "../../maze/board";
@@ -11,7 +13,12 @@ import {
   type PointerKind,
 } from "../input/board-pointer";
 import { TILE_SIZE, loadBoardTextures } from "./board-textures";
-import { BOARD_PIXEL_SIZE, createBoardView } from "./board-view";
+import {
+  ATTACK_COLOUR,
+  BOARD_PIXEL_SIZE,
+  DEFENSE_COLOUR,
+  createBoardView,
+} from "./board-view";
 import {
   clampCamera,
   fittedCamera,
@@ -25,6 +32,7 @@ import { GoalHealthBar } from "./goal-health-view";
 import { drawPieces, pieceView, type Turrets } from "./pieces-view";
 import { PlacementCursor } from "./placement-cursor";
 import { drawRoute } from "./route-view";
+import { drawSquads, squadView } from "./squads-view";
 import { UnitsView } from "./units-view";
 
 /** Space kept free around the Board, in screen pixels. */
@@ -43,8 +51,12 @@ export interface GameView {
   showMaze(maze: Maze): void;
   /** Hides the route preview, which would hide Dudes during a battle. */
   showRoute(visible: boolean): void;
+  /** Redraws the Squads on the Spawn line; an empty Army hides them, as during a battle. */
+  showArmy(army: Army): void;
   /** The Piece the placement cursor shows. */
   choosePiece(pieceId: PieceId): void;
+  /** The Squad the placement cursor shows, on an Attack turn. */
+  chooseSquad(dudeKind: DudeKindId): void;
   /** Marks the tile under the mouse as a place the Piece may or may not go; null hides it. */
   showPlacementCursor(tile: Tile | null, allowed: boolean): void;
   /** Draws a battle's Dudes, shots and turrets; `newShots` are the shots since the last call. */
@@ -98,13 +110,21 @@ export async function startRenderer(
   const textures = await loadBoardTextures();
   const board = createBoardView(textures);
   const pieces = new Container({ label: "pieces" });
+  const squads = new Container({ label: "squads" });
   const route = new Graphics({ label: "route" });
   const units = new UnitsView(textures);
   const goalHealth = new GoalHealthBar();
   const cursor = new PlacementCursor(pieceView(textures, cursorPiece));
   let turrets: Turrets = new Map();
   // The route goes over the Pieces so a path squeezing past walls stays readable.
-  board.addChild(pieces, route, units.view, goalHealth.view, cursor.view);
+  board.addChild(
+    pieces,
+    route,
+    squads,
+    units.view,
+    goalHealth.view,
+    cursor.view,
+  );
   app.stage.addChild(board);
 
   const boundsFor = (width: number, height: number): CameraBounds => ({
@@ -134,8 +154,14 @@ export async function startRenderer(
     showRoute: (visible) => {
       route.visible = visible;
     },
+    showArmy: (army) => {
+      drawSquads(squads, textures, army);
+    },
     choosePiece: (pieceId) => {
-      cursor.setGhost(pieceView(textures, pieceId));
+      cursor.setGhost(pieceView(textures, pieceId), DEFENSE_COLOUR);
+    },
+    chooseSquad: (dudeKind) => {
+      cursor.setGhost(squadView(textures, dudeKind), ATTACK_COLOUR);
     },
     showPlacementCursor: (tile, allowed) => {
       cursor.show(tile, allowed);

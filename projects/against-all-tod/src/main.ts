@@ -1,9 +1,10 @@
 import { startRenderer } from "./adapters/renderer/game-renderer";
 import { loadConfig } from "./config";
-import { BUILD_PIECES, DefenseTurn, FIRST_BUILD_PIECE } from "./defense-turn";
 import { chooseLogLevel, createConsoleLogger } from "./logger";
 import { BOARD_COLUMNS, BOARD_ROWS } from "./maze/board";
+import { BUILD_CHOICES, FIRST_BUILD_PIECE, RunScreen } from "./run-screen";
 import { PORTRAIT_TOUCH_QUERY, showTurnDeviceScreenWhile } from "./ui/device";
+import { EndScreen } from "./ui/end-screen";
 import { Hud } from "./ui/hud";
 import { PieceInfo } from "./ui/piece-info";
 import { showStartupError } from "./ui/startup-error-screen";
@@ -25,28 +26,34 @@ async function start(): Promise<void> {
   );
   const host = requireElement("game");
   const view = await startRenderer(host, logger, FIRST_BUILD_PIECE);
-  // Runs and the seed in the URL come later; until then every battle uses the default seed.
-  const turn = new DefenseTurn(
+  // The seed in the URL comes in ticket 08; until then every first Run uses the default seed.
+  const run = new RunScreen(
     view,
     new PieceInfo(requireElement("piece-info")),
     logger,
     config.defaultSeed,
   );
-  const hud = new Hud(requireElement("hud"), BUILD_PIECES, {
+  const hud = new Hud(requireElement("hud"), BUILD_CHOICES, {
     onChoosePiece: (pieceId) => {
-      turn.choosePiece(pieceId);
+      run.choosePiece(pieceId);
+    },
+    onChooseDudeKind: (dudeKind) => {
+      run.chooseDudeKind(dudeKind);
     },
     onFight: () => {
-      turn.fight();
+      run.fight();
     },
     onWatchSpeed: (speed) => {
-      turn.setWatchSpeed(speed);
+      run.setWatchSpeed(speed);
     },
-    onBuildAgain: () => {
-      turn.build();
+    onContinue: () => {
+      run.continue();
     },
   });
-  turn.begin(hud);
+  const endScreen = new EndScreen(requireElement("end-screen"), () => {
+    run.newRun();
+  });
+  run.begin(hud, endScreen);
   logger.info("Board drawn");
 }
 
