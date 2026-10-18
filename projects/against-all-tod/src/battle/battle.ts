@@ -1,18 +1,19 @@
 import type { BattleRules } from "../catalog/battle-rules";
-import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
+import { DUDE_KINDS } from "../catalog/dudes";
 import { PIECES } from "../catalog/pieces";
 import { isOnBoard, tileKind } from "../maze/board";
 import type { Maze } from "../maze/maze";
 import type { Route } from "../maze/route";
 import { createRng } from "../rng/rng";
-import {
-  NEUTRAL_VOLUME,
-  applyEffects,
-  effectPiecesOf,
-  type EffectPiece,
-} from "./area-effects";
+import { applyEffects, effectPiecesOf, type EffectPiece } from "./area-effects";
 import type { Army } from "./army";
-import { MAX_LANE, walk, type DudeState } from "./dudes";
+import {
+  hypeSpeedFactor,
+  MAX_LANE,
+  newDude,
+  walk,
+  type DudeState,
+} from "./dudes";
 import type { BattleEvent } from "./events";
 import { fireTowers, towersOf, type TowerState } from "./towers";
 
@@ -28,8 +29,6 @@ export interface BattleSetup {
   readonly army: Army;
   readonly seed: number;
   readonly rules: BattleRules;
-  /** The Volume trick's position, steps from the middle (negative is down); neutral when absent. */
-  readonly volume?: number;
 }
 
 export type Side = "attack" | "defense";
@@ -127,18 +126,25 @@ export function stepBattle(
     volley.dudes,
     step,
     STEPS_PER_SECOND,
-    setup.volume ?? NEUTRAL_VOLUME,
+    setup.rules.volumeLevel,
   );
 
   const events = [...volley.events, ...effects.events];
   const dudes: DudeState[] = [];
   let goalHealth = state.goalHealth;
+  const hypeMen = effects.dudes.filter(
+    (dude) => DUDE_KINDS[dude.kind].hypeAura !== null,
+  );
   for (const dude of effects.dudes) {
     if ((dude.stunnedUntilStep ?? 0) > step) {
       dudes.push(dude);
       continue;
     }
-    const moved = walk(dude, route, STEP_SECONDS);
+    const speedFactor =
+      hypeMen.length === 0
+        ? 1
+        : hypeSpeedFactor(dude, hypeMen, setup.rules.volumeLevel);
+    const moved = walk(dude, route, STEP_SECONDS, speedFactor);
     if (moved !== "at-goal") {
       dudes.push(moved);
       continue;
@@ -225,22 +231,6 @@ function outcomeAfter(
     return { winner: "defense", reason: "time-up", step };
   }
   return null;
-}
-
-function newDude(
-  id: number,
-  kind: DudeKindId,
-  spawnRow: number,
-  lane: number,
-): DudeState {
-  return {
-    id,
-    kind,
-    x: 0.5,
-    y: spawnRow + 0.5 + lane,
-    lane,
-    health: DUDE_KINDS[kind].health,
-  };
 }
 
 function isSpawnLineRow(row: number): boolean {

@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { litTiles, sirenRange } from "../../src/battle/area-effects";
+import {
+  applyEffects,
+  effectPiecesOf,
+  litTiles,
+  sirenRange,
+} from "../../src/battle/area-effects";
 import {
   STEPS_PER_SECOND,
   runBattle,
   startBattle,
   stepBattleTimes,
 } from "../../src/battle/battle";
+import { newDude } from "../../src/battle/dudes";
 import type { KillEvent } from "../../src/battle/events";
 import { PIECES } from "../../src/catalog/pieces";
 import { tileKey } from "../../src/maze/board";
@@ -93,15 +99,64 @@ describe("the Siren's range and the Volume level", () => {
     const tile = { column: 3, row: 2 };
     const army = internSquads(3);
     const stunnedAt = (volume: number) => {
-      const setup = {
-        ...setupOf(mazeWith([{ pieceId: "siren", tile }]), army),
-        volume,
-      };
+      const base = setupOf(mazeWith([{ pieceId: "siren", tile }]), army);
+      const setup = { ...base, rules: { ...base.rules, volumeLevel: volume } };
       const steps = Math.round(SIREN_STATS.intervalSeconds * STEPS_PER_SECOND);
       const { state } = stepBattleTimes(setup, startBattle(setup), steps);
       return state.dudes.filter((dude) => dude.stunnedUntilStep !== undefined)
         .length;
     };
     expect(stunnedAt(2)).toBeGreaterThan(stunnedAt(0));
+  });
+});
+
+describe("who beams and Sirens reach", () => {
+  const tile = { column: 5, row: 5 };
+  // At step 0 the beam points right and every Siren pulses.
+  const rightOfTile = { x: tile.column + 2, y: tile.row + 0.5 };
+  const underground = { x: 9.5, y: 5.5 };
+
+  it("lets the Lighthouse beam hurt a Balloonist", () => {
+    const pieces = effectPiecesOf(mazeWith([{ pieceId: "lighthouse", tile }]));
+    const balloonist = { ...newDude(0, "balloonist", 0, 0), ...rightOfTile };
+    const { dudes } = applyEffects(
+      pieces,
+      [balloonist],
+      0,
+      STEPS_PER_SECOND,
+      0,
+    );
+    expect(dudes[0]?.health).toBeLessThan(balloonist.health);
+  });
+
+  it("never lets a Siren stun a Balloonist, only walkers", () => {
+    const pieces = effectPiecesOf(mazeWith([{ pieceId: "siren", tile }]));
+    const balloonist = { ...newDude(0, "balloonist", 0, 0), ...rightOfTile };
+    const intern = { ...newDude(1, "intern", 0, 0), ...rightOfTile };
+    const { dudes } = applyEffects(
+      pieces,
+      [balloonist, intern],
+      0,
+      STEPS_PER_SECOND,
+      0,
+    );
+    expect(dudes[0]?.stunnedUntilStep).toBeUndefined();
+    expect(dudes[1]?.stunnedUntilStep).toBeGreaterThan(0);
+  });
+
+  it("leaves a Mole alone while it is underground", () => {
+    const pieces = effectPiecesOf(
+      mazeWith([
+        { pieceId: "lighthouse", tile },
+        { pieceId: "siren", tile: { column: 5, row: 6 } },
+      ]),
+    );
+    const mole = {
+      ...newDude(0, "mole", 0, 0),
+      ...rightOfTile,
+      burrowTo: underground,
+    };
+    const { dudes } = applyEffects(pieces, [mole], 0, STEPS_PER_SECOND, 0);
+    expect(dudes[0]).toEqual(mole);
   });
 });

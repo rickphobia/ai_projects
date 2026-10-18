@@ -1,3 +1,4 @@
+import { DUDE_KINDS } from "../catalog/dudes";
 import {
   PIECES,
   type BeamStats,
@@ -13,9 +14,6 @@ import type { BattleEvent } from "./events";
  * The Lighthouse's beam and the Siren's stun. Both follow the battle clock alone (the beam's
  * angle and the Siren's pulses are worked out from the step), so they need no state of their own.
  */
-
-/** The Volume trick's middle position: Sirens at their catalog range. */
-export const NEUTRAL_VOLUME = 0;
 
 /** A Piece that sweeps a beam or pulses a stun, top row first so they always act in the same order. */
 export interface EffectPiece {
@@ -117,6 +115,10 @@ function sweep(
   const centreY = piece.tile.row + 0.5;
   const alive: DudeState[] = [];
   for (const dude of dudes) {
+    if (!canReach(dude, stats.hitsAir)) {
+      alive.push(dude);
+      continue;
+    }
     const dx = dude.x - centreX;
     const dy = dude.y - centreY;
     const squared = dx * dx + dy * dy;
@@ -148,6 +150,11 @@ function sweep(
   return alive;
 }
 
+/** Underground Dudes are out of reach of everything; flyers only of what hits air. */
+function canReach(dude: DudeState, hitsAir: boolean): boolean {
+  return dude.burrowTo === null && (hitsAir || !DUDE_KINDS[dude.kind].flies);
+}
+
 function pulse(
   stats: StunStats,
   tile: Tile,
@@ -167,6 +174,7 @@ function pulse(
   const centreX = tile.column + 0.5;
   const centreY = tile.row + 0.5;
   return dudes.map((dude) => {
+    if (!canReach(dude, stats.hitsAir)) return dude;
     const dx = dude.x - centreX;
     const dy = dude.y - centreY;
     if (dx * dx + dy * dy > range * range) return dude;

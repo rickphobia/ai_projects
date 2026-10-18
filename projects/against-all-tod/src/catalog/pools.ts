@@ -1,5 +1,5 @@
 import type { Side } from "../battle/battle";
-import type { DudeKindId } from "./dudes";
+import { DUDE_KINDS, type DudeKindId } from "./dudes";
 import { MUTATIONS, type MutationId } from "./mutations";
 import type { PieceId } from "./pieces";
 
@@ -36,7 +36,10 @@ export const CRATE_POOLS: Readonly<Record<Side, readonly CrateItem[]>> = {
     { kind: "piece", id: "siren" },
   ],
   attack: [
-    { kind: "squad", id: "intern" },
+    ...Object.values(DUDE_KINDS).map(({ id }): CrateItem => ({
+      kind: "squad",
+      id,
+    })),
     ...Object.values(MUTATIONS).map(({ id }): CrateItem => ({
       kind: "mutation",
       id,

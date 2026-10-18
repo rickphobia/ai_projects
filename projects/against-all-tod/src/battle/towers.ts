@@ -3,7 +3,7 @@ import { PIECES, type PieceId, type TowerStats } from "../catalog/pieces";
 import { BOARD_COLUMNS, BOARD_ROWS, type Tile } from "../maze/board";
 import { placedPieces, type Maze } from "../maze/maze";
 import { distanceToGoal, type Route } from "../maze/route";
-import { tileUnder, type DudeState } from "./dudes";
+import { squaredDistance, tileUnder, type DudeState } from "./dudes";
 import type { BattleEvent, BoardPoint } from "./events";
 
 /** A Piece without tower stats was asked to shoot: a catalog or `towersOf` bug. */
@@ -27,6 +27,8 @@ export interface TargetCandidate {
   readonly size: number;
   /** Route steps left to the Goal. */
   readonly distanceToGoal: number;
+  /** True for a Streaker, whom every tower shoots first. */
+  readonly drawsFire?: boolean;
 }
 
 /** Every shooting Piece in the Maze, top row first, so they always fire in the same order. */
@@ -43,7 +45,7 @@ export function towersOf(maze: Maze): TowerState[] {
 }
 
 /**
- * The Sniper Nest's choice: the biggest Dude, then the one closest to the Goal, then the one
+ * The Sniper Nest's choice: any Streaker first, then the biggest Dude, then the one closest to the Goal, then the one
  * that entered first. Null when there is no one to shoot.
  */
 export function pickTarget(
@@ -51,10 +53,7 @@ export function pickTarget(
 ): number | null {
   let best: TargetCandidate | null = null;
   for (const candidate of candidates) {
-    if (
-      best === null ||
-      outranks(candidate.size, candidate.distanceToGoal, candidate.id, best)
-    ) {
+    if (best === null || outranks(candidate, best)) {
       best = candidate;
     }
   }
@@ -62,20 +61,17 @@ export function pickTarget(
 }
 
 /**
- * True when a Dude of this size, distance and id is a better target than `best`. A strict
- * order, so the choice never depends on the order Dudes are looked at in.
+ * True when `candidate` is a better target than `best`. A strict order, so the choice never
+ * depends on the order Dudes are looked at in.
  */
-function outranks(
-  size: number,
-  distanceToGoal: number,
-  id: number,
-  best: TargetCandidate,
-): boolean {
-  if (size !== best.size) return size > best.size;
-  if (distanceToGoal !== best.distanceToGoal) {
-    return distanceToGoal < best.distanceToGoal;
+function outranks(candidate: TargetCandidate, best: TargetCandidate): boolean {
+  const drawsFire = candidate.drawsFire ?? false;
+  if (drawsFire !== (best.drawsFire ?? false)) return drawsFire;
+  if (candidate.size !== best.size) return candidate.size > best.size;
+  if (candidate.distanceToGoal !== best.distanceToGoal) {
+    return candidate.distanceToGoal < best.distanceToGoal;
   }
-  return id < best.id;
+  return candidate.id < best.id;
 }
 
 export interface VolleyResult {
@@ -85,7 +81,10 @@ export interface VolleyResult {
   readonly events: BattleEvent[];
 }
 
-/** Every ready tower shoots once, in order, each seeing the damage the ones before it did. */
+/**
+ * Every ready tower shoots once, in order, each seeing the damage the ones before it did. A shot
+ * at a Dude just behind a Shield Bro with his shield up hits the shield instead.
+ */
 export function fireTowers(
   towers: readonly TowerState[],
   dudes: readonly DudeState[],
@@ -97,17 +96,27 @@ export function fireTowers(
   // Only the Dudes a shot hit get a new state; null marks a kill.
   const hit = new Map<number, DudeState | null>();
   const events: BattleEvent[] = [];
+  const shieldBearers = dudes.filter((dude) => dude.shield > 0);
   const nextTowers = towers.map((tower): TowerState => {
     const stats = statsOf(tower.pieceId);
     if (tower.cooldownSteps > 1) {
       return { ...tower, cooldownSteps: tower.cooldownSteps - 1 };
     }
-    const target = targetFor(tower.tile, stats.range, byTile, hit, route);
-    if (target === null) return { ...tower, cooldownSteps: 0 };
+    const aimed = targetFor(tower.tile, stats, byTile, hit, route);
+    if (aimed === null) return { ...tower, cooldownSteps: 0 };
+    const shield = shieldCovering(aimed, shieldBearers, hit);
+    const target = shield ?? aimed;
 
     const at = { x: target.x, y: target.y };
     const shotAt = { step, pieceId: tower.pieceId, pieceTile: tower.tile, at };
     events.push({ type: "shot", dudeId: target.id, ...shotAt });
+    if (shield !== null) {
+      hit.set(shield.id, {
+        ...shield,
+        shield: Math.max(0, shield.shield - stats.damage),
+      });
+      return reloaded(tower, stats, stepsPerSecond, at);
+    }
     const health = target.health - stats.damage;
     if (health <= 0) {
       hit.set(target.id, null);
@@ -120,25 +129,61 @@ export function fireTowers(
     } else {
       hit.set(target.id, { ...target, health });
     }
-    return {
-      ...tower,
-      cooldownSteps: Math.max(
-        1,
-        Math.round(stats.fireIntervalSeconds * stepsPerSecond),
-      ),
-      aimedAt: at,
-    };
+    return reloaded(tower, stats, stepsPerSecond, at);
   });
   return { towers: nextTowers, dudes: afterHits(dudes, hit), events };
 }
 
+function reloaded(
+  tower: TowerState,
+  stats: TowerStats,
+  stepsPerSecond: number,
+  aimedAt: BoardPoint,
+): TowerState {
+  return {
+    ...tower,
+    cooldownSteps: Math.max(
+      1,
+      Math.round(stats.fireIntervalSeconds * stepsPerSecond),
+    ),
+    aimedAt,
+  };
+}
+
 /**
- * The tower's pick among the living Dudes in range. It looks only at the tiles its range
- * reaches, so its cost grows with the Dudes near it rather than with the whole Army.
+ * The Shield Bro whose shield takes a shot aimed at `target`: one still standing with his
+ * shield up, within its radius and nearer the Goal (which is always to the right). He never
+ * shields himself. Null when no shield covers the target.
+ */
+function shieldCovering(
+  target: DudeState,
+  bearers: readonly DudeState[],
+  hit: ReadonlyMap<number, DudeState | null>,
+): DudeState | null {
+  for (const placed of bearers) {
+    const bearer = hit.has(placed.id) ? hit.get(placed.id) : placed;
+    if (bearer == null || bearer.id === target.id || bearer.shield <= 0) {
+      continue;
+    }
+    const radius = DUDE_KINDS[bearer.kind].shield?.radius ?? 0;
+    if (
+      bearer.x > target.x &&
+      squaredDistance(bearer, target) <= radius * radius
+    ) {
+      return bearer;
+    }
+  }
+  return null;
+}
+
+/**
+ * The tower's pick among the living Dudes it can hit in range: never one underground, and a
+ * flyer only if the tower hits air. It looks only at the tiles its range reaches, so its cost
+ * grows with the Dudes near it rather than with the whole Army.
  */
 function targetFor(
   tile: Tile,
-  range: number,
+  { range, hitsAir }: TowerStats,
   byTile: readonly (readonly DudeState[])[],
   hit: ReadonlyMap<number, DudeState | null>,
   route: Route,
@@ -160,15 +205,16 @@ function targetFor(
         if (dude == null || !isInRange(centreX, centreY, range, dude)) {
           continue;
         }
-        const size = DUDE_KINDS[dude.kind].size;
-        if (
-          best === null ||
-          outranks(size, stepsLeft, dude.id, best.candidate)
-        ) {
-          best = {
-            dude,
-            candidate: { id: dude.id, size, distanceToGoal: stepsLeft },
-          };
+        const kind = DUDE_KINDS[dude.kind];
+        if (dude.burrowTo !== null || (kind.flies && !hitsAir)) continue;
+        const candidate = {
+          id: dude.id,
+          size: kind.size,
+          distanceToGoal: stepsLeft,
+          drawsFire: kind.drawsFire,
+        };
+        if (best === null || outranks(candidate, best.candidate)) {
+          best = { dude, candidate };
         }
       }
     }

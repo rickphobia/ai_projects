@@ -5,7 +5,9 @@ import {
   turnstilesTurned,
   type BattleState,
 } from "../../battle/battle";
+import type { DudeState } from "../../battle/dudes";
 import type { BoardPoint, ShotEvent } from "../../battle/events";
+import type { DudeKindId } from "../../catalog/dudes";
 import { PIECES } from "../../catalog/pieces";
 import { tileKey } from "../../maze/board";
 import { TILE_SIZE, type BoardTextures } from "./board-textures";
@@ -18,15 +20,33 @@ const TRACER_STEPS = 10;
 const DUDE_SCALE = 0.85;
 /** The disc in the attack colour under each Dude, in tiles: the soldier sprite alone is too dark to pick out. */
 const DUDE_DISC_RADIUS = 0.27;
+/**
+ * Every kind shares the soldier sprite, so the disc under it tells them apart: Interns in the
+ * plain attack colour, the rest in their own shades.
+ */
+const DISC_TINTS: Readonly<Record<DudeKindId, number>> = {
+  intern: ATTACK_COLOUR,
+  balloonist: 0x8be0ff,
+  "shield-bro": 0xc0c0c0,
+  "hype-man": 0xff4fd8,
+  mole: 0x8b5a2b,
+  streaker: 0xffe14f,
+};
+/** Balloonists float above the Maze, so they are drawn bigger. */
+const FLYER_SCALE = 1.15;
+/** How see-through a Mole is while underground. */
+const UNDERGROUND_ALPHA = 0.3;
+/** How see-through a Shield Bro's disc is once his shield breaks. */
+const BROKEN_SHIELD_ALPHA = 0.5;
 /** Kenney's sprites face up; PixiJS measures rotation from the right. */
 const SPRITE_FACING = Math.PI / 2;
 
-/** The disc drawn once, to be made into the texture every Dude's disc sprite shares. */
+/** The disc drawn once in white, to be made into the texture every Dude's disc sprite shares and tints. */
 export function dudeDisc(): Graphics {
   const radius = DUDE_DISC_RADIUS * TILE_SIZE;
   return new Graphics()
     .circle(0, 0, radius)
-    .fill({ color: ATTACK_COLOUR })
+    .fill({ color: 0xffffff })
     .stroke({ color: 0xffffff, alpha: 0.7, width: 2 });
 }
 
@@ -97,7 +117,7 @@ export class UnitsView {
       const y = dude.y * TILE_SIZE;
       let sprites = this.dudeSprites.get(dude.id);
       if (sprites === undefined) {
-        sprites = this.addDude(x, y);
+        sprites = this.addDude(dude.kind, x, y);
         this.dudeSprites.set(dude.id, sprites);
       }
       const { disc, body } = sprites;
@@ -109,6 +129,7 @@ export class UnitsView {
       );
       body.position.set(x, y);
       disc.position.set(x, y);
+      showState(sprites, dude);
       sprites.seenInFrame = this.frame;
     }
     for (const [id, sprites] of this.dudeSprites) {
@@ -118,12 +139,20 @@ export class UnitsView {
     }
   }
 
-  private addDude(x: number, y: number): DudeSprites {
-    const disc = new Sprite({ texture: this.discTexture, anchor: 0.5, x, y });
+  private addDude(kind: DudeKindId, x: number, y: number): DudeSprites {
+    const scale = kind === "balloonist" ? FLYER_SCALE : 1;
+    const disc = new Sprite({
+      texture: this.discTexture,
+      anchor: 0.5,
+      scale,
+      tint: DISC_TINTS[kind],
+      x,
+      y,
+    });
     const body = new Sprite({
       texture: this.textures.dude,
       anchor: 0.5,
-      scale: DUDE_SCALE,
+      scale: DUDE_SCALE * scale,
       // Dudes enter walking right, off the Spawn line.
       rotation: SPRITE_FACING,
       x,
@@ -152,6 +181,16 @@ export class UnitsView {
         });
     }
   }
+}
+
+/** A Mole underground fades out; a Shield Bro's disc dims once his shield breaks. */
+function showState({ disc, body }: DudeSprites, dude: DudeState): void {
+  const alpha = dude.burrowTo === null ? 1 : UNDERGROUND_ALPHA;
+  body.alpha = alpha;
+  disc.alpha =
+    dude.kind === "shield-bro" && dude.shield <= 0
+      ? BROKEN_SHIELD_ALPHA
+      : alpha;
 }
 
 function destroy({ disc, body }: DudeSprites): void {

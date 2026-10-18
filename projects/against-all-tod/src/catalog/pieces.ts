@@ -25,8 +25,6 @@ export interface PieceEntry {
   readonly stun: StunStats | null;
   /** Seconds between quarter turns, for Pieces that turn (and so block different tiles); null otherwise. */
   readonly turnIntervalSeconds: number | null;
-  /** Whether it can hit Balloonists, who fly over everything else. */
-  readonly hitsBalloonists: boolean;
 }
 
 export interface TowerStats {
@@ -35,6 +33,8 @@ export interface TowerStats {
   /** Health taken from the Dude it hits. */
   readonly damage: number;
   readonly fireIntervalSeconds: number;
+  /** Whether it can shoot flying Dudes such as the Balloonist. */
+  readonly hitsAir: boolean;
 }
 
 export interface BeamStats {
@@ -47,6 +47,8 @@ export interface BeamStats {
   readonly damagePerSecond: number;
   /** Tiles within this many tiles of the Piece count as lit for other towers, even in the dark. */
   readonly lightRadius: number;
+  /** Whether the beam hurts flying Dudes such as the Balloonist. */
+  readonly hitsAir: boolean;
 }
 
 export interface StunStats {
@@ -56,6 +58,8 @@ export interface StunStats {
   readonly rangePerVolumeStep: number;
   readonly intervalSeconds: number;
   readonly stunSeconds: number;
+  /** Whether the pulse stuns flying Dudes such as the Balloonist. */
+  readonly hitsAir: boolean;
 }
 
 export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
@@ -70,7 +74,6 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
     beam: null,
     stun: null,
     turnIntervalSeconds: null,
-    hitsBalloonists: false,
   },
   "sniper-nest": {
     id: "sniper-nest",
@@ -79,11 +82,10 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
     blocksDudes: true,
     price: 40,
     health: 150,
-    tower: { range: 7, damage: 40, fireIntervalSeconds: 0.8 },
+    tower: { range: 7, damage: 40, fireIntervalSeconds: 0.8, hitsAir: true },
     beam: null,
     stun: null,
     turnIntervalSeconds: null,
-    hitsBalloonists: true,
   },
   turnstile: {
     id: "turnstile",
@@ -97,7 +99,6 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
     beam: null,
     stun: null,
     turnIntervalSeconds: 5,
-    hitsBalloonists: false,
   },
   lighthouse: {
     id: "lighthouse",
@@ -114,10 +115,10 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
       sweepDegreesPerSecond: 120,
       damagePerSecond: 90,
       lightRadius: 2,
+      hitsAir: true,
     },
     stun: null,
     turnIntervalSeconds: null,
-    hitsBalloonists: true,
   },
   siren: {
     id: "siren",
@@ -134,8 +135,8 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
       rangePerVolumeStep: 0.25,
       intervalSeconds: 4,
       stunSeconds: 1.5,
+      hitsAir: false,
     },
     turnIntervalSeconds: null,
-    hitsBalloonists: false,
   },
 };

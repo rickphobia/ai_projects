@@ -27,7 +27,12 @@ describe("the Piece catalog", () => {
 
   it("lets only the Lighthouse and Sniper Nest hit Balloonists", () => {
     const hitters = Object.values(PIECES)
-      .filter((entry) => entry.hitsBalloonists)
+      .filter(
+        ({ tower, beam, stun }) =>
+          tower?.hitsAir === true ||
+          beam?.hitsAir === true ||
+          stun?.hitsAir === true,
+      )
       .map((entry) => entry.id)
       .sort();
     expect(hitters).toEqual(["lighthouse", "sniper-nest"]);
