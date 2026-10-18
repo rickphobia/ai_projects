@@ -1,20 +1,52 @@
 import { describe, expect, it } from "vitest";
-import type { PlacementRefusal } from "../../src/maze/maze";
-import { battleStatus, outcomeMessage, refusalMessage } from "../../src/ui/hud";
+import type { RunRefusal } from "../../src/run/run";
+import {
+  battleStatus,
+  outcomeMessage,
+  refusalMessage,
+  roundOverMessage,
+  runStatus,
+} from "../../src/ui/hud";
 
 describe("refusalMessage", () => {
-  it.each<PlacementRefusal>([
+  it.each<RunRefusal>([
     "off-board",
     "spawn-line",
     "goal",
     "tile-taken",
     "seals-goal",
+    "wrong-phase",
+    "wrong-side",
+    "none-left",
+    "not-spawn-line",
   ])("explains a %s refusal", (refusal) => {
     expect(refusalMessage(refusal).length).toBeGreaterThan(0);
   });
 
   it("says why sealing the Goal is refused", () => {
     expect(refusalMessage("seals-goal")).toMatch(/seal the Goal/);
+  });
+});
+
+describe("runStatus", () => {
+  it("shows the Round, the side, the Lives and the Score", () => {
+    expect(runStatus({ round: 3, side: "defense", lives: 2, score: 2 })).toBe(
+      "Round 3 · Defense turn · Lives 2 · Score 2",
+    );
+    expect(runStatus({ round: 4, side: "attack", lives: 1, score: 3 })).toBe(
+      "Round 4 · Attack turn · Lives 1 · Score 3",
+    );
+  });
+});
+
+describe("roundOverMessage", () => {
+  it("says a won Round switches sides", () => {
+    expect(roundOverMessage(true, 3)).toMatch(/switch sides/);
+  });
+
+  it("counts the Lives left after a loss and says the Board Rewinds", () => {
+    expect(roundOverMessage(false, 1)).toMatch(/1 Life left.*Rewinds/);
+    expect(roundOverMessage(false, 2)).toMatch(/2 Lives left/);
   });
 });
 

@@ -3,10 +3,14 @@ import type { Tile } from "../../maze/board";
 import { TILE_SIZE } from "./board-textures";
 import { DEFENSE_COLOUR, REFUSED_COLOUR } from "./board-view";
 
-/** The tile under the mouse: a faint ghost of the Piece where it may go, a red frame where it may not. */
+/**
+ * The tile under the mouse: a faint ghost of the Piece or Squad where it may go, framed in its
+ * side's colour, and a red frame where it may not.
+ */
 export class PlacementCursor {
   readonly view = new Container({ label: "placement-cursor" });
   private ghost: Container;
+  private allowedColour = DEFENSE_COLOUR;
   private readonly frame = new Graphics();
 
   constructor(ghost: Container) {
@@ -16,8 +20,9 @@ export class PlacementCursor {
     this.view.visible = false;
   }
 
-  /** Swaps the ghost when the player picks another Piece. */
-  setGhost(ghost: Container): void {
+  /** Swaps the ghost when the player picks another Piece or Dude kind. */
+  setGhost(ghost: Container, allowedColour: number): void {
+    this.allowedColour = allowedColour;
     this.ghost.destroy({ children: true });
     this.ghost = ghost;
     this.ghost.alpha = 0.5;
@@ -32,6 +37,9 @@ export class PlacementCursor {
     this.frame
       .clear()
       .rect(2, 2, TILE_SIZE - 4, TILE_SIZE - 4)
-      .stroke({ color: allowed ? DEFENSE_COLOUR : REFUSED_COLOUR, width: 4 });
+      .stroke({
+        color: allowed ? this.allowedColour : REFUSED_COLOUR,
+        width: 4,
+      });
   }
 }
