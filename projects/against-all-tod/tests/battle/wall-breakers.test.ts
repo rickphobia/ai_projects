@@ -229,3 +229,28 @@ describe("the Sapper", () => {
     expect(reached).toHaveLength(DUDE_KINDS.sapper.squadSize);
   });
 });
+
+describe("a battle where Pieces fall", () => {
+  it("gives the same result from the same setup", () => {
+    const setup = setupOf(
+      mazeWith([
+        ...LONG_WAY_ROUND,
+        { pieceId: "sniper-nest", tile: { column: 10, row: 4 } },
+        { pieceId: "turnstile", tile: { column: 13, row: 9 } },
+      ]),
+      [
+        { dudeKind: "termite", spawnRow: 6 },
+        { dudeKind: "ram-crew", spawnRow: 2 },
+        { dudeKind: "sapper", spawnRow: 11 },
+        ...internSquads(4, 8),
+      ],
+      undefined,
+      7,
+    );
+    const first = runBattle(setup);
+    const again = runBattle(setup);
+    expect(destroyedIn(first.events).length).toBeGreaterThan(0);
+    expect(again.events).toEqual(first.events);
+    expect(again.state).toEqual(first.state);
+  });
+});

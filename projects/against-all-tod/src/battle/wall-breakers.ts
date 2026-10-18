@@ -1,7 +1,8 @@
-import { DUDE_KINDS } from "../catalog/dudes";
+import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { PIECES } from "../catalog/pieces";
 import { isOnBoard, tileKey, type Tile } from "../maze/board";
 import {
+  removePiece,
   wallBreakerRoutes,
   type Maze,
   type PlacedPiece,
@@ -14,6 +15,9 @@ import {
   type Step,
 } from "../maze/route";
 import { tileUnder, type DudeState } from "./dudes";
+import type { BattleState } from "./battle";
+import type { PieceDestroyedEvent } from "./events";
+import type { TowerState } from "./towers";
 
 /**
  * Wall-breakers: the only Dudes that damage Pieces. They follow their own fields from the maze
@@ -39,14 +43,42 @@ const STEP_OFFSETS: Readonly<Record<Step, Tile>> = {
   up: { column: 0, row: -1 },
 };
 
-export function isWallBreaker(dude: DudeState): boolean {
-  return DUDE_KINDS[dude.kind].wallBreaker !== null;
+export function isWallBreaker(kind: DudeKindId): boolean {
+  return DUDE_KINDS[kind].wallBreaker !== null;
 }
 
 export function breakerRoutesOf(maze: Maze): BreakerRoutes {
   return {
     unturned: wallBreakerRoutes(maze, false),
     turned: wallBreakerRoutes(maze, true),
+  };
+}
+
+/** The Maze and what acts from it, less the Pieces destroyed this step, with the routes worked out again. */
+export function withoutDestroyed(
+  state: BattleState,
+  towers: readonly TowerState[],
+  destroyed: readonly PlacedPiece[],
+): Pick<BattleState, "maze" | "towers" | "effectPieces" | "breakerRoutes"> {
+  if (destroyed.length === 0) {
+    return {
+      maze: state.maze,
+      towers,
+      effectPieces: state.effectPieces,
+      breakerRoutes: state.breakerRoutes,
+    };
+  }
+  const maze = destroyed.reduce(
+    (current, { tile }) => removePiece(current, tile),
+    state.maze,
+  );
+  const standing = ({ tile }: { readonly tile: Tile }) =>
+    maze.pieces.has(tileKey(tile));
+  return {
+    maze,
+    towers: towers.filter(standing),
+    effectPieces: state.effectPieces.filter(standing),
+    breakerRoutes: breakerRoutesOf(maze),
   };
 }
 
@@ -130,27 +162,44 @@ export class PieceHits {
     this.health = new Map(health);
   }
 
-  /** `dude` strikes `piece`: the Dude afterwards (null if spent), and whether this hit destroyed the Piece. */
-  hit(
+  /**
+   * `dude` strikes the Piece its field leads into: the Dude afterwards (null if spent) and the
+   * event if this hit destroyed the Piece. Null when the way is open, so the Dude walks on.
+   */
+  hitInTheWay(
     dude: DudeState,
-    piece: PlacedPiece,
+    field: Route,
+    maze: Maze,
     step: number,
     stepsPerSecond: number,
-  ): { readonly dude: DudeState | null; readonly destroyedIt: boolean } {
+  ): {
+    readonly dude: DudeState | null;
+    readonly destroyed: PieceDestroyedEvent | null;
+  } | null {
+    const piece = pieceInTheWay(dude, field, maze);
+    if (piece === null) return null;
     const key = tileKey(piece.tile);
-    if (this.gone.has(key)) return { dude, destroyedIt: false };
+    if (this.gone.has(key)) return { dude, destroyed: null };
     const struck = strike(dude, step, stepsPerSecond);
-    if (struck.damage === 0) return { dude: struck.dude, destroyedIt: false };
+    if (struck.damage === 0) return { dude: struck.dude, destroyed: null };
     const health =
       (this.health.get(key) ?? PIECES[piece.pieceId].health) - struck.damage;
     if (health > 0) {
       this.health.set(key, health);
-      return { dude: struck.dude, destroyedIt: false };
+      return { dude: struck.dude, destroyed: null };
     }
     this.health.delete(key);
     this.gone.add(key);
     this.destroyed.push(piece);
-    return { dude: struck.dude, destroyedIt: true };
+    const destroyed: PieceDestroyedEvent = {
+      type: "piece-destroyed",
+      step,
+      pieceId: piece.pieceId,
+      pieceTile: piece.tile,
+      dudeId: dude.id,
+      dudeKind: dude.kind,
+    };
+    return { dude: struck.dude, destroyed };
   }
 
   /** Health of every damaged Piece still standing, by `tileKey`. */
