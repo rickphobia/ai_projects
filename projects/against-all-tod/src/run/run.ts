@@ -53,7 +53,8 @@ export type RunAction =
     }
   | {
       readonly type: "place-squad";
-      readonly spawnRow: number;
+      /** Any tapped tile; only Spawn line tiles are accepted. */
+      readonly tile: Tile;
       readonly dudeKind: DudeKindId;
     }
   | { readonly type: "start-battle" }
@@ -69,7 +70,9 @@ export type RunRefusal =
   /** Placing a Piece on an Attack turn, or a Squad on a Defense turn. */
   | "wrong-side"
   /** This Round's placements are used up. */
-  | "none-left";
+  | "none-left"
+  /** A Squad anywhere but the Spawn line. */
+  | "not-spawn-line";
 
 export type RunResult =
   | { readonly ok: true; readonly state: RunState }
@@ -85,6 +88,23 @@ export function newRun(seed: number, bestScore = 0): RunState {
     bestScore,
     phase: "building",
     roundStart: board,
+  };
+}
+
+/** Where the player stands, for the HUD and the logs. */
+export interface RunStatus {
+  readonly round: number;
+  readonly side: Side;
+  readonly lives: number;
+  readonly score: number;
+}
+
+export function runStatusOf(state: RunState): RunStatus {
+  return {
+    round: roundOf(state),
+    side: sideOf(state),
+    lives: state.lives,
+    score: state.score,
   };
 }
 
@@ -136,16 +156,13 @@ export function battleSetupOf(
   };
 }
 
-/** Null when a Squad may go on `spawnRow` now; otherwise why not. */
-export function checkSquad(
-  state: RunState,
-  spawnRow: number,
-): RunRefusal | null {
+/** Null when a Squad may go on `tile` now; otherwise why not. Only Spawn line tiles take Squads. */
+export function checkSquad(state: RunState, tile: Tile): RunRefusal | null {
   const refusal = checkPlacing(state, "attack");
   if (refusal !== null) return refusal;
-  const tile = { column: 0, row: spawnRow };
-  if (!isOnBoard(tile) || tileKind(tile) !== "spawn-line") return "off-board";
-  if (state.army.some((squad) => squad.spawnRow === spawnRow)) {
+  if (!isOnBoard(tile)) return "off-board";
+  if (tileKind(tile) !== "spawn-line") return "not-spawn-line";
+  if (state.army.some((squad) => squad.spawnRow === tile.row)) {
     return "tile-taken";
   }
   return null;
@@ -166,11 +183,11 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
     case "place-piece":
       return placeOnMaze(state, action.tile, action.pieceId);
     case "place-squad": {
-      const refusal = checkSquad(state, action.spawnRow);
+      const refusal = checkSquad(state, action.tile);
       if (refusal !== null) return refuse(refusal);
       const squad: Squad = {
         dudeKind: action.dudeKind,
-        spawnRow: action.spawnRow,
+        spawnRow: action.tile.row,
       };
       return accept({ ...state, army: [...state.army, squad] });
     }

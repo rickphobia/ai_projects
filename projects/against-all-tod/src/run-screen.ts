@@ -24,6 +24,7 @@ import {
   newRun,
   placementsLeft,
   roundOf,
+  runStatusOf,
   sideOf,
   type RunAction,
   type RunState,
@@ -57,7 +58,7 @@ interface Battle {
  */
 export class RunScreen {
   private run: RunState;
-  /** The Maze of `run.pieces`, kept so hovering doesn't rebuild it. */
+  /** The Maze of `run.pieces`, for drawing and piece info. */
   private maze: Maze;
   private chosenPiece: PieceId = FIRST_BUILD_PIECE;
   private chosenDudeKind: DudeKindId = FIRST_DUDE_KIND;
@@ -191,19 +192,14 @@ export class RunScreen {
   private placeAction(tile: Tile): RunAction {
     return sideOf(this.run) === "defense"
       ? { type: "place-piece", tile, pieceId: this.chosenPiece }
-      : {
-          type: "place-squad",
-          spawnRow: tile.row,
-          dudeKind: this.chosenDudeKind,
-        };
+      : { type: "place-squad", tile, dudeKind: this.chosenDudeKind };
   }
 
   private canPlaceOn(tile: Tile): boolean {
     if (sideOf(this.run) === "defense") {
       return checkPiece(this.run, tile, this.chosenPiece) === null;
     }
-    // A Squad is named by its row, so the column must be checked here.
-    return tile.column === 0 && checkSquad(this.run, tile.row) === null;
+    return checkSquad(this.run, tile) === null;
   }
 
   /** Shows the Piece on `tile` in the info panel; false if there is none. */
@@ -233,12 +229,7 @@ export class RunScreen {
   }
 
   private showRunStatus(): void {
-    this.hud?.showRunStatus({
-      round: roundOf(this.run),
-      side: sideOf(this.run),
-      lives: this.run.lives,
-      score: this.run.score,
-    });
+    this.hud?.showRunStatus(runStatusOf(this.run));
   }
 
   private watchFrame(elapsedMs: number): void {
@@ -295,12 +286,7 @@ export class RunScreen {
   }
 
   private logRoundStart(): void {
-    this.logger.info("Round started", {
-      round: roundOf(this.run),
-      side: sideOf(this.run),
-      lives: this.run.lives,
-      score: this.run.score,
-    });
+    this.logger.info("Round started", { ...runStatusOf(this.run) });
   }
 
   private showBattle(state: BattleState, newShots: readonly ShotEvent[]): void {

@@ -18,6 +18,7 @@ describe("refusalMessage", () => {
     "wrong-phase",
     "wrong-side",
     "none-left",
+    "not-spawn-line",
   ])("explains a %s refusal", (refusal) => {
     expect(refusalMessage(refusal).length).toBeGreaterThan(0);
   });

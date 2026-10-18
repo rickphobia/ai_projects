@@ -2,7 +2,7 @@ import type { BattleOutcome, Side } from "../battle/battle";
 import { WATCH_SPEEDS, type WatchSpeed } from "../battle/watch-clock";
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { PIECES, type PieceId } from "../catalog/pieces";
-import type { RunRefusal } from "../run/run";
+import type { RunRefusal, RunStatus } from "../run/run";
 
 /** How long a refusal stays on screen. */
 const MESSAGE_MS = 3000;
@@ -17,6 +17,7 @@ const REFUSAL_MESSAGES: Readonly<Record<RunRefusal, string>> = {
   "wrong-phase": "Not now: wait for the battle to end.",
   "wrong-side": "That belongs to the other side's turn.",
   "none-left": "Nothing left to place this Round. Press Fight.",
+  "not-spawn-line": "Squads go on the Spawn line, the Board's left edge.",
 };
 
 const OUTCOME_MESSAGES: Readonly<Record<BattleOutcome["reason"], string>> = {
@@ -47,14 +48,6 @@ export function battleStatus(
   const whole = Math.floor(seconds);
   const clock = `${String(Math.floor(whole / 60))}:${String(whole % 60).padStart(2, "0")}`;
   return `Goal ${String(Math.ceil(goalHealth))}/${String(maxHealth)} · ${clock}`;
-}
-
-/** Where the player stands in the Run, always on screen. */
-export interface RunStatus {
-  readonly round: number;
-  readonly side: Side;
-  readonly lives: number;
-  readonly score: number;
 }
 
 /** "Round 3 · Defense turn · Lives 2 · Score 2". */

@@ -41,8 +41,9 @@ function sniperNest(column: number, row: number): RunAction {
   };
 }
 
-function internSquad(spawnRow: number): RunAction {
-  return { type: "place-squad", spawnRow, dudeKind: "intern" };
+/** A Squad of Interns on the Spawn line, or on another column to check it is refused. */
+function internSquad(row: number, column = 0): RunAction {
+  return { type: "place-squad", tile: { column, row }, dudeKind: "intern" };
 }
 
 const CONTINUE: RunAction = { type: "continue" };
@@ -124,6 +125,7 @@ describe("placing", () => {
   it("refuses a Squad off the Spawn line", () => {
     expect(refusalOf(attacking, internSquad(BOARD_ROWS))).toBe("off-board");
     expect(refusalOf(attacking, internSquad(-1))).toBe("off-board");
+    expect(refusalOf(attacking, internSquad(5, 12))).toBe("not-spawn-line");
   });
 
   it("passes on the Maze's own refusals", () => {
@@ -144,7 +146,7 @@ describe("placing", () => {
 
   it("allows only so many Squads in an Attack turn", () => {
     const rows = [0, 1, 2, 4, 5, 6].slice(0, RUN_RULES.squadsPerAttackTurn);
-    const full = play(attacking, ...rows.map(internSquad));
+    const full = play(attacking, ...rows.map((row) => internSquad(row)));
     expect(placementsLeft(full)).toBe(0);
     expect(refusalOf(full, internSquad(13))).toBe("none-left");
   });
