@@ -2,7 +2,8 @@
  * Every Piece the defender can place, with its tuning numbers. Pure data: balancing a Piece
  * means changing a number here, and tests read the numbers from here rather than copying them.
  */
-export type PieceId = "crate-wall" | "sniper-nest";
+export type PieceId =
+  "crate-wall" | "sniper-nest" | "turnstile" | "lighthouse" | "siren";
 
 export interface PieceEntry {
   /** Stable id that saves and tests refer to. */
@@ -18,6 +19,12 @@ export interface PieceEntry {
   readonly health: number;
   /** How it shoots; null for Pieces that don't. */
   readonly tower: TowerStats | null;
+  /** A sweeping beam that hurts every Dude it touches; null for Pieces without one. */
+  readonly beam: BeamStats | null;
+  /** A pulse that stuns every Dude in range; null for Pieces without one. */
+  readonly stun: StunStats | null;
+  /** Seconds between quarter turns, for Pieces that turn (and so block different tiles); null otherwise. */
+  readonly turnIntervalSeconds: number | null;
 }
 
 export interface TowerStats {
@@ -30,6 +37,31 @@ export interface TowerStats {
   readonly hitsAir: boolean;
 }
 
+export interface BeamStats {
+  /** In tiles, from the centre of the Piece's tile. */
+  readonly range: number;
+  /** Half the beam's width, in degrees either side of where it points. */
+  readonly halfWidthDegrees: number;
+  readonly sweepDegreesPerSecond: number;
+  /** Health per second taken from each Dude in the beam. */
+  readonly damagePerSecond: number;
+  /** Tiles within this many tiles of the Piece count as lit for other towers, even in the dark. */
+  readonly lightRadius: number;
+  /** Whether the beam hurts flying Dudes such as the Balloonist. */
+  readonly hitsAir: boolean;
+}
+
+export interface StunStats {
+  /** In tiles at neutral Volume. */
+  readonly range: number;
+  /** Share of `range` added (Volume up) or taken (Volume down) per Volume step. */
+  readonly rangePerVolumeStep: number;
+  readonly intervalSeconds: number;
+  readonly stunSeconds: number;
+  /** Whether the pulse stuns flying Dudes such as the Balloonist. */
+  readonly hitsAir: boolean;
+}
+
 export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
   "crate-wall": {
     id: "crate-wall",
@@ -39,6 +71,9 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
     price: 10,
     health: 100,
     tower: null,
+    beam: null,
+    stun: null,
+    turnIntervalSeconds: null,
   },
   "sniper-nest": {
     id: "sniper-nest",
@@ -48,5 +83,60 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
     price: 40,
     health: 150,
     tower: { range: 7, damage: 40, fireIntervalSeconds: 0.8, hitsAir: true },
+    beam: null,
+    stun: null,
+    turnIntervalSeconds: null,
+  },
+  turnstile: {
+    id: "turnstile",
+    name: "Turnstile",
+    description:
+      "A wall with two arms that turns 90° every 5 seconds, flipping the route.",
+    blocksDudes: true,
+    price: 30,
+    health: 200,
+    tower: null,
+    beam: null,
+    stun: null,
+    turnIntervalSeconds: 5,
+  },
+  lighthouse: {
+    id: "lighthouse",
+    name: "Lighthouse",
+    description:
+      "Its sweeping beam hurts Dudes, works in the dark and lights nearby tiles.",
+    blocksDudes: true,
+    price: 50,
+    health: 150,
+    tower: null,
+    beam: {
+      range: 3.5,
+      halfWidthDegrees: 20,
+      sweepDegreesPerSecond: 120,
+      damagePerSecond: 90,
+      lightRadius: 2,
+      hitsAir: true,
+    },
+    stun: null,
+    turnIntervalSeconds: null,
+  },
+  siren: {
+    id: "siren",
+    name: "Siren",
+    description:
+      "Stuns Dudes in range every few seconds. Reaches further with Volume up.",
+    blocksDudes: true,
+    price: 35,
+    health: 120,
+    tower: null,
+    beam: null,
+    stun: {
+      range: 2.5,
+      rangePerVolumeStep: 0.25,
+      intervalSeconds: 4,
+      stunSeconds: 1.5,
+      hitsAir: false,
+    },
+    turnIntervalSeconds: null,
   },
 };

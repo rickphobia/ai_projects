@@ -16,6 +16,8 @@ export interface Maze {
   /** Keyed by `tileKey`. */
   readonly pieces: ReadonlyMap<string, PlacedPiece>;
   readonly route: Route;
+  /** The route while every Turnstile stands turned; the same object as `route` when there are none. */
+  readonly turnedRoute: Route;
 }
 
 export interface PlacedPiece {
@@ -67,7 +69,13 @@ export function placePiece(
   const placed = withPieces(
     new Map(maze.pieces).set(tileKey(tile), { pieceId, tile }),
   );
-  if (PIECES[pieceId].blocksDudes && !spawnLineReachesGoal(placed.route)) {
+  if (
+    PIECES[pieceId].blocksDudes &&
+    !(
+      spawnLineReachesGoal(placed.route) &&
+      spawnLineReachesGoal(placed.turnedRoute)
+    )
+  ) {
     return refuse("seals-goal");
   }
   return { ok: true, maze: placed };
@@ -78,12 +86,49 @@ function spawnLineReachesGoal(route: Route): boolean {
   return spawnLineTiles().some((tile) => reachesGoal(route, tile));
 }
 
+/**
+ * The open tiles a Turnstile's arms block: left and right of it, or above and below once
+ * turned. All Turnstiles turn together, so a Maze only ever has these two layouts.
+ */
+export function turnstileArms(tile: Tile, turned: boolean): Tile[] {
+  const arms = turned
+    ? [
+        { column: tile.column, row: tile.row - 1 },
+        { column: tile.column, row: tile.row + 1 },
+      ]
+    : [
+        { column: tile.column - 1, row: tile.row },
+        { column: tile.column + 1, row: tile.row },
+      ];
+  return arms.filter((arm) => isOnBoard(arm) && tileKind(arm) === "open");
+}
+
 function withPieces(pieces: ReadonlyMap<string, PlacedPiece>): Maze {
-  const route = computeRoute((tile) => {
-    const piece = pieces.get(tileKey(tile));
-    return piece === undefined || !PIECES[piece.pieceId].blocksDudes;
+  const turnstiles = [...pieces.values()].filter(
+    ({ pieceId }) => PIECES[pieceId].turnIntervalSeconds !== null,
+  );
+  const route = routeAround(pieces, turnstiles, false);
+  const turnedRoute =
+    turnstiles.length === 0 ? route : routeAround(pieces, turnstiles, true);
+  return { pieces, route, turnedRoute };
+}
+
+function routeAround(
+  pieces: ReadonlyMap<string, PlacedPiece>,
+  turnstiles: readonly PlacedPiece[],
+  turned: boolean,
+): Route {
+  const arms = new Set(
+    turnstiles.flatMap(({ tile }) => turnstileArms(tile, turned).map(tileKey)),
+  );
+  return computeRoute((tile) => {
+    const key = tileKey(tile);
+    const piece = pieces.get(key);
+    return (
+      !arms.has(key) &&
+      (piece === undefined || !PIECES[piece.pieceId].blocksDudes)
+    );
   });
-  return { pieces, route };
 }
 
 function refuse(refusal: PlacementRefusal): PlacementResult {

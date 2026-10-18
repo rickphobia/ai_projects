@@ -1,8 +1,11 @@
 import type { BattleRules } from "../catalog/battle-rules";
 import { DUDE_KINDS } from "../catalog/dudes";
+import { PIECES } from "../catalog/pieces";
 import { isOnBoard, tileKind } from "../maze/board";
 import type { Maze } from "../maze/maze";
+import type { Route } from "../maze/route";
 import { createRng } from "../rng/rng";
+import { applyEffects, effectPiecesOf, type EffectPiece } from "./area-effects";
 import type { Army } from "./army";
 import {
   hypeSpeedFactor,
@@ -50,6 +53,8 @@ export interface BattleState {
   readonly dudes: readonly DudeState[];
   readonly waiting: readonly WaitingDude[];
   readonly towers: readonly TowerState[];
+  /** Lighthouses and Sirens, which act on the battle clock rather than on a cooldown. */
+  readonly effectPieces: readonly EffectPiece[];
   /** What happened in the latest step only. */
   readonly events: readonly BattleEvent[];
   /** Null while the battle is running. */
@@ -87,6 +92,7 @@ export function startBattle(setup: BattleSetup): BattleState {
     dudes: [],
     waiting,
     towers: towersOf(setup.maze),
+    effectPieces: effectPiecesOf(setup.maze),
     events: [],
     outcome: null,
   };
@@ -106,27 +112,39 @@ export function stepBattle(
     if (next.entersAtStep < step) onBoard.push(next.dude);
     else waiting.push(next);
   }
-  // The route belongs to the Maze, worked out when a Piece was placed; a step never recomputes it.
+  // The routes belong to the Maze, worked out when a Piece was placed; a step never recomputes them.
+  const route = routeAt(setup.maze, step);
   const volley = fireTowers(
     state.towers,
     onBoard,
-    setup.maze.route,
+    route,
     step,
     STEPS_PER_SECOND,
   );
+  const effects = applyEffects(
+    state.effectPieces,
+    volley.dudes,
+    step,
+    STEPS_PER_SECOND,
+    setup.rules.volumeLevel,
+  );
 
-  const events = volley.events;
+  const events = [...volley.events, ...effects.events];
   const dudes: DudeState[] = [];
   let goalHealth = state.goalHealth;
-  const hypeMen = volley.dudes.filter(
+  const hypeMen = effects.dudes.filter(
     (dude) => DUDE_KINDS[dude.kind].hypeAura !== null,
   );
-  for (const dude of volley.dudes) {
+  for (const dude of effects.dudes) {
+    if ((dude.stunnedUntilStep ?? 0) > step) {
+      dudes.push(dude);
+      continue;
+    }
     const speedFactor =
       hypeMen.length === 0
         ? 1
         : hypeSpeedFactor(dude, hypeMen, setup.rules.volumeLevel);
-    const moved = walk(dude, setup.maze.route, STEP_SECONDS, speedFactor);
+    const moved = walk(dude, route, STEP_SECONDS, speedFactor);
     if (moved !== "at-goal") {
       dudes.push(moved);
       continue;
@@ -148,6 +166,7 @@ export function stepBattle(
     dudes,
     waiting,
     towers: volley.towers,
+    effectPieces: state.effectPieces,
     events,
     outcome: outcomeAfter(setup.rules, step, goalHealth, dudes, waiting),
   };
@@ -180,6 +199,19 @@ export function runBattle(setup: BattleSetup): StepsResult {
   const maxSteps =
     Math.ceil(setup.rules.timeLimitSeconds * STEPS_PER_SECOND) + 1;
   return stepBattleTimes(setup, startBattle(setup), maxSteps);
+}
+
+const TURN_STEPS =
+  (PIECES.turnstile.turnIntervalSeconds ?? 1) * STEPS_PER_SECOND;
+
+/** Whether the Turnstiles stand turned at `step`: all turn together, starting unturned. */
+export function turnstilesTurned(step: number): boolean {
+  return Math.floor(step / TURN_STEPS) % 2 === 1;
+}
+
+/** The route Dudes follow at `step`. */
+export function routeAt(maze: Maze, step: number): Route {
+  return turnstilesTurned(step) ? maze.turnedRoute : maze.route;
 }
 
 function outcomeAfter(

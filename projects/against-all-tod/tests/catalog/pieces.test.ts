@@ -24,4 +24,17 @@ describe("the Piece catalog", () => {
     expect(sniperNest.tower?.damage).toBeGreaterThan(0);
     expect(sniperNest.tower?.fireIntervalSeconds).toBeGreaterThan(0);
   });
+
+  it("lets only the Lighthouse and Sniper Nest hit Balloonists", () => {
+    const hitters = Object.values(PIECES)
+      .filter(
+        ({ tower, beam, stun }) =>
+          tower?.hitsAir === true ||
+          beam?.hitsAir === true ||
+          stun?.hitsAir === true,
+      )
+      .map((entry) => entry.id)
+      .sort();
+    expect(hitters).toEqual(["lighthouse", "sniper-nest"]);
+  });
 });

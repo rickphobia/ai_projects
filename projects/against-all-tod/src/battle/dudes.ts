@@ -28,6 +28,8 @@ export interface DudeState {
   readonly tunnelsLeft: number;
   /** Where it will resurface while underground, where no tower can target it; null above ground. */
   readonly burrowTo: BoardPoint | null;
+  /** A Siren stunned it: it stands still until this step. Absent if never stunned. */
+  readonly stunnedUntilStep?: number;
 }
 
 /** The widest a lane may be, in tiles either side of the centre line. */
