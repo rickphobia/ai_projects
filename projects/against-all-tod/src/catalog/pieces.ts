@@ -26,6 +26,8 @@ export interface TowerStats {
   /** Health taken from the Dude it hits. */
   readonly damage: number;
   readonly fireIntervalSeconds: number;
+  /** Whether it can shoot flying Dudes such as the Balloonist. */
+  readonly hitsAir: boolean;
 }
 
 export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
@@ -45,6 +47,6 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
     blocksDudes: true,
     price: 40,
     health: 150,
-    tower: { range: 7, damage: 40, fireIntervalSeconds: 0.8 },
+    tower: { range: 7, damage: 40, fireIntervalSeconds: 0.8, hitsAir: true },
   },
 };

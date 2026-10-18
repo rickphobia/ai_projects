@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { STEPS_PER_SECOND, runBattle } from "../../src/battle/battle";
-import { tileUnder, type DudeState } from "../../src/battle/dudes";
+import { newDude, tileUnder, type DudeState } from "../../src/battle/dudes";
 import { fireTowers, pickTarget } from "../../src/battle/towers";
 import { DUDE_KINDS } from "../../src/catalog/dudes";
 import { PIECES } from "../../src/catalog/pieces";
@@ -101,12 +101,9 @@ describe("a Sniper Nest among many Dudes", () => {
   function scatter(count: number, seed: number): DudeState[] {
     const random = createRng(seed);
     return Array.from({ length: count }, (_, id) => ({
-      id,
-      kind: "intern",
+      ...newDude(id, "intern", 0, 0),
       x: 1 + random() * (BOARD_COLUMNS - 2),
       y: random() * BOARD_ROWS,
-      lane: 0,
-      health: DUDE_KINDS.intern.health,
     }));
   }
 
