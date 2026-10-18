@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { KillEvent, ReachGoalEvent } from "../../src/battle/events";
+import type {
+  KillEvent,
+  PieceDestroyedEvent,
+  ReachGoalEvent,
+} from "../../src/battle/events";
 import { DUDE_KINDS } from "../../src/catalog/dudes";
 import { GOLD_RULES, type GoldRules } from "../../src/catalog/gold-rules";
 import {
@@ -7,7 +11,6 @@ import {
   goldEarned,
   spend,
   type BattleEnd,
-  type PieceDestroyedEvent,
 } from "../../src/economy/economy";
 
 const at = { x: 1, y: 1 };
@@ -39,6 +42,9 @@ const pieceDestroyed: PieceDestroyedEvent = {
   type: "piece-destroyed",
   step: 4,
   pieceId: "crate-wall",
+  pieceTile: tile,
+  dudeId: 1,
+  dudeKind: "termite",
 };
 
 const DEFENSE_WIN: BattleEnd = {

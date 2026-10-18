@@ -2,25 +2,12 @@ import type { Side } from "../battle/battle";
 import type { BattleEvent } from "../battle/events";
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { GOLD_RULES, type GoldRules } from "../catalog/gold-rules";
-import type { PieceId } from "../catalog/pieces";
 
 /** Gold for each side. The two never mix: each side spends only its own. */
 export interface Wallets {
   readonly defense: number;
   readonly attack: number;
 }
-
-/**
- * A Wall-breaker destroying a Piece. The battle doesn't emit it until Wall-breakers arrive
- * (ticket 13), which moves it into the battle's own events.
- */
-export interface PieceDestroyedEvent {
-  readonly type: "piece-destroyed";
-  readonly step: number;
-  readonly pieceId: PieceId;
-}
-
-export type GoldEvent = BattleEvent | PieceDestroyedEvent;
 
 /** How a battle ended, as far as gold cares. */
 export interface BattleEnd {
@@ -52,7 +39,7 @@ export interface GoldBreakdown {
 
 /** The gold a battle earns each side by source, from everything it emitted and how it ended. */
 export function goldBreakdown(
-  events: readonly GoldEvent[],
+  events: readonly BattleEvent[],
   end: BattleEnd,
   rules: GoldRules = GOLD_RULES,
 ): GoldBreakdown {
@@ -87,7 +74,7 @@ export function goldBreakdown(
 
 /** The gold a battle earns each side, from everything it emitted and how it ended. */
 export function goldEarned(
-  events: readonly GoldEvent[],
+  events: readonly BattleEvent[],
   end: BattleEnd,
   rules: GoldRules = GOLD_RULES,
 ): Wallets {

@@ -29,15 +29,18 @@ function play(state: RunState, ...actions: RunAction[]): RunState {
 /** Gold every test battle reports earning; the economy's own rules are tested in economy. */
 const EARNED = { defense: 7, attack: 3 };
 
-/** Starts the Round's battle, runs it with the real battle module and reports the winner. */
+/** Starts the Round's battle, runs it with the real battle module and reports the winner and the Pieces destroyed. */
 function fight(state: RunState): RunState {
   const fighting = play(state, { type: "start-battle" });
-  const outcome = runBattle(battleSetupOf(fighting)).state.outcome;
-  if (outcome === null) throw new Error("the battle never ended");
+  const { state: end, events } = runBattle(battleSetupOf(fighting));
+  if (end.outcome === null) throw new Error("the battle never ended");
   return play(fighting, {
     type: "battle-finished",
-    winner: outcome.winner,
+    winner: end.outcome.winner,
     earned: EARNED,
+    destroyed: events.flatMap((event) =>
+      event.type === "piece-destroyed" ? [event.pieceTile] : [],
+    ),
   });
 }
 
@@ -47,6 +50,7 @@ function finish(state: RunState, winner: "attack" | "defense"): RunState {
     type: "battle-finished",
     winner,
     earned: EARNED,
+    destroyed: [],
   });
 }
 
@@ -233,6 +237,7 @@ describe("wallets", () => {
         type: "battle-finished",
         winner: "defense",
         earned: EARNED,
+        destroyed: [],
       }),
     ).toBe("wrong-phase");
     expect(refusalOf(run, CONTINUE)).toBe("wrong-phase");
@@ -261,6 +266,41 @@ describe("losing a Round", () => {
     const lost = finish(run, "attack");
     const retry = play(lost, CONTINUE, ...HOLDING_MAZE);
     expect(battleSetupOf(retry).seed).toBe(battleSetupOf(run).seed);
+  });
+});
+
+describe("Pieces a Wall-breaker destroys", () => {
+  const nest = { column: 9, row: 2 };
+
+  function finishDestroyingNest(
+    state: RunState,
+    winner: "attack" | "defense",
+  ): RunState {
+    return play(play(state, { type: "start-battle" }), {
+      type: "battle-finished",
+      winner,
+      earned: EARNED,
+      destroyed: [nest],
+    });
+  }
+
+  it("stay gone after a won Round, so the Board never resets", () => {
+    const won = finishDestroyingNest(
+      play(newRun(1), ...HOLDING_MAZE),
+      "defense",
+    );
+    expect(won.pieces.map(({ tile }) => tile)).toEqual([{ column: 9, row: 3 }]);
+    expect(battleSetupOf(play(won, CONTINUE)).maze.pieces.size).toBe(1);
+  });
+
+  it("come back when a lost Round is Rewound", () => {
+    const attacking = play(
+      finish(play(newRun(1), ...HOLDING_MAZE), "defense"),
+      CONTINUE,
+    );
+    const lost = finishDestroyingNest(attacking, "defense");
+    expect(lost.phase).toBe("round-lost");
+    expect(lost.pieces).toEqual(attacking.pieces);
   });
 });
 

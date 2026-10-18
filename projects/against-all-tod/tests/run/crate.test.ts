@@ -40,6 +40,7 @@ function finish(state: RunState, winner: "attack" | "defense"): RunState {
       type: "battle-finished",
       winner,
       earned: NOTHING_EARNED,
+      destroyed: [],
     },
   );
 }

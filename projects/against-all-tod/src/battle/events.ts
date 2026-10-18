@@ -12,7 +12,8 @@ export interface BoardPoint {
  * What happened in a battle step, for the renderer now and for gold and the Round report later.
  * `step` is the step it happened in, counted from 1.
  */
-export type BattleEvent = ShotEvent | KillEvent | ReachGoalEvent;
+export type BattleEvent =
+  ShotEvent | KillEvent | ReachGoalEvent | PieceDestroyedEvent;
 
 export interface ShotEvent {
   readonly type: "shot";
@@ -42,4 +43,15 @@ export interface ReachGoalEvent {
   readonly dudeKind: DudeKindId;
   /** Goal health it took. */
   readonly damage: number;
+}
+
+/** A Wall-breaker destroyed a Piece: it is gone, and the routes now go through its tile. */
+export interface PieceDestroyedEvent {
+  readonly type: "piece-destroyed";
+  readonly step: number;
+  readonly pieceId: PieceId;
+  readonly pieceTile: Tile;
+  /** The Wall-breaker whose hit destroyed it. */
+  readonly dudeId: number;
+  readonly dudeKind: DudeKindId;
 }

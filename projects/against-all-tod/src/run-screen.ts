@@ -374,8 +374,16 @@ export class RunScreen {
       ],
     };
     const earned = goldEarned(battle.goldEvents, battleEnd);
+    const destroyed = battle.goldEvents.flatMap((event) =>
+      event.type === "piece-destroyed" ? [event.pieceTile] : [],
+    );
     if (
-      !this.act({ type: "battle-finished", winner: outcome.winner, earned })
+      !this.act({
+        type: "battle-finished",
+        winner: outcome.winner,
+        earned,
+        destroyed,
+      })
     ) {
       return;
     }
@@ -390,6 +398,7 @@ export class RunScreen {
       reachedGoal: battle.goldEvents.filter(
         (event) => event.type === "reach-goal",
       ).length,
+      piecesDestroyed: destroyed.length,
       earned,
       wallets: this.run.wallets,
       lives: this.run.lives,

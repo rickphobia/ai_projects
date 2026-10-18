@@ -7,6 +7,8 @@ import {
   pieceAt,
   placePiece,
   placedPieces,
+  removePiece,
+  wallBreakerRoutes,
   type Maze,
 } from "../../src/maze/maze";
 import { pathToGoal, routeStep } from "../../src/maze/route";
@@ -34,6 +36,59 @@ function wallDown(column: number, rows: readonly number[]): Tile[] {
 function range(from: number, to: number): number[] {
   return Array.from({ length: to - from }, (_, index) => from + index);
 }
+
+describe("the Wall-breakers' routes", () => {
+  const nextToWall = { column: 7, row: 6 };
+
+  it("go through the wall when the way round is long", () => {
+    const maze = build(wallDown(8, range(0, 13)));
+    const { throughWalls } = wallBreakerRoutes(maze, false);
+    expect(routeStep(throughWalls, nextToWall)).toBe("right");
+    // Ordinary Dudes still walk round by the gap.
+    expect(routeStep(maze.route, nextToWall)).toBe("down");
+  });
+
+  it("go round a short wall instead of through it", () => {
+    const maze = build(wallDown(8, [5, 6, 7]));
+    const { throughWalls } = wallBreakerRoutes(maze, false);
+    expect(routeStep(throughWalls, nextToWall)).not.toBe("right");
+    expect(pathToGoal(throughWalls, nextToWall)).toEqual(
+      pathToGoal(maze.route, nextToWall),
+    );
+  });
+
+  it("lead the Sapper to the nearest wall, or nowhere without one", () => {
+    const lone = { column: 3, row: 3 };
+    const maze = build([lone, ...wallDown(8, range(0, 13))]);
+    const { toNearestWall } = wallBreakerRoutes(maze, false);
+    expect(pathToGoal(toNearestWall, { column: 1, row: 3 })).toEqual([
+      { column: 1, row: 3 },
+      { column: 2, row: 3 },
+      lone,
+    ]);
+    const none = wallBreakerRoutes(emptyMaze(), false).toNearestWall;
+    expect(routeStep(none, { column: 1, row: 3 })).toBe("no-route");
+  });
+});
+
+describe("removing a Piece", () => {
+  it("opens its tile and works the route out again", () => {
+    const maze = build(wallDown(8, range(0, 13)));
+    const hole = { column: 8, row: 6 };
+    const broken = removePiece(maze, hole);
+    expect(pieceAt(broken, hole)).toBeUndefined();
+    expect(placedPieces(broken)).toHaveLength(12);
+    expect(routeStep(broken.route, { column: 7, row: 6 })).toBe("right");
+    expect(pathToGoal(broken.route, { column: 0, row: 6 }).length).toBeLessThan(
+      pathToGoal(maze.route, { column: 0, row: 6 }).length,
+    );
+  });
+
+  it("leaves the Maze as it is when the tile is empty", () => {
+    const maze = build([{ column: 5, row: 5 }]);
+    expect(removePiece(maze, { column: 6, row: 6 })).toBe(maze);
+  });
+});
 
 describe("placing Pieces", () => {
   it("puts a Piece on an open tile", () => {

@@ -26,14 +26,19 @@ const DUDE_DISC_RADIUS = 0.27;
  */
 const DISC_TINTS: Readonly<Record<DudeKindId, number>> = {
   intern: ATTACK_COLOUR,
+  termite: 0xd9a066,
+  "ram-crew": 0x7a4a2a,
   balloonist: 0x8be0ff,
   "shield-bro": 0xc0c0c0,
   "hype-man": 0xff4fd8,
+  sapper: 0x4a4a4a,
   mole: 0x8b5a2b,
   streaker: 0xffe14f,
 };
 /** Balloonists float above the Maze, so they are drawn bigger. */
 const FLYER_SCALE = 1.15;
+/** A Ram Crew is four Dudes and a ram in one, so it is drawn bigger still. */
+const RAM_CREW_SCALE = 1.5;
 /** How see-through a Mole is while underground. */
 const UNDERGROUND_ALPHA = 0.3;
 /** How see-through a Shield Bro's disc is once his shield breaks. */
@@ -140,7 +145,12 @@ export class UnitsView {
   }
 
   private addDude(kind: DudeKindId, x: number, y: number): DudeSprites {
-    const scale = kind === "balloonist" ? FLYER_SCALE : 1;
+    const scale =
+      kind === "balloonist"
+        ? FLYER_SCALE
+        : kind === "ram-crew"
+          ? RAM_CREW_SCALE
+          : 1;
     const disc = new Sprite({
       texture: this.discTexture,
       anchor: 0.5,

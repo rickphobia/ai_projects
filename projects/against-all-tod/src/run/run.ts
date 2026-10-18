@@ -13,7 +13,7 @@ import {
   startingWallets,
   type Wallets,
 } from "../economy/economy";
-import { isOnBoard, tileKind, type Tile } from "../maze/board";
+import { isOnBoard, tileKey, tileKind, type Tile } from "../maze/board";
 import {
   emptyMaze,
   placePiece,
@@ -84,6 +84,8 @@ export type RunAction =
       readonly winner: Side;
       /** What the battle earned each side (see economy); kept only if the Round is won. */
       readonly earned: Wallets;
+      /** Tiles of the Pieces Wall-breakers destroyed; they stay gone only if the Round is won. */
+      readonly destroyed: readonly Tile[];
     }
   | { readonly type: "continue" }
   | { readonly type: "new-run" };
@@ -277,7 +279,7 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
       if (state.phase !== "fighting") return refuse("wrong-phase");
       return accept(
         action.winner === sideOf(state)
-          ? winRound(state, action.earned)
+          ? winRound(state, action.earned, action.destroyed)
           : loseRound(state),
       );
     case "continue":
@@ -352,16 +354,26 @@ function paid(wallets: Wallets, side: Side, price: number): Wallets {
   return left;
 }
 
-/** Everything placed and earned stays, and the next Round starts from here. */
-function winRound(state: RunState, earned: Wallets): RunState {
+/** Everything placed and earned stays, less what Wall-breakers destroyed, and the next Round starts from here. */
+function winRound(
+  state: RunState,
+  earned: Wallets,
+  destroyed: readonly Tile[],
+): RunState {
   const wallets = addGold(state.wallets, earned);
+  const gone = new Set(destroyed.map(tileKey));
+  const pieces =
+    gone.size === 0
+      ? state.pieces
+      : state.pieces.filter(({ tile }) => !gone.has(tileKey(tile)));
   return withFreshCrate({
     ...state,
+    pieces,
     wallets,
     score: state.score + 1,
     phase: "round-won",
     roundStart: {
-      pieces: state.pieces,
+      pieces,
       army: state.army,
       mutations: state.mutations,
       wallets,

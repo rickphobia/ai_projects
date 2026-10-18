@@ -15,7 +15,7 @@ export type Step = "up" | "down" | "left" | "right";
  * its step toward the Goal, so hundreds of Dudes cost one calculation per Maze change.
  */
 export interface Route {
-  /** Steps to the Goal, by tile index; null where the Goal can't be reached. */
+  /** Route cost to the target (steps, on an ordinary route), by tile index; null where it can't be reached. */
   readonly distances: readonly (number | null)[];
   readonly steps: readonly (Step | null)[];
 }
@@ -35,25 +35,45 @@ const GOAL_CENTRE = goalCentre();
 
 /** Breadth-first from every Goal tile over the tiles `isWalkable` allows. */
 export function computeRoute(isWalkable: (tile: Tile) => boolean): Route {
-  const distances: (number | null)[] = new Array<number | null>(
-    BOARD_COLUMNS * BOARD_ROWS,
-  ).fill(null);
-  const queue = goalTiles();
-  for (const tile of queue) distances[indexOf(tile)] = 0;
+  return computeWeightedRoute((tile) => (isWalkable(tile) ? 1 : null));
+}
 
-  // An array iterator also visits what is pushed during the loop, which makes it a queue.
-  for (const tile of queue) {
-    const distance = (distances[indexOf(tile)] ?? 0) + 1;
-    for (const [, neighbour] of neighbours(tile)) {
-      if (distances[indexOf(neighbour)] !== null || !isWalkable(neighbour)) {
-        continue;
+/**
+ * The cheapest-route field toward `targets` (the Goal unless given), where stepping onto a tile
+ * costs `enterCost` and null means it can't be entered; stepping onto a target costs 1. Costs
+ * are whole numbers, so one bucket per total cost is the whole priority queue.
+ */
+export function computeWeightedRoute(
+  enterCost: (tile: Tile) => number | null,
+  targets: readonly Tile[] = goalTiles(),
+): Route {
+  const tileCount = BOARD_COLUMNS * BOARD_ROWS;
+  const distances = new Array<number | null>(tileCount).fill(null);
+  const costs = allTiles().map(enterCost);
+  for (const tile of targets) {
+    distances[indexOf(tile)] = 0;
+    costs[indexOf(tile)] = 1;
+  }
+
+  const buckets: Tile[][] = [[...targets]];
+  for (let distance = 0; distance < buckets.length; distance++) {
+    for (const tile of buckets[distance] ?? []) {
+      // A tile can sit in several buckets; only its cheapest visit counts.
+      if (distances[indexOf(tile)] !== distance) continue;
+      const reached = distance + (costs[indexOf(tile)] ?? 1);
+      for (const [, neighbour] of neighbours(tile)) {
+        const index = indexOf(neighbour);
+        const known = distances[index] ?? null;
+        if (costs[index] === null || (known !== null && known <= reached)) {
+          continue;
+        }
+        distances[index] = reached;
+        (buckets[reached] ??= []).push(neighbour);
       }
-      distances[indexOf(neighbour)] = distance;
-      queue.push(neighbour);
     }
   }
 
-  const steps = allTiles().map((tile) => bestStep(tile, distances));
+  const steps = allTiles().map((tile) => bestStep(tile, distances, costs));
   return { distances, steps };
 }
 
@@ -87,16 +107,19 @@ export function pathToGoal(route: Route, start: Tile): Tile[] {
   }
 }
 
-/** The neighbour one step closer to the Goal, picking the one nearest the Goal's centre on a tie. */
+/** The neighbour on a cheapest route, picking the one nearest the Goal's centre on a tie. */
 function bestStep(
   tile: Tile,
   distances: readonly (number | null)[],
+  costs: readonly (number | null)[],
 ): Step | null {
   const distance = distances[indexOf(tile)];
   if (distance == null || distance === 0) return null;
   let best: { step: Step; distanceToGoalCentre: number } | null = null;
   for (const [step, neighbour] of neighbours(tile)) {
-    if (distances[indexOf(neighbour)] !== distance - 1) continue;
+    const there = distances[indexOf(neighbour)];
+    const cost = costs[indexOf(neighbour)];
+    if (there == null || cost == null || there + cost !== distance) continue;
     const distanceToGoalCentre = Math.hypot(
       neighbour.column - GOAL_CENTRE.column,
       neighbour.row - GOAL_CENTRE.row,

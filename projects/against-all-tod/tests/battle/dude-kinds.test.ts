@@ -208,10 +208,10 @@ describe("the Streaker", () => {
 });
 
 describe("the Dude kind catalog", () => {
-  it("marks the Mole and the Streaker as Unlocks, and nothing else", () => {
+  it("marks the Sapper, the Mole and the Streaker as Unlocks, and nothing else", () => {
     const unlocks = Object.values(DUDE_KINDS)
       .filter((kind) => kind.unlockScore !== null)
       .map((kind) => kind.id);
-    expect(unlocks.sort()).toEqual(["mole", "streaker"]);
+    expect(unlocks.sort()).toEqual(["mole", "sapper", "streaker"]);
   });
 });
