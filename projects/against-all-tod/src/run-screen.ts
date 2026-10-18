@@ -30,6 +30,7 @@ import {
   type RunAction,
   type RunState,
 } from "./run/run";
+import type { CratePanel } from "./ui/crate";
 import type { EndScreen } from "./ui/end-screen";
 import type { Hud } from "./ui/hud";
 import type { PieceInfo } from "./ui/piece-info";
@@ -68,6 +69,7 @@ export class RunScreen {
   private battle: Battle | null = null;
   private hud: Hud | undefined;
   private endScreen: EndScreen | undefined;
+  private cratePanel: CratePanel | undefined;
   /** The route preview; the debug options can hide it. */
   private routeVisible = true;
 
@@ -85,12 +87,13 @@ export class RunScreen {
 
   /**
    * Shows the Run where it stands. A Run saved mid-battle restarts that battle from its start;
-   * one saved on a Round's result goes on to the next Round. The HUD and end screen are passed
-   * in late because their buttons call back here.
+   * one saved on a Round's result goes on to the next Round. The HUD, end screen and crate panel
+   * are passed in late because their buttons call back here.
    */
-  begin(hud: Hud, endScreen: EndScreen): void {
+  begin(hud: Hud, endScreen: EndScreen, cratePanel: CratePanel): void {
     this.hud = hud;
     this.endScreen = endScreen;
+    this.cratePanel = cratePanel;
     this.view.listenToBoard({
       onHover: (tile) => {
         if (!this.showPieceInfo(tile)) this.pieceInfo.hide();
@@ -144,6 +147,28 @@ export class RunScreen {
     this.showBuilding();
   }
 
+  /** Takes crate item `index`; a Piece or Squad becomes the chosen one, ready to place for free. */
+  takeFromCrate(index: number): void {
+    if (!this.act({ type: "take-from-crate", index })) return;
+    const free = this.run.freeItem;
+    if (free?.kind === "piece") this.chosenPiece = free.id;
+    if (free?.kind === "squad") this.chosenDudeKind = free.id;
+    this.logger.info("took from crate", {
+      round: roundOf(this.run),
+      item: free ?? this.run.mutations.at(-1),
+    });
+    this.showBuilding();
+  }
+
+  rerollCrate(): void {
+    if (!this.act({ type: "reroll-crate" })) return;
+    this.logger.info("rerolled crate", {
+      round: roundOf(this.run),
+      rerolls: this.run.crate?.rerolls,
+    });
+    this.showBuilding();
+  }
+
   fight(): void {
     if (!this.act({ type: "start-battle" })) return;
     this.watchBattle();
@@ -192,6 +217,7 @@ export class RunScreen {
     });
     this.view.showPlacementCursor(null, false);
     this.view.showRoute(false);
+    this.cratePanel?.hide();
     this.view.showArmy([]);
     const stop = this.view.everyFrame((elapsedMs) => {
       this.watchFrame(elapsedMs);
@@ -282,6 +308,15 @@ export class RunScreen {
     this.view.showArmy(this.run.army);
     this.view.showGoalHealth(BATTLE_RULES.goalHealth, BATTLE_RULES.goalHealth);
     this.showRunStatus();
+    if (this.run.phase === "building") {
+      this.cratePanel?.show(
+        this.run.crate,
+        this.run.freeItem,
+        sideOf(this.run),
+      );
+    } else {
+      this.cratePanel?.hide();
+    }
     if (sideOf(this.run) === "defense") {
       this.view.choosePiece(this.chosenPiece);
       this.hud?.showDefenseBuilding(this.chosenPiece);

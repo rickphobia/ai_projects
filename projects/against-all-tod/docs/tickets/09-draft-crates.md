@@ -4,15 +4,15 @@
 
 **Blocked by:** 07 (Two wallets and the shop)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** run, catalog/pools, ui/crate
 
 **Effort:** low
 
-- [ ] Crate offers 3 random items from the side's unlocked pool, using the seeded RNG
-- [ ] Taking an item is free; the other two are discarded
-- [ ] Reroll costs gold from the side's wallet, at a catalog price
-- [ ] Run state holds the Army's Mutations list, so a picked Mutation is stored even before ticket 15 gives Mutations effects
-- [ ] A Rewind gives back the same crate and pick
-- [ ] Tests: crate size, pool per side, free pick, reroll price, Rewind keeps the crate
+- [x] Crate offers 3 random items from the side's unlocked pool, using the seeded RNG
+- [x] Taking an item is free; the other two are discarded
+- [x] Reroll costs gold from the side's wallet, at a catalog price
+- [x] Run state holds the Army's Mutations list, so a picked Mutation is stored even before ticket 15 gives Mutations effects
+- [x] A Rewind gives back the same crate and pick
+- [x] Tests: crate size, pool per side, free pick, reroll price, Rewind keeps the crate

@@ -1,6 +1,6 @@
 import type { Side } from "../battle/battle";
 import { addGold } from "../economy/economy";
-import type { RunState } from "../run/run";
+import { withFreshCrate, type RunState } from "../run/run";
 
 /**
  * Developer options read from the page URL: `?seed=<n>` starts a Run with that seed, and
@@ -40,20 +40,21 @@ export function giveGold(
 }
 
 /**
- * Starts Round `round` with the Board, Army and wallets as they are: the Score becomes the
- * Rounds before it. Not during a battle or after the Run is over.
+ * Starts Round `round` with the Board, Army and wallets as they are and that Round's crate:
+ * the Score becomes the Rounds before it. Not during a battle or after the Run is over.
  */
 export function jumpToRound(state: RunState, round: number): RunState | null {
   if (state.phase === "fighting" || state.phase === "run-over") return null;
   if (!Number.isSafeInteger(round) || round < 1) return null;
-  return {
+  return withFreshCrate({
     ...state,
     score: round - 1,
     phase: "building",
     roundStart: {
       pieces: state.pieces,
       army: state.army,
+      mutations: state.mutations,
       wallets: state.wallets,
     },
-  };
+  });
 }
