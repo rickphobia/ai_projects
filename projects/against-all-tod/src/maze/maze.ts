@@ -1,5 +1,11 @@
 import { PIECES, type PieceId } from "../catalog/pieces";
-import { isOnBoard, spawnLineTiles, tileKind, type Tile } from "./board";
+import {
+  isOnBoard,
+  spawnLineTiles,
+  tileKey,
+  tileKind,
+  type Tile,
+} from "./board";
 import { computeRoute, reachesGoal, type Route } from "./route";
 
 /**
@@ -82,8 +88,4 @@ function withPieces(pieces: ReadonlyMap<string, PlacedPiece>): Maze {
 
 function refuse(refusal: PlacementRefusal): PlacementResult {
   return { ok: false, refusal };
-}
-
-function tileKey(tile: Tile): string {
-  return `${String(tile.column)},${String(tile.row)}`;
 }

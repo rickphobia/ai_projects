@@ -60,15 +60,14 @@ The deploy scripts read their own `AGAINST_ALL_TOD_*` variables from the shell; 
 
 The spec (`docs/spec.md`, "Modules") plans pure rule modules (maze, battle, run, economy and so on) with no DOM or PixiJS, and adapters around them. The skeleton has the first pieces:
 
-- `src/main.ts` is the entrypoint: it loads the config, makes the logger and starts the renderer. If anything throws, it logs the error and shows the start-up error screen.
+- `src/main.ts` is the entrypoint: it loads the config, makes the logger, starts the renderer and, for now, wires Board clicks to the maze rules (the run module takes that over when Rounds exist). If anything throws, it logs the error and shows the start-up error screen.
 - `src/maze/board.ts` is the Board's layout as data: 20 columns × 14 rows, the Spawn line on column 0, and the Goal on the right column in the middle two rows (6 and 7). Pure, so the maze and battle rules can share it.
 - `src/maze/maze.ts` holds the placed Pieces and answers "may this Piece go here?" with a typed refusal (`off-board`, `spawn-line`, `goal`, `tile-taken`, `seals-goal`). A Maze is immutable and carries its route, recomputed on each placement.
-- `src/maze/route.ts` is the route: one breadth-first direction field from the Goal over walkable tiles, so every Dude on a tile shares one step. Equally short steps are broken toward the Goal's centre, so routes run straight rather than in an L.
+- `src/maze/route.ts` is the route: one breadth-first direction field from the Goal over walkable tiles, so every Dude on a tile shares one step. Equally short steps are broken toward the Goal's centre, so routes cut diagonally toward the Goal rather than run along an edge.
 - `src/catalog/pieces.ts` holds every Piece's tuning numbers (price, health, whether it blocks Dudes). Tests read numbers from it.
 - `src/adapters/renderer/` draws with PixiJS. `game-renderer.ts` starts PixiJS in the page and keeps the Board scaled to fit the window (`fit-to-view.ts`); `board-view.ts` builds the Board from Kenney tiles, with faint lines between tiles, a stripe in the attack colour on the Spawn line and the Goal framed in the defense colour. `board-textures.ts` loads the tiles. `pieces-view.ts` draws the Pieces, `route-view.ts` the route preview and `placement-cursor.ts` the tile under the mouse (a ghost Piece, or a red frame where it can't go).
 - `src/adapters/input/board-pointer.ts` turns mouse moves and clicks on the Board into tiles.
 - `src/ui/hud.ts` is the band above the Board: the turn, what to do, and why a placement was refused.
-- `src/main.ts` wires clicks to the maze rules for now; the run module takes this over when Rounds exist.
 - `src/ui/startup-error-screen.ts` shows why the game could not start, in plain DOM.
 
 ## Folder layout

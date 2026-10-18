@@ -43,6 +43,16 @@ export function allTiles(): Tile[] {
   return tiles;
 }
 
+/** The Goal's tiles, top to bottom. */
+export function goalTiles(): Tile[] {
+  return allTiles().filter((tile) => tileKind(tile) === "goal");
+}
+
+/** A tile as a string, for keying maps and sets. */
+export function tileKey(tile: Tile): string {
+  return `${String(tile.column)},${String(tile.row)}`;
+}
+
 /** The Spawn line's tiles, top to bottom. */
 export function spawnLineTiles(): Tile[] {
   return allTiles().filter((tile) => tileKind(tile) === "spawn-line");

@@ -1,9 +1,7 @@
 import { Container, Graphics, Sprite, type Texture } from "pixi.js";
 import type { Tile } from "../../maze/board";
 import { TILE_SIZE } from "./board-textures";
-import { DEFENSE_COLOUR } from "./board-view";
-
-const REFUSED_COLOUR = 0xff3030;
+import { DEFENSE_COLOUR, REFUSED_COLOUR } from "./board-view";
 
 /** The tile under the mouse: a faint ghost of the Piece where it may go, a red frame where it may not. */
 export class PlacementCursor {

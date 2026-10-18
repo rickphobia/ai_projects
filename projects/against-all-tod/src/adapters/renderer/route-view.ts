@@ -1,5 +1,5 @@
 import type { Graphics } from "pixi.js";
-import { spawnLineTiles, type Tile } from "../../maze/board";
+import { spawnLineTiles, tileKey } from "../../maze/board";
 import { pathToGoal, type Route } from "../../maze/route";
 import { TILE_SIZE } from "./board-textures";
 import { ATTACK_COLOUR } from "./board-view";
@@ -17,7 +17,7 @@ export function drawRoute(graphics: Graphics, route: Route): void {
       const from = path[index - 1];
       const to = path[index];
       if (from === undefined || to === undefined) continue;
-      const key = `${centreKey(from)}>${centreKey(to)}`;
+      const key = `${tileKey(from)}>${tileKey(to)}`;
       if (drawn.has(key)) continue;
       drawn.add(key);
       graphics
@@ -36,8 +36,4 @@ export function drawRoute(graphics: Graphics, route: Route): void {
 
 function centre(index: number): number {
   return (index + 0.5) * TILE_SIZE;
-}
-
-function centreKey(tile: Tile): string {
-  return `${String(tile.column)},${String(tile.row)}`;
 }

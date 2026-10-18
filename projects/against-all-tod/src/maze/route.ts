@@ -2,8 +2,8 @@ import {
   BOARD_COLUMNS,
   BOARD_ROWS,
   allTiles,
+  goalTiles,
   isOnBoard,
-  tileKind,
   type Tile,
 } from "./board";
 
@@ -30,7 +30,7 @@ const STEP_OFFSETS: Readonly<Record<Step, Tile>> = {
 /** Fixed so the field, and every battle built on it, is the same on every machine. */
 const STEP_ORDER: readonly Step[] = ["right", "down", "up", "left"];
 
-/** Where routes aim when several steps are equally short, so they run straight at the Goal rather than in an L. */
+/** Where routes aim when several steps are equally short, so they cut toward the Goal rather than run along an edge. */
 const GOAL_CENTRE = goalCentre();
 
 /** Breadth-first from every Goal tile over the tiles `isWalkable` allows. */
@@ -38,7 +38,7 @@ export function computeRoute(isWalkable: (tile: Tile) => boolean): Route {
   const distances: (number | null)[] = new Array<number | null>(
     BOARD_COLUMNS * BOARD_ROWS,
   ).fill(null);
-  const queue: Tile[] = allTiles().filter((tile) => tileKind(tile) === "goal");
+  const queue = goalTiles();
   for (const tile of queue) distances[indexOf(tile)] = 0;
 
   // An array iterator also visits what is pushed during the loop, which makes it a queue.
@@ -89,15 +89,15 @@ function bestStep(
 ): Step | null {
   const distance = distances[indexOf(tile)];
   if (distance == null || distance === 0) return null;
-  let best: { step: Step; straightness: number } | null = null;
+  let best: { step: Step; distanceToGoalCentre: number } | null = null;
   for (const [step, neighbour] of neighbours(tile)) {
     if (distances[indexOf(neighbour)] !== distance - 1) continue;
-    const straightness = Math.hypot(
+    const distanceToGoalCentre = Math.hypot(
       neighbour.column - GOAL_CENTRE.column,
       neighbour.row - GOAL_CENTRE.row,
     );
-    if (best === null || straightness < best.straightness) {
-      best = { step, straightness };
+    if (best === null || distanceToGoalCentre < best.distanceToGoalCentre) {
+      best = { step, distanceToGoalCentre };
     }
   }
   return best?.step ?? null;
@@ -120,7 +120,7 @@ function indexOf(tile: Tile): number {
 }
 
 function goalCentre(): { column: number; row: number } {
-  const goal = allTiles().filter((tile) => tileKind(tile) === "goal");
+  const goal = goalTiles();
   const mean = (values: number[]) =>
     values.reduce((sum, value) => sum + value, 0) / values.length;
   return {

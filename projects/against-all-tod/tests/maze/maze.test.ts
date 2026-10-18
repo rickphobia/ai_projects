@@ -154,10 +154,15 @@ describe("the route", () => {
   });
 
   it("updates after each placement", () => {
-    const first = build([{ column: 10, row: 6 }]);
-    expect(routeStep(first.route, { column: 9, row: 6 })).not.toBe("right");
-    const opened = emptyMaze();
-    expect(routeStep(opened.route, { column: 9, row: 6 })).toBe("right");
+    const start = { column: 9, row: 6 };
+    const open = emptyMaze();
+    expect(routeStep(open.route, start)).toBe("right");
+
+    const oneWall = build([{ column: 10, row: 6 }], open);
+    expect(routeStep(oneWall.route, start)).toBe("down");
+
+    const twoWalls = build([{ column: 9, row: 7 }], oneWall);
+    expect(routeStep(twoWalls.route, start)).toBe("up");
   });
 
   it("gives every tile one step, shared by every Dude on it", () => {
