@@ -602,7 +602,12 @@ export class RunScreen {
     this.showRunStatus();
     this.showTricks();
     // Over the HUD or end screen; closing it shows what comes next.
-    this.report?.show(roundReport(battle.goldEvents, battleEnd), won);
+    const report = roundReport(
+      battle.goldEvents,
+      battleEnd,
+      battle.setup.maze.windowSize,
+    );
+    this.report?.show(report, won);
     if (this.run.phase === "run-over") {
       this.logger.info("Run over", {
         seed: this.run.seed,

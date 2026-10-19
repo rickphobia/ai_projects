@@ -6,6 +6,7 @@ import {
 } from "../catalog/dudes";
 import { isInSpawnZone, spawnZoneRows } from "../maze/board";
 import { createRng } from "../rng/rng";
+import { NEUTRAL_SLIDERS } from "../tricks/tricks";
 import type { BoardPoint } from "./events";
 
 /** One Dude the attacker painted into the Spawn zone; it stands there at the start of every battle. */
@@ -102,8 +103,9 @@ export function roundOneArmy(seed: number): Army {
         x: centre.x + Math.cos(angle) * distance,
         y: centre.y + Math.sin(angle) * distance,
       };
-      // A Run starts with the Window size at its neutral 0.
-      if (!isSpawnZonePoint(at, 0) || !hasRoom(army, dudeKind, at)) continue;
+      // A Run starts with the Window size in the middle.
+      const zoneAt = isSpawnZonePoint(at, NEUTRAL_SLIDERS["window-size"]);
+      if (!zoneAt || !hasRoom(army, dudeKind, at)) continue;
       army.push({ dudeKind, at, stroke, round: 1 });
       placed++;
     }

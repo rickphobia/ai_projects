@@ -1,6 +1,6 @@
 import { Container, Graphics, Text } from "pixi.js";
 import { litTiles } from "../../battle/area-effects";
-import { allTiles, tileKey } from "../../maze/board";
+import { allTiles, tileKey, tileKind } from "../../maze/board";
 import { placedPieces, type Maze } from "../../maze/maze";
 import type { SliderPositions } from "../../tricks/tricks";
 import { TILE_SIZE } from "./board-textures";
@@ -71,7 +71,9 @@ export class TricksView {
   private drawDark(maze: Maze, steps: number): void {
     const lit = litTiles(maze);
     for (const tile of allTiles(maze.windowSize)) {
+      // Closed Spawn zone tiles aren't drawn, so the dark leaves them alone too.
       if (lit.has(tileKey(tile))) continue;
+      if (tileKind(tile, maze.windowSize) === "closed") continue;
       this.shade.rect(
         tile.column * TILE_SIZE,
         tile.row * TILE_SIZE,
