@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  ACTUAL_VOLUME_KEY,
   SAVE_KEY,
   SAVE_VERSION,
   SaveStore,
@@ -85,7 +86,7 @@ describe("SaveStore", () => {
     if (!dragged.ok) throw new Error(dragged.refusal);
     const run: RunState = {
       ...dragged.state,
-      sliders: { brightness: -2, "game-speed": 0 },
+      sliders: { brightness: -2, volume: 1, "game-speed": 0 },
     };
     store.save(run);
     expect(store.load()).toEqual({ kind: "loaded", run });
@@ -170,5 +171,35 @@ describe("SaveStore", () => {
       store.save(newRun(1));
     }).not.toThrow();
     expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the actual volume apart from the Run", () => {
+    const { store } = storeWith();
+    expect(store.loadActualVolume(0.5)).toBe(0.5);
+    store.saveActualVolume(0.25);
+    expect(store.loadActualVolume(0.5)).toBe(0.25);
+    expect(store.load()).toEqual({ kind: "empty" });
+  });
+
+  it("falls back on an actual volume it can't use", () => {
+    const { store, storage, warn } = storeWith();
+    storage.setItem(ACTUAL_VOLUME_KEY, "loud");
+    expect(store.loadActualVolume(0.5)).toBe(0.5);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("loads a save from before the Volume trick with Volume in the middle", () => {
+    const run = readyToFight();
+    const oldSliders = {
+      brightness: run.sliders.brightness,
+      "game-speed": run.sliders["game-speed"],
+    };
+    const { store } = storeWith(
+      JSON.stringify({
+        version: SAVE_VERSION,
+        run: { ...run, sliders: oldSliders },
+      }),
+    );
+    expect(store.load()).toEqual({ kind: "loaded", run });
   });
 });

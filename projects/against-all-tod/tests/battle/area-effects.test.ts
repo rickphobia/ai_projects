@@ -100,7 +100,7 @@ describe("the Siren's range and the Volume level", () => {
     const army = internSquads(3);
     const stunnedAt = (volume: number) => {
       const base = setupOf(mazeWith([{ pieceId: "siren", tile }]), army);
-      const setup = { ...base, rules: { ...base.rules, volumeLevel: volume } };
+      const setup = { ...base, sliders: { ...base.sliders, volume } };
       const steps = Math.round(SIREN_STATS.intervalSeconds * STEPS_PER_SECOND);
       const { state } = stepBattleTimes(setup, startBattle(setup), steps);
       return state.dudes.filter((dude) => dude.stunnedUntilStep !== undefined)

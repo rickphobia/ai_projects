@@ -195,7 +195,7 @@ export function stepBattle(
     volley.dudes,
     step,
     STEPS_PER_SECOND,
-    setup.rules.volumeLevel,
+    sliders.volume,
   );
 
   const events = [...volley.events, ...effects.events];
@@ -258,7 +258,7 @@ export function stepBattle(
       trickSpeed *
       (hypeMen.length === 0
         ? 1
-        : hypeSpeedFactor(dude, hypeMen, setup.rules.volumeLevel)) *
+        : hypeSpeedFactor(dude, hypeMen, sliders.volume)) *
       carrierSpeedFactor(dude) *
       mutationSpeedFactor(dude);
     const moved = walk(dude, field, STEP_SECONDS, speedFactor);

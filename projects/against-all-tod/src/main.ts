@@ -1,3 +1,5 @@
+import { DEFAULT_ACTUAL_VOLUME } from "./adapters/audio/sound-level";
+import { SoundPlayer } from "./adapters/audio/sound-player";
 import { startRenderer } from "./adapters/renderer/game-renderer";
 import { SaveStore } from "./adapters/storage/save-store";
 import { loadConfig } from "./config";
@@ -14,6 +16,7 @@ import { EndScreen } from "./ui/end-screen";
 import { FpsMeter } from "./ui/fps-meter";
 import { CratePanel } from "./ui/crate";
 import { Hud } from "./ui/hud";
+import { showPauseMenu } from "./ui/pause";
 import { PieceInfo } from "./ui/piece-info";
 import { RoundReportPanel } from "./ui/report";
 import { SettingsMenu } from "./ui/settings";
@@ -61,6 +64,8 @@ async function start(): Promise<void> {
     seed: firstRun.seed,
     save: loaded.kind,
   });
+  const actualVolume = saves.loadActualVolume(DEFAULT_ACTUAL_VOLUME);
+  const sounds = new SoundPlayer(logger, actualVolume);
   const run = new RunScreen(
     view,
     new PieceInfo(requireElement("piece-info")),
@@ -69,6 +74,7 @@ async function start(): Promise<void> {
     (changed) => {
       saves.save(changed);
     },
+    sounds,
   );
   const hud = new Hud(requireElement("hud"), SHOP_STOCK, {
     onChoosePiece: (pieceId) => {
@@ -102,6 +108,15 @@ async function start(): Promise<void> {
   const settings = new SettingsMenu(requireElement("settings"), {
     onDrag: (slider, to) => {
       run.dragSlider(slider, to);
+    },
+  });
+  showPauseMenu(requireElement("pause"), actualVolume, {
+    onPausedChange: (paused) => {
+      run.setPaused(paused);
+    },
+    onActualVolume: (volume) => {
+      sounds.setActualVolume(volume);
+      saves.saveActualVolume(volume);
     },
   });
   run.begin(hud, endScreen, cratePanel, report, settings);
