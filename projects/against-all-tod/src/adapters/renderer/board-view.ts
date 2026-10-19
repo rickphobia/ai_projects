@@ -17,6 +17,8 @@ export const REFUSED_COLOUR = 0xff3030;
 export const TEXT_COLOUR = 0xe8efe9;
 /** The wash over the Board while Brightness is up (`--light-wash`). */
 export const LIGHT_WASH_COLOUR = 0xfff3c4;
+/** The dark over the Board while Brightness is down (`--dark`). */
+export const DARK_COLOUR = 0x000000;
 
 export const BOARD_PIXEL_SIZE = {
   width: BOARD_COLUMNS * TILE_SIZE,

@@ -6,6 +6,7 @@ import type { SliderPositions } from "../../tricks/tricks";
 import { TILE_SIZE } from "./board-textures";
 import {
   BOARD_PIXEL_SIZE,
+  DARK_COLOUR,
   DEFENSE_COLOUR,
   LIGHT_WASH_COLOUR,
   TEXT_COLOUR,
@@ -16,6 +17,8 @@ const DARK_ALPHA_PER_STEP = 0.36;
 /** How strong the wash is per Brightness step up. */
 const BRIGHT_ALPHA_PER_STEP = 0.1;
 const OUTLINE_WIDTH = 3;
+const OUTLINE_ALPHA = 0.9;
+const OUTLINE_CORNER_RADIUS = 6;
 
 /**
  * The tricks on the Board, so their state shows there and not only in the Settings menu: the dark
@@ -74,7 +77,7 @@ export class TricksView {
         TILE_SIZE,
       );
     }
-    this.shade.fill({ color: 0x000000, alpha: DARK_ALPHA_PER_STEP * steps });
+    this.shade.fill({ color: DARK_COLOUR, alpha: DARK_ALPHA_PER_STEP * steps });
     const inset = OUTLINE_WIDTH;
     for (const { tile } of placedPieces(maze)) {
       this.shade.roundRect(
@@ -82,13 +85,13 @@ export class TricksView {
         tile.row * TILE_SIZE + inset,
         TILE_SIZE - 2 * inset,
         TILE_SIZE - 2 * inset,
-        6,
+        OUTLINE_CORNER_RADIUS,
       );
     }
     this.shade.stroke({
       color: DEFENSE_COLOUR,
       width: OUTLINE_WIDTH,
-      alpha: 0.9,
+      alpha: OUTLINE_ALPHA,
     });
   }
 }

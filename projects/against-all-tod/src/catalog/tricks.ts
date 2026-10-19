@@ -27,7 +27,7 @@ export const SLIDERS: Readonly<Record<SliderId, SliderEntry>> = {
     id: "game-speed",
     name: "Game speed",
     downLabel: "Slower: Dudes slow down, towers get extra shots",
-    upLabel: "Faster: Dudes outrun the towers' turning and reloading",
+    upLabel: "Faster: Dudes speed up, towers reload slower",
     stepPrice: 25,
     attackDirection: 1,
   },

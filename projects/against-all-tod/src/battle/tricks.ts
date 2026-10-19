@@ -28,7 +28,7 @@ export function towerTricks(sliders: SliderPositions, maze: Maze): TowerTricks {
   const reloadFactor =
     1 + TRICK_RULES.reloadPerGameStep * sliders["game-speed"];
   const dark = Math.max(0, -sliders.brightness);
-  if (dark === 0) return { rangeFactor: () => 1, reloadFactor };
+  if (dark === 0) return { ...NO_TOWER_TRICKS, reloadFactor };
   const lit = litTilesOf(maze);
   const darkFactor = Math.max(0, 1 - TRICK_RULES.rangeLossPerDarkStep * dark);
   return {
