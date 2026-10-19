@@ -1,10 +1,10 @@
 import type { DudeKindId } from "../catalog/dudes";
+import type { Tile } from "../maze/board";
 
-/** A group of Dudes of one kind, placed together on one Spawn line tile. */
+/** A group of Dudes of one kind, standing spread over one Spawn zone tile. */
 export interface Squad {
   readonly dudeKind: DudeKindId;
-  /** The Spawn line is one column, so its row names the tile. */
-  readonly spawnRow: number;
+  readonly tile: Tile;
 }
 
 /** Every Squad placed so far; it all attacks each battle. */

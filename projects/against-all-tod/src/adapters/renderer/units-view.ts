@@ -204,7 +204,7 @@ export class UnitsView {
       texture: this.textures.dude,
       anchor: 0.5,
       scale: DUDE_SCALE * scale,
-      // Dudes enter walking right, off the Spawn line.
+      // Dudes start facing right, toward the Goal.
       rotation: SPRITE_FACING,
       x,
       y,

@@ -53,7 +53,7 @@ export interface GameView {
   showMaze(maze: Maze): void;
   /** Hides the route preview, which would hide Dudes during a battle. */
   showRoute(visible: boolean): void;
-  /** Redraws the Squads on the Spawn line; an empty Army hides them, as during a battle. */
+  /** Redraws the Squads in the Spawn zone; an empty Army hides them, as during a battle. */
   showArmy(army: Army): void;
   /** The Piece the placement cursor shows. */
   choosePiece(pieceId: PieceId): void;

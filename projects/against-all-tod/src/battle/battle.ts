@@ -2,7 +2,7 @@ import type { BattleRules } from "../catalog/battle-rules";
 import { DUDE_KINDS } from "../catalog/dudes";
 import type { MutationId } from "../catalog/mutations";
 import { PIECES } from "../catalog/pieces";
-import { isOnBoard, tileKey, tileKind } from "../maze/board";
+import { isInSpawnZone, tileKey } from "../maze/board";
 import type { Maze } from "../maze/maze";
 import type { Route } from "../maze/route";
 import { createRng } from "../rng/rng";
@@ -81,12 +81,6 @@ export interface BattleOutcome {
   readonly step: number;
 }
 
-/** A Dude still waiting on the Spawn line for its turn to walk on. */
-export interface WaitingDude {
-  readonly dude: DudeState;
-  readonly entersAtStep: number;
-}
-
 export interface BattleState {
   /** Steps run so far; 0 before the first. */
   readonly step: number;
@@ -102,7 +96,6 @@ export interface BattleState {
   /** When each jammed Grinder or spent Bouncer works again. */
   readonly trapCooldowns: TrapCooldowns;
   readonly dudes: readonly DudeState[];
-  readonly waiting: readonly WaitingDude[];
   /** Ghost Mode's dead still walking; kept apart, as nothing can touch them. */
   readonly ghosts: readonly Ghost[];
   /** The id the next new Dude (a Split half) gets. */
@@ -120,26 +113,28 @@ export class ArmySetupError extends Error {
   override name = "ArmySetupError";
 }
 
-/** The battle before its first step: every Dude waiting on the Spawn line, towers ready. */
+/** How far either way of its tile's centre a Squad's Dude may stand, so the Squad spreads over the tile. */
+const SQUAD_SPREAD = 0.4;
+
+/** The battle before its first step: the whole Army standing in the Spawn zone, towers ready. */
 export function startBattle(setup: BattleSetup): BattleState {
   const rng = createRng(setup.seed);
-  const waiting: WaitingDude[] = [];
+  const dudes: DudeState[] = [];
   for (const [squadIndex, squad] of setup.army.entries()) {
-    if (!isSpawnLineRow(squad.spawnRow)) {
+    const { column, row } = squad.tile;
+    if (!isInSpawnZone(squad.tile)) {
       throw new ArmySetupError(
-        `A Squad of ${squad.dudeKind} is on row ${String(squad.spawnRow)}, which is not on the Spawn line.`,
+        `A Squad of ${squad.dudeKind} is on tile (${String(column)}, ${String(row)}), which is not in the Spawn zone.`,
       );
     }
     const kind = DUDE_KINDS[squad.dudeKind];
     for (let index = 0; index < kind.squadSize; index++) {
-      const lane = (rng() * 2 - 1) * MAX_LANE;
-      const dude = newDude(waiting.length, kind.id, squad.spawnRow, lane);
-      waiting.push({
-        dude: mutatedDude(dude, squadIndex, index, setup.mutations),
-        entersAtStep: Math.round(
-          index * kind.spawnIntervalSeconds * STEPS_PER_SECOND,
-        ),
-      });
+      const at = {
+        x: column + 0.5 + (rng() * 2 - 1) * SQUAD_SPREAD,
+        y: row + 0.5 + (rng() * 2 - 1) * MAX_LANE,
+      };
+      const dude = newDude(dudes.length, kind.id, at);
+      dudes.push(mutatedDude(dude, squadIndex, index, setup.mutations));
     }
   }
   const hasWallBreakers = setup.army.some(({ dudeKind }) =>
@@ -153,10 +148,9 @@ export function startBattle(setup: BattleSetup): BattleState {
     breakerRoutes: hasWallBreakers ? breakerRoutesOf(setup.maze) : null,
     decoyRoutes: decoyRoutesOf(setup.maze),
     trapCooldowns: new Map(),
-    dudes: [],
-    waiting,
+    dudes,
     ghosts: [],
-    nextDudeId: waiting.length,
+    nextDudeId: dudes.length,
     towers: towersOf(setup.maze),
     effectPieces: effectPiecesOf(setup.maze),
     events: [],
@@ -164,7 +158,7 @@ export function startBattle(setup: BattleSetup): BattleState {
   };
 }
 
-/** One fixed step: Dudes enter, towers fire, Dudes walk, then the end is checked. A finished battle stays as it is. */
+/** One fixed step: towers fire, Dudes walk, then the end is checked. A finished battle stays as it is. */
 export function stepBattle(
   setup: BattleSetup,
   state: BattleState,
@@ -172,12 +166,7 @@ export function stepBattle(
   if (state.outcome !== null) return state;
   const step = state.step + 1;
 
-  const onBoard = [...state.dudes];
-  const waiting: WaitingDude[] = [];
-  for (const next of state.waiting) {
-    if (next.entersAtStep < step) onBoard.push(next.dude);
-    else waiting.push(next);
-  }
+  const onBoard = state.dudes;
   // The routes belong to the Maze, worked out again only when a Wall-breaker destroys a Piece.
   const route = routeAt(state.maze, step);
   const sliders = slidersAt(setup.sliders, setup.sliderInputs, step);
@@ -313,7 +302,6 @@ export function stepBattle(
     goalHealth,
     pieceHealth: pieceHits.pieceHealth(),
     dudes: living,
-    waiting,
     ghosts,
     nextDudeId: afterlife.nextDudeId,
     events,
@@ -321,7 +309,7 @@ export function stepBattle(
       setup.rules,
       step,
       goalHealth,
-      living.length + waiting.length + ghosts.length,
+      living.length + ghosts.length,
     ),
   };
 }
@@ -393,7 +381,7 @@ function outcomeAfter(
   rules: BattleRules,
   step: number,
   goalHealth: number,
-  /** Dudes on the Board, waiting and walking as ghosts. */
+  /** Dudes on the Board and walking as ghosts. */
   attackersLeft: number,
 ): BattleOutcome | null {
   if (goalHealth <= 0) {
@@ -406,9 +394,4 @@ function outcomeAfter(
     return { winner: "defense", reason: "time-up", step };
   }
   return null;
-}
-
-function isSpawnLineRow(row: number): boolean {
-  const tile = { column: 0, row };
-  return isOnBoard(tile) && tileKind(tile) === "spawn-line";
 }

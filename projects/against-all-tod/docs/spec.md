@@ -8,7 +8,7 @@ The pitch as first written had holes that would make people quit: no way to lose
 
 ## Solution
 
-A solo browser game, **Against All TOD**, played on a 20×14 tile Board seen from above.
+A solo browser game, **Against All TOD**, played on a 22×14 tile Board seen from above.
 
 A Run starts on an empty Board. Round 1 is a Defense turn against a small game-made Army. Every Round the player wins, they switch sides: build the Maze on a Defense turn, paint Dudes into the Army on an Attack turn, and each time try to beat what they built one Round ago. Nothing on the Board ever despawns, so by Round 15 the Maze and the Army are the history of every choice made.
 
@@ -43,7 +43,7 @@ It runs in any modern desktop browser and on phones and tablets in landscape, sa
 
 ### The Board and the Maze
 
-19. As a defender, I want an empty 20×14 tile Board at the start of a Run, so that the Maze is entirely mine.
+19. As a defender, I want an empty 22×14 tile Board at the start of a Run, so that the Maze is entirely mine.
 20. As a defender, I want every Piece to snap to tiles, so that the Maze is tidy and easy to read.
 21. As a defender, I want Dudes to walk the shortest open route from the Spawn zone to the Goal, so that placing Pieces shapes their path.
 22. As a defender, I want a placement that would seal the Goal off to be refused with a clear message, so that I know why it failed.

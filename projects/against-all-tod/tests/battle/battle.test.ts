@@ -8,13 +8,15 @@ import {
   stepBattleTimes,
 } from "../../src/battle/battle";
 import { DUDE_KINDS } from "../../src/catalog/dudes";
-import { tileKey, type Tile } from "../../src/maze/board";
+import { SPAWN_ZONE_COLUMNS, tileKey, type Tile } from "../../src/maze/board";
+import { tileUnder } from "../../src/battle/dudes";
 import { emptyMaze } from "../../src/maze/maze";
 import { pathToGoal } from "../../src/maze/route";
 import {
   crateWalls,
   internSquads,
   mazeWith,
+  squadAt,
   setupOf,
   wallWithGap,
 } from "./battle-setups";
@@ -51,17 +53,62 @@ describe("Dudes walking the route", () => {
     }
   });
 
-  it("lets a Squad file in one Dude at a time", () => {
-    const setup = setupOf(emptyMaze(), internSquads(3));
-    const afterOneStep = stepBattle(setup, startBattle(setup));
-    expect(afterOneStep.dudes).toHaveLength(1);
-    expect(afterOneStep.waiting).toHaveLength(INTERN.squadSize - 1);
+  it("puts the whole Army on the Board at step 0, each Squad spread over its own tile", () => {
+    const army = [squadAt("intern", 3, 0), squadAt("termite", 9, 2)];
+    const state = startBattle(setupOf(emptyMaze(), army));
+    expect(state.dudes).toHaveLength(
+      DUDE_KINDS.intern.squadSize + DUDE_KINDS.termite.squadSize,
+    );
+    for (const { dudeKind, tile } of army) {
+      const squad = state.dudes.filter((dude) => dude.kind === dudeKind);
+      expect(
+        squad.every((dude) => tileKey(tileUnder(dude)) === tileKey(tile)),
+      ).toBe(true);
+      expect(
+        new Set(squad.map((dude) => `${String(dude.x)},${String(dude.y)}`))
+          .size,
+      ).toBe(squad.length);
+      expect(
+        squad.every(
+          (dude) => dude.start.x === dude.x && dude.start.y === dude.y,
+        ),
+      ).toBe(true);
+    }
   });
 
-  it("refuses a Squad that is not on the Spawn line", () => {
+  it("starts every Dude walking in the first step", () => {
+    const setup = setupOf(emptyMaze(), internSquads(3, 10));
+    const start = startBattle(setup);
+    const afterOneStep = stepBattle(setup, start);
+    expect(afterOneStep.dudes).toHaveLength(2 * INTERN.squadSize);
+    for (const dude of afterOneStep.dudes) {
+      expect(dude.x).toBeGreaterThan(dude.start.x);
+    }
+  });
+
+  it.each([0, 1, 2])(
+    "brings Interns from Spawn zone column %i through a Maze to the Goal",
+    (column) => {
+      const maze = mazeWith(
+        crateWalls([...wallWithGap(5, 12), ...wallWithGap(10, 1)]),
+      );
+      const army = [0, 6, 13].map((row) => squadAt("intern", row, column));
+      const { events } = runBattle(setupOf(maze, army, STURDY_GOAL));
+      expect(
+        events.filter((event) => event.type === "reach-goal"),
+      ).toHaveLength(army.length * INTERN.squadSize);
+    },
+  );
+
+  it("refuses a Squad that is not in the Spawn zone", () => {
     expect(() => startBattle(setupOf(emptyMaze(), internSquads(99)))).toThrow(
       ArmySetupError,
     );
+    expect(() =>
+      startBattle(
+        setupOf(emptyMaze(), [squadAt("intern", 3, SPAWN_ZONE_COLUMNS)]),
+      ),
+    ).toThrow(ArmySetupError);
   });
 });
 
@@ -96,7 +143,7 @@ describe("the end of a battle", () => {
     expect(events.filter((event) => event.type === "reach-goal")).toHaveLength(
       3,
     );
-    expect(state.dudes.length + state.waiting.length).toBeGreaterThan(0);
+    expect(state.dudes.length).toBeGreaterThan(0);
   });
 
   it("is a defense win when no Dudes are left and the Goal stands", () => {

@@ -13,7 +13,7 @@ export const TILE_SIZE = 64;
 export interface BoardTextures {
   /** Open ground. */
   readonly grass: Texture;
-  /** The Spawn line. */
+  /** The Spawn zone. */
   readonly dirt: Texture;
   /** Under the Goal. */
   readonly stoneBase: Texture;

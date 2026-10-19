@@ -112,6 +112,7 @@ export class RoundReportPanel {
     map.className = "report-deaths";
     map.setAttribute("aria-label", "Where Dudes died");
     map.style.gridTemplateColumns = `repeat(${String(BOARD_COLUMNS)}, 1fr)`;
+    map.style.aspectRatio = `${String(BOARD_COLUMNS)} / ${String(BOARD_ROWS)}`;
     for (const row of report.deaths) {
       for (const count of row) {
         const cell = el("span");

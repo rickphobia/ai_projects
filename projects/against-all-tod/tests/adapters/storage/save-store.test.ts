@@ -114,6 +114,23 @@ describe("SaveStore", () => {
       "a future version",
       JSON.stringify({ version: SAVE_VERSION + 1, run: newRun(1) }),
     ],
+    [
+      "a save from before the Spawn zone",
+      JSON.stringify({
+        version: SAVE_VERSION - 1,
+        run: { ...newRun(1), army: [{ dudeKind: "intern", spawnRow: 3 }] },
+      }),
+    ],
+    [
+      "a Squad outside the Spawn zone",
+      JSON.stringify({
+        version: SAVE_VERSION,
+        run: {
+          ...newRun(1),
+          army: [{ dudeKind: "intern", tile: { column: 5, row: 3 } }],
+        },
+      }),
+    ],
     ["no Run", JSON.stringify({ version: SAVE_VERSION })],
     [
       "an unknown Piece",
@@ -145,7 +162,7 @@ describe("SaveStore", () => {
         version: SAVE_VERSION,
         run: {
           ...newRun(1),
-          pieces: [{ pieceId: "crate-wall", tile: { column: 19, row: 6 } }],
+          pieces: [{ pieceId: "crate-wall", tile: { column: 21, row: 6 } }],
         },
       }),
     ],

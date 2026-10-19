@@ -101,7 +101,7 @@ describe("a Sniper Nest among many Dudes", () => {
   function scatter(count: number, seed: number): DudeState[] {
     const random = createRng(seed);
     return Array.from({ length: count }, (_, id) => ({
-      ...newDude(id, "intern", 0, 0),
+      ...newDude(id, "intern", { x: 0.5, y: 0.5 }),
       x: 1 + random() * (BOARD_COLUMNS - 2),
       y: random() * BOARD_ROWS,
     }));

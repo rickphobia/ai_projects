@@ -9,7 +9,7 @@ const FACING_RIGHT = Math.PI / 2;
 
 /**
  * One Squad as a token in a tile-sized box with its top left at (0, 0): a Dude on a disc in the
- * attack colour, with the Squad's size, so a Spawn line tile reads as "20 Interns start here".
+ * attack colour, with the Squad's size, so a Spawn zone tile reads as "20 Interns start here".
  */
 export function squadView(
   textures: BoardTextures,
@@ -44,16 +44,16 @@ export function squadView(
   return squad;
 }
 
-/** Every Squad in the Army on its Spawn line tile. Redrawn whole: the Spawn line has one Squad per tile at most. */
+/** Every Squad in the Army on its Spawn zone tile. Redrawn whole: the zone has one Squad per tile at most. */
 export function drawSquads(
   layer: Container,
   textures: BoardTextures,
   army: Army,
 ): void {
   for (const child of layer.removeChildren()) child.destroy({ children: true });
-  for (const { dudeKind, spawnRow } of army) {
+  for (const { dudeKind, tile } of army) {
     const squad = squadView(textures, dudeKind);
-    squad.position.set(0, spawnRow * TILE_SIZE);
+    squad.position.set(tile.column * TILE_SIZE, tile.row * TILE_SIZE);
     layer.addChild(squad);
   }
 }

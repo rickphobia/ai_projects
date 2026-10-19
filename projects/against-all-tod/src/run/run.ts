@@ -14,7 +14,7 @@ import {
   startingWallets,
   type Wallets,
 } from "../economy/economy";
-import { isOnBoard, tileKey, tileKind, type Tile } from "../maze/board";
+import { isInSpawnZone, isOnBoard, tileKey, type Tile } from "../maze/board";
 import {
   emptyMaze,
   placePiece,
@@ -84,7 +84,7 @@ export type RunAction =
     }
   | {
       readonly type: "place-squad";
-      /** Any tapped tile; only Spawn line tiles are accepted. */
+      /** Any tapped tile; only Spawn zone tiles are accepted. */
       readonly tile: Tile;
       readonly dudeKind: DudeKindId;
     }
@@ -119,8 +119,8 @@ export type RunRefusal =
   | "wrong-side"
   /** The side's own wallet can't pay for it. */
   | "not-enough-gold"
-  /** A Squad anywhere but the Spawn line. */
-  | "not-spawn-line"
+  /** A Squad anywhere outside the Spawn zone. */
+  | "not-spawn-zone"
   /** The crate is already taken from, or has no such item. */
   | "no-crate"
   /** A slider dragged off its end, or not moved at all. */
@@ -237,7 +237,7 @@ export function battleSetupOf(
   };
 }
 
-/** Null when a Squad may go on `tile` now; otherwise why not. Only Spawn line tiles take Squads. */
+/** Null when a Squad may go on `tile` now; otherwise why not. Only Spawn zone tiles take Squads, one per tile. */
 export function checkSquad(
   state: RunState,
   tile: Tile,
@@ -250,8 +250,8 @@ export function checkSquad(
   );
   if (refusal !== null) return refusal;
   if (!isOnBoard(tile)) return "off-board";
-  if (tileKind(tile) !== "spawn-line") return "not-spawn-line";
-  if (state.army.some((squad) => squad.spawnRow === tile.row)) {
+  if (!isInSpawnZone(tile)) return "not-spawn-zone";
+  if (state.army.some((squad) => tileKey(squad.tile) === tileKey(tile))) {
     return "tile-taken";
   }
   return null;
@@ -276,7 +276,7 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
       if (refusal !== null) return refuse(refusal);
       const squad: Squad = {
         dudeKind: action.dudeKind,
-        spawnRow: action.tile.row,
+        tile: action.tile,
       };
       const item: FreeItem = { kind: "squad", id: action.dudeKind };
       return accept({

@@ -22,7 +22,7 @@ describe("the swarm scene", () => {
       sliderInputs: [],
     });
     expect(SWARM_DUDES).toBe(500);
-    expect(state.waiting).toHaveLength(SWARM_DUDES);
+    expect(state.dudes).toHaveLength(SWARM_DUDES);
     expect(state.towers.length).toBeGreaterThan(0);
   });
 

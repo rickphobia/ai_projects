@@ -10,7 +10,13 @@ import { PIECES } from "../../src/catalog/pieces";
 import { BOARD_ROWS, type Tile } from "../../src/maze/board";
 import { checkPlacement, placePiece } from "../../src/maze/maze";
 import { pathToGoal } from "../../src/maze/route";
-import { crateWalls, internSquads, mazeWith, setupOf } from "./battle-setups";
+import {
+  crateWalls,
+  internSquads,
+  mazeWith,
+  setupOf,
+  squadAt,
+} from "./battle-setups";
 
 const TURN_STEPS =
   (PIECES.turnstile.turnIntervalSeconds ?? 0) * STEPS_PER_SECOND;
@@ -71,7 +77,14 @@ describe("a Turnstile in battle", () => {
   });
 
   it("makes Dudes re-route when it turns", () => {
-    const setup = setupOf(maze, internSquads(5), { goalHealth: 1_000_000 });
+    // The whole Army charges at once: fast Streakers reach the Turnstile before it turns, Interns after.
+    const setup = setupOf(
+      maze,
+      [squadAt("streaker", 5, 2), ...internSquads(5)],
+      {
+        goalHealth: 1_000_000,
+      },
+    );
     const crossedRows = {
       unturned: new Set<number>(),
       turned: new Set<number>(),

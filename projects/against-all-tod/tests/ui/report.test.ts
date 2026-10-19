@@ -56,6 +56,11 @@ describe("roundReport", () => {
     ]);
   });
 
+  it("maps deaths over the Board's real width, Spawn zone included", () => {
+    expect(report.deaths).toHaveLength(14);
+    expect(report.deaths.every((row) => row.length === 22)).toBe(true);
+  });
+
   it("puts each death on the tile it happened on", () => {
     expect(report.deaths[4]?.[2]).toBe(2);
     expect(report.deaths[0]?.[7]).toBe(1);

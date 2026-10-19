@@ -31,8 +31,6 @@ export interface DudeKindEntry {
   readonly squadPrice: number;
   /** What one Dude is worth in gold, killed or getting through; bigger kinds are worth more. */
   readonly goldValue: number;
-  /** Time between one Dude of a Squad entering and the next, so a Squad files in. */
-  readonly spawnIntervalSeconds: number;
   /** Flies straight to the Goal over the Maze; only towers that hit air can shoot it. */
   readonly flies: boolean;
   /** Its shield soaks shots for the Dudes behind it; null for no shield. */
@@ -110,7 +108,6 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     squadSize: 20,
     squadPrice: 20,
     goldValue: 1,
-    spawnIntervalSeconds: 0.25,
   },
   termite: {
     ...ORDINARY,
@@ -124,7 +121,6 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     squadSize: 10,
     squadPrice: 30,
     goldValue: 1,
-    spawnIntervalSeconds: 0.3,
     wallBreaker: { attack: "chew", damagePerSecond: 4 },
   },
   "ram-crew": {
@@ -140,7 +136,6 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     squadSize: 1,
     squadPrice: 60,
     goldValue: 8,
-    spawnIntervalSeconds: 1,
     wallBreaker: {
       attack: "ram",
       damage: 1000,
@@ -160,7 +155,6 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     squadSize: 5,
     squadPrice: 35,
     goldValue: 3,
-    spawnIntervalSeconds: 0.8,
     flies: true,
   },
   "shield-bro": {
@@ -176,7 +170,6 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     squadSize: 3,
     squadPrice: 40,
     goldValue: 5,
-    spawnIntervalSeconds: 1,
     shield: { health: 200, radius: 1.5 },
   },
   "hype-man": {
@@ -191,7 +184,6 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     squadSize: 3,
     squadPrice: 35,
     goldValue: 3,
-    spawnIntervalSeconds: 1,
     hypeAura: { range: 2, speedBoost: 0.4, boostPerVolumeStep: 0.25 },
   },
   sapper: {
@@ -206,7 +198,6 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     squadSize: 3,
     squadPrice: 45,
     goldValue: 2,
-    spawnIntervalSeconds: 0.7,
     wallBreaker: { attack: "blast" },
     unlockScore: 5,
   },
@@ -222,7 +213,6 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     squadSize: 8,
     squadPrice: 35,
     goldValue: 2,
-    spawnIntervalSeconds: 0.5,
     tunnelTiles: 3,
     unlockScore: 15,
   },
@@ -238,17 +228,16 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     squadSize: 4,
     squadPrice: 25,
     goldValue: 1,
-    spawnIntervalSeconds: 0.6,
     drawsFire: true,
     unlockScore: 25,
   },
 };
 
-/** The small game-made Army of Round 1, before the player has attacked: one Squad per Spawn line row. */
+/** The small game-made Army of Round 1, before the player has attacked: two Squads in the middle of the Spawn zone. */
 export const ROUND_ONE_ARMY: readonly {
   readonly dudeKind: DudeKindId;
-  readonly spawnRow: number;
+  readonly tile: { readonly column: number; readonly row: number };
 }[] = [
-  { dudeKind: "intern", spawnRow: 3 },
-  { dudeKind: "intern", spawnRow: 10 },
+  { dudeKind: "intern", tile: { column: 1, row: 3 } },
+  { dudeKind: "intern", tile: { column: 1, row: 10 } },
 ];

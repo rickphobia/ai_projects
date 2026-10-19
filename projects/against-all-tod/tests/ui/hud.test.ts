@@ -11,14 +11,14 @@ import {
 describe("refusalMessage", () => {
   it.each<RunRefusal>([
     "off-board",
-    "spawn-line",
+    "spawn-zone",
     "goal",
     "tile-taken",
     "seals-goal",
     "wrong-phase",
     "wrong-side",
     "not-enough-gold",
-    "not-spawn-line",
+    "not-spawn-zone",
   ])("explains a %s refusal", (refusal) => {
     expect(refusalMessage(refusal).length).toBeGreaterThan(0);
   });

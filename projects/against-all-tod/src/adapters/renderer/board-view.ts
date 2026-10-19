@@ -2,13 +2,14 @@ import { Container, Graphics, Sprite } from "pixi.js";
 import {
   BOARD_COLUMNS,
   BOARD_ROWS,
+  SPAWN_ZONE_COLUMNS,
   allTiles,
   tileKind,
   type TileKind,
 } from "../../maze/board";
 import { TILE_SIZE, type BoardTextures } from "./board-textures";
 
-/** One colour per side (spec story 101); the Goal and the Spawn line wear them from the start. */
+/** One colour per side (spec story 101); the Goal and the Spawn zone wear them from the start. */
 export const DEFENSE_COLOUR = 0x3d8bfd;
 export const ATTACK_COLOUR = 0xff5a36;
 /** Marks a tile where the chosen Piece can't go. */
@@ -25,7 +26,7 @@ export const BOARD_PIXEL_SIZE = {
   height: BOARD_ROWS * TILE_SIZE,
 } as const;
 
-/** The empty Board: ground tiles, the Spawn line on the left and the Goal on the right edge. */
+/** The empty Board: ground tiles, the Spawn zone on the left and the Goal on the right edge. */
 export function createBoardView(textures: BoardTextures): Container {
   const board = new Container({ label: "board" });
   for (const tile of allTiles()) {
@@ -33,7 +34,7 @@ export function createBoardView(textures: BoardTextures): Container {
     sprite.position.set(tile.column * TILE_SIZE, tile.row * TILE_SIZE);
     board.addChild(sprite);
   }
-  board.addChild(tileGrid(), spawnLineEdge(), goalMarker(textures));
+  board.addChild(tileGrid(), spawnZoneStripe(), goalMarker(textures));
   return board;
 }
 
@@ -54,14 +55,23 @@ function tileGrid(): Graphics {
 }
 
 function groundTexture(textures: BoardTextures, kind: TileKind) {
-  return kind === "spawn-line" ? textures.dirt : textures.grass;
+  return kind === "spawn-zone" ? textures.dirt : textures.grass;
 }
 
-/** A stripe in the attack colour down the Spawn line's outer edge. */
-function spawnLineEdge(): Graphics {
+/**
+ * The Spawn zone's stripe: a faint wash in the attack colour over its columns, with a solid
+ * stripe down the Board's outer edge and a thin one where the Maze begins.
+ */
+function spawnZoneStripe(): Graphics {
+  const width = SPAWN_ZONE_COLUMNS * TILE_SIZE;
+  const height = BOARD_PIXEL_SIZE.height;
   return new Graphics()
-    .rect(0, 0, 6, BOARD_PIXEL_SIZE.height)
-    .fill({ color: ATTACK_COLOUR, alpha: 0.85 });
+    .rect(0, 0, width, height)
+    .fill({ color: ATTACK_COLOUR, alpha: 0.15 })
+    .rect(0, 0, 6, height)
+    .fill({ color: ATTACK_COLOUR, alpha: 0.85 })
+    .rect(width - 2, 0, 4, height)
+    .fill({ color: ATTACK_COLOUR, alpha: 0.6 });
 }
 
 /** The Goal's tiles get a stone base each, framed together in the defense colour so they read as one thing. */

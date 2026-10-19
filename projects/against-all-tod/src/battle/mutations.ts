@@ -1,3 +1,4 @@
+import { DUDE_KINDS } from "../catalog/dudes";
 import {
   MUTATION_RULES,
   type MutationId,
@@ -31,7 +32,8 @@ export interface Ghost {
 
 /**
  * A Dude of the Army as the Mutations make it. `indexInSquad` 0, the Squad's first Dude, is its
- * giant; a Conga Line Squad walks single file on its tile's centre line.
+ * giant; a Conga Line Squad stands in single file along its tile's centre line, first Dude at
+ * the back, and walks that way.
  */
 export function mutatedDude(
   dude: DudeState,
@@ -49,11 +51,17 @@ export function mutatedDude(
     result = { ...result, smallShield: rules.smallShieldHealth };
   }
   if (mutations.includes("conga-line")) {
+    const squadSize = DUDE_KINDS[result.kind].squadSize;
+    const start = {
+      x: Math.floor(result.x) + (indexInSquad + 0.5) / squadSize,
+      y: Math.floor(result.y) + 0.5,
+    };
     result = {
       ...result,
       congaSquad: squadIndex,
       lane: 0,
-      y: Math.floor(result.y) + 0.5,
+      ...start,
+      start,
     };
   }
   return result;
