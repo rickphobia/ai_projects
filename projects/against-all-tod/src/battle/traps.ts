@@ -37,7 +37,7 @@ function isCatchable(dude: DudeState): boolean {
 /**
  * What the floor Piece a Dude has just stepped onto does to it: the Dude afterwards, or null
  * if the Grinder killed it. Nothing happens unless `after` stands on a new tile. A Grinder's
- * hit goes through `hits`, which emits the kill (and, under Conga Line, hurts the Squadmates).
+ * hit goes through `hits`, which emits the kill (and, under Conga Line, hurts the Stroke-mates).
  */
 export function crossFloor(
   before: DudeState,

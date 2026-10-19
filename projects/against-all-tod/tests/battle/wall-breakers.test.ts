@@ -16,10 +16,11 @@ import { emptyMaze, pieceAt } from "../../src/maze/maze";
 import { distanceToGoal } from "../../src/maze/route";
 import {
   crateWalls,
-  internSquads,
+  internGroups,
   mazeWith,
   setupOf,
   wallWithGap,
+  groupAt,
 } from "./battle-setups";
 
 const STURDY_GOAL = { goalHealth: 1_000_000 };
@@ -45,7 +46,7 @@ describe("ordinary Dudes", () => {
   it("never damage a Piece", () => {
     const setup = setupOf(
       mazeWith(LONG_WAY_ROUND),
-      internSquads(3, 6, 10),
+      internGroups(3, 6, 10),
       STURDY_GOAL,
     );
     const { state, events } = runBattle(setup);
@@ -58,7 +59,7 @@ describe("ordinary Dudes", () => {
 describe("the Termite", () => {
   const setup = setupOf(
     mazeWith(LONG_WAY_ROUND),
-    [{ dudeKind: "termite", tile: { column: 0, row: 6 } }],
+    [...groupAt("termite", 6, 0)],
     STURDY_GOAL,
   );
 
@@ -90,10 +91,7 @@ describe("other Dudes after a wall breaks", () => {
   it("re-route through the hole", () => {
     const setup = setupOf(
       mazeWith(LONG_WAY_ROUND),
-      [
-        { dudeKind: "termite", tile: { column: 0, row: 6 } },
-        { dudeKind: "intern", tile: { column: 0, row: 5 } },
-      ],
+      [...groupAt("termite", 6, 0), ...groupAt("intern", 5, 0)],
       STURDY_GOAL,
     );
     let state = startBattle(setup);
@@ -124,11 +122,7 @@ describe("the Ram Crew", () => {
     ...LONG_WAY_ROUND.filter(({ tile }) => tileKey(tile) !== tileKey(nest)),
     { pieceId: "sniper-nest", tile: nest },
   ]);
-  const setup = setupOf(
-    maze,
-    [{ dudeKind: "ram-crew", tile: { column: 0, row: 6 } }],
-    STURDY_GOAL,
-  );
+  const setup = setupOf(maze, [...groupAt("ram-crew", 6, 0)], STURDY_GOAL);
 
   it("smashes a tower in one hit, and the tower stops shooting", () => {
     const ram = dudeAt(0, "ram-crew", 7.5, 6.5);
@@ -191,14 +185,14 @@ describe("the Sapper", () => {
   const lone = { column: 3, row: 3 };
   const setup = setupOf(
     mazeWith([...LONG_WAY_ROUND, { pieceId: "crate-wall", tile: lone }]),
-    [{ dudeKind: "sapper", tile: { column: 0, row: 3 } }],
+    [...groupAt("sapper", 3, 0)],
     STURDY_GOAL,
   );
 
   it("runs to the nearest wall and blows up himself and the wall", () => {
     const { state, events } = runBattle(setup);
     const destroyed = destroyedIn(events);
-    const squadSize = DUDE_KINDS.sapper.squadSize;
+    const giftSize = DUDE_KINDS.sapper.giftSize;
 
     // The first goes for the lone crate near the Spawn line, not the wall in the Sapper's way.
     expect(destroyed[0]).toMatchObject({
@@ -207,26 +201,24 @@ describe("the Sapper", () => {
       dudeKind: "sapper",
     });
     // Each Sapper takes exactly one wall with him, whatever its health.
-    expect(destroyed).toHaveLength(squadSize);
-    expect(new Set(destroyed.map((event) => event.dudeId)).size).toBe(
-      squadSize,
-    );
+    expect(destroyed).toHaveLength(giftSize);
+    expect(new Set(destroyed.map((event) => event.dudeId)).size).toBe(giftSize);
     expect(events.some((event) => event.type === "kill")).toBe(false);
     expect(events.some((event) => event.type === "reach-goal")).toBe(false);
     expect(state.outcome?.reason).toBe("army-gone");
-    expect(state.maze.pieces.size).toBe(setup.maze.pieces.size - squadSize);
+    expect(state.maze.pieces.size).toBe(setup.maze.pieces.size - giftSize);
   });
 
   it("walks to the Goal when there is no wall left", () => {
     const open = setupOf(
       emptyMaze(),
-      [{ dudeKind: "sapper", tile: { column: 0, row: 3 } }],
+      [...groupAt("sapper", 3, 0)],
       STURDY_GOAL,
     );
     const reached = runBattle(open).events.filter(
       (event) => event.type === "reach-goal",
     );
-    expect(reached).toHaveLength(DUDE_KINDS.sapper.squadSize);
+    expect(reached).toHaveLength(DUDE_KINDS.sapper.giftSize);
   });
 });
 
@@ -239,10 +231,10 @@ describe("a battle where Pieces fall", () => {
         { pieceId: "turnstile", tile: { column: 13, row: 9 } },
       ]),
       [
-        { dudeKind: "termite", tile: { column: 0, row: 6 } },
-        { dudeKind: "ram-crew", tile: { column: 0, row: 2 } },
-        { dudeKind: "sapper", tile: { column: 0, row: 11 } },
-        ...internSquads(4, 8),
+        ...groupAt("termite", 6, 0),
+        ...groupAt("ram-crew", 2, 0),
+        ...groupAt("sapper", 11, 0),
+        ...internGroups(4, 8),
       ],
       undefined,
       7,

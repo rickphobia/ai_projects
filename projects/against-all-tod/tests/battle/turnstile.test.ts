@@ -12,10 +12,10 @@ import { checkPlacement, placePiece } from "../../src/maze/maze";
 import { pathToGoal } from "../../src/maze/route";
 import {
   crateWalls,
-  internSquads,
+  groupAt,
+  internGroups,
   mazeWith,
   setupOf,
-  squadAt,
 } from "./battle-setups";
 
 const TURN_STEPS =
@@ -80,7 +80,7 @@ describe("a Turnstile in battle", () => {
     // The whole Army charges at once: fast Streakers reach the Turnstile before it turns, Interns after.
     const setup = setupOf(
       maze,
-      [squadAt("streaker", 5, 2), ...internSquads(5)],
+      [...groupAt("streaker", 5, 2), ...internGroups(5)],
       {
         goalHealth: 1_000_000,
       },

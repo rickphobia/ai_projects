@@ -1,8 +1,8 @@
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { PIECES, type PieceId } from "../catalog/pieces";
-import { piecePrice, squadPrice } from "../run/run";
+import { dudePrice, piecePrice, type FreeItem } from "../run/run";
 
-/** What the shop sells each side. Draft Crates and Unlocks (later tickets) will narrow it. */
+/** What the shop sells each side. Unlocks (a later ticket) will narrow it. */
 export interface ShopStock {
   readonly pieces: readonly PieceId[];
   readonly dudeKinds: readonly DudeKindId[];
@@ -11,8 +11,10 @@ export interface ShopStock {
 export interface ShopItem<Id extends string> {
   readonly id: Id;
   readonly name: string;
-  /** In the gold of the side that buys it. */
+  /** In the gold of the side that buys it: per Piece, or per painted Dude. */
   readonly price: number;
+  /** Dudes of this kind the crate gift still holds; absent when none. */
+  readonly free?: number;
 }
 
 export function defenseItems(stock: ShopStock): ShopItem<PieceId>[] {
@@ -23,15 +25,31 @@ export function defenseItems(stock: ShopStock): ShopItem<PieceId>[] {
   }));
 }
 
-export function attackItems(stock: ShopStock): ShopItem<DudeKindId>[] {
-  return stock.dudeKinds.map((id) => ({
+/**
+ * The unit bar: every Dude kind on sale with its price per Dude, plus the crate gift's kind if
+ * the shop doesn't sell it, with the gift's count on its kind.
+ */
+export function attackItems(
+  stock: ShopStock,
+  freeItem: FreeItem | null,
+): ShopItem<DudeKindId>[] {
+  const gift = freeItem?.kind === "gift" ? freeItem : null;
+  const kinds =
+    gift === null || stock.dudeKinds.includes(gift.id)
+      ? stock.dudeKinds
+      : [...stock.dudeKinds, gift.id];
+  return kinds.map((id) => ({
     id,
-    name: `${DUDE_KINDS[id].name} Squad`,
-    price: squadPrice(id),
+    name: DUDE_KINDS[id].name,
+    price: dudePrice(id),
+    ...(gift?.id === id ? { free: gift.left } : {}),
   }));
 }
 
-/** "Sniper Nest · 40g", for a shop button. */
+/** "Sniper Nest · 40g", or "Intern · 1g · 12 free" while a gift lasts, for a shop button. */
 export function itemLabel(item: ShopItem<string>): string {
-  return `${item.name} · ${String(item.price)}g`;
+  const label = `${item.name} · ${String(item.price)}g`;
+  return item.free === undefined
+    ? label
+    : `${label} · ${String(item.free)} free`;
 }

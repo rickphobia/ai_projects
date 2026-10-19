@@ -1,4 +1,3 @@
-import { DUDE_KINDS } from "../catalog/dudes";
 import {
   MUTATION_RULES,
   type MutationId,
@@ -31,19 +30,18 @@ export interface Ghost {
 }
 
 /**
- * A Dude of the Army as the Mutations make it. `indexInSquad` 0, the Squad's first Dude, is its
- * giant; a Conga Line Squad stands in single file along its tile's centre line, first Dude at
- * the back, and walks that way.
+ * A Dude of the Army as the Mutations make it: a giant if `giant` (see `giantsOf`), and under
+ * Conga Line one of its Stroke's single file, walking the tile centre line.
  */
 export function mutatedDude(
   dude: DudeState,
-  squadIndex: number,
-  indexInSquad: number,
+  stroke: number,
+  giant: boolean,
   mutations: readonly MutationId[],
   rules: MutationRules = MUTATION_RULES,
 ): DudeState {
   let result = dude;
-  if (mutations.includes("giant") && indexInSquad === 0) {
+  if (mutations.includes("giant") && giant) {
     const health = result.health * rules.giantHealthMultiplier;
     result = { ...result, health, fullHealth: health, giant: true };
   }
@@ -51,18 +49,7 @@ export function mutatedDude(
     result = { ...result, smallShield: rules.smallShieldHealth };
   }
   if (mutations.includes("conga-line")) {
-    const squadSize = DUDE_KINDS[result.kind].squadSize;
-    const start = {
-      x: Math.floor(result.x) + (indexInSquad + 0.5) / squadSize,
-      y: Math.floor(result.y) + 0.5,
-    };
-    result = {
-      ...result,
-      congaSquad: squadIndex,
-      lane: 0,
-      ...start,
-      start,
-    };
+    result = { ...result, congaStroke: stroke, lane: 0 };
   }
   return result;
 }
@@ -118,7 +105,7 @@ export function afterDeaths(
       for (let index = 0; index < 2; index++) {
         // A Conga Line half stays in the single file.
         const spread = clampLane(dead.lane + (rng() * 2 - 1) * MAX_LANE);
-        const lane = dead.congaSquad === undefined ? spread : 0;
+        const lane = dead.congaStroke === undefined ? spread : 0;
         halves.push({
           ...at,
           id: nextId++,
@@ -126,7 +113,7 @@ export function afterDeaths(
           health,
           fullHealth: health,
           shield: 0,
-          // A half is a Dude of its own: never the Squad's giant, but it has a fresh small shield.
+          // A half is a Dude of its own: never a giant, but it has a fresh small shield.
           smallShield: mutations.includes("explosive-shields")
             ? rules.smallShieldHealth
             : 0,

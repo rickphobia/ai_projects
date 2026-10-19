@@ -1,7 +1,9 @@
 import { soundsOf } from "./adapters/audio/sound-level";
 import type { GameSounds } from "./adapters/audio/sound-player";
 import type { GameView } from "./adapters/renderer/game-renderer";
+import { isSpawnZonePoint, nextStroke } from "./battle/army";
 import {
+  armyDudes,
   STEPS_PER_SECOND,
   startBattle,
   stepBattleTimes,
@@ -10,10 +12,10 @@ import {
   type BattleState,
   type Side,
 } from "./battle/battle";
-import type { BattleEvent, ShotEvent } from "./battle/events";
+import type { BattleEvent, BoardPoint, ShotEvent } from "./battle/events";
 import { stepsDue, type WatchSpeed } from "./battle/watch-clock";
 import { BATTLE_RULES } from "./catalog/battle-rules";
-import type { DudeKindId } from "./catalog/dudes";
+import { DUDE_KINDS_ON_SALE, type DudeKindId } from "./catalog/dudes";
 import { PIECES, type PieceId } from "./catalog/pieces";
 import type { SliderId } from "./catalog/tricks";
 import { giveGold, jumpToRound } from "./debug/debug-options";
@@ -25,8 +27,8 @@ import {
   applyRunAction,
   battleSetupOf,
   checkPiece,
-  checkSquad,
   currentSliders,
+  canPaintKind,
   mazeOf,
   roundOf,
   runStatusOf,
@@ -43,10 +45,10 @@ import { roundReport, type RoundReportPanel } from "./ui/report";
 import type { SettingsMenu } from "./ui/settings";
 import type { ShopStock } from "./ui/shop";
 
-/** What the shop sells each side until Draft Crates and Unlocks arrive. */
+/** What the shop sells each side until Unlocks arrive. */
 export const SHOP_STOCK: ShopStock = {
   pieces: ["crate-wall", "sniper-nest"],
-  dudeKinds: ["intern"],
+  dudeKinds: DUDE_KINDS_ON_SALE,
 };
 /** The Piece chosen when the page opens. */
 export const FIRST_BUILD_PIECE: PieceId = "crate-wall";
@@ -84,6 +86,8 @@ export class RunScreen {
   private settings: SettingsMenu | undefined;
   /** The route preview; the debug options can hide it. */
   private routeVisible = true;
+  /** The Stroke being painted; null when no paint drag is under way. */
+  private stroke: number | null = null;
 
   /** `run` is a new or loaded Run; `onRunChanged` saves it after every accepted action. */
   constructor(
@@ -119,19 +123,45 @@ export class RunScreen {
       onHover: (tile) => {
         if (!this.showPieceInfo(tile)) this.pieceInfo.hide();
         if (this.run.phase !== "building") return;
+        // Dudes are painted, not placed on tiles, so only the Defense turn has a tile cursor.
+        if (sideOf(this.run) === "attack") return;
         this.view.showPlacementCursor(
           tile,
-          tile !== null && this.canPlaceOn(tile),
+          tile !== null &&
+            checkPiece(this.run, tile, this.chosenPiece) === null,
         );
       },
       onTap: (tile, kind) => {
         // Tapping a Piece asks what it does; on touch that is the only way to ask.
         if (this.showPieceInfo(tile)) return;
         this.pieceInfo.hide();
-        if (this.run.phase !== "building") return;
-        if (!this.act(this.placeAction(tile))) return;
+        if (this.run.phase !== "building" || sideOf(this.run) === "attack") {
+          return;
+        }
+        const placed = this.act({
+          type: "place-piece",
+          tile,
+          pieceId: this.chosenPiece,
+        });
+        if (!placed) return;
         // The tile under the mouse is now taken; a finger has lifted, so there is no cursor.
         if (kind === "mouse") this.view.showPlacementCursor(tile, false);
+      },
+      paint: {
+        canPaintAt: (at) =>
+          this.run.phase === "building" &&
+          sideOf(this.run) === "attack" &&
+          isSpawnZonePoint(at),
+        onPaintStart: (at) => {
+          this.stroke = nextStroke(this.run.army);
+          this.paintAt(at, true);
+        },
+        onPaintMove: (at) => {
+          this.paintAt(at, false);
+        },
+        onPaintEnd: () => {
+          this.endStroke();
+        },
       },
     });
     switch (this.run.phase) {
@@ -173,7 +203,7 @@ export class RunScreen {
     if (!this.act({ type: "take-from-crate", index })) return;
     const free = this.run.freeItem;
     if (free?.kind === "piece") this.chosenPiece = free.id;
-    if (free?.kind === "squad") this.chosenDudeKind = free.id;
+    if (free?.kind === "gift") this.chosenDudeKind = free.id;
     this.logger.info("took from crate", {
       round: roundOf(this.run),
       item: free ?? this.run.mutations.at(-1),
@@ -261,7 +291,7 @@ export class RunScreen {
       side: sideOf(this.run),
       seed: setup.seed,
       pieces: this.run.pieces.length,
-      squads: setup.army.length,
+      dudes: setup.army.length,
     });
     this.view.showPlacementCursor(null, false);
     this.view.showRoute(false);
@@ -325,24 +355,74 @@ export class RunScreen {
     }
     this.run = result.state;
     this.onRunChanged(this.run);
-    if (action.type === "place-piece" || action.type === "place-squad") {
+    if (action.type === "place-piece") {
       this.logger.debug("placed", { ...action });
       this.showBuilding();
     }
     return true;
   }
 
-  private placeAction(tile: Tile): RunAction {
-    return sideOf(this.run) === "defense"
-      ? { type: "place-piece", tile, pieceId: this.chosenPiece }
-      : { type: "place-squad", tile, dudeKind: this.chosenDudeKind };
+  /**
+   * Paints one Dude of the brush at `at`. The Run is saved once the Stroke ends, not per Dude.
+   * Mid-Stroke, a spot with no room or outside the zone is skipped quietly: a stroke over the
+   * crowd or past the edge is normal. Other refusals (gold run out) are shown.
+   */
+  private paintAt(at: BoardPoint, first: boolean): void {
+    if (this.stroke === null) return;
+    const action: RunAction = {
+      type: "paint-dude",
+      dudeKind: this.chosenDudeKind,
+      at,
+      stroke: this.stroke,
+    };
+    const result = applyRunAction(this.run, action);
+    if (!result.ok) {
+      const quiet =
+        !first &&
+        (result.refusal === "no-room" || result.refusal === "not-spawn-zone");
+      if (!quiet) {
+        this.logger.debug("paint refused", { refusal: result.refusal });
+        this.hud?.showRefusal(result.refusal);
+      }
+      return;
+    }
+    this.run = result.state;
+    this.showArmy();
   }
 
-  private canPlaceOn(tile: Tile): boolean {
-    if (sideOf(this.run) === "defense") {
-      return checkPiece(this.run, tile, this.chosenPiece) === null;
+  private endStroke(): void {
+    const stroke = this.stroke;
+    this.stroke = null;
+    if (stroke === null) return;
+    const painted = this.run.army.filter((dude) => dude.stroke === stroke);
+    if (painted.length === 0) return;
+    this.onRunChanged(this.run);
+    this.logger.debug("Stroke painted", {
+      stroke,
+      dudeKind: this.chosenDudeKind,
+      dudes: painted.length,
+      attackGold: this.run.wallets.attack,
+    });
+  }
+
+  /** The Army where it stands, the wallets and the unit bar: what painting a Dude changes. */
+  private showArmy(): void {
+    this.view.showArmy(armyDudes(this.run.army, this.run.mutations));
+    this.showRunStatus();
+    if (this.run.phase === "building") {
+      this.cratePanel?.show(
+        this.run.crate,
+        this.run.freeItem,
+        sideOf(this.run),
+      );
     }
-    return checkSquad(this.run, tile, this.chosenDudeKind) === null;
+    if (sideOf(this.run) === "attack") {
+      // A brush whose free gift ran out goes back to one the shop sells.
+      if (!canPaintKind(this.run, this.chosenDudeKind)) {
+        this.chosenDudeKind = FIRST_DUDE_KIND;
+      }
+      this.hud?.showAttackBuilding(this.chosenDudeKind, this.run.freeItem);
+    }
   }
 
   /** Shows the Piece on `tile` in the info panel; false if there is none. */
@@ -358,25 +438,15 @@ export class RunScreen {
     this.view.clearBattle();
     this.view.showMaze(this.maze);
     this.view.showRoute(this.routeVisible);
-    this.view.showArmy(this.run.army);
     this.view.showGoalHealth(BATTLE_RULES.goalHealth, BATTLE_RULES.goalHealth);
-    this.showRunStatus();
     this.showTricks();
-    if (this.run.phase === "building") {
-      this.cratePanel?.show(
-        this.run.crate,
-        this.run.freeItem,
-        sideOf(this.run),
-      );
-    } else {
-      this.cratePanel?.hide();
-    }
+    if (this.run.phase !== "building") this.cratePanel?.hide();
+    this.showArmy();
     if (sideOf(this.run) === "defense") {
       this.view.choosePiece(this.chosenPiece);
       this.hud?.showDefenseBuilding(this.chosenPiece);
     } else {
-      this.view.chooseSquad(this.chosenDudeKind);
-      this.hud?.showAttackBuilding(this.chosenDudeKind);
+      this.view.showPlacementCursor(null, false);
     }
   }
 

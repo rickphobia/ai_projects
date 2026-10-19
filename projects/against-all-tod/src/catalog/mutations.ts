@@ -27,7 +27,8 @@ export const MUTATIONS: Readonly<Record<MutationId, MutationEntry>> = {
   giant: {
     id: "giant",
     name: "Giant",
-    description: "One Dude per Squad is giant: 5× health, half speed.",
+    description:
+      "Every Nth Dude of a kind you paint is giant (1 in 20 Interns): 5× health, half speed.",
   },
   "explosive-shields": {
     id: "explosive-shields",
@@ -38,7 +39,8 @@ export const MUTATIONS: Readonly<Record<MutationId, MutationEntry>> = {
   "conga-line": {
     id: "conga-line",
     name: "Conga Line",
-    description: "A Squad walks in single file and shares damage.",
+    description:
+      "Each Stroke you paint walks in single file and shares damage.",
   },
   "ghost-mode": {
     id: "ghost-mode",

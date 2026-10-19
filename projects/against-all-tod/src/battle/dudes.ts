@@ -17,7 +17,7 @@ export interface DudeState {
   readonly x: number;
   readonly y: number;
   /**
-   * How far off the tile centre line this Dude walks, so a Squad spreads out instead of
+   * How far off the tile centre line this Dude walks, so a crowd spreads out instead of
    * stacking on one point. Kept well inside the tile so it never brushes a wall.
    */
   readonly lane: number;
@@ -38,9 +38,9 @@ export interface DudeState {
   readonly ramReadyAtStep?: number;
   /** Explosive Shields: damage its own small shield can still soak. Absent without the Mutation. */
   readonly smallShield?: number;
-  /** Conga Line: its Squad's index in the Army; Squadmates share damage. Absent without the Mutation. */
-  readonly congaSquad?: number;
-  /** Giant: this Squad's giant, at its kind's speed times the Giant multiplier. */
+  /** Conga Line: the Stroke it was painted in; its Stroke-mates share damage. Absent without the Mutation. */
+  readonly congaStroke?: number;
+  /** Giant: one of every Nth of its kind, at its kind's speed times the Giant multiplier. */
   readonly giant: boolean;
   /** Split: one of the two halves a dead Dude became; a half doesn't split again. */
   readonly half: boolean;

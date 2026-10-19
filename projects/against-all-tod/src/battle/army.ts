@@ -1,11 +1,86 @@
-import type { DudeKindId } from "../catalog/dudes";
-import type { Tile } from "../maze/board";
+import {
+  DUDE_KINDS,
+  paintRadius,
+  ROUND_ONE_ARMY,
+  type DudeKindId,
+} from "../catalog/dudes";
+import { isInSpawnZone } from "../maze/board";
+import { createRng } from "../rng/rng";
+import type { BoardPoint } from "./events";
 
-/** A group of Dudes of one kind, standing spread over one Spawn zone tile. */
-export interface Squad {
+/** One Dude the attacker painted into the Spawn zone; it stands there at the start of every battle. */
+export interface PlacedDude {
   readonly dudeKind: DudeKindId;
-  readonly tile: Tile;
+  /** In tiles, inside the Spawn zone. */
+  readonly at: BoardPoint;
+  /** The drag it was painted in; Conga Line walks each Stroke in single file. */
+  readonly stroke: number;
+  /** The Round it was painted in. */
+  readonly round: number;
 }
 
-/** Every Squad placed so far; it all attacks each battle. */
-export type Army = readonly Squad[];
+/** Every Dude placed so far, in paint order; it all attacks each battle. */
+export type Army = readonly PlacedDude[];
+
+/** Whether `at` is inside the Spawn zone; false off the Board. */
+export function isSpawnZonePoint(at: BoardPoint): boolean {
+  return isInSpawnZone({ column: Math.floor(at.x), row: Math.floor(at.y) });
+}
+
+/** Whether a Dude of `kind` at `at` keeps its room from every Dude in the Army. */
+export function hasRoom(army: Army, kind: DudeKindId, at: BoardPoint): boolean {
+  const radius = paintRadius(kind);
+  return army.every((placed) => {
+    const apart = radius + paintRadius(placed.dudeKind);
+    const dx = placed.at.x - at.x;
+    const dy = placed.at.y - at.y;
+    return dx * dx + dy * dy >= apart * apart;
+  });
+}
+
+/** The Stroke number a new drag takes: one past the highest in the Army. */
+export function nextStroke(army: Army): number {
+  return army.reduce((next, { stroke }) => Math.max(next, stroke + 1), 0);
+}
+
+/**
+ * Giant Mutation: whether each Dude in the Army is giant. Every Nth Dude of a kind in paint
+ * order is (N being the kind's `giantEvery`), so painting order, not spot, picks them.
+ */
+export function giantsOf(army: Army): boolean[] {
+  const counts = new Map<DudeKindId, number>();
+  return army.map(({ dudeKind }) => {
+    const count = (counts.get(dudeKind) ?? 0) + 1;
+    counts.set(dudeKind, count);
+    return count % DUDE_KINDS[dudeKind].giantEvery === 0;
+  });
+}
+
+/** Tries per Dude before the layout gives up on a blob that is full. */
+const LAYOUT_TRIES = 200;
+
+/**
+ * Round 1's game-made Army: each blob a Stroke of Interns at seeded spots around its centre,
+ * keeping the same room painting does.
+ */
+export function roundOneArmy(seed: number): Army {
+  const rng = createRng(seed);
+  const { dudeKind, dudesPerBlob, blobCentres, blobRadius } = ROUND_ONE_ARMY;
+  const army: PlacedDude[] = [];
+  for (const [stroke, centre] of blobCentres.entries()) {
+    let placed = 0;
+    for (let tries = 0; placed < dudesPerBlob; tries++) {
+      if (tries > dudesPerBlob * LAYOUT_TRIES) break;
+      const angle = rng() * 2 * Math.PI;
+      const distance = Math.sqrt(rng()) * blobRadius;
+      const at = {
+        x: centre.x + Math.cos(angle) * distance,
+        y: centre.y + Math.sin(angle) * distance,
+      };
+      if (!isSpawnZonePoint(at) || !hasRoom(army, dudeKind, at)) continue;
+      army.push({ dudeKind, at, stroke, round: 1 });
+      placed++;
+    }
+  }
+  return army;
+}

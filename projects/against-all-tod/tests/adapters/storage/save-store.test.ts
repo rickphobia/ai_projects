@@ -75,6 +75,24 @@ describe("SaveStore", () => {
     expect(store.load()).toEqual({ kind: "loaded", run });
   });
 
+  it("loads back a painted Army and a half-used crate gift", () => {
+    const { store } = storeWith();
+    const start = newRun(42);
+    const run: RunState = {
+      ...start,
+      score: 1,
+      army: [
+        ...start.army,
+        { dudeKind: "termite", at: { x: 0.25, y: 6.75 }, stroke: 5, round: 2 },
+        { dudeKind: "intern", at: { x: 2.9, y: 13.1 }, stroke: 6, round: 2 },
+      ],
+      crate: null,
+      freeItem: { kind: "gift", id: "termite", left: 9 },
+    };
+    store.save(run);
+    expect(store.load()).toEqual({ kind: "loaded", run });
+  });
+
   it("loads back the sliders and a mid-battle drag", () => {
     const { store } = storeWith();
     const dragged = applyRunAction(readyToFight(), {
@@ -115,19 +133,34 @@ describe("SaveStore", () => {
       JSON.stringify({ version: SAVE_VERSION + 1, run: newRun(1) }),
     ],
     [
-      "a save from before the Spawn zone",
+      "a save of Squads, from before painting",
       JSON.stringify({
         version: SAVE_VERSION - 1,
-        run: { ...newRun(1), army: [{ dudeKind: "intern", spawnRow: 3 }] },
+        run: {
+          ...newRun(1),
+          army: [{ dudeKind: "intern", tile: { column: 1, row: 3 } }],
+        },
       }),
     ],
     [
-      "a Squad outside the Spawn zone",
+      "a Squad in a save of this version",
       JSON.stringify({
         version: SAVE_VERSION,
         run: {
           ...newRun(1),
-          army: [{ dudeKind: "intern", tile: { column: 5, row: 3 } }],
+          army: [{ dudeKind: "intern", tile: { column: 1, row: 3 } }],
+        },
+      }),
+    ],
+    [
+      "a Dude outside the Spawn zone",
+      JSON.stringify({
+        version: SAVE_VERSION,
+        run: {
+          ...newRun(1),
+          army: [
+            { dudeKind: "intern", at: { x: 5.5, y: 3.5 }, stroke: 0, round: 1 },
+          ],
         },
       }),
     ],

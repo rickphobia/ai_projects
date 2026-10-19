@@ -1,18 +1,18 @@
 import type { Side } from "../battle/battle";
-import { DUDE_KINDS } from "../catalog/dudes";
+import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { MUTATIONS } from "../catalog/mutations";
 import { PIECES } from "../catalog/pieces";
 import { CRATE_RULES, type CrateItem } from "../catalog/pools";
 import type { Crate } from "../run/crate";
 import type { FreeItem } from "../run/run";
 
-/** "Sniper Nest", "Intern Squad" or "Gold Teeth Mutation". */
+/** "Sniper Nest", "20 free Interns" or "Gold Teeth Mutation". */
 export function crateItemName(item: CrateItem): string {
   switch (item.kind) {
     case "piece":
       return PIECES[item.id].name;
-    case "squad":
-      return `${DUDE_KINDS[item.id].name} Squad`;
+    case "gift":
+      return freeDudes(item.id, DUDE_KINDS[item.id].giftSize);
     case "mutation":
       return `${MUTATIONS[item.id].name} Mutation`;
   }
@@ -22,11 +22,25 @@ export function crateItemDescription(item: CrateItem): string {
   switch (item.kind) {
     case "piece":
       return PIECES[item.id].description;
-    case "squad":
+    case "gift":
       return DUDE_KINDS[item.id].description;
     case "mutation":
       return MUTATIONS[item.id].description;
   }
+}
+
+/** "20 free Interns", "1 free Ram Crew". */
+function freeDudes(dudeKind: DudeKindId, count: number): string {
+  const name = DUDE_KINDS[dudeKind].name;
+  return `${String(count)} free ${count === 1 ? name : `${name}s`}`;
+}
+
+/** The reminder once an item is taken: what is still free to place. */
+export function freeItemLine(item: FreeItem): string {
+  if (item.kind === "piece") {
+    return `Free from the crate: your next ${PIECES[item.id].name}.`;
+  }
+  return `Free from the crate: ${freeDudes(item.id, item.left)} left to paint.`;
 }
 
 /** "Reroll · 15g", in the side's own gold. */
@@ -87,7 +101,7 @@ export class CratePanel {
 
   private showFreeItem(item: FreeItem): void {
     const line = this.doc.createElement("p");
-    line.textContent = `Free from the crate: your next ${crateItemName(item)}.`;
+    line.textContent = freeItemLine(item);
     this.host.replaceChildren(line);
     this.host.hidden = false;
   }

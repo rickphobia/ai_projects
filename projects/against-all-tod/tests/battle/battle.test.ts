@@ -9,21 +9,20 @@ import {
 } from "../../src/battle/battle";
 import { DUDE_KINDS } from "../../src/catalog/dudes";
 import { SPAWN_ZONE_COLUMNS, tileKey, type Tile } from "../../src/maze/board";
-import { tileUnder } from "../../src/battle/dudes";
 import { emptyMaze } from "../../src/maze/maze";
 import { pathToGoal } from "../../src/maze/route";
 import {
   crateWalls,
-  internSquads,
+  groupAt,
+  internGroups,
   mazeWith,
-  squadAt,
   setupOf,
   wallWithGap,
 } from "./battle-setups";
 
 const INTERN = DUDE_KINDS.intern;
 
-/** Rules that let every Intern of a few Squads reach the Goal without breaking it. */
+/** Rules that let every Intern of a few groups reach the Goal without breaking it. */
 const STURDY_GOAL = { goalHealth: 1_000_000 };
 
 describe("Dudes walking the route", () => {
@@ -31,7 +30,7 @@ describe("Dudes walking the route", () => {
     const maze = mazeWith(
       crateWalls([...wallWithGap(5, 12), ...wallWithGap(10, 1)]),
     );
-    const setup = setupOf(maze, internSquads(3), STURDY_GOAL);
+    const setup = setupOf(maze, internGroups(3), STURDY_GOAL);
     const tilesWalked = new Map<number, Tile[]>();
     let state = startBattle(setup);
     while (state.outcome === null) {
@@ -47,40 +46,29 @@ describe("Dudes walking the route", () => {
     }
 
     const route = pathToGoal(maze.route, { column: 0, row: 3 });
-    expect(tilesWalked.size).toBe(INTERN.squadSize);
+    expect(tilesWalked.size).toBe(INTERN.giftSize);
     for (const walked of tilesWalked.values()) {
       expect(walked).toEqual(route);
     }
   });
 
-  it("puts the whole Army on the Board at step 0, each Squad spread over its own tile", () => {
-    const army = [squadAt("intern", 3, 0), squadAt("termite", 9, 2)];
+  it("puts the whole Army on the Board at step 0, each Dude where it was painted", () => {
+    const army = [...groupAt("intern", 3, 0), ...groupAt("termite", 9, 2)];
     const state = startBattle(setupOf(emptyMaze(), army));
-    expect(state.dudes).toHaveLength(
-      DUDE_KINDS.intern.squadSize + DUDE_KINDS.termite.squadSize,
-    );
-    for (const { dudeKind, tile } of army) {
-      const squad = state.dudes.filter((dude) => dude.kind === dudeKind);
-      expect(
-        squad.every((dude) => tileKey(tileUnder(dude)) === tileKey(tile)),
-      ).toBe(true);
-      expect(
-        new Set(squad.map((dude) => `${String(dude.x)},${String(dude.y)}`))
-          .size,
-      ).toBe(squad.length);
-      expect(
-        squad.every(
-          (dude) => dude.start.x === dude.x && dude.start.y === dude.y,
-        ),
-      ).toBe(true);
+    expect(state.dudes).toHaveLength(army.length);
+    for (const [index, placed] of army.entries()) {
+      const dude = state.dudes[index];
+      expect(dude?.kind).toBe(placed.dudeKind);
+      expect({ x: dude?.x, y: dude?.y }).toEqual(placed.at);
+      expect(dude?.start).toEqual(placed.at);
     }
   });
 
   it("starts every Dude walking in the first step", () => {
-    const setup = setupOf(emptyMaze(), internSquads(3, 10));
+    const setup = setupOf(emptyMaze(), internGroups(3, 10));
     const start = startBattle(setup);
     const afterOneStep = stepBattle(setup, start);
-    expect(afterOneStep.dudes).toHaveLength(2 * INTERN.squadSize);
+    expect(afterOneStep.dudes).toHaveLength(2 * INTERN.giftSize);
     for (const dude of afterOneStep.dudes) {
       expect(dude.x).toBeGreaterThan(dude.start.x);
     }
@@ -92,21 +80,21 @@ describe("Dudes walking the route", () => {
       const maze = mazeWith(
         crateWalls([...wallWithGap(5, 12), ...wallWithGap(10, 1)]),
       );
-      const army = [0, 6, 13].map((row) => squadAt("intern", row, column));
+      const army = [0, 6, 13].flatMap((row) => groupAt("intern", row, column));
       const { events } = runBattle(setupOf(maze, army, STURDY_GOAL));
       expect(
         events.filter((event) => event.type === "reach-goal"),
-      ).toHaveLength(army.length * INTERN.squadSize);
+      ).toHaveLength(army.length);
     },
   );
 
-  it("refuses a Squad that is not in the Spawn zone", () => {
-    expect(() => startBattle(setupOf(emptyMaze(), internSquads(99)))).toThrow(
+  it("refuses a Dude that is not in the Spawn zone", () => {
+    expect(() => startBattle(setupOf(emptyMaze(), internGroups(99)))).toThrow(
       ArmySetupError,
     );
     expect(() =>
       startBattle(
-        setupOf(emptyMaze(), [squadAt("intern", 3, SPAWN_ZONE_COLUMNS)]),
+        setupOf(emptyMaze(), [...groupAt("intern", 3, SPAWN_ZONE_COLUMNS)]),
       ),
     ).toThrow(ArmySetupError);
   });
@@ -114,16 +102,16 @@ describe("Dudes walking the route", () => {
 
 describe("the Goal", () => {
   it("takes each kind's damage from every Dude that reaches it, and the Dude vanishes", () => {
-    const setup = setupOf(emptyMaze(), internSquads(2, 11), STURDY_GOAL);
+    const setup = setupOf(emptyMaze(), internGroups(2, 11), STURDY_GOAL);
     const { state, events } = runBattle(setup);
 
     const reached = events.filter((event) => event.type === "reach-goal");
-    expect(reached).toHaveLength(2 * INTERN.squadSize);
+    expect(reached).toHaveLength(2 * INTERN.giftSize);
     expect(reached.every((event) => event.damage === INTERN.goalDamage)).toBe(
       true,
     );
     expect(state.goalHealth).toBe(
-      STURDY_GOAL.goalHealth - 2 * INTERN.squadSize * INTERN.goalDamage,
+      STURDY_GOAL.goalHealth - 2 * INTERN.giftSize * INTERN.goalDamage,
     );
     expect(state.dudes).toEqual([]);
   });
@@ -132,8 +120,15 @@ describe("the Goal", () => {
 describe("the end of a battle", () => {
   it("is an attack win as soon as the Goal reaches zero", () => {
     const goalHealth = INTERN.goalDamage * 3;
+    // Painted one behind another, so they reach the Goal one at a time.
+    const file = Array.from({ length: 6 }, (_, index) => ({
+      dudeKind: "intern" as const,
+      at: { x: 2.8 - index * 0.4, y: 6.5 },
+      stroke: 0,
+      round: 2,
+    }));
     const { state, events } = runBattle(
-      setupOf(emptyMaze(), internSquads(6), { goalHealth }),
+      setupOf(emptyMaze(), file, { goalHealth }),
     );
     expect(state.outcome).toMatchObject({
       winner: "attack",
@@ -148,7 +143,7 @@ describe("the end of a battle", () => {
 
   it("is a defense win when no Dudes are left and the Goal stands", () => {
     const { state } = runBattle(
-      setupOf(emptyMaze(), internSquads(6), STURDY_GOAL),
+      setupOf(emptyMaze(), internGroups(6), STURDY_GOAL),
     );
     expect(state.outcome).toMatchObject({
       winner: "defense",
@@ -159,7 +154,7 @@ describe("the end of a battle", () => {
   it("is a defense win when time runs out", () => {
     const timeLimitSeconds = 2;
     const { state } = runBattle(
-      setupOf(emptyMaze(), internSquads(6), {
+      setupOf(emptyMaze(), internGroups(6), {
         ...STURDY_GOAL,
         timeLimitSeconds,
       }),
@@ -173,7 +168,7 @@ describe("the end of a battle", () => {
   });
 
   it("does not change once it has ended", () => {
-    const setup = setupOf(emptyMaze(), internSquads(6), {
+    const setup = setupOf(emptyMaze(), internGroups(6), {
       timeLimitSeconds: 1,
     });
     const { state } = runBattle(setup);
@@ -189,19 +184,19 @@ describe("events", () => {
       { pieceId: "sniper-nest", tile: { column: 10, row: 4 } },
     ]);
     const { events } = runBattle(
-      setupOf(maze, internSquads(3, 9), STURDY_GOAL),
+      setupOf(maze, internGroups(3, 9), STURDY_GOAL),
     );
     const ends = events.filter(
       (event) => event.type === "kill" || event.type === "reach-goal",
     );
     const ids = ends.map((event) => event.dudeId);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toHaveLength(2 * INTERN.squadSize);
+    expect(ids).toHaveLength(2 * INTERN.giftSize);
     expect(ends.some((event) => event.type === "kill")).toBe(true);
   });
 
   it("gives each step's events only with that step", () => {
-    const setup = setupOf(emptyMaze(), internSquads(6), STURDY_GOAL);
+    const setup = setupOf(emptyMaze(), internGroups(6), STURDY_GOAL);
     const { events } = runBattle(setup);
     const first = events[0];
     if (first === undefined) throw new Error("no events");
@@ -218,16 +213,13 @@ describe("replaying a battle", () => {
   ]);
 
   it("gives the same result from the same seed and inputs", () => {
-    const setup = setupOf(maze, internSquads(2, 7, 12), {}, 1234);
+    const setup = setupOf(maze, internGroups(2, 7, 12), {}, 1234);
     expect(runBattle(setup)).toEqual(runBattle(setup));
   });
 
-  it("spreads Dudes differently with a different seed", () => {
-    const dudesAfterOneSecond = (seed: number) => {
-      const setup = setupOf(maze, internSquads(2), {}, seed);
-      return stepBattleTimes(setup, startBattle(setup), STEPS_PER_SECOND).state
-        .dudes;
-    };
-    expect(dudesAfterOneSecond(1)).not.toEqual(dudesAfterOneSecond(2));
+  it("stands every Dude where it was painted, whatever the seed", () => {
+    const standing = (seed: number) =>
+      startBattle(setupOf(maze, internGroups(2), {}, seed)).dudes;
+    expect(standing(1)).toEqual(standing(2));
   });
 });

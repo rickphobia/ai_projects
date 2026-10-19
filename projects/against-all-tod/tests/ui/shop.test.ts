@@ -24,19 +24,40 @@ describe("the shop", () => {
     ]);
   });
 
-  it("lists the Squads for the Attack side with their Attack gold prices", () => {
-    expect(attackItems(stock)).toEqual([
+  it("lists every Dude kind on sale with its Attack gold price per Dude", () => {
+    expect(
+      attackItems({ ...stock, dudeKinds: ["intern", "termite"] }, null),
+    ).toEqual([
+      { id: "intern", name: "Intern", price: DUDE_KINDS.intern.dudePrice },
+      { id: "termite", name: "Termite", price: DUDE_KINDS.termite.dudePrice },
+    ]);
+  });
+
+  it("puts the crate gift's count on its kind, adding the kind if the shop doesn't sell it", () => {
+    expect(
+      attackItems(stock, { kind: "gift", id: "intern", left: 12 }),
+    ).toEqual([
       {
         id: "intern",
-        name: "Intern Squad",
-        price: DUDE_KINDS.intern.squadPrice,
+        name: "Intern",
+        price: DUDE_KINDS.intern.dudePrice,
+        free: 12,
       },
     ]);
+    expect(
+      attackItems(stock, { kind: "gift", id: "sapper", left: 3 }).map(
+        (item) => item.id,
+      ),
+    ).toEqual(["intern", "sapper"]);
+    expect(attackItems(stock, { kind: "piece", id: "siren" })).toHaveLength(1);
   });
 
   it("labels an item with its price", () => {
     expect(itemLabel({ id: "x", name: "Sniper Nest", price: 40 })).toBe(
       "Sniper Nest · 40g",
+    );
+    expect(itemLabel({ id: "x", name: "Intern", price: 1, free: 12 })).toBe(
+      "Intern · 1g · 12 free",
     );
   });
 });

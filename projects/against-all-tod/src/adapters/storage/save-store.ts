@@ -1,4 +1,8 @@
-import type { Army, Squad } from "../../battle/army";
+import {
+  isSpawnZonePoint,
+  type Army,
+  type PlacedDude,
+} from "../../battle/army";
 import { DUDE_KINDS, type DudeKindId } from "../../catalog/dudes";
 import { PIECES, type PieceId } from "../../catalog/pieces";
 import { MUTATIONS, type MutationId } from "../../catalog/mutations";
@@ -6,7 +10,7 @@ import type { CrateItem } from "../../catalog/pools";
 import { SLIDER_IDS, type SliderId } from "../../catalog/tricks";
 import type { Wallets } from "../../economy/economy";
 import type { Logger } from "../../logger";
-import { isInSpawnZone, type Tile } from "../../maze/board";
+import type { Tile } from "../../maze/board";
 import type { PlacedPiece } from "../../maze/maze";
 import type { Crate } from "../../run/crate";
 import {
@@ -29,7 +33,7 @@ import {
  */
 
 /** Bump when the saved shape changes; older saves then give a fresh start. */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 export const SAVE_KEY = "against-all-tod.save";
 /** The pause menu's actual volume, kept apart from the Run so a new Run keeps it. */
 export const ACTUAL_VOLUME_KEY = "against-all-tod.actual-volume";
@@ -171,7 +175,7 @@ function snapshot(
 ): RoundSnapshot {
   return {
     pieces: list(value.pieces, `${name}.pieces`).map(placedPiece),
-    army: list(value.army, `${name}.army`).map(squad) satisfies Army,
+    army: list(value.army, `${name}.army`).map(placedDude) satisfies Army,
     mutations: list(value.mutations, `${name}.mutations`).map(mutationId),
     wallets: wallets(value.wallets),
     sliders: sliders(value.sliders),
@@ -223,13 +227,26 @@ function tile(value: unknown): Tile {
   };
 }
 
-function squad(value: unknown): Squad {
-  const found = record(value, "squad");
-  const at = tile(found.tile);
-  if (!isInSpawnZone(at)) {
-    throw new SaveFormatError("Squad outside the Spawn zone");
+function placedDude(value: unknown): PlacedDude {
+  const found = record(value, "placed Dude");
+  const at = record(found.at, "spot");
+  const spot = { x: coordinate(at.x), y: coordinate(at.y) };
+  if (!isSpawnZonePoint(spot)) {
+    throw new SaveFormatError("Dude outside the Spawn zone");
   }
-  return { dudeKind: dudeKind(found.dudeKind), tile: at };
+  return {
+    dudeKind: dudeKind(found.dudeKind),
+    at: spot,
+    stroke: count(found.stroke, "stroke"),
+    round: count(found.round, "round painted"),
+  };
+}
+
+function coordinate(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new SaveFormatError("spot is not a number");
+  }
+  return value;
 }
 
 function crate(value: unknown): Crate {
@@ -245,13 +262,21 @@ function crateItem(value: unknown): CrateItem {
   if (item.kind === "mutation") {
     return { kind: "mutation", id: mutationId(item.id) };
   }
-  return freeItem(item);
+  if (item.kind === "gift") return { kind: "gift", id: dudeKind(item.id) };
+  if (item.kind === "piece") return { kind: "piece", id: pieceId(item.id) };
+  throw new SaveFormatError("unknown crate item");
 }
 
 function freeItem(value: unknown): FreeItem {
   const item = record(value, "free item");
   if (item.kind === "piece") return { kind: "piece", id: pieceId(item.id) };
-  if (item.kind === "squad") return { kind: "squad", id: dudeKind(item.id) };
+  if (item.kind === "gift") {
+    return {
+      kind: "gift",
+      id: dudeKind(item.id),
+      left: count(item.left, "gift left"),
+    };
+  }
   throw new SaveFormatError("unknown crate item");
 }
 

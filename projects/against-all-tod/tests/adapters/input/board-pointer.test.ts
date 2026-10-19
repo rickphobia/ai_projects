@@ -73,4 +73,89 @@ describe("PointerGestures", () => {
     gestures.leave();
     expect(events).toEqual(["hover", "leave"]);
   });
+
+  describe("painting", () => {
+    /** Paints only left of x = 100, as if that were the Spawn zone with a brush chosen. */
+    const recordPaint = (brush = true) => {
+      const events: string[] = [];
+      const gestures = new PointerGestures({
+        onHover: () => events.push("hover"),
+        onTap: () => events.push("tap"),
+        onPan: (dx, dy) => events.push(`pan ${String(dx)},${String(dy)}`),
+        onZoom: (_centre, factor) => events.push(`zoom ${String(factor)}`),
+        paint: {
+          canPaintAt: (point) => brush && point.x < 100,
+          onPaintStart: (point) =>
+            events.push(`start ${String(point.x)},${String(point.y)}`),
+          onPaintMove: (point) =>
+            events.push(`paint ${String(point.x)},${String(point.y)}`),
+          onPaintEnd: () => events.push("end"),
+        },
+      });
+      return { events, gestures };
+    };
+
+    it("paints a drag that starts in the zone, and never pans or taps", () => {
+      const { events, gestures } = recordPaint();
+      gestures.press(finger(1, 10, 10));
+      gestures.move(finger(1, 40, 10));
+      gestures.move(finger(1, 200, 30));
+      gestures.release(finger(1, 200, 30));
+      expect(events).toEqual([
+        "start 10,10",
+        "paint 40,10",
+        "paint 200,30",
+        "end",
+      ]);
+    });
+
+    it("paints one Dude for a tap in the zone, not a tap", () => {
+      const { events, gestures } = recordPaint();
+      gestures.press(finger(1, 10, 10));
+      gestures.release(finger(1, 10, 10));
+      expect(events).toEqual(["start 10,10", "end"]);
+    });
+
+    it("adds nothing while the pointer is held still", () => {
+      const { events, gestures } = recordPaint();
+      gestures.press(finger(1, 10, 10));
+      gestures.move(finger(1, 10, 10));
+      gestures.move(finger(1, 10, 10));
+      expect(events).toEqual(["start 10,10"]);
+    });
+
+    it("pans a drag that starts outside the zone, even into it", () => {
+      const { events, gestures } = recordPaint();
+      gestures.press(finger(1, 150, 10));
+      gestures.move(finger(1, 50, 10));
+      gestures.release(finger(1, 50, 10));
+      expect(events).toEqual(["pan -100,0"]);
+    });
+
+    it("pans when no brush is chosen", () => {
+      const { events, gestures } = recordPaint(false);
+      gestures.press(finger(1, 10, 10));
+      gestures.move(finger(1, 40, 10));
+      gestures.release(finger(1, 40, 10));
+      expect(events).toEqual(["pan 30,0"]);
+    });
+
+    it("turns a paint into a pinch when a second finger lands", () => {
+      const { events, gestures } = recordPaint();
+      gestures.press(finger(1, 10, 10));
+      gestures.press(finger(2, 60, 10));
+      gestures.move(finger(2, 110, 10));
+      gestures.release(finger(2, 110, 10));
+      gestures.release(finger(1, 10, 10));
+      expect(events).toEqual(["start 10,10", "end", "zoom 2", "pan 25,0"]);
+    });
+
+    it("ends the paint when the browser takes the pointer away", () => {
+      const { events, gestures } = recordPaint();
+      gestures.press(finger(1, 10, 10));
+      gestures.cancel(finger(1, 10, 10));
+      gestures.move(finger(1, 30, 10));
+      expect(events).toEqual(["start 10,10", "end"]);
+    });
+  });
 });

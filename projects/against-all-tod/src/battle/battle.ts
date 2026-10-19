@@ -2,20 +2,18 @@ import type { BattleRules } from "../catalog/battle-rules";
 import { DUDE_KINDS } from "../catalog/dudes";
 import type { MutationId } from "../catalog/mutations";
 import { PIECES } from "../catalog/pieces";
-import { isInSpawnZone, tileKey } from "../maze/board";
+import { tileKey } from "../maze/board";
 import type { Maze } from "../maze/maze";
 import type { Route } from "../maze/route";
-import { createRng } from "../rng/rng";
 import {
   slidersAt,
   type SliderInput,
   type SliderPositions,
 } from "../tricks/tricks";
 import { applyEffects, effectPiecesOf, type EffectPiece } from "./area-effects";
-import type { Army } from "./army";
+import { giantsOf, isSpawnZonePoint, type Army } from "./army";
 import {
   hypeSpeedFactor,
-  MAX_LANE,
   newDude,
   reachGoal,
   tileUnder,
@@ -113,30 +111,29 @@ export class ArmySetupError extends Error {
   override name = "ArmySetupError";
 }
 
-/** How far either way of its tile's centre a Squad's Dude may stand, so the Squad spreads over the tile. */
-const SQUAD_SPREAD = 0.4;
+/**
+ * The Army's Dudes as they stand at step 0, ids in paint order, made as the Mutations make them.
+ * The renderer draws these while building, too.
+ */
+export function armyDudes(
+  army: Army,
+  mutations: readonly MutationId[],
+): DudeState[] {
+  const giants = giantsOf(army);
+  return army.map((placed, index) => {
+    if (!isSpawnZonePoint(placed.at)) {
+      throw new ArmySetupError(
+        `A ${placed.dudeKind} stands at (${String(placed.at.x)}, ${String(placed.at.y)}), which is not in the Spawn zone.`,
+      );
+    }
+    const dude = newDude(index, placed.dudeKind, placed.at);
+    return mutatedDude(dude, placed.stroke, giants[index] ?? false, mutations);
+  });
+}
 
 /** The battle before its first step: the whole Army standing in the Spawn zone, towers ready. */
 export function startBattle(setup: BattleSetup): BattleState {
-  const rng = createRng(setup.seed);
-  const dudes: DudeState[] = [];
-  for (const [squadIndex, squad] of setup.army.entries()) {
-    const { column, row } = squad.tile;
-    if (!isInSpawnZone(squad.tile)) {
-      throw new ArmySetupError(
-        `A Squad of ${squad.dudeKind} is on tile (${String(column)}, ${String(row)}), which is not in the Spawn zone.`,
-      );
-    }
-    const kind = DUDE_KINDS[squad.dudeKind];
-    for (let index = 0; index < kind.squadSize; index++) {
-      const at = {
-        x: column + 0.5 + (rng() * 2 - 1) * SQUAD_SPREAD,
-        y: row + 0.5 + (rng() * 2 - 1) * MAX_LANE,
-      };
-      const dude = newDude(dudes.length, kind.id, at);
-      dudes.push(mutatedDude(dude, squadIndex, index, setup.mutations));
-    }
-  }
+  const dudes = armyDudes(setup.army, setup.mutations);
   const hasWallBreakers = setup.army.some(({ dudeKind }) =>
     isWallBreaker(dudeKind),
   );
@@ -216,7 +213,7 @@ export function stepBattle(
   );
   const floorHits = new DudeHits(bounced, step, events);
   for (const placed of bounced) {
-    // A Conga Line Squadmate's Grinder hit earlier in this loop may have hurt or killed it.
+    // A Conga Line Stroke-mate's Grinder hit earlier in this loop may have hurt or killed it.
     const dude = floorHits.current(placed);
     if (dude === null) continue;
     if ((dude.stunnedUntilStep ?? 0) > step) {

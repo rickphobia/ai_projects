@@ -2,7 +2,7 @@ import type { BattleOutcome, Side } from "../battle/battle";
 import { WATCH_SPEEDS, type WatchSpeed } from "../battle/watch-clock";
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { PIECES, type PieceId } from "../catalog/pieces";
-import type { RunRefusal, RunStatus } from "../run/run";
+import type { FreeItem, RunRefusal, RunStatus } from "../run/run";
 import {
   attackItems,
   defenseItems,
@@ -26,7 +26,10 @@ const REFUSAL_MESSAGES: Readonly<Record<RunRefusal, string>> = {
   "wrong-side": "That belongs to the other side's turn.",
   "not-enough-gold":
     "Not enough gold. Each side pays from its own wallet; press Fight when you're done.",
-  "not-spawn-zone": "Squads go in the Spawn zone, the Board's 3 left columns.",
+  "not-spawn-zone":
+    "Paint Dudes in the Spawn zone, the Board's 3 left columns.",
+  "no-room": "No room there: each Dude keeps a little space around it.",
+  "not-on-sale": "That Dude kind isn't on sale yet.",
   "no-crate": "This Round's crate is already taken from.",
   "slider-end": "That slider can't go any further that way.",
 };
@@ -136,14 +139,15 @@ export class Hud {
     this.hint.textContent = `Shop: pick a Piece, then tap a tile to buy it with Defense gold, or tap a Piece to see what it does. Placing a ${PIECES[chosen].name} now. Drag to pan; pinch or scroll to zoom.`;
   }
 
-  showAttackBuilding(chosen: DudeKindId): void {
+  /** The unit bar: `chosen` is the brush; `freeItem` puts the gift's count on its kind. */
+  showAttackBuilding(chosen: DudeKindId, freeItem: FreeItem | null): void {
     this.heading.textContent = SIDE_NAMES.attack;
     this.showShop(
-      attackItems(this.stock),
+      attackItems(this.stock, freeItem),
       chosen,
       this.handlers.onChooseDudeKind,
     );
-    this.hint.textContent = `Shop: pick a Squad, then tap a tile of the Spawn zone, the 3 left columns, to buy it with Attack gold. Adding ${DUDE_KINDS[chosen].name}s now. The whole Army charges your own Maze at once.`;
+    this.hint.textContent = `Unit bar: pick a Dude kind, then drag in the Spawn zone, the 3 left columns, to paint ${DUDE_KINDS[chosen].name}s, each paid with Attack gold as it appears. Drag elsewhere to pan. The whole Army charges your own Maze at once.`;
   }
 
   showBattle(side: Side, speed: WatchSpeed): void {

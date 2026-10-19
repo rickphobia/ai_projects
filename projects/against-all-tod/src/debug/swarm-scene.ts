@@ -1,6 +1,6 @@
-import type { Army } from "../battle/army";
+import type { Army, PlacedDude } from "../battle/army";
 import { BATTLE_RULES, type BattleRules } from "../catalog/battle-rules";
-import { DUDE_KINDS } from "../catalog/dudes";
+import { DUDE_KINDS, paintRadius } from "../catalog/dudes";
 import type { PieceId } from "../catalog/pieces";
 import { BOARD_ROWS, SPAWN_ZONE_COLUMNS, type Tile } from "../maze/board";
 import { emptyMaze, placePiece, type Maze } from "../maze/maze";
@@ -11,16 +11,41 @@ import { emptyMaze, placePiece, type Maze } from "../maze/maze";
  */
 export const SWARM_DUDES = 500;
 
-const SQUADS = SWARM_DUDES / DUDE_KINDS.intern.squadSize;
+/** The swarm scene no longer fits the rules: a Piece refused, or too few Interns fit the zone. */
+export class SwarmSceneError extends Error {
+  override name = "SwarmSceneError";
+}
 
-/** Squads spread down every row of the Spawn zone, front column first, so the Dudes fill the Board. */
-export const SWARM_ARMY: Army = Array.from({ length: SQUADS }, (_, index) => ({
-  dudeKind: "intern",
-  tile: {
-    column: SPAWN_ZONE_COLUMNS - 1 - Math.floor(index / BOARD_ROWS),
-    row: index % BOARD_ROWS,
-  },
-}));
+/**
+ * 500 Interns packed as tightly as painting allows, row by row from the top of the Spawn zone,
+ * each row half a spacing sideways from the last: an Army a player could really paint. One
+ * Stroke per row.
+ */
+export const SWARM_ARMY: Army = packedInterns(SWARM_DUDES);
+
+function packedInterns(count: number): PlacedDude[] {
+  // A hair over the painting rule, so rounding never stands two Interns too close.
+  const spacing = 2 * paintRadius("intern") * 1.001;
+  const rowGap = (spacing * Math.sqrt(3)) / 2;
+  const army: PlacedDude[] = [];
+  for (let row = 0; army.length < count; row++) {
+    const y = row * rowGap;
+    if (y >= BOARD_ROWS) {
+      throw new SwarmSceneError(
+        `Only ${String(army.length)} Interns fit the Spawn zone, not ${String(count)}.`,
+      );
+    }
+    const offset = row % 2 === 0 ? 0 : spacing / 2;
+    for (
+      let x = offset;
+      x < SPAWN_ZONE_COLUMNS && army.length < count;
+      x += spacing
+    ) {
+      army.push({ dudeKind: "intern", at: { x, y }, stroke: row, round: 1 });
+    }
+  }
+  return army;
+}
 
 /** A Goal that outlasts every Intern, so only the towers or the clock end the swarm. */
 export const SWARM_RULES: BattleRules = {
@@ -39,11 +64,6 @@ const SWARM_PIECES: readonly { pieceId: PieceId; tile: Tile }[] = [
     })),
   ),
 ];
-
-/** A Piece in the sample Maze was refused: the scene no longer fits the placement rules. */
-export class SwarmSceneError extends Error {
-  override name = "SwarmSceneError";
-}
 
 export function swarmMaze(): Maze {
   return SWARM_PIECES.reduce((maze, { pieceId, tile }) => {

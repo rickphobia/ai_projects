@@ -12,7 +12,7 @@ import { DUDE_KINDS, type DudeKindId } from "../../src/catalog/dudes";
 import { PIECES, type PieceId } from "../../src/catalog/pieces";
 import { goldEarned } from "../../src/economy/economy";
 import { distanceToGoal } from "../../src/maze/route";
-import { internSquads, mazeWith, setupOf } from "./battle-setups";
+import { internGroups, mazeWith, setupOf } from "./battle-setups";
 
 const STURDY_GOAL = { goalHealth: 1_000_000 };
 /** Row 6 runs straight from the Spawn zone into the Goal. */
@@ -137,7 +137,7 @@ describe("the Decoy Goal", () => {
   it("draws Dudes until it breaks; those that hit it vanish and earn nothing", () => {
     const setup = setupOf(
       mazeWith([{ pieceId: "decoy-goal", tile: { column: 10, row: 2 } }]),
-      internSquads(ROW),
+      internGroups(ROW),
       STURDY_GOAL,
     );
     const { state, events } = stepBattleTimes(
@@ -156,7 +156,7 @@ describe("the Decoy Goal", () => {
     expect(hits.length).toBeGreaterThanOrEqual(toBreak);
     expect(state.maze.pieces.size).toBe(0);
     const reached = ofType(events, "reach-goal");
-    expect(reached).toHaveLength(DUDE_KINDS.intern.squadSize - hits.length);
+    expect(reached).toHaveLength(DUDE_KINDS.intern.giftSize - hits.length);
     const firstReach = reached[0]?.step ?? 0;
     expect(hits.every(({ step }) => step < firstReach)).toBe(true);
     expect(

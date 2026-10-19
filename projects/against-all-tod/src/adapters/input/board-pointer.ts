@@ -16,6 +16,19 @@ export interface PointerHandlers {
   readonly onPan: (dx: number, dy: number) => void;
   /** Two fingers moved apart (factor > 1) or together, around `centre`. */
   readonly onZoom: (centre: Point, factor: number) => void;
+  /** Painting with a brush; without these every drag pans. */
+  readonly paint?: PaintHandlers;
+}
+
+/** A one-pointer drag that paints instead of panning, as the screen decides at the press. */
+export interface PaintHandlers {
+  /** Whether a press here starts a paint: a brush is chosen and the point is in the Spawn zone. */
+  readonly canPaintAt: (point: Point) => boolean;
+  readonly onPaintStart: (point: Point) => void;
+  /** The pointer moved while painting; never fires for a pointer held still. */
+  readonly onPaintMove: (point: Point) => void;
+  /** The paint is over: the pointer lifted, or a second finger turned it into a pinch. */
+  readonly onPaintEnd: () => void;
 }
 
 export interface PointerSample {
@@ -37,14 +50,17 @@ export function tileAtPoint(point: Point, tileSize: number): Tile | null {
 }
 
 /**
- * Turns raw pointer downs, moves and ups into taps, pans and pinches. Knows nothing of the
- * DOM, so the rules (a drag never places, a pinch never pans into a tap) are unit-tested.
+ * Turns raw pointer downs, moves and ups into taps, pans, paints and pinches. Knows nothing of
+ * the DOM, so the rules (a drag never places, a paint never pans, a pinch never pans into a tap)
+ * are unit-tested.
  */
 export class PointerGestures {
   private readonly down = new Map<number, Point>();
   private start: Point | null = null;
   /** Once a press moves past the slop or a second finger lands, it can't end as a tap. */
   private tapSpoiled = false;
+  /** The press is a paint, which never pans or taps. */
+  private painting = false;
 
   constructor(private readonly handlers: PointerHandlers) {}
 
@@ -52,9 +68,12 @@ export class PointerGestures {
     this.down.set(sample.id, sample.point);
     if (this.down.size === 1) {
       this.start = sample.point;
-      this.tapSpoiled = false;
+      this.painting = this.handlers.paint?.canPaintAt(sample.point) ?? false;
+      this.tapSpoiled = this.painting;
+      if (this.painting) this.handlers.paint?.onPaintStart(sample.point);
     } else {
       this.tapSpoiled = true;
+      this.endPaint();
     }
   }
 
@@ -69,6 +88,12 @@ export class PointerGestures {
       return;
     }
     this.down.set(sample.id, sample.point);
+    if (this.painting) {
+      if (distance(previous, sample.point) > 0) {
+        this.handlers.paint?.onPaintMove(sample.point);
+      }
+      return;
+    }
     if (
       this.start !== null &&
       distance(this.start, sample.point) > TAP_SLOP[sample.kind]
@@ -85,6 +110,7 @@ export class PointerGestures {
 
   release(sample: PointerSample): void {
     if (!this.down.delete(sample.id)) return;
+    if (this.down.size === 0) this.endPaint();
     if (this.down.size === 0 && !this.tapSpoiled) {
       this.handlers.onTap(sample.point, sample.kind);
     }
@@ -94,10 +120,17 @@ export class PointerGestures {
   cancel(sample: PointerSample): void {
     this.down.delete(sample.id);
     this.tapSpoiled = true;
+    this.endPaint();
   }
 
   leave(): void {
     if (this.down.size === 0) this.handlers.onHover(null);
+  }
+
+  private endPaint(): void {
+    if (!this.painting) return;
+    this.painting = false;
+    this.handlers.paint?.onPaintEnd();
   }
 
   private pinch(sample: PointerSample): void {

@@ -39,7 +39,7 @@ const DISC_TINTS: Readonly<Record<DudeKindId, number>> = {
 const FLYER_SCALE = 1.15;
 /** A Ram Crew is four Dudes and a ram in one, so it is drawn bigger still. */
 const RAM_CREW_SCALE = 1.5;
-/** Giant Mutation: the Squad's giant is drawn this much bigger, a Split half this much smaller. */
+/** Giant Mutation: a giant is drawn this much bigger, a Split half this much smaller. */
 const GIANT_SCALE = 1.6;
 const HALF_SCALE = 0.7;
 /** How see-through a Ghost Mode ghost is. */
@@ -114,7 +114,7 @@ export class UnitsView {
     newShots: readonly ShotEvent[],
     turrets: Turrets,
   ): void {
-    this.drawDudes(state);
+    this.drawDudes(state.dudes, state.ghosts);
     this.recentShots = [...this.recentShots, ...newShots].filter(
       (shot) => state.step - shot.step < TRACER_STEPS,
     );
@@ -132,6 +132,11 @@ export class UnitsView {
     }
   }
 
+  /** The Army standing where it was painted, while building; no battle is running. */
+  showStanding(dudes: readonly DudeState[]): void {
+    this.drawDudes(dudes, []);
+  }
+
   clear(): void {
     for (const sprites of this.dudeSprites.values()) destroy(sprites);
     this.dudeSprites.clear();
@@ -139,10 +144,13 @@ export class UnitsView {
     this.tracers.clear();
   }
 
-  private drawDudes(state: BattleState): void {
+  private drawDudes(
+    dudes: readonly DudeState[],
+    ghosts: BattleState["ghosts"],
+  ): void {
     this.frame++;
-    for (const dude of state.dudes) this.drawDude(dude, false);
-    for (const { dude } of state.ghosts) this.drawDude(dude, true);
+    for (const dude of dudes) this.drawDude(dude, false);
+    for (const { dude } of ghosts) this.drawDude(dude, true);
     for (const [id, sprites] of this.dudeSprites) {
       if (sprites.seenInFrame === this.frame) continue;
       destroy(sprites);

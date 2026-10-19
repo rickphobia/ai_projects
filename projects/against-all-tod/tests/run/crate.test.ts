@@ -9,7 +9,7 @@ import { crateFor } from "../../src/run/crate";
 import {
   applyRunAction,
   newRun,
-  priceNow,
+  piecePriceNow,
   sideOf,
   type RunAction,
   type RunState,
@@ -96,7 +96,7 @@ describe("Draft Crate", () => {
       item.kind === "mutation" ? [item.id] : [],
     );
     const items = crateFor(5, "attack", owned, 0).items;
-    expect(items.every((item) => item.kind === "squad")).toBe(true);
+    expect(items.every((item) => item.kind === "gift")).toBe(true);
   });
 
   it("gives the taken Piece for free and discards the rest", () => {
@@ -108,7 +108,7 @@ describe("Draft Crate", () => {
       throw new Error("defense crate without a Piece");
     expect(taken.crate).toBeNull();
     expect(taken.wallets).toEqual(start.wallets);
-    expect(priceNow(taken, item)).toBe(0);
+    expect(piecePriceNow(taken, item.id)).toBe(0);
 
     const placed = play(taken, {
       type: "place-piece",
@@ -117,7 +117,7 @@ describe("Draft Crate", () => {
     });
     expect(placed.wallets).toEqual(start.wallets);
     expect(placed.freeItem).toBeNull();
-    expect(priceNow(placed, item)).toBe(PIECES[item.id].price);
+    expect(piecePriceNow(placed, item.id)).toBe(PIECES[item.id].price);
     expect(refusalOf(placed, { type: "take-from-crate", index: 1 })).toBe(
       "no-crate",
     );

@@ -13,7 +13,13 @@ import {
 import { fireTowers, pickTarget, towersOf } from "../../src/battle/towers";
 import { DUDE_KINDS, type DudeKindId } from "../../src/catalog/dudes";
 import { PIECES } from "../../src/catalog/pieces";
-import { crateWalls, mazeWith, setupOf, wallWithGap } from "./battle-setups";
+import {
+  crateWalls,
+  groupAt,
+  mazeWith,
+  setupOf,
+  wallWithGap,
+} from "./battle-setups";
 
 const STURDY_GOAL = { goalHealth: 1_000_000 };
 const SNIPER_STATS = PIECES["sniper-nest"].tower;
@@ -34,11 +40,7 @@ function sniperVolley(
 
 describe("the Balloonist", () => {
   const maze = mazeWith(crateWalls(wallWithGap(8, 13)));
-  const setup = setupOf(
-    maze,
-    [{ dudeKind: "balloonist", tile: { column: 0, row: 3 } }],
-    STURDY_GOAL,
-  );
+  const setup = setupOf(maze, [...groupAt("balloonist", 3, 0)], STURDY_GOAL);
 
   it("flies straight over the Maze to the Goal", () => {
     let state = startBattle(setup);
@@ -56,7 +58,7 @@ describe("the Balloonist", () => {
     const reached = runBattle(setup).events.filter(
       (event) => event.type === "reach-goal",
     );
-    expect(reached).toHaveLength(DUDE_KINDS.balloonist.squadSize);
+    expect(reached).toHaveLength(DUDE_KINDS.balloonist.giftSize);
   });
 
   it("is shot by a tower that hits air", () => {
@@ -134,10 +136,7 @@ describe("the Hype Man", () => {
   });
 
   it("reads the Volume slider", () => {
-    const army = [
-      { dudeKind: "hype-man" as const, tile: { column: 0, row: 3 } },
-      { dudeKind: "intern" as const, tile: { column: 0, row: 3 } },
-    ];
+    const army = [...groupAt("hype-man", 3, 0, 1), ...groupAt("intern", 3, 0)];
     const internX = (volume: number, withHype = true) => {
       const base = setupOf(
         mazeWith([]),
@@ -161,11 +160,7 @@ describe("the Mole", () => {
     ...crateWalls(wallWithGap(10, 13)),
     { pieceId: "sniper-nest", tile: { column: 7, row: 1 } },
   ]);
-  const setup = setupOf(
-    maze,
-    [{ dudeKind: "mole", tile: { column: 0, row: 3 } }],
-    STURDY_GOAL,
-  );
+  const setup = setupOf(maze, [...groupAt("mole", 3, 0)], STURDY_GOAL);
 
   it("tunnels under the Maze once, untargetable, and resurfaces past it", () => {
     let state = startBattle(setup);
