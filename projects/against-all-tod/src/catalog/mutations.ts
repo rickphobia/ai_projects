@@ -1,6 +1,6 @@
 /**
- * Every Mutation an attack Draft Crate can offer. Pure data. Ticket 15 gives them their battle
- * effects; until then a picked Mutation is only stored on the Run.
+ * Every Mutation an attack Draft Crate can offer, with its tuning numbers. Pure data: the
+ * battle's mutations module and the economy read the numbers from here.
  */
 export type MutationId =
   | "split"
@@ -50,4 +50,33 @@ export const MUTATIONS: Readonly<Record<MutationId, MutationEntry>> = {
     name: "Gold Teeth",
     description: "Dudes reaching the Goal earn double Attack gold.",
   },
+};
+
+/** Tuning numbers for the Mutations' effects. */
+export interface MutationRules {
+  /** Split: each half gets this share of the dead Dude's full health. */
+  readonly splitHealthShare: number;
+  /** Giant: the giant's health and speed, as multiples of its kind's. */
+  readonly giantHealthMultiplier: number;
+  readonly giantSpeedMultiplier: number;
+  /** Explosive Shields: damage each Dude's small shield soaks before it breaks. */
+  readonly smallShieldHealth: number;
+  /** Explosive Shields: towers this close (in tiles) to a breaking shield are stunned. */
+  readonly shieldBurstRange: number;
+  readonly shieldBurstStunSeconds: number;
+  /** Ghost Mode: how long a dead Dude keeps walking. */
+  readonly ghostSeconds: number;
+  /** Gold Teeth: Attack gold for a Dude reaching the Goal is multiplied by this. */
+  readonly goldTeethMultiplier: number;
+}
+
+export const MUTATION_RULES: MutationRules = {
+  splitHealthShare: 0.5,
+  giantHealthMultiplier: 5,
+  giantSpeedMultiplier: 0.5,
+  smallShieldHealth: 15,
+  shieldBurstRange: 3,
+  shieldBurstStunSeconds: 1,
+  ghostSeconds: 3,
+  goldTeethMultiplier: 2,
 };

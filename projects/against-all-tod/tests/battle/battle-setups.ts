@@ -1,6 +1,7 @@
 import type { Army } from "../../src/battle/army";
 import type { BattleSetup } from "../../src/battle/battle";
 import { BATTLE_RULES, type BattleRules } from "../../src/catalog/battle-rules";
+import type { MutationId } from "../../src/catalog/mutations";
 import type { PieceId } from "../../src/catalog/pieces";
 import { BOARD_ROWS, type Tile } from "../../src/maze/board";
 import { emptyMaze, placePiece, type Maze } from "../../src/maze/maze";
@@ -30,8 +31,9 @@ export function setupOf(
   army: Army,
   rules: Partial<BattleRules> = {},
   seed = 1,
+  mutations: readonly MutationId[] = [],
 ): BattleSetup {
-  return { maze, army, seed, rules: { ...BATTLE_RULES, ...rules } };
+  return { maze, army, mutations, seed, rules: { ...BATTLE_RULES, ...rules } };
 }
 
 /** A wall down `column` with a one-tile gap at `gapRow`. */

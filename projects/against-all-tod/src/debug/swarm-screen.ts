@@ -25,6 +25,7 @@ export function playSwarm(
   const setup: BattleSetup = {
     maze: swarmMaze(),
     army: SWARM_ARMY,
+    mutations: [],
     seed,
     rules: SWARM_RULES,
   };

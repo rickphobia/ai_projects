@@ -3,6 +3,7 @@ import { PIECES, type PieceId, type TowerStats } from "../catalog/pieces";
 import { BOARD_COLUMNS, BOARD_ROWS, type Tile } from "../maze/board";
 import { placedPieces, type Maze } from "../maze/maze";
 import { distanceToGoal, type Route } from "../maze/route";
+import { DudeHits } from "./damage";
 import { squaredDistance, tileUnder, type DudeState } from "./dudes";
 import type { BattleEvent, BoardPoint } from "./events";
 
@@ -19,6 +20,8 @@ export interface TowerState {
   readonly cooldownSteps: number;
   /** Where it last fired, so the renderer can turn it; null before its first shot. */
   readonly aimedAt: BoardPoint | null;
+  /** A breaking Explosive Shield stunned it: it does nothing until this step. Absent if never stunned. */
+  readonly stunnedUntilStep?: number;
 }
 
 /** What a Sniper Nest weighs when choosing whom to shoot. */
@@ -93,45 +96,43 @@ export function fireTowers(
   stepsPerSecond: number,
 ): VolleyResult {
   const byTile = dudesByTile(dudes);
-  // Only the Dudes a shot hit get a new state; null marks a kill.
-  const hit = new Map<number, DudeState | null>();
   const events: BattleEvent[] = [];
+  const hits = new DudeHits(dudes, step, events);
   const shieldBearers = dudes.filter((dude) => dude.shield > 0);
   const nextTowers = towers.map((tower): TowerState => {
+    if ((tower.stunnedUntilStep ?? 0) > step) return tower;
     const stats = statsOf(tower.pieceId);
     if (tower.cooldownSteps > 1) {
       return { ...tower, cooldownSteps: tower.cooldownSteps - 1 };
     }
-    const aimed = targetFor(tower.tile, stats, byTile, hit, route);
+    const aimed = targetFor(tower.tile, stats, byTile, hits, route);
     if (aimed === null) return { ...tower, cooldownSteps: 0 };
-    const shield = shieldCovering(aimed, shieldBearers, hit);
+    const shield = shieldCovering(aimed, shieldBearers, hits);
     const target = shield ?? aimed;
 
     const at = { x: target.x, y: target.y };
-    const shotAt = { step, pieceId: tower.pieceId, pieceTile: tower.tile, at };
-    events.push({ type: "shot", dudeId: target.id, ...shotAt });
+    events.push({
+      type: "shot",
+      step,
+      pieceId: tower.pieceId,
+      pieceTile: tower.tile,
+      dudeId: target.id,
+      at,
+    });
     if (shield !== null) {
-      hit.set(shield.id, {
+      hits.update({
         ...shield,
         shield: Math.max(0, shield.shield - stats.damage),
       });
-      return reloaded(tower, stats, stepsPerSecond, at);
-    }
-    const health = target.health - stats.damage;
-    if (health <= 0) {
-      hit.set(target.id, null);
-      events.push({
-        type: "kill",
-        dudeId: target.id,
-        dudeKind: target.kind,
-        ...shotAt,
-      });
     } else {
-      hit.set(target.id, { ...target, health });
+      hits.hurt(target, stats.damage, {
+        pieceId: tower.pieceId,
+        pieceTile: tower.tile,
+      });
     }
     return reloaded(tower, stats, stepsPerSecond, at);
   });
-  return { towers: nextTowers, dudes: afterHits(dudes, hit), events };
+  return { towers: nextTowers, dudes: hits.applyTo(dudes), events };
 }
 
 function reloaded(
@@ -158,11 +159,11 @@ function reloaded(
 function shieldCovering(
   target: DudeState,
   bearers: readonly DudeState[],
-  hit: ReadonlyMap<number, DudeState | null>,
+  hits: DudeHits,
 ): DudeState | null {
   for (const placed of bearers) {
-    const bearer = hit.has(placed.id) ? hit.get(placed.id) : placed;
-    if (bearer == null || bearer.id === target.id || bearer.shield <= 0) {
+    const bearer = hits.current(placed);
+    if (bearer === null || bearer.id === target.id || bearer.shield <= 0) {
       continue;
     }
     const radius = DUDE_KINDS[bearer.kind].shield?.radius ?? 0;
@@ -185,7 +186,7 @@ function targetFor(
   tile: Tile,
   { range, hitsAir }: TowerStats,
   byTile: readonly (readonly DudeState[])[],
-  hit: ReadonlyMap<number, DudeState | null>,
+  hits: DudeHits,
   route: Route,
 ): DudeState | null {
   const centreX = tile.column + 0.5;
@@ -201,8 +202,8 @@ function targetFor(
       if (here.length === 0) continue;
       const stepsLeft = distanceToGoal(route, { column, row }) ?? Infinity;
       for (const placed of here) {
-        const dude = hit.has(placed.id) ? hit.get(placed.id) : placed;
-        if (dude == null || !isInRange(centreX, centreY, range, dude)) {
+        const dude = hits.current(placed);
+        if (dude === null || !isInRange(centreX, centreY, range, dude)) {
           continue;
         }
         const kind = DUDE_KINDS[dude.kind];
@@ -233,20 +234,6 @@ function dudesByTile(dudes: readonly DudeState[]): DudeState[][] {
     byTile[row * BOARD_COLUMNS + column]?.push(dude);
   }
   return byTile;
-}
-
-/** The Dudes in their order, with the hit ones changed and the killed ones gone. */
-function afterHits(
-  dudes: readonly DudeState[],
-  hit: ReadonlyMap<number, DudeState | null>,
-): DudeState[] {
-  if (hit.size === 0) return [...dudes];
-  const alive: DudeState[] = [];
-  for (const dude of dudes) {
-    const now = hit.has(dude.id) ? hit.get(dude.id) : dude;
-    if (now != null) alive.push(now);
-  }
-  return alive;
 }
 
 /** Compares squared distances: no square roots, so the result is exact on every machine. */

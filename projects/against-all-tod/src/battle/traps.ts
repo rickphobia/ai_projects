@@ -7,6 +7,7 @@ import {
   distanceToGoal,
   type Route,
 } from "../maze/route";
+import type { DudeHits } from "./damage";
 import { squaredDistance, tileUnder, type DudeState } from "./dudes";
 import type { BattleEvent } from "./events";
 
@@ -35,7 +36,8 @@ function isCatchable(dude: DudeState): boolean {
 
 /**
  * What the floor Piece a Dude has just stepped onto does to it: the Dude afterwards, or null
- * if the Grinder killed it. Nothing happens unless `after` stands on a new tile.
+ * if the Grinder killed it. Nothing happens unless `after` stands on a new tile. A Grinder's
+ * hit goes through `hits`, which emits the kill (and, under Conga Line, hurts the Squadmates).
  */
 export function crossFloor(
   before: DudeState,
@@ -45,6 +47,7 @@ export function crossFloor(
   step: number,
   stepsPerSecond: number,
   events: BattleEvent[],
+  hits: DudeHits,
 ): DudeState | null {
   if (!isCatchable(after)) return after;
   const tile = tileUnder(after);
@@ -67,21 +70,14 @@ export function crossFloor(
   if (trap.kind !== "grinder" || (cooldowns.get(key) ?? 0) > step) {
     return after;
   }
-  const health = trap.smallKinds.includes(after.kind)
-    ? 0
-    : after.health - trap.damage;
-  if (health > 0) return { ...after, health };
-  cooldowns.set(key, step + Math.round(trap.jamSeconds * stepsPerSecond));
-  events.push({
-    type: "kill",
-    step,
-    pieceId: piece.pieceId,
-    pieceTile: tile,
-    dudeId: after.id,
-    dudeKind: after.kind,
-    at: { x: after.x, y: after.y },
-  });
-  return null;
+  const source = { pieceId: piece.pieceId, pieceTile: tile };
+  if (trap.smallKinds.includes(after.kind)) hits.kill(after, source);
+  else hits.hurt(after, trap.damage, source);
+  const now = hits.current(after);
+  if (now === null) {
+    cooldowns.set(key, step + Math.round(trap.jamSeconds * stepsPerSecond));
+  }
+  return now;
 }
 
 /** Every ready Bouncer throws the touching Dude that entered first back to the Spawn line, in its own row. */

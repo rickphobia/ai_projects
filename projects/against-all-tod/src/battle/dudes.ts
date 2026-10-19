@@ -22,6 +22,8 @@ export interface DudeState {
    */
   readonly lane: number;
   readonly health: number;
+  /** The health it started the battle with: its kind's, or more or less under a Mutation. */
+  readonly fullHealth: number;
   /** Damage its shield can still soak; 0 for no shield or a broken one. */
   readonly shield: number;
   /** Tunnels it may still dig this battle. */
@@ -32,6 +34,14 @@ export interface DudeState {
   readonly stunnedUntilStep?: number;
   /** A Ram Crew's ram swings again from this step. Absent before its first hit. */
   readonly ramReadyAtStep?: number;
+  /** Explosive Shields: damage its own small shield can still soak. Absent without the Mutation. */
+  readonly smallShield?: number;
+  /** Conga Line: its Squad's index in the Army; Squadmates share damage. Absent without the Mutation. */
+  readonly congaSquad?: number;
+  /** Giant: this Squad's giant, at its kind's speed times the Giant multiplier. */
+  readonly giant?: true;
+  /** Split: one of the two halves a dead Dude became; a half doesn't split again. */
+  readonly half?: true;
 }
 
 /** The widest a lane may be, in tiles either side of the centre line. */
@@ -62,6 +72,7 @@ export function newDude(
     y: spawnRow + 0.5 + lane,
     lane,
     health: entry.health,
+    fullHealth: entry.health,
     shield: entry.shield?.health ?? 0,
     tunnelsLeft: entry.tunnelTiles > 0 ? 1 : 0,
     burrowTo: null,

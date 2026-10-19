@@ -4,17 +4,17 @@
 
 **Blocked by:** 09 (Draft Crates), 13 (Wall-breakers)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** battle/mutations, catalog/mutations
 
 **Effort:** low
 
-- [ ] Split: a dying Dude becomes two halves
-- [ ] Giant: one Dude per Squad has 5× health and half speed
-- [ ] Explosive Shields: each Dude's small shield stuns nearby towers for 1 s when it breaks
-- [ ] Conga Line: a Squad walks in single file and shares damage across its living members
-- [ ] Ghost Mode: dead Dudes keep walking for 3 s, can't be shot, and still damage and pay if they reach the Goal
-- [ ] Gold Teeth: Dudes reaching the Goal earn double Attack gold
-- [ ] Mutations appear in attack crates and stack
-- [ ] One battle test per Mutation
+- [x] Split: a dying Dude becomes two halves
+- [x] Giant: one Dude per Squad has 5× health and half speed
+- [x] Explosive Shields: each Dude's small shield stuns nearby towers for 1 s when it breaks
+- [x] Conga Line: a Squad walks in single file and shares damage across its living members
+- [x] Ghost Mode: dead Dudes keep walking for 3 s, can't be shot, and still damage and pay if they reach the Goal
+- [x] Gold Teeth: Dudes reaching the Goal earn double Attack gold
+- [x] Mutations appear in attack crates and stack
+- [x] One battle test per Mutation

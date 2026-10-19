@@ -7,6 +7,7 @@ import {
 } from "../catalog/pieces";
 import { tileKey, type Tile } from "../maze/board";
 import { placedPieces, type Maze } from "../maze/maze";
+import { DudeHits } from "./damage";
 import type { DudeState } from "./dudes";
 import type { BattleEvent } from "./events";
 
@@ -113,12 +114,9 @@ function sweep(
   const damage = stats.damagePerSecond / stepsPerSecond;
   const centreX = piece.tile.column + 0.5;
   const centreY = piece.tile.row + 0.5;
-  const alive: DudeState[] = [];
+  const hits = new DudeHits(dudes, step, events);
   for (const dude of dudes) {
-    if (!canReach(dude, stats.hitsAir)) {
-      alive.push(dude);
-      continue;
-    }
+    if (!canReach(dude, stats.hitsAir)) continue;
     const dx = dude.x - centreX;
     const dy = dude.y - centreY;
     const squared = dx * dx + dy * dy;
@@ -128,26 +126,14 @@ function sweep(
       squared <= stats.range * stats.range &&
       along > 0 &&
       along * along >= minCos * minCos * squared;
-    if (!inBeam) {
-      alive.push(dude);
-      continue;
+    if (inBeam) {
+      hits.hurt(dude, damage, {
+        pieceId: piece.pieceId,
+        pieceTile: piece.tile,
+      });
     }
-    const health = dude.health - damage;
-    if (health > 0) {
-      alive.push({ ...dude, health });
-      continue;
-    }
-    events.push({
-      type: "kill",
-      step,
-      pieceId: piece.pieceId,
-      pieceTile: piece.tile,
-      dudeId: dude.id,
-      dudeKind: dude.kind,
-      at: { x: dude.x, y: dude.y },
-    });
   }
-  return alive;
+  return hits.applyTo(dudes);
 }
 
 /** Underground Dudes are out of reach of everything; flyers only of what hits air. */

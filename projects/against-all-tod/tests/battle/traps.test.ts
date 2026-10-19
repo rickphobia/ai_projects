@@ -145,7 +145,12 @@ describe("the Decoy Goal", () => {
     const firstReach = reached[0]?.step ?? 0;
     expect(hits.every(({ step }) => step < firstReach)).toBe(true);
     expect(
-      goldEarned(hits, { winner: "attack", goalHealth: 0, survivors: [] }),
+      goldEarned(hits, {
+        winner: "attack",
+        goalHealth: 0,
+        survivors: [],
+        mutations: [],
+      }),
     ).toEqual({ defense: 0, attack: 0 });
   });
 });

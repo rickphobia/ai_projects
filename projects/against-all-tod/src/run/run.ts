@@ -205,6 +205,7 @@ export function battleSetupOf(
   return {
     maze: mazeOf(state.pieces),
     army: state.army,
+    mutations: state.mutations,
     seed: roundSeed(state.seed, roundOf(state)),
     rules,
   };

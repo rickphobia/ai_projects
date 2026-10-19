@@ -18,7 +18,8 @@ export type BattleEvent =
   | ReachGoalEvent
   | PieceDestroyedEvent
   | TaxedEvent
-  | DecoyHitEvent;
+  | DecoyHitEvent
+  | ShieldBurstEvent;
 
 export interface ShotEvent {
   readonly type: "shot";
@@ -79,4 +80,12 @@ export interface DecoyHitEvent {
   readonly dudeKind: DudeKindId;
   /** Decoy health it took. */
   readonly damage: number;
+}
+
+/** Explosive Shields: a Dude's small shield broke, stunning the towers near it. */
+export interface ShieldBurstEvent {
+  readonly type: "shield-burst";
+  readonly step: number;
+  readonly dudeId: number;
+  readonly at: BoardPoint;
 }

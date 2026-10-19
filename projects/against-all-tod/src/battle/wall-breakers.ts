@@ -222,6 +222,6 @@ export function carrierSpeedFactor(dude: DudeState): number {
   const kind = DUDE_KINDS[dude.kind];
   if (kind.wallBreaker?.attack !== "ram") return 1;
   const { carriers } = kind.wallBreaker;
-  const standing = Math.ceil((dude.health / kind.health) * carriers);
+  const standing = Math.ceil((dude.health / dude.fullHealth) * carriers);
   return Math.max(0, Math.min(carriers, standing)) / carriers;
 }
