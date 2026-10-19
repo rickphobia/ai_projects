@@ -1,6 +1,7 @@
 import type { BattleRules } from "../catalog/battle-rules";
+import type { BossId } from "../catalog/bosses";
 import type { CurseId } from "../catalog/curses";
-import { DUDE_KINDS } from "../catalog/dudes";
+import { DUDE_KINDS, isBoss } from "../catalog/dudes";
 import type { MutationId } from "../catalog/mutations";
 import { PIECES } from "../catalog/pieces";
 import { tileKey } from "../maze/board";
@@ -13,6 +14,7 @@ import {
 } from "../tricks/tricks";
 import { applyEffects, effectPiecesOf, type EffectPiece } from "./area-effects";
 import { giantsOf, isSpawnZonePoint, type Army } from "./army";
+import { turnBack, walkLandlord, withBossDude, withBossPiece } from "./bosses";
 import {
   curseReloadFactor,
   cursedMaze,
@@ -81,6 +83,8 @@ export interface BattleSetup {
   readonly sliderInputs: readonly SliderInput[];
   /** The Round's Curse; null in Round 1 and in debug scenes. */
   readonly curse: CurseId | null;
+  /** The Boss Round's boss; null in every other Round. */
+  readonly boss: BossId | null;
 }
 
 export type Side = "attack" | "defense";
@@ -147,8 +151,15 @@ export function armyDudes(
 
 /** The battle before its first step: the whole Army standing in the Spawn zone, towers ready. */
 export function startBattle(setup: BattleSetup): BattleState {
-  const maze = cursedMaze(setup.maze, setup.curse, setup.seed);
-  const dudes = armyDudes(setup.army, setup.mutations, maze.windowSize);
+  // The boss goes in after the Earthquake, so the run can still work out which Piece it shook.
+  const maze = withBossPiece(
+    cursedMaze(setup.maze, setup.curse, setup.seed),
+    setup.boss,
+  );
+  const dudes = withBossDude(
+    armyDudes(setup.army, setup.mutations, maze.windowSize),
+    setup.boss,
+  );
   const hasWallBreakers =
     wallBreakersBreak(setup.curse) &&
     setup.army.some(({ dudeKind }) => isWallBreaker(dudeKind));
@@ -223,9 +234,9 @@ export function stepBattle(
       : turnstilesTurned(step)
         ? state.decoyRoutes.turned
         : state.decoyRoutes.unturned;
-  const bounced = bounce(
+  const bounced = turnBack(
     state.maze,
-    effects.dudes,
+    bounce(state.maze, effects.dudes, cooldowns, step, STEPS_PER_SECOND),
     cooldowns,
     step,
     STEPS_PER_SECOND,
@@ -243,7 +254,12 @@ export function stepBattle(
       continue;
     }
     let field = route;
-    if (!isWallBreaker(dude.kind) && !DUDE_KINDS[dude.kind].flies) {
+    // A Decoy Goal doesn't fool a boss.
+    if (
+      !isWallBreaker(dude.kind) &&
+      !DUDE_KINDS[dude.kind].flies &&
+      !isBoss(dude.kind)
+    ) {
       field = walkerRoute(dude, decoyRoute, route);
     }
     if (breakerRoutes !== null && isWallBreaker(dude.kind)) {
@@ -273,7 +289,7 @@ export function stepBattle(
     if (moved !== "at-goal") {
       const crossed = crossFloor(
         dude,
-        moved,
+        walkLandlord(dude, moved, state.maze, pieceHits, step, events),
         state.maze,
         cooldowns,
         step,
@@ -297,7 +313,11 @@ export function stepBattle(
   const ghostWalk = walkGhosts(state.ghosts, route, step, STEP_SECONDS, events);
   goalHealth = Math.max(0, goalHealth - ghostWalk.goalDamage);
   const afterlife = afterDeaths(
-    events.filter((event): event is KillEvent => event.type === "kill"),
+    // The Mutations are the Army's; a boss doesn't split or walk on as a ghost.
+    events.filter(
+      (event): event is KillEvent =>
+        event.type === "kill" && !isBoss(event.dudeKind),
+    ),
     onBoard,
     setup.mutations,
     step,

@@ -22,6 +22,7 @@ describe("the swarm scene", () => {
       sliders: NEUTRAL_SLIDERS,
       sliderInputs: [],
       curse: null,
+      boss: null,
     });
     expect(SWARM_DUDES).toBe(500);
     expect(state.dudes).toHaveLength(SWARM_DUDES);

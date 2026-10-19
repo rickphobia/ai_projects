@@ -49,6 +49,8 @@ export interface DudeState {
   readonly giant: boolean;
   /** Split: one of the two halves a dead Dude became; a half doesn't split again. */
   readonly half: boolean;
+  /** The Landlord: tiles walked this battle, which set when he evicts. Absent for other Dudes. */
+  readonly walked?: number;
 }
 
 /** The widest a lane may be, in tiles either side of the centre line. */

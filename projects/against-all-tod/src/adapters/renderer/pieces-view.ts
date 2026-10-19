@@ -22,6 +22,8 @@ const FLOOR_ALPHA = 0.7;
 const FLOOR_SCALE = 0.8;
 const BOUNCER_COLOUR = 0xff9f1c;
 const DECOY_GOAL_COLOUR = 0xffd700;
+/** The HR Department, a boss: a tower in corporate purple. */
+const HR_DEPARTMENT_COLOUR = 0x9b5cff;
 /** A Turnstile arm is a crate shrunk to this share of a tile, so the arm reads as part of the Piece. */
 const ARM_SCALE = 0.7;
 
@@ -62,6 +64,9 @@ export function pieceView(
       piece.addChild(
         new Sprite({ texture: textures.stoneBase, tint: DECOY_GOAL_COLOUR }),
       );
+      break;
+    case "hr-department":
+      piece.addChild(...towerSprites(textures, HR_DEPARTMENT_COLOUR));
       break;
   }
   return piece;

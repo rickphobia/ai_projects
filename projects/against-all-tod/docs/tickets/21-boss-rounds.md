@@ -4,14 +4,14 @@
 
 **Blocked by:** 20 (Curses)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** battle/bosses, catalog/bosses, run, ui/crate
 
 **Effort:** medium
 
-- [ ] Rounds 5, 10, 15… are Boss Rounds; the boss is added for that Round only and comes back on a Rewind
-- [ ] The Landlord: huge health, destroys a Piece every 10 tiles walked (never sealing the Goal)
-- [ ] The HR Department: a tower that turns Wall-breakers in range back toward the Spawn zone
-- [ ] Boss crate offers 5 items, 2 picks, with a catalog chance of a free Undo
-- [ ] Tests: Boss Round timing, each boss's effect, boss crate size and picks
+- [x] Rounds 5, 10, 15… are Boss Rounds; the boss is added for that Round only and comes back on a Rewind
+- [x] The Landlord: huge health, destroys a Piece every 10 tiles walked (never sealing the Goal)
+- [x] The HR Department: a tower that turns Wall-breakers in range back toward the Spawn zone
+- [x] Boss crate offers 5 items, 2 picks, with a catalog chance of a free Undo
+- [x] Tests: Boss Round timing, each boss's effect, boss crate size and picks

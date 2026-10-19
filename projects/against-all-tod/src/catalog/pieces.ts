@@ -11,7 +11,8 @@ export type PieceId =
   | "tax-booth"
   | "grinder"
   | "bouncer"
-  | "decoy-goal";
+  | "decoy-goal"
+  | "hr-department";
 
 export interface PieceEntry {
   /** Stable id that saves and tests refer to. */
@@ -251,5 +252,21 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
     turnIntervalSeconds: null,
     trap: { kind: "decoy-goal" },
     unlockScore: 20,
+  },
+  // A Boss Round's boss, never sold: the battle adds it for one Round (see catalog/bosses).
+  "hr-department": {
+    id: "hr-department",
+    name: "The HR Department",
+    description:
+      "A Boss Round's boss. Sends Wall-breakers in range back to the Spawn zone.",
+    blocksDudes: false,
+    price: 0,
+    health: 1000,
+    tower: null,
+    beam: null,
+    stun: null,
+    turnIntervalSeconds: null,
+    trap: null,
+    unlockScore: null,
   },
 };

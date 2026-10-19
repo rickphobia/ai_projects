@@ -1,5 +1,5 @@
 import type { Side } from "../battle/battle";
-import { DUDE_KINDS, type DudeKindId } from "./dudes";
+import { ARMY_DUDE_KINDS, type DudeKindId } from "./dudes";
 import { MUTATIONS, type MutationId } from "./mutations";
 import type { PieceId } from "./pieces";
 
@@ -13,7 +13,9 @@ export type CrateItem =
   | { readonly kind: "piece"; readonly id: PieceId }
   /** A gift of free Dudes of one kind, as many as its `giftSize`. */
   | { readonly kind: "gift"; readonly id: DudeKindId }
-  | { readonly kind: "mutation"; readonly id: MutationId };
+  | { readonly kind: "mutation"; readonly id: MutationId }
+  /** Only in a boss crate: one Undo that skips the payment. */
+  | { readonly kind: "free-undo" };
 
 export interface CrateRules {
   /** Items in one crate. */
@@ -41,7 +43,7 @@ export const CRATE_POOLS: Readonly<Record<Side, readonly CrateItem[]>> = {
     { kind: "piece", id: "decoy-goal" },
   ],
   attack: [
-    ...Object.values(DUDE_KINDS).map(({ id }): CrateItem => ({
+    ...ARMY_DUDE_KINDS.map((id): CrateItem => ({
       kind: "gift",
       id,
     })),

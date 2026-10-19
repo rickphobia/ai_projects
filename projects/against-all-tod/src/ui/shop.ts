@@ -26,24 +26,31 @@ export function defenseItems(stock: ShopStock): ShopItem<PieceId>[] {
 }
 
 /**
- * The unit bar: every Dude kind on sale with its price per Dude, plus the crate gift's kind if
+ * The unit bar: every Dude kind on sale with its price per Dude, plus each crate gift's kind if
  * the shop doesn't sell it, with the gift's count on its kind.
  */
 export function attackItems(
   stock: ShopStock,
-  freeItem: FreeItem | null,
+  freeItems: readonly FreeItem[],
 ): ShopItem<DudeKindId>[] {
-  const gift = freeItem?.kind === "gift" ? freeItem : null;
-  const kinds =
-    gift === null || stock.dudeKinds.includes(gift.id)
-      ? stock.dudeKinds
-      : [...stock.dudeKinds, gift.id];
-  return kinds.map((id) => ({
-    id,
-    name: DUDE_KINDS[id].name,
-    price: dudePrice(id),
-    ...(gift?.id === id ? { free: gift.left } : {}),
-  }));
+  const gifts = new Map(
+    freeItems.flatMap((item) =>
+      item.kind === "gift" ? [[item.id, item.left] as const] : [],
+    ),
+  );
+  const kinds = [
+    ...stock.dudeKinds,
+    ...[...gifts.keys()].filter((id) => !stock.dudeKinds.includes(id)),
+  ];
+  return kinds.map((id) => {
+    const free = gifts.get(id);
+    return {
+      id,
+      name: DUDE_KINDS[id].name,
+      price: dudePrice(id),
+      ...(free === undefined ? {} : { free }),
+    };
+  });
 }
 
 /** "Sniper Nest · 40g", or "Intern · 1g · 12 free" while a gift lasts, for a shop button. */

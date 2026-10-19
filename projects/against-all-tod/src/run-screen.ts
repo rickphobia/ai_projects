@@ -2,6 +2,7 @@ import { soundsOf } from "./adapters/audio/sound-level";
 import type { GameSounds } from "./adapters/audio/sound-player";
 import type { GameView } from "./adapters/renderer/game-renderer";
 import { isSpawnZonePoint, nextStroke } from "./battle/army";
+import { destroyedForGood } from "./battle/bosses";
 import {
   armyDudes,
   STEPS_PER_SECOND,
@@ -223,15 +224,16 @@ export class RunScreen {
     this.showBuilding();
   }
 
-  /** Takes crate item `index`; a Piece or Squad becomes the chosen one, ready to place for free. */
+  /** Takes crate item `index`; a Piece or gift becomes the chosen one, ready to place for free. */
   takeFromCrate(index: number): void {
+    const item = this.run.crate?.items[index];
     if (!this.act({ type: "take-from-crate", index })) return;
-    const free = this.run.freeItem;
-    if (free?.kind === "piece") this.chosenPiece = free.id;
-    if (free?.kind === "gift") this.chosenDudeKind = free.id;
+    if (item?.kind === "piece") this.chosenPiece = item.id;
+    if (item?.kind === "gift") this.chosenDudeKind = item.id;
     this.logger.info("took from crate", {
       round: roundOf(this.run),
-      item: free ?? this.run.mutations.at(-1),
+      item,
+      picksLeft: this.run.crate?.picks ?? 0,
     });
     this.showBuilding();
   }
@@ -556,7 +558,7 @@ export class RunScreen {
     if (this.run.phase === "building") {
       this.cratePanel?.show(
         this.run.crate,
-        this.run.freeItem,
+        this.run.freeItems,
         sideOf(this.run),
       );
     }
@@ -567,7 +569,7 @@ export class RunScreen {
       }
       this.hud?.showAttackBuilding(
         this.chosenDudeKind,
-        this.run.freeItem,
+        this.run.freeItems,
         this.erasing,
       );
     }
@@ -673,9 +675,7 @@ export class RunScreen {
       mutations: battle.setup.mutations,
     };
     const earned = goldEarned(battle.goldEvents, battleEnd);
-    const destroyed = battle.goldEvents.flatMap((event) =>
-      event.type === "piece-destroyed" ? [event.pieceTile] : [],
-    );
+    const destroyed = destroyedForGood(battle.goldEvents);
     if (
       !this.act({
         type: "battle-finished",

@@ -74,10 +74,52 @@ describe("SaveStore", () => {
     const run: RunState = {
       ...taken.state,
       mutations: ["gold-teeth"],
-      crate: { items: [{ kind: "mutation", id: "split" }], rerolls: 2 },
+      crate: {
+        items: [{ kind: "mutation", id: "split" }, { kind: "free-undo" }],
+        kind: "boss",
+        picks: 2,
+        rerolls: 2,
+      },
     };
     store.save(run);
     expect(store.load()).toEqual({ kind: "loaded", run });
+  });
+
+  it("loads a save from before boss crates: one pick, the single free item", () => {
+    const { store, storage } = storeWith();
+    const taken = applyRunAction(newRun(42), {
+      type: "take-from-crate",
+      index: 0,
+    });
+    if (!taken.ok) throw new Error(taken.refusal);
+    store.save(taken.state);
+    const saved = JSON.parse(storage.getItem(SAVE_KEY) ?? "") as {
+      run: Record<string, unknown>;
+    };
+    const { freeItems, ...old } = saved.run;
+    storage.setItem(
+      SAVE_KEY,
+      JSON.stringify({
+        ...saved,
+        run: {
+          ...old,
+          freeItem: (freeItems as unknown[])[0],
+          crate: { items: [{ kind: "piece", id: "siren" }], rerolls: 1 },
+        },
+      }),
+    );
+    expect(store.load()).toEqual({
+      kind: "loaded",
+      run: {
+        ...taken.state,
+        crate: {
+          kind: "draft",
+          items: [{ kind: "piece", id: "siren" }],
+          picks: 1,
+          rerolls: 1,
+        },
+      },
+    });
   });
 
   it("loads back a painted Army, which Dudes came from the gift, and a half-used crate gift", () => {
@@ -98,7 +140,10 @@ describe("SaveStore", () => {
         { dudeKind: "intern", at: { x: 2.9, y: 13.1 }, stroke: 6, round: 2 },
       ],
       crate: null,
-      freeItem: { kind: "gift", id: "termite", left: 9 },
+      freeItems: [
+        { kind: "gift", id: "termite", left: 9 },
+        { kind: "piece", id: "siren" },
+      ],
     };
     store.save(run);
     expect(store.load()).toEqual({ kind: "loaded", run });

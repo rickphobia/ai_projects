@@ -426,7 +426,12 @@ function withGift(
   return play(
     {
       ...state,
-      crate: { items: [{ kind: "gift", id: dudeKind }], rerolls: 0 },
+      crate: {
+        kind: "draft",
+        items: [{ kind: "gift", id: dudeKind }],
+        picks: 1,
+        rerolls: 0,
+      },
     },
     { type: "take-from-crate", index: 0 },
   );
@@ -438,11 +443,9 @@ describe("crate gifts", () => {
 
   it("holds the kind's gift size of free Dudes", () => {
     const gifted = withGift(attacking, "intern");
-    expect(gifted.freeItem).toEqual({
-      kind: "gift",
-      id: "intern",
-      left: giftSize,
-    });
+    expect(gifted.freeItems).toEqual([
+      { kind: "gift", id: "intern", left: giftSize },
+    ]);
     expect(giftLeft(gifted, "intern")).toBe(giftSize);
     expect(giftLeft(gifted, "termite")).toBe(0);
   });
@@ -450,7 +453,7 @@ describe("crate gifts", () => {
   it("uses the gift first, then gold", () => {
     const gifted = withGift(attacking, "intern");
     const painted = play(gifted, ...paintInterns(6, giftSize + 2));
-    expect(painted.freeItem).toBeNull();
+    expect(painted.freeItems).toEqual([]);
     expect(painted.wallets.attack).toBe(
       attacking.wallets.attack - 2 * DUDE_KINDS.intern.dudePrice,
     );
@@ -470,8 +473,8 @@ describe("crate gifts", () => {
 
   it("loses an unused gift when the Round ends, won or lost", () => {
     const gifted = play(withGift(attacking, "intern"), ...paintInterns(6, 3));
-    expect(finish(gifted, "attack").freeItem).toBeNull();
-    expect(finish(gifted, "defense").freeItem).toBeNull();
+    expect(finish(gifted, "attack").freeItems).toEqual([]);
+    expect(finish(gifted, "defense").freeItems).toEqual([]);
   });
 });
 
@@ -523,7 +526,7 @@ describe("erasing", () => {
     const dismissed = play(attacking, erase(0));
     expect(dismissed.army).toEqual(attacking.army.slice(1));
     expect(dismissed.wallets).toEqual(attacking.wallets);
-    expect(dismissed.freeItem).toEqual(attacking.freeItem);
+    expect(dismissed.freeItems).toEqual(attacking.freeItems);
   });
 
   it("refuses outside an Attack turn's building phase, and for no such Dude", () => {

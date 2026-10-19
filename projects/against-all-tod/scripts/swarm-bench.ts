@@ -23,6 +23,7 @@ const setup: BattleSetup = {
   sliders: NEUTRAL_SLIDERS,
   sliderInputs: [],
   curse: null,
+  boss: null,
 };
 
 function runOnce(): { steps: number; mostDudes: number; ms: number } {

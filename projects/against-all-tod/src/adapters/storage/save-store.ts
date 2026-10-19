@@ -12,7 +12,7 @@ import type { Wallets } from "../../economy/economy";
 import type { Logger } from "../../logger";
 import type { Tile } from "../../maze/board";
 import type { PlacedPiece } from "../../maze/maze";
-import type { Crate } from "../../run/crate";
+import type { Crate, CrateKind } from "../../run/crate";
 import {
   mazeOf,
   windowSizeOf,
@@ -147,11 +147,8 @@ export function parseSave(raw: string): RunState {
     phase: phase(run.phase),
     roundStart: snapshot(record(run.roundStart, "roundStart"), "roundStart"),
     crate: run.crate === null ? null : crate(run.crate),
-    freeItem: run.freeItem === null ? null : freeItem(run.freeItem),
+    freeItems: freeItems(run),
     sliderInputs: list(run.sliderInputs, "sliderInputs").map(sliderInput),
-    // Saves from before Undo have none.
-    freeUndos:
-      run.freeUndos === undefined ? 0 : count(run.freeUndos, "freeUndos"),
   };
   // A Piece that no longer fits the Maze (say, after a rule change) makes the save unusable.
   mazeOf(state.pieces, windowSizeOf(state));
@@ -187,6 +184,11 @@ function snapshot(
     mutations: list(value.mutations, `${name}.mutations`).map(mutationId),
     wallets: wallets(value.wallets),
     sliders: positions,
+    // Saves from before Undo have none.
+    freeUndos:
+      value.freeUndos === undefined
+        ? 0
+        : count(value.freeUndos, `${name}.freeUndos`),
   };
 }
 
@@ -268,18 +270,39 @@ function crate(value: unknown): Crate {
   const found = record(value, "crate");
   return {
     items: list(found.items, "crate.items").map(crateItem),
+    // Saves from before boss crates hold a Draft Crate with one pick.
+    kind: found.kind === undefined ? "draft" : crateKind(found.kind),
+    picks: found.picks === undefined ? 1 : count(found.picks, "picks"),
     rerolls: count(found.rerolls, "rerolls"),
   };
 }
 
+const CRATE_KINDS: readonly CrateKind[] = ["draft", "boss", "boss-undo-taken"];
+
+function crateKind(value: unknown): CrateKind {
+  const found = CRATE_KINDS.find((kind) => kind === value);
+  if (found === undefined) throw new SaveFormatError("unknown crate kind");
+  return found;
+}
+
 function crateItem(value: unknown): CrateItem {
   const item = record(value, "crate item");
+  if (item.kind === "free-undo") return { kind: "free-undo" };
   if (item.kind === "mutation") {
     return { kind: "mutation", id: mutationId(item.id) };
   }
   if (item.kind === "gift") return { kind: "gift", id: dudeKind(item.id) };
   if (item.kind === "piece") return { kind: "piece", id: pieceId(item.id) };
   throw new SaveFormatError("unknown crate item");
+}
+
+/** Saves from before boss crates hold at most one, as `freeItem`. */
+function freeItems(run: Record<string, unknown>): FreeItem[] {
+  if (run.freeItems === undefined) {
+    const old = run.freeItem;
+    return old === undefined || old === null ? [] : [freeItem(old)];
+  }
+  return list(run.freeItems, "freeItems").map(freeItem);
 }
 
 function freeItem(value: unknown): FreeItem {
