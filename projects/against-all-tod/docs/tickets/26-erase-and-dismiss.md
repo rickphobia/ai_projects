@@ -4,15 +4,15 @@
 
 **Blocked by:** 25 (Paint Dudes by dragging, paying per Dude)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** run, ui/shop, renderer/units
 
 **Effort:** low
 
-- [ ] An `erase-dude` Run action: a Dude painted this Round is Erased with its price refunded to gold, or to the gift if it came from one; an older Dude is Dismissed with no refund; refused outside an Attack turn's building phase
-- [ ] The eraser works with the same drag gesture as painting, removing every Dude it passes over
-- [ ] Older Dudes are dimmed while the eraser is chosen
-- [ ] Rewind after a lost Round still restores the Army and wallets as the Round began
-- [ ] Tests: Erase refunds gold, Erase refunds the gift, Dismiss refunds nothing, refused in the wrong phase, Rewind
-- [ ] Spec, README and glossary match
+- [x] An `erase-dude` Run action: a Dude painted this Round is Erased with its price refunded to gold, or to the gift if it came from one; an older Dude is Dismissed with no refund; refused outside an Attack turn's building phase
+- [x] The eraser works with the same drag gesture as painting, removing every Dude it passes over
+- [x] Older Dudes are dimmed while the eraser is chosen
+- [x] Rewind after a lost Round still restores the Army and wallets as the Round began
+- [x] Tests: Erase refunds gold, Erase refunds the gift, Dismiss refunds nothing, refused in the wrong phase, Rewind
+- [x] Spec, README and glossary match

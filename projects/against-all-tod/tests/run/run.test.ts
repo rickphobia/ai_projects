@@ -9,6 +9,7 @@ import { SPAWN_ZONE_COLUMNS } from "../../src/maze/board";
 import {
   applyRunAction,
   battleSetupOf,
+  dudesUnder,
   giftLeft,
   newRun,
   roundOf,
@@ -468,5 +469,78 @@ describe("crate gifts", () => {
     const gifted = play(withGift(attacking, "intern"), ...paintInterns(6, 3));
     expect(finish(gifted, "attack").freeItem).toBeNull();
     expect(finish(gifted, "defense").freeItem).toBeNull();
+  });
+});
+
+describe("erasing", () => {
+  const attacking = play(fight(play(newRun(1), ...HOLDING_MAZE)), CONTINUE);
+  const erase = (index: number): RunAction => ({ type: "erase-dude", index });
+
+  it("Erases a Dude painted this Round for its full price back", () => {
+    const painted = play(attacking, ...paintInterns(6, 3));
+    const erased = play(painted, erase(painted.army.length - 2));
+    expect(erased.army).toEqual([
+      ...painted.army.slice(0, -2),
+      painted.army.at(-1),
+    ]);
+    expect(erased.wallets.attack).toBe(
+      painted.wallets.attack + DUDE_KINDS.intern.dudePrice,
+    );
+  });
+
+  it("gives an Erased gift Dude back to the gift, even once the gift ran out", () => {
+    const giftSize = DUDE_KINDS.intern.giftSize;
+    const used = play(
+      withGift(attacking, "intern"),
+      ...paintInterns(6, giftSize + 1),
+    );
+    const paidIndex = used.army.length - 1;
+    const backInGift = play(used, erase(paidIndex - giftSize));
+    expect(giftLeft(backInGift, "intern")).toBe(1);
+    expect(backInGift.wallets).toEqual(used.wallets);
+    // The paid Dude, now one place earlier, still refunds gold.
+    const refunded = play(backInGift, erase(paidIndex - 1));
+    expect(refunded.wallets.attack).toBe(attacking.wallets.attack);
+    expect(giftLeft(refunded, "intern")).toBe(1);
+  });
+
+  it("finds the Dudes under the eraser, in Army order", () => {
+    const painted = play(
+      attacking,
+      paintIntern(0.5, 6.5),
+      paintIntern(2.5, 6.5),
+    );
+    const first = painted.army.length - 2;
+    expect(dudesUnder(painted.army, { x: 0.5, y: 6.5 })).toEqual([first]);
+    expect(dudesUnder(painted.army, { x: 2.5, y: 6.6 })).toEqual([first + 1]);
+    expect(dudesUnder(painted.army, { x: 1.5, y: 6.5 })).toEqual([]);
+  });
+
+  it("Dismisses a Dude from an earlier Round for nothing", () => {
+    const dismissed = play(attacking, erase(0));
+    expect(dismissed.army).toEqual(attacking.army.slice(1));
+    expect(dismissed.wallets).toEqual(attacking.wallets);
+    expect(dismissed.freeItem).toEqual(attacking.freeItem);
+  });
+
+  it("refuses outside an Attack turn's building phase, and for no such Dude", () => {
+    expect(refusalOf(newRun(1), erase(0))).toBe("wrong-side");
+    const fighting = play(attacking, { type: "start-battle" });
+    expect(refusalOf(fighting, erase(0))).toBe("wrong-phase");
+    expect(refusalOf(attacking, erase(attacking.army.length))).toBe("no-dude");
+  });
+
+  it("is undone by the Rewind after a lost Round", () => {
+    const changed = play(
+      attacking,
+      ...paintInterns(6, 3),
+      erase(attacking.army.length),
+      erase(0),
+    );
+    const lost = finish(changed, "defense");
+    expect(lost.army).toEqual(attacking.army);
+    expect(lost.wallets.attack).toBe(
+      attacking.wallets.attack + GOLD_RULES.rewindBonus,
+    );
   });
 });

@@ -44,6 +44,8 @@ const GIANT_SCALE = 1.6;
 const HALF_SCALE = 0.7;
 /** How see-through a Ghost Mode ghost is. */
 const GHOST_ALPHA = 0.35;
+/** How see-through an older Dude is while the eraser is chosen: Erasing it refunds nothing. */
+const DIMMED_ALPHA = 0.35;
 /** How see-through a Mole is while underground. */
 const UNDERGROUND_ALPHA = 0.3;
 /** How see-through a Shield Bro's disc is once his shield breaks. */
@@ -132,9 +134,21 @@ export class UnitsView {
     }
   }
 
-  /** The Army standing where it was painted, while building; no battle is running. */
-  showStanding(dudes: readonly DudeState[]): void {
+  /**
+   * The Army standing where it was painted, while building; no battle is running. Dudes whose
+   * ids are in `dimmed` are faded, so the eraser shows which ones refund.
+   */
+  showStanding(
+    dudes: readonly DudeState[],
+    dimmed: ReadonlySet<number> = new Set(),
+  ): void {
     this.drawDudes(dudes, []);
+    for (const id of dimmed) {
+      const sprites = this.dudeSprites.get(id);
+      if (sprites === undefined) continue;
+      sprites.body.alpha = DIMMED_ALPHA;
+      sprites.disc.alpha = DIMMED_ALPHA;
+    }
   }
 
   clear(): void {

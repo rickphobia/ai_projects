@@ -51,8 +51,11 @@ export interface GameView {
   showMaze(maze: Maze): void;
   /** Hides the route preview, which would hide Dudes during a battle. */
   showRoute(visible: boolean): void;
-  /** Draws the Army standing where it was painted, while building (see `armyDudes`). */
-  showArmy(dudes: readonly DudeState[]): void;
+  /**
+   * Draws the Army standing where it was painted, while building (see `armyDudes`), with the
+   * Dudes whose ids are in `dimmed` faded.
+   */
+  showArmy(dudes: readonly DudeState[], dimmed?: ReadonlySet<number>): void;
   /** The Piece the placement cursor shows. */
   choosePiece(pieceId: PieceId): void;
   /** Marks the tile under the mouse as a place the Piece may or may not go; null hides it. */
@@ -176,8 +179,8 @@ export async function startRenderer(
     showRoute: (visible) => {
       route.visible = visible;
     },
-    showArmy: (dudes) => {
-      units.showStanding(dudes);
+    showArmy: (dudes, dimmed) => {
+      units.showStanding(dudes, dimmed);
     },
     choosePiece: (pieceId) => {
       cursor.setGhost(pieceView(textures, pieceId), DEFENSE_COLOUR);

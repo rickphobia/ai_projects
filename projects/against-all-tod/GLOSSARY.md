@@ -81,7 +81,7 @@ The Dudes of one kind painted in a single drag.
 _Avoid_: Squad, wave, troop, group
 
 **Erase**:
-Taking back a Dude painted this Round, before the battle, for its full price. Dudes from earlier Rounds can't be erased.
+Taking back a Dude painted this Round, before the battle, for its full price. Dudes from earlier Rounds are Dismissed instead. A Dude painted from a Gift goes back to the Gift, not to gold.
 _Avoid_: Delete, sell, Undo
 
 **Dismiss**:

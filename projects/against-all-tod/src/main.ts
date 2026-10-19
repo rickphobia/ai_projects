@@ -83,6 +83,9 @@ async function start(): Promise<void> {
     onChooseDudeKind: (dudeKind) => {
       run.chooseDudeKind(dudeKind);
     },
+    onChooseEraser: () => {
+      run.chooseEraser();
+    },
     onFight: () => {
       run.fight();
     },

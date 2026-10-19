@@ -28,6 +28,7 @@ import {
   battleSetupOf,
   checkPiece,
   currentSliders,
+  dudesUnder,
   canPaintKind,
   mazeOf,
   roundOf,
@@ -88,6 +89,10 @@ export class RunScreen {
   private routeVisible = true;
   /** The Stroke being painted; null when no paint drag is under way. */
   private stroke: number | null = null;
+  /** Whether the Stroke under way has painted or erased anything, so it needs saving. */
+  private strokeChanged = false;
+  /** The eraser is chosen instead of a Dude kind. */
+  private erasing = false;
 
   /** `run` is a new or loaded Run; `onRunChanged` saves it after every accepted action. */
   constructor(
@@ -195,6 +200,13 @@ export class RunScreen {
   chooseDudeKind(dudeKind: DudeKindId): void {
     if (this.run.phase !== "building") return;
     this.chosenDudeKind = dudeKind;
+    this.erasing = false;
+    this.showBuilding();
+  }
+
+  chooseEraser(): void {
+    if (this.run.phase !== "building") return;
+    this.erasing = true;
     this.showBuilding();
   }
 
@@ -369,6 +381,10 @@ export class RunScreen {
    */
   private paintAt(at: BoardPoint, first: boolean): void {
     if (this.stroke === null) return;
+    if (this.erasing) {
+      this.eraseAt(at);
+      return;
+    }
     const action: RunAction = {
       type: "paint-dude",
       dudeKind: this.chosenDudeKind,
@@ -387,16 +403,42 @@ export class RunScreen {
       return;
     }
     this.run = result.state;
+    this.strokeChanged = true;
+    this.showArmy();
+  }
+
+  /** Erases or Dismisses every Dude under the eraser at `at`, last painted first so indexes hold. */
+  private eraseAt(at: BoardPoint): void {
+    const under = dudesUnder(this.run.army, at);
+    if (under.length === 0) return;
+    for (const index of under.reverse()) {
+      const result = applyRunAction(this.run, { type: "erase-dude", index });
+      if (!result.ok) {
+        this.logger.debug("erase refused", { refusal: result.refusal });
+        this.hud?.showRefusal(result.refusal);
+        return;
+      }
+      this.run = result.state;
+      this.strokeChanged = true;
+    }
     this.showArmy();
   }
 
   private endStroke(): void {
     const stroke = this.stroke;
     this.stroke = null;
-    if (stroke === null) return;
-    const painted = this.run.army.filter((dude) => dude.stroke === stroke);
-    if (painted.length === 0) return;
+    const changed = this.strokeChanged;
+    this.strokeChanged = false;
+    if (stroke === null || !changed) return;
     this.onRunChanged(this.run);
+    if (this.erasing) {
+      this.logger.debug("Stroke erased", {
+        dudes: this.run.army.length,
+        attackGold: this.run.wallets.attack,
+      });
+      return;
+    }
+    const painted = this.run.army.filter((dude) => dude.stroke === stroke);
     this.logger.debug("Stroke painted", {
       stroke,
       dudeKind: this.chosenDudeKind,
@@ -407,7 +449,17 @@ export class RunScreen {
 
   /** The Army where it stands, the wallets and the unit bar: what painting a Dude changes. */
   private showArmy(): void {
-    this.view.showArmy(armyDudes(this.run.army, this.run.mutations));
+    const round = roundOf(this.run);
+    // While erasing, older Dudes fade: Erasing them is a Dismiss, with nothing back.
+    const dimmed =
+      this.erasing && sideOf(this.run) === "attack"
+        ? new Set(
+            this.run.army.flatMap((dude, index) =>
+              dude.round === round ? [] : [index],
+            ),
+          )
+        : new Set<number>();
+    this.view.showArmy(armyDudes(this.run.army, this.run.mutations), dimmed);
     this.showRunStatus();
     if (this.run.phase === "building") {
       this.cratePanel?.show(
@@ -421,7 +473,11 @@ export class RunScreen {
       if (!canPaintKind(this.run, this.chosenDudeKind)) {
         this.chosenDudeKind = FIRST_DUDE_KIND;
       }
-      this.hud?.showAttackBuilding(this.chosenDudeKind, this.run.freeItem);
+      this.hud?.showAttackBuilding(
+        this.chosenDudeKind,
+        this.run.freeItem,
+        this.erasing,
+      );
     }
   }
 
