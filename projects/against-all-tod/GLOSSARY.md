@@ -122,6 +122,10 @@ _Avoid_: Siege unit, sapper (Sapper is one Wall-breaker)
 The offer at the start of each Round for the side being played: three random items, of which the player takes one for free. Defense crates hold Pieces; attack crates hold free Dudes of one kind and Mutations.
 _Avoid_: Loot box, pack, draft
 
+**Boss crate**:
+The Draft Crate that opens the Round after a won Boss Round: five items, two taken for free, sometimes one of them a free Undo.
+_Avoid_: Boss loot, reward crate
+
 **Gift**:
 Free Dudes of one kind taken from an attack Draft Crate, as many as the kind's gift size (20 Interns, 1 Ram Crew). Painting that kind uses the Gift first, then gold; what is left is lost when the Round ends.
 _Avoid_: Bonus, free Squad

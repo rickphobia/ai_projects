@@ -1,5 +1,6 @@
 import type { BattleOutcome, Side } from "../battle/battle";
 import { WATCH_SPEEDS, type WatchSpeed } from "../battle/watch-clock";
+import { BOSSES, type BossId } from "../catalog/bosses";
 import { CURSES, type CurseId } from "../catalog/curses";
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { PIECES, type PieceId } from "../catalog/pieces";
@@ -72,7 +73,7 @@ export function battleStatus(
 
 /**
  * "Round 3 · Defense turn · Lives 2 · Score 2 · Defense gold 50 · Attack gold 40", then the
- * Round's Curse, if any.
+ * Round's Curse and boss, if any.
  */
 export function runStatus(status: RunStatus): string {
   return [
@@ -83,7 +84,14 @@ export function runStatus(status: RunStatus): string {
     `Defense gold ${String(status.wallets.defense)}`,
     `Attack gold ${String(status.wallets.attack)}`,
     ...(status.curse === null ? [] : [curseStatus(status.curse)]),
+    ...(status.boss === null ? [] : [`Boss: ${BOSSES[status.boss].name}`]),
   ].join(" · ");
+}
+
+/** "Boss Round: The Landlord. Joins the Army…", announced as building starts. */
+export function bossAnnouncement(boss: BossId): string {
+  const { name, description } = BOSSES[boss];
+  return `Boss Round: ${name}. ${description}`;
 }
 
 /** "Curse: Rust (towers fire 20% slower)", for the status line all Round. */
@@ -151,8 +159,12 @@ export class Hud {
 
   showRunStatus(status: RunStatus): void {
     this.status.textContent = runStatus(status);
-    if (status.curse !== null && status.round !== this.announcedRound) {
-      this.showMessage(curseAnnouncement(status.curse));
+    const announcements = [
+      ...(status.boss === null ? [] : [bossAnnouncement(status.boss)]),
+      ...(status.curse === null ? [] : [curseAnnouncement(status.curse)]),
+    ];
+    if (announcements.length > 0 && status.round !== this.announcedRound) {
+      this.showMessage(announcements.join(" "));
     }
     this.announcedRound = status.round;
     // The heading and the chosen button wear the side's colour.
@@ -170,18 +182,18 @@ export class Hud {
   }
 
   /**
-   * The unit bar: `chosen` is the brush, unless `erasing` picks the eraser; `freeItem` puts the
+   * The unit bar: `chosen` is the brush, unless `erasing` picks the eraser; `freeItems` put each
    * gift's count on its kind.
    */
   showAttackBuilding(
     chosen: DudeKindId,
-    freeItem: FreeItem | null,
+    freeItems: readonly FreeItem[],
     erasing: boolean,
   ): void {
     this.heading.textContent = SIDE_NAMES.attack;
     const eraser = this.button("Eraser", erasing, this.handlers.onChooseEraser);
     this.showShop(
-      attackItems(this.stock, freeItem),
+      attackItems(this.stock, freeItems),
       erasing ? null : chosen,
       this.handlers.onChooseDudeKind,
       eraser,

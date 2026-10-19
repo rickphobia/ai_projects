@@ -1,0 +1,7 @@
+# Bosses are a Dude kind and a Piece, added to the battle only
+
+The Landlord is the `landlord` Dude kind and The HR Department the `hr-department` Piece, both marked as bosses so no crate or shop offers them. The battle adds them from `BattleSetup.boss`, which the run works out from the Round, and never from the Board or the Army the Run keeps. As a Dude kind, The Landlord is shot, stunned, ground, bounced and drawn like any other Dude with no special code. As a Piece, The HR Department is drawn, shown in the piece info and given a tile through the normal placement rules. Story 81 says a boss must not wreck the permanent Board, so The Landlord's evictions last for his battle only (`destroyedForGood` leaves them out), and The HR Department is a floor Piece that never changes the route.
+
+**Trade-offs:** the Landlord's catalog entry fills in fields he never uses (price, gift size, Giant's N), the HR Department's has price 0, and code that lists every Dude kind or Piece must skip bosses (`isBoss`, `ARMY_DUDE_KINDS`, the explicit shop and crate pools). The HR Department sends a Wall-breaker back to its start in one jump, like the Bouncer, rather than walking it back. A walk back would need a reversed route field per Wall-breaker.
+
+**Considered Options:** separate boss entities in the battle state, which would need their own targeting, damage, rendering and save handling, duplicating what Dudes and Pieces already do. Making Landlord evictions permanent like a Wall-breaker's hits was also considered, and it contradicts story 81.

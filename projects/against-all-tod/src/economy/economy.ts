@@ -1,6 +1,6 @@
 import type { Side } from "../battle/battle";
 import type { BattleEvent } from "../battle/events";
-import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
+import { DUDE_KINDS, isBoss, type DudeKindId } from "../catalog/dudes";
 import {
   MUTATION_RULES,
   type MutationId,
@@ -70,7 +70,11 @@ export function goldBreakdown(
         rules.perReachGoal *
         DUDE_KINDS[event.dudeKind].goldValue *
         reachGoalMultiplier;
-    } else if (event.type === "piece-destroyed") {
+    } else if (
+      event.type === "piece-destroyed" &&
+      // Pieces The Landlord evicts pay nobody: he isn't the player's.
+      !isBoss(event.dudeKind)
+    ) {
       piecesDestroyed += rules.perPieceDestroyed;
     } else if (event.type === "taxed") {
       taxed += rules.perTaxedDude;

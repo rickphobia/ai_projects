@@ -6,7 +6,7 @@ import { CRATE_RULES, type CrateItem } from "../catalog/pools";
 import type { Crate } from "../run/crate";
 import type { FreeItem } from "../run/run";
 
-/** "Sniper Nest", "20 free Interns" or "Gold Teeth Mutation". */
+/** "Sniper Nest", "20 free Interns", "Gold Teeth Mutation" or "Free Undo". */
 export function crateItemName(item: CrateItem): string {
   switch (item.kind) {
     case "piece":
@@ -15,6 +15,8 @@ export function crateItemName(item: CrateItem): string {
       return freeDudes(item.id, DUDE_KINDS[item.id].giftSize);
     case "mutation":
       return `${MUTATIONS[item.id].name} Mutation`;
+    case "free-undo":
+      return "Free Undo";
   }
 }
 
@@ -26,6 +28,8 @@ export function crateItemDescription(item: CrateItem): string {
       return DUDE_KINDS[item.id].description;
     case "mutation":
       return MUTATIONS[item.id].description;
+    case "free-undo":
+      return "Undo one Settings trick later without destroying anything.";
   }
 }
 
@@ -43,6 +47,13 @@ export function freeItemLine(item: FreeItem): string {
   return `Free from the crate: ${freeDudes(item.id, item.left)} left to paint.`;
 }
 
+/** "Draft Crate: take one for free", or "Boss crate: take 2 for free". */
+export function crateHeading(crate: Crate): string {
+  const name = crate.kind === "draft" ? "Draft Crate" : "Boss crate";
+  const picks = crate.picks === 1 ? "one" : String(crate.picks);
+  return `${name}: take ${picks} for free`;
+}
+
 /** "Reroll · 15g", in the side's own gold. */
 export function rerollLabel(side: Side): string {
   return `Reroll · ${String(CRATE_RULES.rerollPrice[side])}g`;
@@ -53,7 +64,10 @@ export interface CrateHandlers {
   readonly onReroll: () => void;
 }
 
-/** The Round's Draft Crate: pick one item for free, or reroll. Then a reminder of the free item. */
+/**
+ * The Round's crate: pick for free, or reroll. Under it, and once it is taken, a reminder of each
+ * free item still waiting.
+ */
 export class CratePanel {
   private readonly doc: Document;
 
@@ -66,23 +80,30 @@ export class CratePanel {
   }
 
   /** Hidden when the crate is taken and nothing free is waiting. */
-  show(crate: Crate | null, freeItem: FreeItem | null, side: Side): void {
-    if (crate !== null) {
-      this.showCrate(crate, side);
-    } else if (freeItem !== null) {
-      this.showFreeItem(freeItem);
-    } else {
+  show(crate: Crate | null, freeItems: readonly FreeItem[], side: Side): void {
+    const lines = freeItems.map((item) => {
+      const line = this.doc.createElement("p");
+      line.textContent = freeItemLine(item);
+      return line;
+    });
+    if (crate === null && lines.length === 0) {
       this.hide();
+      return;
     }
+    this.host.replaceChildren(
+      ...(crate === null ? [] : this.crateParts(crate, side)),
+      ...lines,
+    );
+    this.host.hidden = false;
   }
 
   hide(): void {
     this.host.hidden = true;
   }
 
-  private showCrate(crate: Crate, side: Side): void {
+  private crateParts(crate: Crate, side: Side): HTMLElement[] {
     const heading = this.doc.createElement("h2");
-    heading.textContent = "Draft Crate: take one for free";
+    heading.textContent = crateHeading(crate);
     const items = crate.items.map((item, index) => {
       const button = this.button(crateItemName(item), () => {
         this.handlers.onTake(index);
@@ -95,15 +116,7 @@ export class CratePanel {
     const row = this.doc.createElement("div");
     row.className = "crate-items";
     row.append(...items, reroll);
-    this.host.replaceChildren(heading, row);
-    this.host.hidden = false;
-  }
-
-  private showFreeItem(item: FreeItem): void {
-    const line = this.doc.createElement("p");
-    line.textContent = freeItemLine(item);
-    this.host.replaceChildren(line);
-    this.host.hidden = false;
+    return [heading, row];
   }
 
   private button(label: string, onClick: () => void): HTMLButtonElement {

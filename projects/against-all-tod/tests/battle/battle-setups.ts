@@ -67,6 +67,7 @@ export function setupOf(
     sliders: NEUTRAL_SLIDERS,
     sliderInputs: [],
     curse: null,
+    boss: null,
   };
 }
 

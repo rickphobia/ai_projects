@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { BOSSES } from "../../src/catalog/bosses";
 import { CURSES } from "../../src/catalog/curses";
 import type { RunRefusal } from "../../src/run/run";
 import {
   battleStatus,
+  bossAnnouncement,
   curseAnnouncement,
   curseStatus,
   outcomeMessage,
@@ -42,6 +44,7 @@ describe("runStatus", () => {
         score: 2,
         wallets,
         curse: null,
+        boss: null,
       }),
     ).toBe(
       "Round 3 · Defense turn · Lives 2 · Score 2 · Defense gold 50 · Attack gold 40",
@@ -54,6 +57,7 @@ describe("runStatus", () => {
         score: 3,
         wallets,
         curse: null,
+        boss: null,
       }),
     ).toBe(
       "Round 4 · Attack turn · Lives 1 · Score 3 · Defense gold 50 · Attack gold 40",
@@ -72,6 +76,7 @@ describe("the Curse in the HUD", () => {
         score: 1,
         wallets,
         curse: "rust",
+        boss: null,
       }),
     ).toBe(
       `Round 2 · Attack turn · Lives 3 · Score 1 · Defense gold 50 · Attack gold 40 · ${curseStatus("rust")}`,
@@ -82,6 +87,25 @@ describe("the Curse in the HUD", () => {
   it("announces the Curse with the side it hurts and what it does", () => {
     expect(curseAnnouncement("mud")).toBe(
       `Curse this Round: Mud, hurting the attack. ${CURSES.mud.description}`,
+    );
+  });
+});
+
+describe("the boss in the HUD", () => {
+  it("names the Boss Round's boss on the status line and announces what it does", () => {
+    expect(
+      runStatus({
+        round: 5,
+        side: "defense",
+        lives: 3,
+        score: 4,
+        wallets: { defense: 50, attack: 40 },
+        curse: null,
+        boss: "landlord",
+      }),
+    ).toMatch(/ · Boss: The Landlord$/);
+    expect(bossAnnouncement("hr-department")).toBe(
+      `Boss Round: The HR Department. ${BOSSES["hr-department"].description}`,
     );
   });
 });

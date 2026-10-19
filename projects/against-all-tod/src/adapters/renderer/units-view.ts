@@ -34,11 +34,14 @@ const DISC_TINTS: Readonly<Record<DudeKindId, number>> = {
   sapper: 0x4a4a4a,
   mole: 0x8b5a2b,
   streaker: 0xffe14f,
+  landlord: 0x2b1a4a,
 };
 /** Balloonists float above the Maze, so they are drawn bigger. */
 const FLYER_SCALE = 1.15;
 /** A Ram Crew is four Dudes and a ram in one, so it is drawn bigger still. */
 const RAM_CREW_SCALE = 1.5;
+/** The Landlord is a boss: the biggest thing on the Board. */
+const LANDLORD_SCALE = 2.2;
 /** Giant Mutation: a giant is drawn this much bigger, a Split half this much smaller. */
 const GIANT_SCALE = 1.6;
 const HALF_SCALE = 0.7;
@@ -202,7 +205,9 @@ export class UnitsView {
         ? FLYER_SCALE
         : kind === "ram-crew"
           ? RAM_CREW_SCALE
-          : 1) *
+          : kind === "landlord"
+            ? LANDLORD_SCALE
+            : 1) *
       (dude.giant ? GIANT_SCALE : 1) *
       (dude.half ? HALF_SCALE : 1);
     const disc = new Sprite({

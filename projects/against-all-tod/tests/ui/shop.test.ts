@@ -26,7 +26,7 @@ describe("the shop", () => {
 
   it("lists every Dude kind on sale with its Attack gold price per Dude", () => {
     expect(
-      attackItems({ ...stock, dudeKinds: ["intern", "termite"] }, null),
+      attackItems({ ...stock, dudeKinds: ["intern", "termite"] }, []),
     ).toEqual([
       { id: "intern", name: "Intern", price: DUDE_KINDS.intern.dudePrice },
       { id: "termite", name: "Termite", price: DUDE_KINDS.termite.dudePrice },
@@ -35,7 +35,7 @@ describe("the shop", () => {
 
   it("puts the crate gift's count on its kind, adding the kind if the shop doesn't sell it", () => {
     expect(
-      attackItems(stock, { kind: "gift", id: "intern", left: 12 }),
+      attackItems(stock, [{ kind: "gift", id: "intern", left: 12 }]),
     ).toEqual([
       {
         id: "intern",
@@ -45,11 +45,13 @@ describe("the shop", () => {
       },
     ]);
     expect(
-      attackItems(stock, { kind: "gift", id: "sapper", left: 3 }).map(
+      attackItems(stock, [{ kind: "gift", id: "sapper", left: 3 }]).map(
         (item) => item.id,
       ),
     ).toEqual(["intern", "sapper"]);
-    expect(attackItems(stock, { kind: "piece", id: "siren" })).toHaveLength(1);
+    expect(attackItems(stock, [{ kind: "piece", id: "siren" }])).toHaveLength(
+      1,
+    );
   });
 
   it("labels an item with its price", () => {

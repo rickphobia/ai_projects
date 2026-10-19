@@ -11,7 +11,8 @@ export type DudeKindId =
   | "hype-man"
   | "sapper"
   | "mole"
-  | "streaker";
+  | "streaker"
+  | "landlord";
 
 export interface DudeKindEntry {
   /** Stable id that saves and tests refer to. */
@@ -48,6 +49,8 @@ export interface DudeKindEntry {
   readonly wallBreaker: WallBreakerStats | null;
   /** Best Score that Unlocks it; null for kinds every Run starts with. Gating arrives with Unlocks. */
   readonly unlockScore: number | null;
+  /** A boss's body: the game adds it on a Boss Round, and no crate or shop offers it. */
+  readonly boss?: true;
 }
 
 export interface ShieldStats {
@@ -243,12 +246,41 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     drawsFire: true,
     unlockScore: 25,
   },
+  landlord: {
+    ...ORDINARY,
+    id: "landlord",
+    name: "The Landlord",
+    description:
+      "A Boss Round's boss: huge health, and he evicts Pieces as he walks.",
+    health: 1500,
+    speed: 0.7,
+    goalDamage: 40,
+    size: 6,
+    // Never painted or gifted; whole numbers only so the catalog's checks hold.
+    dudePrice: 1,
+    giftSize: 1,
+    giantEvery: 1,
+    goldValue: 30,
+    boss: true,
+  },
 };
 
 /** The kinds a Run can buy from the start; the rest come from crate gifts until Unlocks arrive. */
 export const DUDE_KINDS_ON_SALE: readonly DudeKindId[] = Object.values(
   DUDE_KINDS,
-).flatMap(({ id, unlockScore }) => (unlockScore === null ? [id] : []));
+).flatMap(({ id, unlockScore }) =>
+  unlockScore === null && !isBoss(id) ? [id] : [],
+);
+
+/** Every kind a player can paint or be gifted: all but the bosses. */
+export const ARMY_DUDE_KINDS: readonly DudeKindId[] = Object.values(
+  DUDE_KINDS,
+).flatMap(({ id }) => (isBoss(id) ? [] : [id]));
+
+/** Whether `kind` is a boss's body, such as The Landlord's, rather than an Army Dude kind. */
+export function isBoss(kind: DudeKindId): boolean {
+  return DUDE_KINDS[kind].boss === true;
+}
 
 /** How painted Dudes keep room around them in the Spawn zone. */
 export interface PaintRules {

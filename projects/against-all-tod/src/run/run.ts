@@ -10,6 +10,7 @@ import type { BattleSetup, Side } from "../battle/battle";
 import { earthquake } from "../battle/curses";
 import type { BoardPoint } from "../battle/events";
 import { BATTLE_RULES, type BattleRules } from "../catalog/battle-rules";
+import type { BossId } from "../catalog/bosses";
 import { CURSE_IDS, CURSE_RULES, type CurseId } from "../catalog/curses";
 import {
   DUDE_KINDS,
@@ -47,7 +48,8 @@ import {
   type SliderInput,
   type SliderPositions,
 } from "../tricks/tricks";
-import { crateFor, type Crate } from "./crate";
+import { bossFor, opensBossCrate } from "./boss-rounds";
+import { crateFor, type Crate, type CrateKind } from "./crate";
 
 /**
  * The whole Run as a pure state machine: actions in, new state or a typed refusal out. No DOM,
@@ -62,7 +64,10 @@ export type RunPhase =
   | "round-lost"
   | "run-over";
 
-/** The Board, the Army, its Mutations, both wallets and the sliders: everything a Rewind puts back. */
+/**
+ * The Board, the Army, its Mutations, both wallets, the sliders and the free Undos held:
+ * everything a Rewind puts back.
+ */
 export interface RoundSnapshot {
   readonly pieces: readonly PlacedPiece[];
   readonly army: Army;
@@ -71,6 +76,8 @@ export interface RoundSnapshot {
   readonly wallets: Wallets;
   /** Where the Settings sliders stand; during a battle, where they stood as it started. */
   readonly sliders: SliderPositions;
+  /** Undos the player holds that skip the payment (boss crates give them). */
+  readonly freeUndos: number;
 }
 
 /**
@@ -96,13 +103,12 @@ export interface RunState extends RoundSnapshot {
   readonly phase: RunPhase;
   /** The Board, Army and wallets as the current Round began. */
   readonly roundStart: RoundSnapshot;
-  /** This Round's Draft Crate; null once an item is taken. */
+  /** This Round's Draft Crate; null once its picks are taken. */
   readonly crate: Crate | null;
-  readonly freeItem: FreeItem | null;
+  /** What the crate gave that waits to be placed, in the order taken; at most one gift per kind. */
+  readonly freeItems: readonly FreeItem[];
   /** Sliders dragged during the battle being fought, in step order; empty between battles. */
   readonly sliderInputs: readonly SliderInput[];
-  /** Undos the player holds that skip the payment (boss crates give them). */
-  readonly freeUndos: number;
 }
 
 export type RunAction =
@@ -198,6 +204,7 @@ export function newRun(seed: number, bestScore = 0): RunState {
     mutations: [],
     wallets: startingWallets(),
     sliders: NEUTRAL_SLIDERS,
+    freeUndos: 0,
   };
   return withFreshCrate({
     ...board,
@@ -208,24 +215,33 @@ export function newRun(seed: number, bestScore = 0): RunState {
     phase: "building",
     roundStart: board,
     crate: null,
-    freeItem: null,
+    freeItems: [],
     sliderInputs: [],
-    freeUndos: 0,
   });
 }
 
 /** The Round's crate as it first opens, with no free item waiting. */
 export function withFreshCrate(state: RunState): RunState {
-  return { ...state, crate: crateOf(state, 0), freeItem: null };
+  return { ...state, crate: crateOf(state, 0), freeItems: [] };
 }
 
-function crateOf(state: RunState, rerolls: number): Crate {
+function crateOf(
+  state: RunState,
+  rerolls: number,
+  kind: CrateKind = opensBossCrate(roundOf(state)) ? "boss" : "draft",
+): Crate {
   return crateFor(
     roundSeed(state.seed, roundOf(state)),
     sideOf(state),
     state.mutations,
     rerolls,
+    kind,
   );
+}
+
+/** The boss that fights against the player this Round; null outside Boss Rounds. */
+export function bossOf(state: RunState): BossId | null {
+  return bossFor(roundOf(state), sideOf(state));
 }
 
 /** Where the player stands, for the HUD and the logs. */
@@ -236,6 +252,7 @@ export interface RunStatus {
   readonly score: number;
   readonly wallets: Wallets;
   readonly curse: CurseId | null;
+  readonly boss: BossId | null;
 }
 
 export function runStatusOf(state: RunState): RunStatus {
@@ -246,6 +263,7 @@ export function runStatusOf(state: RunState): RunStatus {
     score: state.score,
     wallets: state.wallets,
     curse: curseOf(state),
+    boss: bossOf(state),
   };
 }
 
@@ -319,6 +337,7 @@ export function battleSetupOf(
     sliders: state.sliders,
     sliderInputs: state.sliderInputs,
     curse: curseOf(state),
+    boss: bossOf(state),
   };
 }
 
@@ -362,10 +381,14 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
       const side = sideOf(state);
       const left = spend(state.wallets, side, CRATE_RULES.rerollPrice[side]);
       if (left === null) return refuse("not-enough-gold");
+      // A boss crate rerolled after a pick keeps its kind and only the picks it has left.
       return accept({
         ...state,
         wallets: left,
-        crate: crateOf(state, state.crate.rerolls + 1),
+        crate: {
+          ...crateOf(state, state.crate.rerolls + 1, state.crate.kind),
+          picks: state.crate.picks,
+        },
       });
     }
     case "drag-slider":
@@ -403,10 +426,12 @@ function placeOnMaze(state: RunState, tile: Tile, pieceId: PieceId): RunResult {
     pieceId,
   );
   if (!placed.ok) return refuse(placed.refusal);
-  const free = state.freeItem;
+  const freeAt = state.freeItems.findIndex(
+    (item) => item.kind === "piece" && item.id === pieceId,
+  );
   return accept({
     ...state,
-    freeItem: free?.kind === "piece" && free.id === pieceId ? null : free,
+    freeItems: state.freeItems.filter((_, index) => index !== freeAt),
     pieces: [...state.pieces, { pieceId, tile }],
     wallets: paid(state.wallets, "defense", price),
   });
@@ -422,13 +447,12 @@ function paintDude(
   const refusal = checkPaint(state, at, dudeKind);
   if (refusal !== null) return refuse(refusal);
   const dude: PlacedDude = { dudeKind, at, stroke, round: roundOf(state) };
-  const gift = state.freeItem;
-  if (gift?.kind === "gift" && gift.id === dudeKind && gift.left > 0) {
-    const left = gift.left - 1;
+  const left = giftLeft(state, dudeKind);
+  if (left > 0) {
     return accept({
       ...state,
       army: [...state.army, { ...dude, fromGift: true }],
-      freeItem: left === 0 ? null : { ...gift, left },
+      freeItems: withGift(state.freeItems, dudeKind, left - 1),
     });
   }
   return accept({
@@ -456,7 +480,7 @@ function eraseDude(state: RunState, index: number): RunResult {
     const left = giftLeft(state, dude.dudeKind) + 1;
     return accept({
       ...erased,
-      freeItem: { kind: "gift", id: dude.dudeKind, left },
+      freeItems: withGift(state.freeItems, dude.dudeKind, left),
     });
   }
   return accept({
@@ -468,20 +492,64 @@ function eraseDude(state: RunState, index: number): RunResult {
   });
 }
 
-/** The taken item is free; the rest of the crate is gone. A Mutation joins the Army at once. */
+/**
+ * The taken item is free. The crate stays open, less that item, while it has picks left; then
+ * the rest is gone. A Mutation joins the Army and a free Undo is held at once.
+ */
 function takeFromCrate(state: RunState, index: number): RunResult {
   if (state.phase !== "building") return refuse("wrong-phase");
-  const item = state.crate?.items[index];
-  if (item === undefined) return refuse("no-crate");
-  const taken = { ...state, crate: null };
-  if (item.kind === "mutation") {
-    return accept({ ...taken, mutations: [...state.mutations, item.id] });
+  const crate = state.crate;
+  const item = crate?.items[index];
+  if (crate === null || item === undefined) return refuse("no-crate");
+  const picks = crate.picks - 1;
+  const taken: RunState = {
+    ...state,
+    crate:
+      picks === 0
+        ? null
+        : {
+            ...crate,
+            items: crate.items.filter((_, at) => at !== index),
+            picks,
+          },
+  };
+  switch (item.kind) {
+    case "mutation":
+      return accept({ ...taken, mutations: [...state.mutations, item.id] });
+    case "free-undo":
+      return accept({
+        ...taken,
+        crate:
+          taken.crate === null
+            ? null
+            : { ...taken.crate, kind: "boss-undo-taken" },
+        freeUndos: state.freeUndos + 1,
+      });
+    case "gift": {
+      const left = giftLeft(state, item.id) + DUDE_KINDS[item.id].giftSize;
+      return accept({
+        ...taken,
+        freeItems: withGift(state.freeItems, item.id, left),
+      });
+    }
+    case "piece":
+      return accept({ ...taken, freeItems: [...state.freeItems, item] });
   }
-  if (item.kind === "gift") {
-    const left = DUDE_KINDS[item.id].giftSize;
-    return accept({ ...taken, freeItem: { ...item, left } });
-  }
-  return accept({ ...taken, freeItem: item });
+}
+
+/** The free items with the gift of `dudeKind` holding `left`: added, changed, or gone at zero. */
+function withGift(
+  items: readonly FreeItem[],
+  dudeKind: DudeKindId,
+  left: number,
+): FreeItem[] {
+  const isThisGift = (item: FreeItem) =>
+    item.kind === "gift" && item.id === dudeKind;
+  if (left === 0) return items.filter((item) => !isThisGift(item));
+  const gift: FreeItem = { kind: "gift", id: dudeKind, left };
+  return items.some(isThisGift)
+    ? items.map((item) => (isThisGift(item) ? gift : item))
+    : [...items, gift];
 }
 
 /** Where the sliders stand now, mid-battle drags included. */
@@ -630,10 +698,10 @@ function undo(
 
 /** Zero for the waiting free Piece, otherwise the shop price. */
 export function piecePriceNow(state: RunState, pieceId: PieceId): number {
-  const free = state.freeItem;
-  return free?.kind === "piece" && free.id === pieceId
-    ? 0
-    : piecePrice(pieceId);
+  const free = state.freeItems.some(
+    (item) => item.kind === "piece" && item.id === pieceId,
+  );
+  return free ? 0 : piecePrice(pieceId);
 }
 
 /** Zero while the crate gift has Dudes of this kind left, otherwise the price per Dude. */
@@ -661,8 +729,10 @@ export function dudesUnder(army: Army, at: BoardPoint): number[] {
 
 /** Free Dudes of `dudeKind` the crate gift still holds. */
 export function giftLeft(state: RunState, dudeKind: DudeKindId): number {
-  const gift = state.freeItem;
-  return gift?.kind === "gift" && gift.id === dudeKind ? gift.left : 0;
+  for (const item of state.freeItems) {
+    if (item.kind === "gift" && item.id === dudeKind) return item.left;
+  }
+  return 0;
 }
 
 function checkPlacing(
@@ -714,6 +784,7 @@ function winRound(
       mutations: state.mutations,
       wallets,
       sliders,
+      freeUndos: state.freeUndos,
     },
   });
 }

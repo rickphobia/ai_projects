@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CRATE_RULES } from "../../src/catalog/pools";
 import {
+  crateHeading,
   crateItemDescription,
   crateItemName,
   freeItemLine,
@@ -36,6 +37,24 @@ describe("crate labels", () => {
     expect(freeItemLine({ kind: "gift", id: "termite", left: 7 })).toBe(
       "Free from the crate: 7 free Termites left to paint.",
     );
+  });
+
+  it("names a boss crate and its picks left", () => {
+    const items = Array.from({ length: CRATE_RULES.size + 2 }, () => ({
+      kind: "free-undo" as const,
+    }));
+    expect(crateItemName({ kind: "free-undo" })).toBe("Free Undo");
+    expect(crateHeading({ kind: "boss", items, picks: 2, rerolls: 0 })).toBe(
+      "Boss crate: take 2 for free",
+    );
+    expect(
+      crateHeading({
+        kind: "draft",
+        items: items.slice(0, CRATE_RULES.size),
+        picks: 1,
+        rerolls: 0,
+      }),
+    ).toBe("Draft Crate: take one for free");
   });
 
   it("shows the side's reroll price", () => {

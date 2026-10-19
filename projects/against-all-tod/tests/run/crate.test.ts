@@ -51,7 +51,7 @@ function attackTurn(seed = 7): RunState {
 }
 
 function inPool(item: CrateItem, pool: readonly CrateItem[]): boolean {
-  return pool.some((each) => each.kind === item.kind && each.id === item.id);
+  return pool.some((each) => JSON.stringify(each) === JSON.stringify(item));
 }
 
 describe("Draft Crate", () => {
@@ -87,7 +87,9 @@ describe("Draft Crate", () => {
   });
 
   it("offers different items when the pool is big enough", () => {
-    const ids = crateFor(3, "attack", [], 0).items.map((item) => item.id);
+    const ids = crateFor(3, "attack", [], 0).items.map((item) =>
+      JSON.stringify(item),
+    );
     expect(new Set(ids).size).toBe(CRATE_RULES.size);
   });
 
@@ -116,7 +118,7 @@ describe("Draft Crate", () => {
       pieceId: item.id,
     });
     expect(placed.wallets).toEqual(start.wallets);
-    expect(placed.freeItem).toBeNull();
+    expect(placed.freeItems).toEqual([]);
     expect(piecePriceNow(placed, item.id)).toBe(PIECES[item.id].price);
     expect(refusalOf(placed, { type: "take-from-crate", index: 1 })).toBe(
       "no-crate",
@@ -129,8 +131,9 @@ describe("Draft Crate", () => {
     if (index === undefined || index < 0)
       throw new Error("no Mutation offered");
     const item = start.crate?.items[index];
+    if (item?.kind !== "mutation") throw new Error("no Mutation offered");
     const taken = play(start, { type: "take-from-crate", index });
-    expect(taken.mutations).toEqual([item?.id]);
+    expect(taken.mutations).toEqual([item.id]);
     expect(taken.wallets).toEqual(start.wallets);
   });
 
@@ -180,9 +183,11 @@ describe("Draft Crate", () => {
     const rewound = play(finish(played, "defense"), { type: "continue" });
     expect(rewound.crate).toEqual(start.crate);
     expect(rewound.mutations).toEqual(start.mutations);
-    expect(rewound.freeItem).toBeNull();
+    expect(rewound.freeItems).toEqual([]);
     const again = play(rewound, { type: "take-from-crate", index });
-    expect(again.mutations).toEqual([start.crate?.items[index]?.id]);
+    const item = start.crate?.items[index];
+    if (item?.kind !== "mutation") throw new Error("no Mutation offered");
+    expect(again.mutations).toEqual([item.id]);
   });
 
   it("opens a new crate for the next Round, keeping Mutations", () => {
