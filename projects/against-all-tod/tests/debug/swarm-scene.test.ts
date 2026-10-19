@@ -14,6 +14,7 @@ describe("the swarm scene", () => {
     const state = startBattle({
       maze,
       army: SWARM_ARMY,
+      mutations: [],
       seed: 1,
       rules: SWARM_RULES,
     });

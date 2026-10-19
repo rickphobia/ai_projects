@@ -16,6 +16,7 @@ const RUNS = 20;
 const setup: BattleSetup = {
   maze: swarmMaze(),
   army: SWARM_ARMY,
+  mutations: [],
   seed: 1,
   rules: SWARM_RULES,
 };

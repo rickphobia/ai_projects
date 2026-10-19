@@ -88,6 +88,18 @@ _Avoid_: Swarm, horde
 A permanent change to every Dude in the Army, taken from an attack Draft Crate.
 _Avoid_: Upgrade, buff, perk
 
+**Half**:
+One of the two Dudes a dying Dude becomes under the Split Mutation, each with half its full health. A Half doesn't split again.
+_Avoid_: Clone, child
+
+**Ghost**:
+A dead Dude still walking for 3 seconds under the Ghost Mode Mutation. Nothing can hurt, stun or catch it; if it reaches the Goal it damages it and pays.
+_Avoid_: Spirit, undead
+
+**Small shield**:
+The shield every Dude carries under the Explosive Shields Mutation. It soaks damage first, and when it breaks it stuns the towers near it for 1 second. Not the Shield Bro's shield, which covers the Dudes behind him.
+_Avoid_: Armour, barrier
+
 **Wall-breaker**:
 A Dude kind that can damage pieces of the Maze. Ordinary Dudes only walk.
 _Avoid_: Siege unit, sapper (Sapper is one Wall-breaker)

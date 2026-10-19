@@ -1,5 +1,6 @@
 import type { BattleRules } from "../catalog/battle-rules";
 import { DUDE_KINDS } from "../catalog/dudes";
+import type { MutationId } from "../catalog/mutations";
 import { PIECES } from "../catalog/pieces";
 import { isOnBoard, tileKey, tileKind } from "../maze/board";
 import type { Maze } from "../maze/maze";
@@ -11,11 +12,21 @@ import {
   hypeSpeedFactor,
   MAX_LANE,
   newDude,
+  reachGoal,
   tileUnder,
   walk,
   type DudeState,
 } from "./dudes";
-import type { BattleEvent } from "./events";
+import { DudeHits } from "./damage";
+import type { BattleEvent, KillEvent } from "./events";
+import {
+  afterDeaths,
+  mutatedDude,
+  mutationSpeedFactor,
+  stunTowers,
+  walkGhosts,
+  type Ghost,
+} from "./mutations";
 import { fireTowers, towersOf, type TowerState } from "./towers";
 import {
   bounce,
@@ -45,6 +56,8 @@ const STEP_SECONDS = 1 / STEPS_PER_SECOND;
 export interface BattleSetup {
   readonly maze: Maze;
   readonly army: Army;
+  /** Every Mutation the Army has; they all apply to every Dude. */
+  readonly mutations: readonly MutationId[];
   readonly seed: number;
   readonly rules: BattleRules;
 }
@@ -80,6 +93,10 @@ export interface BattleState {
   readonly trapCooldowns: TrapCooldowns;
   readonly dudes: readonly DudeState[];
   readonly waiting: readonly WaitingDude[];
+  /** Ghost Mode's dead still walking; kept apart, as nothing can touch them. */
+  readonly ghosts: readonly Ghost[];
+  /** The id the next new Dude (a Split half) gets. */
+  readonly nextDudeId: number;
   readonly towers: readonly TowerState[];
   /** Lighthouses and Sirens, which act on the battle clock rather than on a cooldown. */
   readonly effectPieces: readonly EffectPiece[];
@@ -97,7 +114,7 @@ export class ArmySetupError extends Error {
 export function startBattle(setup: BattleSetup): BattleState {
   const rng = createRng(setup.seed);
   const waiting: WaitingDude[] = [];
-  for (const squad of setup.army) {
+  for (const [squadIndex, squad] of setup.army.entries()) {
     if (!isSpawnLineRow(squad.spawnRow)) {
       throw new ArmySetupError(
         `A Squad of ${squad.dudeKind} is on row ${String(squad.spawnRow)}, which is not on the Spawn line.`,
@@ -106,8 +123,9 @@ export function startBattle(setup: BattleSetup): BattleState {
     const kind = DUDE_KINDS[squad.dudeKind];
     for (let index = 0; index < kind.squadSize; index++) {
       const lane = (rng() * 2 - 1) * MAX_LANE;
+      const dude = newDude(waiting.length, kind.id, squad.spawnRow, lane);
       waiting.push({
-        dude: newDude(waiting.length, kind.id, squad.spawnRow, lane),
+        dude: mutatedDude(dude, squadIndex, index, setup.mutations),
         entersAtStep: Math.round(
           index * kind.spawnIntervalSeconds * STEPS_PER_SECOND,
         ),
@@ -127,6 +145,8 @@ export function startBattle(setup: BattleSetup): BattleState {
     trapCooldowns: new Map(),
     dudes: [],
     waiting,
+    ghosts: [],
+    nextDudeId: waiting.length,
     towers: towersOf(setup.maze),
     effectPieces: effectPiecesOf(setup.maze),
     events: [],
@@ -192,7 +212,11 @@ export function stepBattle(
     step,
     STEPS_PER_SECOND,
   );
-  for (const dude of bounced) {
+  const floorHits = new DudeHits(bounced, step, events);
+  for (const placed of bounced) {
+    // A Conga Line Squadmate's Grinder hit earlier in this loop may have hurt or killed it.
+    const dude = floorHits.current(placed);
+    if (dude === null) continue;
     if ((dude.stunnedUntilStep ?? 0) > step) {
       dudes.push(dude);
       continue;
@@ -212,6 +236,7 @@ export function stepBattle(
       );
       if (hit !== null) {
         if (hit.dude !== null) dudes.push(hit.dude);
+        else floorHits.leave(dude);
         if (hit.destroyed !== null) events.push(hit.destroyed);
         continue;
       }
@@ -220,7 +245,8 @@ export function stepBattle(
       (hypeMen.length === 0
         ? 1
         : hypeSpeedFactor(dude, hypeMen, setup.rules.volumeLevel)) *
-      carrierSpeedFactor(dude);
+      carrierSpeedFactor(dude) *
+      mutationSpeedFactor(dude);
     const moved = walk(dude, field, STEP_SECONDS, speedFactor);
     if (moved !== "at-goal") {
       const crossed = crossFloor(
@@ -231,26 +257,37 @@ export function stepBattle(
         step,
         STEPS_PER_SECOND,
         events,
+        floorHits,
       );
       if (crossed !== null) dudes.push(crossed);
       continue;
     }
+    floorHits.leave(dude);
     if (field === decoyRoute) {
       events.push(hitDecoy(dude, state.maze, pieceHits, step));
       continue;
     }
-    const damage = DUDE_KINDS[dude.kind].goalDamage;
-    goalHealth = Math.max(0, goalHealth - damage);
-    events.push({
-      type: "reach-goal",
-      step,
-      dudeId: dude.id,
-      dudeKind: dude.kind,
-      damage,
-    });
+    const reached = reachGoal(dude, step);
+    goalHealth = Math.max(0, goalHealth - reached.damage);
+    events.push(reached);
   }
 
-  const standing = withoutDestroyed(state, volley.towers, pieceHits.destroyed);
+  const ghostWalk = walkGhosts(state.ghosts, route, step, STEP_SECONDS, events);
+  goalHealth = Math.max(0, goalHealth - ghostWalk.goalDamage);
+  const afterlife = afterDeaths(
+    events.filter((event): event is KillEvent => event.type === "kill"),
+    onBoard,
+    setup.mutations,
+    step,
+    STEPS_PER_SECOND,
+    setup.seed,
+    state.nextDudeId,
+  );
+  const living = [...floorHits.applyTo(dudes), ...afterlife.halves];
+  const ghosts = [...ghostWalk.ghosts, ...afterlife.ghosts];
+
+  const towers = stunTowers(volley.towers, events, step, STEPS_PER_SECOND);
+  const standing = withoutDestroyed(state, towers, pieceHits.destroyed);
   return {
     ...standing,
     decoyRoutes:
@@ -261,10 +298,17 @@ export function stepBattle(
     step,
     goalHealth,
     pieceHealth: pieceHits.pieceHealth(),
-    dudes,
+    dudes: living,
     waiting,
+    ghosts,
+    nextDudeId: afterlife.nextDudeId,
     events,
-    outcome: outcomeAfter(setup.rules, step, goalHealth, dudes, waiting),
+    outcome: outcomeAfter(
+      setup.rules,
+      step,
+      goalHealth,
+      living.length + waiting.length + ghosts.length,
+    ),
   };
 }
 
@@ -335,13 +379,13 @@ function outcomeAfter(
   rules: BattleRules,
   step: number,
   goalHealth: number,
-  dudes: readonly DudeState[],
-  waiting: readonly WaitingDude[],
+  /** Dudes on the Board, waiting and walking as ghosts. */
+  attackersLeft: number,
 ): BattleOutcome | null {
   if (goalHealth <= 0) {
     return { winner: "attack", reason: "goal-destroyed", step };
   }
-  if (dudes.length === 0 && waiting.length === 0) {
+  if (attackersLeft === 0) {
     return { winner: "defense", reason: "army-gone", step };
   }
   if (step >= rules.timeLimitSeconds * STEPS_PER_SECOND) {

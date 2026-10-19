@@ -1,6 +1,11 @@
 import type { Side } from "../battle/battle";
 import type { BattleEvent } from "../battle/events";
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
+import {
+  MUTATION_RULES,
+  type MutationId,
+  type MutationRules,
+} from "../catalog/mutations";
 import { PIECES, type PieceId } from "../catalog/pieces";
 import { GOLD_RULES, type GoldRules } from "../catalog/gold-rules";
 
@@ -10,12 +15,14 @@ export interface Wallets {
   readonly attack: number;
 }
 
-/** How a battle ended, as far as gold cares. */
+/** How a battle ended, and what the Army carried into it, as far as gold cares. */
 export interface BattleEnd {
   readonly winner: Side;
   readonly goalHealth: number;
-  /** Every Dude still alive at the end, walking or waiting on the Spawn line. */
+  /** Every Dude still alive at the end, walking or waiting on the Spawn line (not ghosts). */
   readonly survivors: readonly DudeKindId[];
+  /** The Army's Mutations; Gold Teeth multiplies the gold for reaching the Goal. */
+  readonly mutations: readonly MutationId[];
 }
 
 export function startingWallets(rules: GoldRules = GOLD_RULES): Wallets {
@@ -46,16 +53,23 @@ export function goldBreakdown(
   events: readonly BattleEvent[],
   end: BattleEnd,
   rules: GoldRules = GOLD_RULES,
+  mutationRules: MutationRules = MUTATION_RULES,
 ): GoldBreakdown {
   let kills = 0;
   let reachedGoal = 0;
   let piecesDestroyed = 0;
   let taxed = 0;
+  const reachGoalMultiplier = end.mutations.includes("gold-teeth")
+    ? mutationRules.goldTeethMultiplier
+    : 1;
   for (const event of events) {
     if (event.type === "kill") {
       kills += killGold(event.pieceId, event.dudeKind, rules);
     } else if (event.type === "reach-goal") {
-      reachedGoal += rules.perReachGoal * DUDE_KINDS[event.dudeKind].goldValue;
+      reachedGoal +=
+        rules.perReachGoal *
+        DUDE_KINDS[event.dudeKind].goldValue *
+        reachGoalMultiplier;
     } else if (event.type === "piece-destroyed") {
       piecesDestroyed += rules.perPieceDestroyed;
     } else if (event.type === "taxed") {

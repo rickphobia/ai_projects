@@ -372,6 +372,7 @@ export class RunScreen {
         ...end.dudes.map((dude) => dude.kind),
         ...end.waiting.map(({ dude }) => dude.kind),
       ],
+      mutations: battle.setup.mutations,
     };
     const earned = goldEarned(battle.goldEvents, battleEnd);
     const destroyed = battle.goldEvents.flatMap((event) =>

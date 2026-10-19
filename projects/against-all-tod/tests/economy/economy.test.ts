@@ -52,11 +52,13 @@ const DEFENSE_WIN: BattleEnd = {
   winner: "defense",
   goalHealth: 0,
   survivors: [],
+  mutations: [],
 };
 const ATTACK_WIN: BattleEnd = {
   winner: "attack",
   goalHealth: 0,
   survivors: [],
+  mutations: [],
 };
 
 /** Round numbers so each rule's share is easy to see. */

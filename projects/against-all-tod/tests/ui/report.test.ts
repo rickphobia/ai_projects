@@ -42,6 +42,7 @@ describe("roundReport", () => {
     winner: "defense",
     goalHealth: 13,
     survivors: [],
+    mutations: [],
   });
 
   it("adds up the Goal damage", () => {
@@ -66,6 +67,7 @@ describe("roundReport", () => {
       winner: "defense",
       goalHealth: 20,
       survivors: [],
+      mutations: [],
     });
     expect(edge.deaths[2]?.[BOARD_COLUMNS - 1]).toBe(1);
   });
