@@ -30,8 +30,39 @@ export function positionLabel(position: number): string {
   return position > 0 ? `+${String(position)}` : String(position);
 }
 
+/** "Undo · destroy 40g of your own Pieces", or "Undo · free" with a free Undo. */
+export function undoLabel(side: Side, price: number): string {
+  if (price === 0) return "Undo · free";
+  return `Undo · destroy ${String(price)}g of your own ${side === "defense" ? "Pieces" : "Dudes"}`;
+}
+
+/** "Brightness Undo: picked 30g of 40g. Tap your Pieces to pick them." */
+export function undoPickHint(
+  slider: SliderId,
+  side: Side,
+  picked: number,
+  price: number,
+): string {
+  const how =
+    side === "defense"
+      ? "Tap your Pieces to pick them."
+      : "Drag over your Dudes to pick them.";
+  return `${SLIDERS[slider].name} Undo: picked ${String(picked)}g of ${String(price)}g. ${how}`;
+}
+
+/** An Undo being paid for: the slider, its price and the value picked so far. */
+export interface UndoPicking {
+  readonly slider: SliderId;
+  readonly price: number;
+  readonly picked: number;
+}
+
 export interface SettingsHandlers {
   readonly onDrag: (slider: SliderId, to: number) => void;
+  /** Starts picking what to destroy for an Undo of `slider`. */
+  readonly onUndo: (slider: SliderId) => void;
+  readonly onPayUndo: () => void;
+  readonly onCancelUndo: () => void;
 }
 
 /**
@@ -64,12 +95,17 @@ export class SettingsMenu {
     host.replaceChildren(this.toggle, this.panel);
   }
 
-  /** Redraws every slider where the Run has it, with prices for the side paying now. */
+  /**
+   * Redraws every slider where the Run has it, with prices for the side paying now. `undoPriceOf`
+   * is null when no Undo can start now (mid-battle); `picking` is the Undo being paid for.
+   */
   show(
     sliders: SliderPositions,
     side: Side,
     midBattle: boolean,
     priceOf: PriceOf,
+    undoPriceOf: ((slider: SliderId) => number) | null,
+    picking: UndoPicking | null,
   ): void {
     const heading = this.doc.createElement("h2");
     heading.textContent = "Settings";
@@ -78,10 +114,51 @@ export class SettingsMenu {
     note.textContent = midBattle
       ? `Mid-battle: every drag costs ${String(TRICK_RULES.midBattleMultiplier)}× in ${side} gold.`
       : `Every drag costs ${side} gold; back toward the middle costs ${String(TRICK_RULES.towardMiddleMultiplier)}×.`;
-    const rows = SLIDER_IDS.map((slider) =>
-      this.sliderRow(slider, sliders[slider], midBattle, priceOf),
+    const rows = SLIDER_IDS.map((slider) => {
+      const row = this.sliderRow(slider, sliders[slider], midBattle, priceOf);
+      if (undoPriceOf !== null && picking === null && sliders[slider] !== 0) {
+        row.append(this.undoButton(slider, side, undoPriceOf(slider)));
+      }
+      return row;
+    });
+    const pickBar = picking === null ? [] : [this.pickBar(picking, side)];
+    this.panel.replaceChildren(heading, note, ...pickBar, ...rows);
+  }
+
+  private undoButton(slider: SliderId, side: Side, price: number): HTMLElement {
+    const button = this.button(undoLabel(side, price), () => {
+      this.handlers.onUndo(slider);
+    });
+    button.className = "settings-undo";
+    return button;
+  }
+
+  private pickBar(picking: UndoPicking, side: Side): HTMLElement {
+    const bar = this.doc.createElement("div");
+    bar.className = "settings-undo-picking";
+    const pay = this.button("Pay and Undo", () => {
+      this.handlers.onPayUndo();
+    });
+    pay.disabled = picking.picked < picking.price;
+    const cancel = this.button("Cancel", () => {
+      this.handlers.onCancelUndo();
+    });
+    bar.append(
+      this.hint(
+        undoPickHint(picking.slider, side, picking.picked, picking.price),
+      ),
+      pay,
+      cancel,
     );
-    this.panel.replaceChildren(heading, note, ...rows);
+    return bar;
+  }
+
+  private button(text: string, onClick: () => void): HTMLButtonElement {
+    const button = this.doc.createElement("button");
+    button.type = "button";
+    button.textContent = text;
+    button.addEventListener("click", onClick);
+    return button;
   }
 
   private sliderRow(

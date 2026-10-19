@@ -112,6 +112,15 @@ async function start(): Promise<void> {
     onDrag: (slider, to) => {
       run.dragSlider(slider, to);
     },
+    onUndo: (slider) => {
+      run.startUndo(slider);
+    },
+    onPayUndo: () => {
+      run.payUndo();
+    },
+    onCancelUndo: () => {
+      run.cancelUndo();
+    },
   });
   showPauseMenu(requireElement("pause"), actualVolume, {
     onPausedChange: (paused) => {

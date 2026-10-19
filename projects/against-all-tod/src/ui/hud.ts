@@ -33,6 +33,10 @@ const REFUSAL_MESSAGES: Readonly<Record<RunRefusal, string>> = {
   "no-dude": "There's no Dude there to erase.",
   "no-crate": "This Round's crate is already taken from.",
   "slider-end": "That slider can't go any further that way.",
+  "nothing-to-undo": "That slider is already in the middle.",
+  "no-piece": "There's no Piece there to destroy.",
+  "undo-short":
+    "Not enough picked: destroy more of your own to cover the Undo price.",
 };
 
 const OUTCOME_MESSAGES: Readonly<Record<BattleOutcome["reason"], string>> = {

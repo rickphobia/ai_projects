@@ -149,6 +149,9 @@ export function parseSave(raw: string): RunState {
     crate: run.crate === null ? null : crate(run.crate),
     freeItem: run.freeItem === null ? null : freeItem(run.freeItem),
     sliderInputs: list(run.sliderInputs, "sliderInputs").map(sliderInput),
+    // Saves from before Undo have none.
+    freeUndos:
+      run.freeUndos === undefined ? 0 : count(run.freeUndos, "freeUndos"),
   };
   // A Piece that no longer fits the Maze (say, after a rule change) makes the save unusable.
   mazeOf(state.pieces, windowSizeOf(state));
