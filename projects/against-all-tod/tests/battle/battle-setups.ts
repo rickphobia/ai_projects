@@ -5,6 +5,7 @@ import type { MutationId } from "../../src/catalog/mutations";
 import type { PieceId } from "../../src/catalog/pieces";
 import { BOARD_ROWS, type Tile } from "../../src/maze/board";
 import { emptyMaze, placePiece, type Maze } from "../../src/maze/maze";
+import { NEUTRAL_SLIDERS } from "../../src/tricks/tricks";
 
 /** Small hand-built Boards and Armies shared by the battle tests. */
 
@@ -33,7 +34,15 @@ export function setupOf(
   seed = 1,
   mutations: readonly MutationId[] = [],
 ): BattleSetup {
-  return { maze, army, mutations, seed, rules: { ...BATTLE_RULES, ...rules } };
+  return {
+    maze,
+    army,
+    mutations,
+    seed,
+    rules: { ...BATTLE_RULES, ...rules },
+    sliders: NEUTRAL_SLIDERS,
+    sliderInputs: [],
+  };
 }
 
 /** A wall down `column` with a one-tile gap at `gapRow`. */

@@ -48,6 +48,9 @@ const GHOST_ALPHA = 0.35;
 const UNDERGROUND_ALPHA = 0.3;
 /** How see-through a Shield Bro's disc is once his shield breaks. */
 const BROKEN_SHIELD_ALPHA = 0.5;
+/** In the dark each Dude glows: a halo in the attack colour this much wider than its disc. */
+const HALO_SCALE = 1.3;
+const HALO_ALPHA = 0.5;
 /** Kenney's sprites face up; PixiJS measures rotation from the right. */
 const SPRITE_FACING = Math.PI / 2;
 
@@ -60,8 +63,9 @@ export function dudeDisc(): Graphics {
     .stroke({ color: 0xffffff, alpha: 0.7, width: 2 });
 }
 
-/** One Dude on screen: its disc, its body, and the frame it was last seen in. */
+/** One Dude on screen: its halo, disc and body, and the frame it was last seen in. */
 interface DudeSprites {
+  readonly halo: Sprite;
   readonly disc: Sprite;
   readonly body: Sprite;
   seenInFrame: number;
@@ -76,6 +80,11 @@ interface DudeSprites {
  */
 export class UnitsView {
   readonly view = new Container({ label: "units" });
+  /** Shown only in the dark (Brightness down), so Dudes keep a glowing outline. */
+  private readonly haloLayer = new Container({
+    label: "dude-halos",
+    visible: false,
+  });
   private readonly discLayer = new Container({ label: "dude-discs" });
   private readonly dudeLayer = new Container({ label: "dudes" });
   private readonly tracers = new Graphics({ label: "tracers" });
@@ -87,7 +96,17 @@ export class UnitsView {
     private readonly textures: BoardTextures,
     private readonly discTexture: Texture,
   ) {
-    this.view.addChild(this.discLayer, this.dudeLayer, this.tracers);
+    this.view.addChild(
+      this.haloLayer,
+      this.discLayer,
+      this.dudeLayer,
+      this.tracers,
+    );
+  }
+
+  /** Turns the Dudes' glow on in the dark and off again. */
+  glow(on: boolean): void {
+    this.haloLayer.visible = on;
   }
 
   show(
@@ -140,7 +159,7 @@ export class UnitsView {
       sprites = this.addDude(dude, x, y);
       this.dudeSprites.set(dude.id, sprites);
     }
-    const { disc, body } = sprites;
+    const { halo, disc, body } = sprites;
     body.rotation = facing(
       body.x / TILE_SIZE,
       body.y / TILE_SIZE,
@@ -149,6 +168,7 @@ export class UnitsView {
     );
     body.position.set(x, y);
     disc.position.set(x, y);
+    halo.position.set(x, y);
     showState(sprites, dude, ghost);
     sprites.seenInFrame = this.frame;
   }
@@ -171,6 +191,15 @@ export class UnitsView {
       x,
       y,
     });
+    const halo = new Sprite({
+      texture: this.discTexture,
+      anchor: 0.5,
+      scale: scale * HALO_SCALE,
+      tint: ATTACK_COLOUR,
+      alpha: HALO_ALPHA,
+      x,
+      y,
+    });
     const body = new Sprite({
       texture: this.textures.dude,
       anchor: 0.5,
@@ -180,9 +209,10 @@ export class UnitsView {
       x,
       y,
     });
+    this.haloLayer.addChild(halo);
     this.discLayer.addChild(disc);
     this.dudeLayer.addChild(body);
-    return { disc, body, seenInFrame: this.frame };
+    return { halo, disc, body, seenInFrame: this.frame };
   }
 
   private drawTracers(step: number): void {
@@ -223,7 +253,8 @@ function showState(
       : alpha;
 }
 
-function destroy({ disc, body }: DudeSprites): void {
+function destroy({ halo, disc, body }: DudeSprites): void {
+  halo.destroy();
   disc.destroy();
   body.destroy();
 }

@@ -55,6 +55,7 @@ export function jumpToRound(state: RunState, round: number): RunState | null {
       army: state.army,
       mutations: state.mutations,
       wallets: state.wallets,
+      sliders: state.sliders,
     },
   });
 }

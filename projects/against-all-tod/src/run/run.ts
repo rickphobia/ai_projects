@@ -7,6 +7,7 @@ import type { MutationId } from "../catalog/mutations";
 import { PIECES, type PieceId } from "../catalog/pieces";
 import { CRATE_RULES, type CrateItem } from "../catalog/pools";
 import { RUN_RULES } from "../catalog/run-rules";
+import type { SliderId } from "../catalog/tricks";
 import {
   addGold,
   spend,
@@ -21,6 +22,13 @@ import {
   type PlacedPiece,
   type PlacementRefusal,
 } from "../maze/maze";
+import {
+  dragPrice,
+  NEUTRAL_SLIDERS,
+  slidersAfter,
+  type SliderInput,
+  type SliderPositions,
+} from "../tricks/tricks";
 import { crateFor, sameItem, type Crate } from "./crate";
 
 /**
@@ -36,13 +44,15 @@ export type RunPhase =
   | "round-lost"
   | "run-over";
 
-/** The Board, the Army, its Mutations and both wallets: everything a Rewind puts back. */
+/** The Board, the Army, its Mutations, both wallets and the sliders: everything a Rewind puts back. */
 export interface RoundSnapshot {
   readonly pieces: readonly PlacedPiece[];
   readonly army: Army;
   /** Stored as picked; ticket 15 gives them battle effects. */
   readonly mutations: readonly MutationId[];
   readonly wallets: Wallets;
+  /** Where the Settings sliders stand; during a battle, where they stood as it started. */
+  readonly sliders: SliderPositions;
 }
 
 /** A Piece or Squad taken from a crate, waiting to be placed for free. */
@@ -62,6 +72,8 @@ export interface RunState extends RoundSnapshot {
   /** This Round's Draft Crate; null once an item is taken. */
   readonly crate: Crate | null;
   readonly freeItem: FreeItem | null;
+  /** Sliders dragged during the battle being fought, in step order; empty between battles. */
+  readonly sliderInputs: readonly SliderInput[];
 }
 
 export type RunAction =
@@ -78,6 +90,14 @@ export type RunAction =
     }
   | { readonly type: "take-from-crate"; readonly index: number }
   | { readonly type: "reroll-crate" }
+  | {
+      readonly type: "drag-slider";
+      readonly slider: SliderId;
+      /** The position dragged to, -2 to 2. */
+      readonly to: number;
+      /** During a battle, the step the drag takes effect from; ignored between battles. */
+      readonly atStep: number;
+    }
   | { readonly type: "start-battle" }
   | {
       readonly type: "battle-finished";
@@ -102,7 +122,9 @@ export type RunRefusal =
   /** A Squad anywhere but the Spawn line. */
   | "not-spawn-line"
   /** The crate is already taken from, or has no such item. */
-  | "no-crate";
+  | "no-crate"
+  /** A slider dragged off its end, or not moved at all. */
+  | "slider-end";
 
 export type RunResult =
   | { readonly ok: true; readonly state: RunState }
@@ -114,6 +136,7 @@ export function newRun(seed: number, bestScore = 0): RunState {
     army: ROUND_ONE_ARMY,
     mutations: [],
     wallets: startingWallets(),
+    sliders: NEUTRAL_SLIDERS,
   };
   return withFreshCrate({
     ...board,
@@ -125,6 +148,7 @@ export function newRun(seed: number, bestScore = 0): RunState {
     roundStart: board,
     crate: null,
     freeItem: null,
+    sliderInputs: [],
   });
 }
 
@@ -208,6 +232,8 @@ export function battleSetupOf(
     mutations: state.mutations,
     seed: roundSeed(state.seed, roundOf(state)),
     rules,
+    sliders: state.sliders,
+    sliderInputs: state.sliderInputs,
   };
 }
 
@@ -273,6 +299,8 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
         crate: crateOf(state, state.crate.rerolls + 1),
       });
     }
+    case "drag-slider":
+      return dragSlider(state, action.slider, action.to, action.atStep);
     case "start-battle":
       if (state.phase !== "building") return refuse("wrong-phase");
       return accept({ ...state, phase: "fighting" });
@@ -320,6 +348,58 @@ function takeFromCrate(state: RunState, index: number): RunResult {
   return accept({ ...taken, freeItem: item });
 }
 
+/** Where the sliders stand now, mid-battle drags included. */
+export function currentSliders(state: RunState): SliderPositions {
+  return slidersAfter(state.sliders, state.sliderInputs);
+}
+
+/** What dragging `slider` to `to` would cost the side being played now; null if it can't go there. */
+export function sliderPriceNow(
+  state: RunState,
+  slider: SliderId,
+  to: number,
+): number | null {
+  return dragPrice(
+    slider,
+    currentSliders(state)[slider],
+    to,
+    state.phase === "fighting",
+  );
+}
+
+/**
+ * The side being played pays. Between battles the slider simply moves; mid-battle the drag is
+ * recorded as a timed input, so the battle replays the same from its seed.
+ */
+function dragSlider(
+  state: RunState,
+  slider: SliderId,
+  to: number,
+  atStep: number,
+): RunResult {
+  if (state.phase !== "building" && state.phase !== "fighting") {
+    return refuse("wrong-phase");
+  }
+  const price = sliderPriceNow(state, slider, to);
+  if (price === null) return refuse("slider-end");
+  const wallets = spend(state.wallets, sideOf(state), price);
+  if (wallets === null) return refuse("not-enough-gold");
+  if (state.phase === "building") {
+    return accept({
+      ...state,
+      wallets,
+      sliders: { ...state.sliders, [slider]: to },
+    });
+  }
+  // Inputs stay in step order even if a caller reports an earlier step than the last drag's.
+  const step = Math.max(atStep, state.sliderInputs.at(-1)?.step ?? 0);
+  return accept({
+    ...state,
+    wallets,
+    sliderInputs: [...state.sliderInputs, { step, slider, position: to }],
+  });
+}
+
 /** Zero for the waiting free item, otherwise the shop price. */
 export function priceNow(state: RunState, item: FreeItem): number {
   if (state.freeItem !== null && sameItem(state.freeItem, item)) return 0;
@@ -362,6 +442,7 @@ function winRound(
   destroyed: readonly Tile[],
 ): RunState {
   const wallets = addGold(state.wallets, earned);
+  const sliders = currentSliders(state);
   const gone = new Set(destroyed.map(tileKey));
   const pieces =
     gone.size === 0
@@ -371,6 +452,8 @@ function winRound(
     ...state,
     pieces,
     wallets,
+    sliders,
+    sliderInputs: [],
     score: state.score + 1,
     phase: "round-won",
     roundStart: {
@@ -378,6 +461,7 @@ function winRound(
       army: state.army,
       mutations: state.mutations,
       wallets,
+      sliders,
     },
   });
 }
@@ -397,6 +481,7 @@ function loseRound(state: RunState): RunState {
     ...state,
     ...state.roundStart,
     wallets,
+    sliderInputs: [],
     lives,
     roundStart: { ...state.roundStart, wallets },
   });

@@ -7,6 +7,7 @@ import {
   swarmMaze,
   wantsSwarmScene,
 } from "../../src/debug/swarm-scene";
+import { NEUTRAL_SLIDERS } from "../../src/tricks/tricks";
 
 describe("the swarm scene", () => {
   it("sends 500 Interns against a Maze with towers", () => {
@@ -17,6 +18,8 @@ describe("the swarm scene", () => {
       mutations: [],
       seed: 1,
       rules: SWARM_RULES,
+      sliders: NEUTRAL_SLIDERS,
+      sliderInputs: [],
     });
     expect(SWARM_DUDES).toBe(500);
     expect(state.waiting).toHaveLength(SWARM_DUDES);

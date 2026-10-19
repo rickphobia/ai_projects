@@ -3,6 +3,7 @@ import { DUDE_KINDS, type DudeKindId } from "../../catalog/dudes";
 import { PIECES, type PieceId } from "../../catalog/pieces";
 import { MUTATIONS, type MutationId } from "../../catalog/mutations";
 import type { CrateItem } from "../../catalog/pools";
+import { SLIDER_IDS, type SliderId } from "../../catalog/tricks";
 import type { Wallets } from "../../economy/economy";
 import type { Logger } from "../../logger";
 import type { PlacedPiece } from "../../maze/maze";
@@ -14,6 +15,11 @@ import {
   type RunPhase,
   type RunState,
 } from "../../run/run";
+import {
+  isSliderPosition,
+  type SliderInput,
+  type SliderPositions,
+} from "../../tricks/tricks";
 
 /**
  * Saves the Run to browser storage and loads it back. A save that can't be read, or comes from
@@ -22,7 +28,7 @@ import {
  */
 
 /** Bump when the saved shape changes; older saves then give a fresh start. */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const SAVE_KEY = "against-all-tod.save";
 
 /** The part of `Storage` the save needs, so tests can pass a fake. */
@@ -108,6 +114,7 @@ export function parseSave(raw: string): RunState {
     roundStart: snapshot(record(run.roundStart, "roundStart"), "roundStart"),
     crate: run.crate === null ? null : crate(run.crate),
     freeItem: run.freeItem === null ? null : freeItem(run.freeItem),
+    sliderInputs: list(run.sliderInputs, "sliderInputs").map(sliderInput),
   };
   // A Piece that no longer fits the Maze (say, after a rule change) makes the save unusable.
   mazeOf(state.pieces);
@@ -138,7 +145,38 @@ function snapshot(
     army: list(value.army, `${name}.army`).map(squad) satisfies Army,
     mutations: list(value.mutations, `${name}.mutations`).map(mutationId),
     wallets: wallets(value.wallets),
+    sliders: sliders(value.sliders),
   };
+}
+
+function sliders(value: unknown): SliderPositions {
+  const found = record(value, "sliders");
+  return {
+    brightness: sliderPosition(found.brightness),
+    "game-speed": sliderPosition(found["game-speed"]),
+  };
+}
+
+function sliderInput(value: unknown): SliderInput {
+  const input = record(value, "slider input");
+  return {
+    step: count(input.step, "slider input step"),
+    slider: sliderId(input.slider),
+    position: sliderPosition(input.position),
+  };
+}
+
+function sliderId(value: unknown): SliderId {
+  const found = SLIDER_IDS.find((known) => known === value);
+  if (found === undefined) throw new SaveFormatError("unknown slider");
+  return found;
+}
+
+function sliderPosition(value: unknown): number {
+  if (typeof value !== "number" || !isSliderPosition(value)) {
+    throw new SaveFormatError("slider position is off the slider");
+  }
+  return value;
 }
 
 function placedPiece(value: unknown): PlacedPiece {

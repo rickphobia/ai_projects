@@ -7,6 +7,7 @@ import type { PieceId } from "../../catalog/pieces";
 import type { Logger } from "../../logger";
 import type { Tile } from "../../maze/board";
 import type { Maze } from "../../maze/maze";
+import type { SliderPositions } from "../../tricks/tricks";
 import {
   listenToPointer,
   tileAtPoint,
@@ -33,6 +34,7 @@ import { drawPieces, pieceView, type Turrets } from "./pieces-view";
 import { PlacementCursor } from "./placement-cursor";
 import { drawRoute } from "./route-view";
 import { drawSquads, squadView } from "./squads-view";
+import { TricksView } from "./tricks-view";
 import { UnitsView, dudeDisc } from "./units-view";
 
 /** Space kept free around the Board, in screen pixels. */
@@ -63,6 +65,8 @@ export interface GameView {
   showBattle(state: BattleState, newShots: readonly ShotEvent[]): void;
   clearBattle(): void;
   showGoalHealth(health: number, maxHealth: number): void;
+  /** Shows where the Settings sliders stand on the Board: the dark, the light, the Game speed. */
+  showTricks(sliders: SliderPositions): void;
   /** Calls `onFrame` with the real time since the last frame, until the returned stop is called. */
   everyFrame(onFrame: (elapsedMs: number) => void): () => void;
   listenToBoard(handlers: BoardTileHandlers): void;
@@ -122,13 +126,17 @@ export async function startRenderer(
   disc.destroy();
   const units = new UnitsView(textures, discTexture);
   const goalHealth = new GoalHealthBar();
+  const tricks = new TricksView();
+  let sliders: SliderPositions | null = null;
   const cursor = new PlacementCursor(pieceView(textures, cursorPiece));
   let turrets: Turrets = new Map();
   // The Maze last drawn; a battle's differs once a Wall-breaker destroys a Piece.
   let drawnMaze: Maze | null = null;
-  // The route goes over the Pieces so a path squeezing past walls stays readable.
+  // The route goes over the Pieces so a path squeezing past walls stays readable. The dark goes
+  // over the Board and Pieces but under the Dudes, which glow instead.
   board.addChild(
     pieces,
+    tricks.view,
     route,
     squads,
     units.view,
@@ -156,11 +164,18 @@ export async function startRenderer(
     aim(clampCamera(camera, bounds));
   });
 
+  const drawTricks = (): void => {
+    if (sliders === null || drawnMaze === null) return;
+    tricks.show(sliders, drawnMaze);
+    units.glow(tricks.dark);
+  };
+
   return {
     showMaze: (maze) => {
       turrets = drawPieces(pieces, textures, maze);
       drawnMaze = maze;
       drawRoute(route, maze.route);
+      drawTricks();
     },
     showRoute: (visible) => {
       route.visible = visible;
@@ -181,6 +196,7 @@ export async function startRenderer(
       if (state.maze !== drawnMaze) {
         turrets = drawPieces(pieces, textures, state.maze);
         drawnMaze = state.maze;
+        drawTricks();
       }
       units.show(state, newShots, turrets);
     },
@@ -189,6 +205,10 @@ export async function startRenderer(
     },
     showGoalHealth: (health, maxHealth) => {
       goalHealth.show(health, maxHealth);
+    },
+    showTricks: (positions) => {
+      sliders = positions;
+      drawTricks();
     },
     everyFrame: (onFrame) => {
       const tick = (ticker: Ticker): void => {

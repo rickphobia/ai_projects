@@ -13,6 +13,10 @@ export const DEFENSE_COLOUR = 0x3d8bfd;
 export const ATTACK_COLOUR = 0xff5a36;
 /** Marks a tile where the chosen Piece can't go. */
 export const REFUSED_COLOUR = 0xff3030;
+/** The page's text colour (`--fg`), for words drawn on the Board. */
+export const TEXT_COLOUR = 0xe8efe9;
+/** The wash over the Board while Brightness is up (`--light-wash`). */
+export const LIGHT_WASH_COLOUR = 0xfff3c4;
 
 export const BOARD_PIXEL_SIZE = {
   width: BOARD_COLUMNS * TILE_SIZE,

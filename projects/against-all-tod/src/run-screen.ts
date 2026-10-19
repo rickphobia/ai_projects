@@ -13,6 +13,7 @@ import { stepsDue, type WatchSpeed } from "./battle/watch-clock";
 import { BATTLE_RULES } from "./catalog/battle-rules";
 import type { DudeKindId } from "./catalog/dudes";
 import { PIECES, type PieceId } from "./catalog/pieces";
+import type { SliderId } from "./catalog/tricks";
 import { giveGold, jumpToRound } from "./debug/debug-options";
 import { goldEarned, type BattleEnd } from "./economy/economy";
 import type { Logger } from "./logger";
@@ -23,10 +24,12 @@ import {
   battleSetupOf,
   checkPiece,
   checkSquad,
+  currentSliders,
   mazeOf,
   roundOf,
   runStatusOf,
   sideOf,
+  sliderPriceNow,
   type RunAction,
   type RunState,
 } from "./run/run";
@@ -35,6 +38,7 @@ import type { EndScreen } from "./ui/end-screen";
 import type { Hud } from "./ui/hud";
 import type { PieceInfo } from "./ui/piece-info";
 import { roundReport, type RoundReportPanel } from "./ui/report";
+import type { SettingsMenu } from "./ui/settings";
 import type { ShopStock } from "./ui/shop";
 
 /** What the shop sells each side until Draft Crates and Unlocks arrive. */
@@ -47,7 +51,8 @@ export const FIRST_BUILD_PIECE: PieceId = "crate-wall";
 const FIRST_DUDE_KIND: DudeKindId = "intern";
 
 interface Battle {
-  readonly setup: BattleSetup;
+  /** Replaced when a slider is dragged mid-battle, to carry the new input. */
+  setup: BattleSetup;
   state: BattleState;
   carryMs: number;
   /** Every kill and Goal hit so far, for the gold. */
@@ -72,6 +77,7 @@ export class RunScreen {
   private endScreen: EndScreen | undefined;
   private cratePanel: CratePanel | undefined;
   private report: RoundReportPanel | undefined;
+  private settings: SettingsMenu | undefined;
   /** The route preview; the debug options can hide it. */
   private routeVisible = true;
 
@@ -97,8 +103,10 @@ export class RunScreen {
     endScreen: EndScreen,
     cratePanel: CratePanel,
     report: RoundReportPanel,
+    settings: SettingsMenu,
   ): void {
     this.report = report;
+    this.settings = settings;
     this.hud = hud;
     this.endScreen = endScreen;
     this.cratePanel = cratePanel;
@@ -177,6 +185,33 @@ export class RunScreen {
     this.showBuilding();
   }
 
+  /** Drags a Settings slider; mid-battle the drag takes effect from the next step. */
+  dragSlider(slider: SliderId, to: number): void {
+    const battle = this.battle;
+    const atStep = battle === null ? 0 : battle.state.step + 1;
+    const accepted = this.act({ type: "drag-slider", slider, to, atStep });
+    if (accepted) {
+      if (battle !== null) {
+        battle.setup = {
+          ...battle.setup,
+          sliderInputs: this.run.sliderInputs,
+        };
+      }
+      this.logger.info("slider dragged", {
+        round: roundOf(this.run),
+        side: sideOf(this.run),
+        slider,
+        to,
+        midBattle: battle !== null,
+        atStep: battle === null ? null : atStep,
+        wallets: this.run.wallets,
+      });
+      this.showRunStatus();
+    }
+    // A refused drag snaps the slider back.
+    this.showTricks();
+  }
+
   fight(): void {
     if (!this.act({ type: "start-battle" })) return;
     this.watchBattle();
@@ -238,6 +273,7 @@ export class RunScreen {
       stop,
     };
     this.hud?.showBattle(sideOf(this.run), this.watchSpeed);
+    this.showTricks();
     this.showBattle(this.battle.state, []);
   }
 
@@ -316,6 +352,7 @@ export class RunScreen {
     this.view.showArmy(this.run.army);
     this.view.showGoalHealth(BATTLE_RULES.goalHealth, BATTLE_RULES.goalHealth);
     this.showRunStatus();
+    this.showTricks();
     if (this.run.phase === "building") {
       this.cratePanel?.show(
         this.run.crate,
@@ -332,6 +369,18 @@ export class RunScreen {
       this.view.chooseSquad(this.chosenDudeKind);
       this.hud?.showAttackBuilding(this.chosenDudeKind);
     }
+  }
+
+  /** The sliders in the Settings menu and on the Board. */
+  private showTricks(): void {
+    const sliders = currentSliders(this.run);
+    this.view.showTricks(sliders);
+    this.settings?.show(
+      sliders,
+      sideOf(this.run),
+      this.run.phase === "fighting",
+      (slider, to) => sliderPriceNow(this.run, slider, to),
+    );
   }
 
   private showRunStatus(): void {
@@ -406,6 +455,7 @@ export class RunScreen {
       score: this.run.score,
     });
     this.showRunStatus();
+    this.showTricks();
     // Over the HUD or end screen; closing it shows what comes next.
     this.report?.show(roundReport(battle.goldEvents, battleEnd), won);
     if (this.run.phase === "run-over") {

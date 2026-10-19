@@ -16,6 +16,7 @@ import { CratePanel } from "./ui/crate";
 import { Hud } from "./ui/hud";
 import { PieceInfo } from "./ui/piece-info";
 import { RoundReportPanel } from "./ui/report";
+import { SettingsMenu } from "./ui/settings";
 import { showStartupError } from "./ui/startup-error-screen";
 
 async function start(): Promise<void> {
@@ -98,7 +99,12 @@ async function start(): Promise<void> {
     },
   });
   const report = new RoundReportPanel(requireElement("round-report"));
-  run.begin(hud, endScreen, cratePanel, report);
+  const settings = new SettingsMenu(requireElement("settings"), {
+    onDrag: (slider, to) => {
+      run.dragSlider(slider, to);
+    },
+  });
+  run.begin(hud, endScreen, cratePanel, report, settings);
   saves.save(firstRun);
   if (loaded.kind === "unreadable") {
     hud.showMessage("Your save couldn't be read, so this is a fresh start.");
