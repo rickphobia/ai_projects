@@ -120,7 +120,7 @@ export function fireTowers(
       at,
     });
     if (shield !== null) {
-      hits.update({
+      hits.record({
         ...shield,
         shield: Math.max(0, shield.shield - stats.damage),
       });

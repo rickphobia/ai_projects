@@ -1,7 +1,11 @@
 import type { Side } from "../battle/battle";
 import type { BattleEvent } from "../battle/events";
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
-import { MUTATION_RULES, type MutationId } from "../catalog/mutations";
+import {
+  MUTATION_RULES,
+  type MutationId,
+  type MutationRules,
+} from "../catalog/mutations";
 import { PIECES, type PieceId } from "../catalog/pieces";
 import { GOLD_RULES, type GoldRules } from "../catalog/gold-rules";
 
@@ -49,13 +53,14 @@ export function goldBreakdown(
   events: readonly BattleEvent[],
   end: BattleEnd,
   rules: GoldRules = GOLD_RULES,
+  mutationRules: MutationRules = MUTATION_RULES,
 ): GoldBreakdown {
   let kills = 0;
   let reachedGoal = 0;
   let piecesDestroyed = 0;
   let taxed = 0;
   const reachGoalMultiplier = end.mutations.includes("gold-teeth")
-    ? MUTATION_RULES.goldTeethMultiplier
+    ? mutationRules.goldTeethMultiplier
     : 1;
   for (const event of events) {
     if (event.type === "kill") {

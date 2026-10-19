@@ -12,6 +12,7 @@ import {
   hypeSpeedFactor,
   MAX_LANE,
   newDude,
+  reachGoal,
   tileUnder,
   walk,
   type DudeState,
@@ -212,7 +213,10 @@ export function stepBattle(
     STEPS_PER_SECOND,
   );
   const floorHits = new DudeHits(bounced, step, events);
-  for (const dude of bounced) {
+  for (const placed of bounced) {
+    // A Conga Line Squadmate's Grinder hit earlier in this loop may have hurt or killed it.
+    const dude = floorHits.current(placed);
+    if (dude === null) continue;
     if ((dude.stunnedUntilStep ?? 0) > step) {
       dudes.push(dude);
       continue;
@@ -232,6 +236,7 @@ export function stepBattle(
       );
       if (hit !== null) {
         if (hit.dude !== null) dudes.push(hit.dude);
+        else floorHits.leave(dude);
         if (hit.destroyed !== null) events.push(hit.destroyed);
         continue;
       }
@@ -257,19 +262,14 @@ export function stepBattle(
       if (crossed !== null) dudes.push(crossed);
       continue;
     }
+    floorHits.leave(dude);
     if (field === decoyRoute) {
       events.push(hitDecoy(dude, state.maze, pieceHits, step));
       continue;
     }
-    const damage = DUDE_KINDS[dude.kind].goalDamage;
-    goalHealth = Math.max(0, goalHealth - damage);
-    events.push({
-      type: "reach-goal",
-      step,
-      dudeId: dude.id,
-      dudeKind: dude.kind,
-      damage,
-    });
+    const reached = reachGoal(dude, step);
+    goalHealth = Math.max(0, goalHealth - reached.damage);
+    events.push(reached);
   }
 
   const ghostWalk = walkGhosts(state.ghosts, route, step, STEP_SECONDS, events);

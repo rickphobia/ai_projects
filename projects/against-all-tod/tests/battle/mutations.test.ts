@@ -80,7 +80,7 @@ describe("Split", () => {
   it("turns a dying Dude into two halves where it died", () => {
     const state = untilFirstKill(setup);
     const [kill] = ofType(state.events, "kill");
-    const halves = state.dudes.filter((dude) => dude.half === true);
+    const halves = state.dudes.filter((dude) => dude.half);
     expect(halves).toHaveLength(2);
     for (const half of halves) {
       expect(half.kind).toBe("intern");
@@ -127,18 +127,14 @@ describe("Giant", () => {
   );
 
   it("makes one Dude per Squad giant: 5× health", () => {
-    const giants = startBattle(setup).waiting.filter(
-      ({ dude }) => dude.giant === true,
-    );
+    const giants = startBattle(setup).waiting.filter(({ dude }) => dude.giant);
     expect(giants).toHaveLength(2);
     for (const { dude } of giants) {
       expect(dude.health).toBe(
         INTERN.health * MUTATION_RULES.giantHealthMultiplier,
       );
     }
-    const others = startBattle(setup).waiting.filter(
-      ({ dude }) => dude.giant !== true,
-    );
+    const others = startBattle(setup).waiting.filter(({ dude }) => !dude.giant);
     expect(others.every(({ dude }) => dude.health === INTERN.health)).toBe(
       true,
     );
@@ -150,7 +146,7 @@ describe("Giant", () => {
       startBattle(setup),
       STEPS_PER_SECOND,
     );
-    const giant = state.dudes.find((dude) => dude.giant === true);
+    const giant = state.dudes.find((dude) => dude.giant);
     expect(giant?.x).toBeCloseTo(
       0.5 + INTERN.speed * MUTATION_RULES.giantSpeedMultiplier,
       5,
@@ -261,6 +257,41 @@ describe("Conga Line", () => {
     expect(volley.dudes.map((dude) => dude.health)).toEqual([
       INTERN.health - SNIPER.damage / 2,
       INTERN.health - SNIPER.damage / 2,
+    ]);
+  });
+  it("doesn't share a Grinder hit with a Squadmate that has just reached the Goal", () => {
+    const grinderAt = { column: 5, row: ROW };
+    const setup = withMutations(
+      ["conga-line"],
+      setupOf(
+        mazeWith([{ pieceId: "grinder", tile: grinderAt }]),
+        [],
+        STURDY_GOAL,
+      ),
+    );
+    const bro = (id: number, x: number, health: number) => ({
+      ...newDude(id, "shield-bro", ROW, 0),
+      x,
+      health,
+      shield: 0,
+      congaSquad: 0,
+    });
+    const atGoal = bro(0, BOARD_COLUMNS - 0.5, 10);
+    const ontoGrinder = bro(
+      1,
+      grinderAt.column - 0.01,
+      DUDE_KINDS["shield-bro"].health,
+    );
+    const state = stepBattle(setup, battleWith(setup, [atGoal, ontoGrinder]));
+    expect(
+      ofType(state.events, "reach-goal").map(({ dudeId }) => dudeId),
+    ).toEqual([0]);
+    expect(ofType(state.events, "kill")).toEqual([]);
+    const grinder = PIECES.grinder.trap;
+    if (grinder?.kind !== "grinder")
+      throw new Error("the Grinder must be a grinder trap");
+    expect(state.dudes.map((dude) => dude.health)).toEqual([
+      DUDE_KINDS["shield-bro"].health - grinder.damage,
     ]);
   });
 });
@@ -399,8 +430,8 @@ describe("Mutations together", () => {
       10,
     );
     expect(halves.map((half) => [half.id, half.health, half.giant])).toEqual([
-      [10, giant.fullHealth / 2, true],
-      [11, giant.fullHealth / 2, true],
+      [10, giant.fullHealth / 2, false],
+      [11, giant.fullHealth / 2, false],
     ]);
     // The halves walk on alive, so the giant leaves no ghost.
     expect(ghosts).toEqual([]);

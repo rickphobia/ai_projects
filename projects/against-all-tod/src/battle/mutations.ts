@@ -1,4 +1,3 @@
-import { DUDE_KINDS } from "../catalog/dudes";
 import {
   MUTATION_RULES,
   type MutationId,
@@ -6,7 +5,13 @@ import {
 } from "../catalog/mutations";
 import type { Route } from "../maze/route";
 import { createRng } from "../rng/rng";
-import { MAX_LANE, squaredDistance, walk, type DudeState } from "./dudes";
+import {
+  MAX_LANE,
+  reachGoal,
+  squaredDistance,
+  walk,
+  type DudeState,
+} from "./dudes";
 import type { BattleEvent, KillEvent } from "./events";
 import type { TowerState } from "./towers";
 
@@ -59,7 +64,7 @@ export function mutationSpeedFactor(
   dude: DudeState,
   rules: MutationRules = MUTATION_RULES,
 ): number {
-  return dude.giant === true ? rules.giantSpeedMultiplier : 1;
+  return dude.giant ? rules.giantSpeedMultiplier : 1;
 }
 
 export interface Afterlife {
@@ -71,7 +76,7 @@ export interface Afterlife {
 
 /**
  * What the Mutations make of the Dudes killed in a step: under Split each becomes two halves
- * where it died, each with half its full health; under Ghost Mode a Dude that doesn't split
+ * where it died, each with half its full health (a giant's halves are tough but not giant); under Ghost Mode a Dude that doesn't split
  * (a half, or anyone without Split) walks on as a ghost. `before` holds the Dudes as the step
  * began. Halves spread across the tile with a roll seeded by the battle and the dead Dude.
  */
@@ -89,8 +94,8 @@ export function afterDeaths(
   const ghosts: Ghost[] = [];
   let nextId = nextDudeId;
   const splits = mutations.includes("split");
-  const haunts = mutations.includes("ghost-mode");
-  if (kills.length === 0 || (!splits && !haunts)) {
+  const ghostMode = mutations.includes("ghost-mode");
+  if (kills.length === 0 || (!splits && !ghostMode)) {
     return { halves, ghosts, nextDudeId };
   }
   const byId = new Map(before.map((dude) => [dude.id, dude]));
@@ -98,7 +103,8 @@ export function afterDeaths(
     const dead = byId.get(kill.dudeId);
     if (dead === undefined) continue;
     const at = { ...dead, x: kill.at.x, y: kill.at.y };
-    if (splits && dead.half !== true) {
+    if (splits && !dead.half) {
+      // A roll of its own per dead Dude (golden-ratio mixing), so halves don't depend on kill order.
       const rng = createRng((seed ^ Math.imul(dead.id + 1, 0x9e3779b1)) >>> 0);
       const health = dead.fullHealth * rules.splitHealthShare;
       for (let index = 0; index < 2; index++) {
@@ -112,11 +118,15 @@ export function afterDeaths(
           health,
           fullHealth: health,
           shield: 0,
-          smallShield: 0,
+          // A half is a Dude of its own: never the Squad's giant, but it has a fresh small shield.
+          smallShield: mutations.includes("explosive-shields")
+            ? rules.smallShieldHealth
+            : 0,
+          giant: false,
           half: true,
         });
       }
-    } else if (haunts) {
+    } else if (ghostMode) {
       ghosts.push({
         dude: { ...at, burrowTo: null, tunnelsLeft: 0 },
         fadesAtStep: step + Math.round(rules.ghostSeconds * stepsPerSecond),
@@ -157,15 +167,9 @@ export function walkGhosts(
       walking.push({ ...ghost, dude: moved });
       continue;
     }
-    const damage = DUDE_KINDS[ghost.dude.kind].goalDamage;
-    goalDamage += damage;
-    events.push({
-      type: "reach-goal",
-      step,
-      dudeId: ghost.dude.id,
-      dudeKind: ghost.dude.kind,
-      damage,
-    });
+    const reached = reachGoal(ghost.dude, step);
+    goalDamage += reached.damage;
+    events.push(reached);
   }
   return { ghosts: walking, goalDamage };
 }

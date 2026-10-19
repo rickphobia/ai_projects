@@ -6,7 +6,7 @@ import {
   type Route,
   type Step,
 } from "../maze/route";
-import type { BoardPoint } from "./events";
+import type { BoardPoint, ReachGoalEvent } from "./events";
 
 /** One Dude on the Board. */
 export interface DudeState {
@@ -39,9 +39,9 @@ export interface DudeState {
   /** Conga Line: its Squad's index in the Army; Squadmates share damage. Absent without the Mutation. */
   readonly congaSquad?: number;
   /** Giant: this Squad's giant, at its kind's speed times the Giant multiplier. */
-  readonly giant?: true;
+  readonly giant: boolean;
   /** Split: one of the two halves a dead Dude became; a half doesn't split again. */
-  readonly half?: true;
+  readonly half: boolean;
 }
 
 /** The widest a lane may be, in tiles either side of the centre line. */
@@ -76,6 +76,8 @@ export function newDude(
     shield: entry.shield?.health ?? 0,
     tunnelsLeft: entry.tunnelTiles > 0 ? 1 : 0,
     burrowTo: null,
+    giant: false,
+    half: false,
   };
 }
 
@@ -177,6 +179,17 @@ export function hypeSpeedFactor(
     best = Math.max(best, 1 + boost);
   }
   return best;
+}
+
+/** What a Dude reaching the Goal emits: the Goal health it takes is its kind's Goal damage. */
+export function reachGoal(dude: DudeState, step: number): ReachGoalEvent {
+  return {
+    type: "reach-goal",
+    step,
+    dudeId: dude.id,
+    dudeKind: dude.kind,
+    damage: DUDE_KINDS[dude.kind].goalDamage,
+  };
 }
 
 /** The tile a Dude is standing on. */

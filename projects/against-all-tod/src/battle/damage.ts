@@ -35,8 +35,13 @@ export class DudeHits {
   }
 
   /** Records a change that isn't damage to health, such as a Shield Bro's shield soaking a shot. */
-  update(dude: DudeState): void {
+  record(dude: DudeState): void {
     this.changed.set(dude.id, dude);
+  }
+
+  /** `dude` left the Board without dying (reached a Goal, spent itself): it shares no more hits. */
+  leave(dude: DudeState): void {
+    this.changed.set(dude.id, null);
   }
 
   /** `damage` to `dude`, shared across its Squad under Conga Line. */

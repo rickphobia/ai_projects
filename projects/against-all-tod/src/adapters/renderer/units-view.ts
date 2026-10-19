@@ -161,8 +161,8 @@ export class UnitsView {
         : kind === "ram-crew"
           ? RAM_CREW_SCALE
           : 1) *
-      (dude.giant === true ? GIANT_SCALE : 1) *
-      (dude.half === true ? HALF_SCALE : 1);
+      (dude.giant ? GIANT_SCALE : 1) *
+      (dude.half ? HALF_SCALE : 1);
     const disc = new Sprite({
       texture: this.discTexture,
       anchor: 0.5,
