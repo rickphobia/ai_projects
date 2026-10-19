@@ -226,7 +226,7 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
   bouncer: {
     id: "bouncer",
     name: "Bouncer",
-    description: "Throws the first Dude it touches back to the Spawn line.",
+    description: "Throws the first Dude it touches back to where it started.",
     blocksDudes: true,
     price: 40,
     health: 150,

@@ -23,8 +23,16 @@ describe("a tower that doesn't hit air", () => {
     const maze = mazeWith([
       { pieceId: "sniper-nest", tile: { column: 5, row: 5 } },
     ]);
-    const balloonist = { ...newDude(0, "balloonist", 0, 0), x: 5.5, y: 3.5 };
-    const intern = { ...newDude(1, "intern", 0, 0), x: 3.5, y: 8.5 };
+    const balloonist = {
+      ...newDude(0, "balloonist", { x: 0.5, y: 0.5 }),
+      x: 5.5,
+      y: 3.5,
+    };
+    const intern = {
+      ...newDude(1, "intern", { x: 0.5, y: 0.5 }),
+      x: 3.5,
+      y: 8.5,
+    };
 
     const balloonOnly = fireTowers(
       towersOf(maze),

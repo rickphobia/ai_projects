@@ -428,10 +428,7 @@ export class RunScreen {
     const battleEnd: BattleEnd = {
       winner: outcome.winner,
       goalHealth: end.goalHealth,
-      survivors: [
-        ...end.dudes.map((dude) => dude.kind),
-        ...end.waiting.map(({ dude }) => dude.kind),
-      ],
+      survivors: end.dudes.map((dude) => dude.kind),
       mutations: battle.setup.mutations,
     };
     const earned = goldEarned(battle.goldEvents, battleEnd);

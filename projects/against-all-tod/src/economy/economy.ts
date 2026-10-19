@@ -19,7 +19,7 @@ export interface Wallets {
 export interface BattleEnd {
   readonly winner: Side;
   readonly goalHealth: number;
-  /** Every Dude still alive at the end, walking or waiting on the Spawn line (not ghosts). */
+  /** Every Dude still alive at the end (not ghosts). */
   readonly survivors: readonly DudeKindId[];
   /** The Army's Mutations; Gold Teeth multiplies the gold for reaching the Goal. */
   readonly mutations: readonly MutationId[];

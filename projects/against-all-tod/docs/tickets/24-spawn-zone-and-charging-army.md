@@ -4,18 +4,18 @@
 
 **Blocked by:** 16 (Brightness and Game speed tricks)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** maze, battle, run, renderer/board, ui/report, debug
 
 **Effort:** medium
 
-- [ ] The Board is 22 × 14, the Spawn zone is columns 0–2, the Goal stays on the right edge; routes start from any zone tile
-- [ ] Placing a Piece in the Spawn zone is refused with its own reason; placing a Squad anywhere outside it is refused
-- [ ] A Squad can go on any zone tile; its Dudes stand spread over that tile at step 0, and the whole Army charges at once (no waiting list, no spawn interval)
-- [ ] The Bouncer throws a Dude back to the spot it started the battle on
-- [ ] The Spawn zone stripe covers the 3 columns; the Round report's death map uses the Board's real width
-- [ ] A save from before this ticket gets the usual fresh start (save version bumped) if its shape changes
-- [ ] The 500-Intern swarm benchmark, now all starting at once, stays within budget
-- [ ] Tests: Board and zone bounds, Pieces refused in the zone, whole Army on the Board at step 0, Dudes reach the Goal from every zone column, Bouncer return spot, same-seed replay
-- [ ] Spec, README and glossary match
+- [x] The Board is 22 × 14, the Spawn zone is columns 0–2, the Goal stays on the right edge; routes start from any zone tile
+- [x] Placing a Piece in the Spawn zone is refused with its own reason; placing a Squad anywhere outside it is refused
+- [x] A Squad can go on any zone tile; its Dudes stand spread over that tile at step 0, and the whole Army charges at once (no waiting list, no spawn interval)
+- [x] The Bouncer throws a Dude back to the spot it started the battle on
+- [x] The Spawn zone stripe covers the 3 columns; the Round report's death map uses the Board's real width
+- [x] A save from before this ticket gets the usual fresh start (save version bumped) if its shape changes
+- [x] The 500-Intern swarm benchmark, now all starting at once, stays within budget
+- [x] Tests: Board and zone bounds, Pieces refused in the zone, whole Army on the Board at step 0, Dudes reach the Goal from every zone column, Bouncer return spot, same-seed replay
+- [x] Spec, README and glossary match

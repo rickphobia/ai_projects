@@ -6,6 +6,7 @@ import type { CrateItem } from "../../catalog/pools";
 import { SLIDER_IDS, type SliderId } from "../../catalog/tricks";
 import type { Wallets } from "../../economy/economy";
 import type { Logger } from "../../logger";
+import { isInSpawnZone, type Tile } from "../../maze/board";
 import type { PlacedPiece } from "../../maze/maze";
 import type { Crate } from "../../run/crate";
 import {
@@ -28,7 +29,7 @@ import {
  */
 
 /** Bump when the saved shape changes; older saves then give a fresh start. */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 export const SAVE_KEY = "against-all-tod.save";
 /** The pause menu's actual volume, kept apart from the Run so a new Run keeps it. */
 export const ACTUAL_VOLUME_KEY = "against-all-tod.actual-volume";
@@ -211,19 +212,24 @@ function sliderPosition(value: unknown): number {
 
 function placedPiece(value: unknown): PlacedPiece {
   const piece = record(value, "piece");
-  const tile = record(piece.tile, "piece.tile");
+  return { pieceId: pieceId(piece.pieceId), tile: tile(piece.tile) };
+}
+
+function tile(value: unknown): Tile {
+  const found = record(value, "tile");
   return {
-    pieceId: pieceId(piece.pieceId),
-    tile: { column: count(tile.column, "column"), row: count(tile.row, "row") },
+    column: count(found.column, "column"),
+    row: count(found.row, "row"),
   };
 }
 
 function squad(value: unknown): Squad {
   const found = record(value, "squad");
-  return {
-    dudeKind: dudeKind(found.dudeKind),
-    spawnRow: count(found.spawnRow, "spawnRow"),
-  };
+  const at = tile(found.tile);
+  if (!isInSpawnZone(at)) {
+    throw new SaveFormatError("Squad outside the Spawn zone");
+  }
+  return { dudeKind: dudeKind(found.dudeKind), tile: at };
 }
 
 function crate(value: unknown): Crate {

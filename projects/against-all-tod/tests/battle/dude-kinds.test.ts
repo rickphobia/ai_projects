@@ -20,7 +20,7 @@ const SNIPER_STATS = PIECES["sniper-nest"].tower;
 if (SNIPER_STATS === null) throw new Error("the Sniper Nest must shoot");
 
 function dudeAt(id: number, kind: DudeKindId, x: number, y: number): DudeState {
-  return { ...newDude(id, kind, 0, 0), x, y };
+  return { ...newDude(id, kind, { x: 0.5, y: 0.5 }), x, y };
 }
 
 /** One volley from a single Sniper Nest at `nest`. */
@@ -36,7 +36,7 @@ describe("the Balloonist", () => {
   const maze = mazeWith(crateWalls(wallWithGap(8, 13)));
   const setup = setupOf(
     maze,
-    [{ dudeKind: "balloonist", spawnRow: 3 }],
+    [{ dudeKind: "balloonist", tile: { column: 0, row: 3 } }],
     STURDY_GOAL,
   );
 
@@ -135,8 +135,8 @@ describe("the Hype Man", () => {
 
   it("reads the Volume slider", () => {
     const army = [
-      { dudeKind: "hype-man" as const, spawnRow: 3 },
-      { dudeKind: "intern" as const, spawnRow: 3 },
+      { dudeKind: "hype-man" as const, tile: { column: 0, row: 3 } },
+      { dudeKind: "intern" as const, tile: { column: 0, row: 3 } },
     ];
     const internX = (volume: number, withHype = true) => {
       const base = setupOf(
@@ -161,7 +161,11 @@ describe("the Mole", () => {
     ...crateWalls(wallWithGap(10, 13)),
     { pieceId: "sniper-nest", tile: { column: 7, row: 1 } },
   ]);
-  const setup = setupOf(maze, [{ dudeKind: "mole", spawnRow: 3 }], STURDY_GOAL);
+  const setup = setupOf(
+    maze,
+    [{ dudeKind: "mole", tile: { column: 0, row: 3 } }],
+    STURDY_GOAL,
+  );
 
   it("tunnels under the Maze once, untargetable, and resurfaces past it", () => {
     let state = startBattle(setup);

@@ -27,12 +27,12 @@ const STURDY_GOAL = { goalHealth: 1_000_000 };
 const LONG_WAY_ROUND = crateWalls(wallWithGap(8, 13));
 
 function dudeAt(id: number, kind: DudeKindId, x: number, y: number): DudeState {
-  return { ...newDude(id, kind, 0, 0), x, y };
+  return { ...newDude(id, kind, { x: 0.5, y: 0.5 }), x, y };
 }
 
 /** The battle at its start, with `dudes` already on the Board and no one waiting. */
 function battleWith(setup: BattleSetup, dudes: DudeState[]): BattleState {
-  return { ...startBattle(setup), dudes, waiting: [] };
+  return { ...startBattle(setup), dudes };
 }
 
 function destroyedIn(events: readonly BattleEvent[]): PieceDestroyedEvent[] {
@@ -58,7 +58,7 @@ describe("ordinary Dudes", () => {
 describe("the Termite", () => {
   const setup = setupOf(
     mazeWith(LONG_WAY_ROUND),
-    [{ dudeKind: "termite", spawnRow: 6 }],
+    [{ dudeKind: "termite", tile: { column: 0, row: 6 } }],
     STURDY_GOAL,
   );
 
@@ -91,8 +91,8 @@ describe("other Dudes after a wall breaks", () => {
     const setup = setupOf(
       mazeWith(LONG_WAY_ROUND),
       [
-        { dudeKind: "termite", spawnRow: 6 },
-        { dudeKind: "intern", spawnRow: 5 },
+        { dudeKind: "termite", tile: { column: 0, row: 6 } },
+        { dudeKind: "intern", tile: { column: 0, row: 5 } },
       ],
       STURDY_GOAL,
     );
@@ -126,7 +126,7 @@ describe("the Ram Crew", () => {
   ]);
   const setup = setupOf(
     maze,
-    [{ dudeKind: "ram-crew", spawnRow: 6 }],
+    [{ dudeKind: "ram-crew", tile: { column: 0, row: 6 } }],
     STURDY_GOAL,
   );
 
@@ -191,7 +191,7 @@ describe("the Sapper", () => {
   const lone = { column: 3, row: 3 };
   const setup = setupOf(
     mazeWith([...LONG_WAY_ROUND, { pieceId: "crate-wall", tile: lone }]),
-    [{ dudeKind: "sapper", spawnRow: 3 }],
+    [{ dudeKind: "sapper", tile: { column: 0, row: 3 } }],
     STURDY_GOAL,
   );
 
@@ -220,7 +220,7 @@ describe("the Sapper", () => {
   it("walks to the Goal when there is no wall left", () => {
     const open = setupOf(
       emptyMaze(),
-      [{ dudeKind: "sapper", spawnRow: 3 }],
+      [{ dudeKind: "sapper", tile: { column: 0, row: 3 } }],
       STURDY_GOAL,
     );
     const reached = runBattle(open).events.filter(
@@ -239,9 +239,9 @@ describe("a battle where Pieces fall", () => {
         { pieceId: "turnstile", tile: { column: 13, row: 9 } },
       ]),
       [
-        { dudeKind: "termite", spawnRow: 6 },
-        { dudeKind: "ram-crew", spawnRow: 2 },
-        { dudeKind: "sapper", spawnRow: 11 },
+        { dudeKind: "termite", tile: { column: 0, row: 6 } },
+        { dudeKind: "ram-crew", tile: { column: 0, row: 2 } },
+        { dudeKind: "sapper", tile: { column: 0, row: 11 } },
         ...internSquads(4, 8),
       ],
       undefined,

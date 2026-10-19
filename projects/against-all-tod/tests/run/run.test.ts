@@ -4,7 +4,7 @@ import { DUDE_KINDS, ROUND_ONE_ARMY } from "../../src/catalog/dudes";
 import { GOLD_RULES } from "../../src/catalog/gold-rules";
 import { PIECES } from "../../src/catalog/pieces";
 import { RUN_RULES } from "../../src/catalog/run-rules";
-import { BOARD_ROWS } from "../../src/maze/board";
+import { BOARD_ROWS, SPAWN_ZONE_COLUMNS } from "../../src/maze/board";
 import {
   applyRunAction,
   battleSetupOf,
@@ -62,17 +62,15 @@ function sniperNest(column: number, row: number): RunAction {
   };
 }
 
-/** A Squad of Interns on the Spawn line, or on another column to check it is refused. */
+/** A Squad of Interns in the Spawn zone's back column, or on another column. */
 function internSquad(row: number, column = 0): RunAction {
   return { type: "place-squad", tile: { column, row }, dudeKind: "intern" };
 }
 
 const CONTINUE: RunAction = { type: "continue" };
 
-/** Two Sniper Nests in the middle hold off the Round 1 Army, but not one more Squad of Interns. */
-const HOLDING_MAZE = [sniperNest(9, 2), sniperNest(9, 3)];
-/** A third Sniper Nest also holds off the Round 1 Army plus one more Squad. */
-const STRONG_MAZE = [...HOLDING_MAZE, sniperNest(9, 4)];
+/** Two Sniper Nests either side of the Goal's row hold off the Round 1 Army, but not one more Squad of Interns. */
+const HOLDING_MAZE = [sniperNest(11, 5), sniperNest(11, 8)];
 
 function refusalOf(state: RunState, action: RunAction) {
   const result = applyRunAction(state, action);
@@ -122,7 +120,7 @@ describe("switching sides", () => {
     expect(defending.pieces).toHaveLength(HOLDING_MAZE.length);
     expect(defending.army).toEqual([
       ...ROUND_ONE_ARMY,
-      { dudeKind: "intern", spawnRow: 6 },
+      { dudeKind: "intern", tile: { column: 0, row: 6 } },
     ]);
   });
 
@@ -138,25 +136,37 @@ describe("switching sides", () => {
 describe("placing", () => {
   const attacking = play(fight(play(newRun(1), ...HOLDING_MAZE)), CONTINUE);
 
-  it("puts a Squad on one Spawn line tile and refuses a second Squad there", () => {
-    const placed = play(attacking, internSquad(0));
-    expect(placed.army.at(-1)).toEqual({ dudeKind: "intern", spawnRow: 0 });
-    expect(refusalOf(placed, internSquad(0))).toBe("tile-taken");
-    for (const { spawnRow } of ROUND_ONE_ARMY) {
-      expect(refusalOf(attacking, internSquad(spawnRow))).toBe("tile-taken");
+  it("puts a Squad on any Spawn zone tile and refuses a second Squad there", () => {
+    for (let column = 0; column < SPAWN_ZONE_COLUMNS; column++) {
+      const placed = play(attacking, internSquad(0, column));
+      expect(placed.army.at(-1)).toEqual({
+        dudeKind: "intern",
+        tile: { column, row: 0 },
+      });
+      expect(refusalOf(placed, internSquad(0, column))).toBe("tile-taken");
+    }
+    for (const { tile } of ROUND_ONE_ARMY) {
+      expect(refusalOf(attacking, internSquad(tile.row, tile.column))).toBe(
+        "tile-taken",
+      );
     }
   });
 
-  it("refuses a Squad off the Spawn line", () => {
+  it("refuses a Squad outside the Spawn zone", () => {
     expect(refusalOf(attacking, internSquad(BOARD_ROWS))).toBe("off-board");
     expect(refusalOf(attacking, internSquad(-1))).toBe("off-board");
-    expect(refusalOf(attacking, internSquad(5, 12))).toBe("not-spawn-line");
+    expect(refusalOf(attacking, internSquad(5, SPAWN_ZONE_COLUMNS))).toBe(
+      "not-spawn-zone",
+    );
+    expect(refusalOf(attacking, internSquad(5, 12))).toBe("not-spawn-zone");
   });
 
-  it("passes on the Maze's own refusals", () => {
+  it("passes on the Maze's own refusals, a Piece in the Spawn zone among them", () => {
     const run = play(newRun(1), sniperNest(9, 2));
     expect(refusalOf(run, sniperNest(9, 2))).toBe("tile-taken");
-    expect(refusalOf(run, sniperNest(0, 2))).toBe("spawn-line");
+    for (let column = 0; column < SPAWN_ZONE_COLUMNS; column++) {
+      expect(refusalOf(run, sniperNest(column, 2))).toBe("spawn-zone");
+    }
   });
 });
 
@@ -247,10 +257,10 @@ describe("wallets", () => {
 
 describe("losing a Round", () => {
   it("costs a Life and Rewinds the Board and Army to the start of the Round, keeping the Round number", () => {
-    const attacking = play(fight(play(newRun(1), ...STRONG_MAZE)), CONTINUE);
+    const attacking = play(fight(play(newRun(1), ...HOLDING_MAZE)), CONTINUE);
     const roundStart = { pieces: attacking.pieces, army: attacking.army };
 
-    const lost = fight(play(attacking, internSquad(0)));
+    const lost = finish(play(attacking, internSquad(0)), "defense");
 
     expect(lost.phase).toBe("round-lost");
     expect(lost.lives).toBe(RUN_RULES.startingLives - 1);
@@ -270,7 +280,7 @@ describe("losing a Round", () => {
 });
 
 describe("Pieces a Wall-breaker destroys", () => {
-  const nest = { column: 9, row: 2 };
+  const nest = { column: 11, row: 5 };
 
   function finishDestroyingNest(
     state: RunState,
@@ -289,7 +299,9 @@ describe("Pieces a Wall-breaker destroys", () => {
       play(newRun(1), ...HOLDING_MAZE),
       "defense",
     );
-    expect(won.pieces.map(({ tile }) => tile)).toEqual([{ column: 9, row: 3 }]);
+    expect(won.pieces.map(({ tile }) => tile)).toEqual([
+      { column: 11, row: 8 },
+    ]);
     expect(battleSetupOf(play(won, CONTINUE)).maze.pieces.size).toBe(1);
   });
 

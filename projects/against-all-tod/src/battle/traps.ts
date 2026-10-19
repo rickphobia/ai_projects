@@ -80,7 +80,7 @@ export function crossFloor(
   return now;
 }
 
-/** Every ready Bouncer throws the touching Dude that entered first back to the Spawn line, in its own row. */
+/** Every ready Bouncer throws the touching Dude with the lowest id back to the spot it started the battle on. */
 export function bounce(
   maze: Maze,
   dudes: readonly DudeState[],
@@ -106,7 +106,7 @@ export function bounce(
     if (first === null) continue;
     const thrown = result[first];
     if (thrown === undefined) continue;
-    result[first] = { ...thrown, x: 0.5 };
+    result[first] = { ...thrown, x: thrown.start.x, y: thrown.start.y };
     cooldowns.set(
       key,
       step + Math.round(trap.cooldownSeconds * stepsPerSecond),

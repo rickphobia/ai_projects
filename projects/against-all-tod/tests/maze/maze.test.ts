@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { PIECES } from "../../src/catalog/pieces";
-import { BOARD_COLUMNS, BOARD_ROWS, type Tile } from "../../src/maze/board";
+import {
+  BOARD_COLUMNS,
+  BOARD_ROWS,
+  spawnZoneTiles,
+  type Tile,
+} from "../../src/maze/board";
 import {
   checkPlacement,
   emptyMaze,
@@ -115,17 +120,18 @@ describe("placing Pieces", () => {
     });
   });
 
-  it("refuses every Spawn line tile", () => {
-    for (let row = 0; row < BOARD_ROWS; row++) {
-      expect(checkPlacement(emptyMaze(), { column: 0, row }, CRATE_WALL)).toBe(
-        "spawn-line",
-      );
+  it("refuses every Spawn zone tile with its own reason", () => {
+    for (const tile of spawnZoneTiles()) {
+      expect(checkPlacement(emptyMaze(), tile, CRATE_WALL)).toBe("spawn-zone");
     }
+    expect(checkPlacement(emptyMaze(), { column: 3, row: 0 }, CRATE_WALL)).toBe(
+      null,
+    );
   });
 
   it("refuses the Goal's tiles", () => {
     for (const row of [6, 7]) {
-      expect(checkPlacement(emptyMaze(), { column: 19, row }, CRATE_WALL)).toBe(
+      expect(checkPlacement(emptyMaze(), { column: 21, row }, CRATE_WALL)).toBe(
         "goal",
       );
     }
@@ -158,11 +164,11 @@ describe("the Goal is never sealed off", () => {
   it("refuses closing a ring around the Goal", () => {
     // The Goal's open neighbours: above, below and to its left.
     const maze = build([
-      { column: 19, row: 5 },
-      { column: 19, row: 8 },
-      { column: 18, row: 6 },
+      { column: 21, row: 5 },
+      { column: 21, row: 8 },
+      { column: 20, row: 6 },
     ]);
-    expect(checkPlacement(maze, { column: 18, row: 7 }, CRATE_WALL)).toBe(
+    expect(checkPlacement(maze, { column: 20, row: 7 }, CRATE_WALL)).toBe(
       "seals-goal",
     );
   });
@@ -176,8 +182,8 @@ describe("the Goal is never sealed off", () => {
 
   it("allows walling off a pocket the route doesn't need", () => {
     // Boxes in the top-right corner tile, away from every route.
-    const maze = build([{ column: 18, row: 0 }]);
-    expect(checkPlacement(maze, { column: 19, row: 1 }, CRATE_WALL)).toBe(null);
+    const maze = build([{ column: 20, row: 0 }]);
+    expect(checkPlacement(maze, { column: 21, row: 1 }, CRATE_WALL)).toBe(null);
   });
 });
 
@@ -185,17 +191,24 @@ describe("the route", () => {
   it("is the shortest route on an open Board", () => {
     const maze = emptyMaze();
     const path = pathToGoal(maze.route, { column: 0, row: 6 });
-    // Straight along row 6: 19 steps from the Spawn line to the Goal.
-    expect(path).toHaveLength(20);
+    // Straight along row 6: 21 steps from the back of the Spawn zone to the Goal.
+    expect(path).toHaveLength(22);
     expect(path.every((tile) => tile.row === 6)).toBe(true);
-    expect(path.at(-1)).toEqual({ column: 19, row: 6 });
+    expect(path.at(-1)).toEqual({ column: 21, row: 6 });
   });
 
-  it("takes a shortest route from a far corner of the Spawn line", () => {
+  it("takes a shortest route from a far corner of the Spawn zone", () => {
     const path = pathToGoal(emptyMaze().route, { column: 0, row: 0 });
-    // 19 columns across and 6 rows down.
-    expect(path).toHaveLength(19 + 6 + 1);
-    expect(path.at(-1)).toEqual({ column: 19, row: 6 });
+    // 21 columns across and 6 rows down.
+    expect(path).toHaveLength(21 + 6 + 1);
+    expect(path.at(-1)).toEqual({ column: 21, row: 6 });
+  });
+
+  it("starts from every Spawn zone tile", () => {
+    const maze = build(wallDown(10, range(0, BOARD_ROWS - 1)));
+    for (const tile of spawnZoneTiles()) {
+      expect(pathToGoal(maze.route, tile).at(-1)?.column).toBe(21);
+    }
   });
 
   it("bends around a wall", () => {
@@ -204,8 +217,8 @@ describe("the route", () => {
     const path = pathToGoal(maze.route, { column: 0, row: 6 });
     expect(path).toContainEqual({ column: 10, row: 13 });
     expect(path.some((tile) => pieceAt(maze, tile) !== undefined)).toBe(false);
-    // Down 7 rows to the gap, across 19 columns, up 6 rows to the Goal.
-    expect(path).toHaveLength(7 + 19 + 6 + 1);
+    // Down 7 rows to the gap, across 21 columns, up 6 rows to the Goal.
+    expect(path).toHaveLength(7 + 21 + 6 + 1);
   });
 
   it("updates after each placement", () => {
@@ -222,19 +235,19 @@ describe("the route", () => {
 
   it("gives every tile one step, shared by every Dude on it", () => {
     const maze = emptyMaze();
-    expect(routeStep(maze.route, { column: 19, row: 6 })).toBe("at-goal");
-    expect(routeStep(maze.route, { column: 19, row: 5 })).toBe("down");
-    expect(routeStep(maze.route, { column: 19, row: 8 })).toBe("up");
-    expect(routeStep(maze.route, { column: 18, row: 7 })).toBe("right");
+    expect(routeStep(maze.route, { column: 21, row: 6 })).toBe("at-goal");
+    expect(routeStep(maze.route, { column: 21, row: 5 })).toBe("down");
+    expect(routeStep(maze.route, { column: 21, row: 8 })).toBe("up");
+    expect(routeStep(maze.route, { column: 20, row: 7 })).toBe("right");
   });
 
   it("has no step on a Piece or a walled-off pocket", () => {
     const maze = build([
-      { column: 18, row: 0 },
-      { column: 19, row: 1 },
+      { column: 20, row: 0 },
+      { column: 21, row: 1 },
     ]);
-    expect(routeStep(maze.route, { column: 18, row: 0 })).toBe("no-route");
-    expect(routeStep(maze.route, { column: 19, row: 0 })).toBe("no-route");
-    expect(pathToGoal(maze.route, { column: 19, row: 0 })).toEqual([]);
+    expect(routeStep(maze.route, { column: 20, row: 0 })).toBe("no-route");
+    expect(routeStep(maze.route, { column: 21, row: 0 })).toBe("no-route");
+    expect(pathToGoal(maze.route, { column: 21, row: 0 })).toEqual([]);
   });
 });

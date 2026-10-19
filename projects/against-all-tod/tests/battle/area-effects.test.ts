@@ -56,7 +56,8 @@ describe("a Lighthouse in battle", () => {
 });
 
 describe("a Siren in battle", () => {
-  const tile = { column: 3, row: 2 };
+  // Where the charging Interns are when the first pulse is due.
+  const tile = { column: 7, row: 2 };
   const setup = setupOf(
     mazeWith([{ pieceId: "siren", tile }]),
     internSquads(3),
@@ -118,7 +119,10 @@ describe("who beams and Sirens reach", () => {
 
   it("lets the Lighthouse beam hurt a Balloonist", () => {
     const pieces = effectPiecesOf(mazeWith([{ pieceId: "lighthouse", tile }]));
-    const balloonist = { ...newDude(0, "balloonist", 0, 0), ...rightOfTile };
+    const balloonist = {
+      ...newDude(0, "balloonist", { x: 0.5, y: 0.5 }),
+      ...rightOfTile,
+    };
     const { dudes } = applyEffects(
       pieces,
       [balloonist],
@@ -131,8 +135,14 @@ describe("who beams and Sirens reach", () => {
 
   it("never lets a Siren stun a Balloonist, only walkers", () => {
     const pieces = effectPiecesOf(mazeWith([{ pieceId: "siren", tile }]));
-    const balloonist = { ...newDude(0, "balloonist", 0, 0), ...rightOfTile };
-    const intern = { ...newDude(1, "intern", 0, 0), ...rightOfTile };
+    const balloonist = {
+      ...newDude(0, "balloonist", { x: 0.5, y: 0.5 }),
+      ...rightOfTile,
+    };
+    const intern = {
+      ...newDude(1, "intern", { x: 0.5, y: 0.5 }),
+      ...rightOfTile,
+    };
     const { dudes } = applyEffects(
       pieces,
       [balloonist, intern],
@@ -152,7 +162,7 @@ describe("who beams and Sirens reach", () => {
       ]),
     );
     const mole = {
-      ...newDude(0, "mole", 0, 0),
+      ...newDude(0, "mole", { x: 0.5, y: 0.5 }),
       ...rightOfTile,
       burrowTo: underground,
     };

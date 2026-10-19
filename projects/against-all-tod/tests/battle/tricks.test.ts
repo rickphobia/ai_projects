@@ -37,7 +37,11 @@ function sliders(
 
 /** An Intern standing `distance` tiles right of the Sniper Nest's centre. */
 function internFromNest(distance: number): DudeState {
-  return { ...newDude(0, "intern", 6, 0), x: 10.5 + distance, y: 6.5 };
+  return {
+    ...newDude(0, "intern", { x: 0.5, y: 6.5 }),
+    x: 10.5 + distance,
+    y: 6.5,
+  };
 }
 
 /** Whether the Sniper Nest shoots an Intern `distance` away, with the sliders at `positions`. */
@@ -59,13 +63,13 @@ function shootsAt(
   return events.some((event) => event.type === "shot");
 }
 
-/** How far right the first Intern has walked after `steps` steps on an empty Board. */
+/** How far right of where it started the first Intern has walked after `steps` steps on an empty Board. */
 function walkedAfter(steps: number, positions: SliderPositions): number {
   const setup = withSliders(setupOf(mazeWith([]), internSquads(6)), positions);
   const { state } = stepBattleTimes(setup, startBattle(setup), steps);
   const first = state.dudes.find((dude) => dude.id === 0);
   if (first === undefined) throw new Error("the first Intern is gone");
-  return first.x;
+  return first.x - first.start.x;
 }
 
 function withSliders(
@@ -108,10 +112,9 @@ describe("Brightness down", () => {
 
 describe("Brightness up", () => {
   it("dazzles Dudes and slows them per step", () => {
-    const start = 0.5;
-    const neutral = walkedAfter(60, NEUTRAL_SLIDERS) - start;
-    const brightOne = walkedAfter(60, sliders(1)) - start;
-    const brightTwo = walkedAfter(60, sliders(2)) - start;
+    const neutral = walkedAfter(60, NEUTRAL_SLIDERS);
+    const brightOne = walkedAfter(60, sliders(1));
+    const brightTwo = walkedAfter(60, sliders(2));
     expect(brightOne).toBeCloseTo(
       neutral * (1 - TRICK_RULES.slowPerBrightStep),
     );
@@ -179,9 +182,8 @@ describe("Game speed", () => {
   }
 
   it("up makes Dudes faster and towers slower to reload", () => {
-    const start = 0.5;
-    const neutral = walkedAfter(60, NEUTRAL_SLIDERS) - start;
-    expect(walkedAfter(60, sliders(0, 2)) - start).toBeCloseTo(
+    const neutral = walkedAfter(60, NEUTRAL_SLIDERS);
+    expect(walkedAfter(60, sliders(0, 2))).toBeCloseTo(
       neutral * (1 + 2 * TRICK_RULES.dudeSpeedPerGameStep),
     );
     expect(shotsOver(600, sliders(0, 2))).toBeLessThan(
@@ -190,15 +192,14 @@ describe("Game speed", () => {
   });
 
   it("down gives towers extra shots and slows Dudes", () => {
-    const start = 0.5;
     expect(shotsOver(600, sliders(0, -1))).toBeGreaterThan(
       shotsOver(600, NEUTRAL_SLIDERS),
     );
     expect(shotsOver(600, sliders(0, -2))).toBeGreaterThan(
       shotsOver(600, sliders(0, -1)),
     );
-    expect(walkedAfter(60, sliders(0, -1)) - start).toBeLessThan(
-      walkedAfter(60, NEUTRAL_SLIDERS) - start,
+    expect(walkedAfter(60, sliders(0, -1))).toBeLessThan(
+      walkedAfter(60, NEUTRAL_SLIDERS),
     );
   });
 });

@@ -2,7 +2,7 @@ import type { Army } from "../battle/army";
 import { BATTLE_RULES, type BattleRules } from "../catalog/battle-rules";
 import { DUDE_KINDS } from "../catalog/dudes";
 import type { PieceId } from "../catalog/pieces";
-import { BOARD_ROWS, type Tile } from "../maze/board";
+import { BOARD_ROWS, SPAWN_ZONE_COLUMNS, type Tile } from "../maze/board";
 import { emptyMaze, placePiece, type Maze } from "../maze/maze";
 
 /**
@@ -13,10 +13,13 @@ export const SWARM_DUDES = 500;
 
 const SQUADS = SWARM_DUDES / DUDE_KINDS.intern.squadSize;
 
-/** Squads spread down the whole Spawn line, so the Dudes fill the Board. */
+/** Squads spread down every row of the Spawn zone, front column first, so the Dudes fill the Board. */
 export const SWARM_ARMY: Army = Array.from({ length: SQUADS }, (_, index) => ({
   dudeKind: "intern",
-  spawnRow: index % BOARD_ROWS,
+  tile: {
+    column: SPAWN_ZONE_COLUMNS - 1 - Math.floor(index / BOARD_ROWS),
+    row: index % BOARD_ROWS,
+  },
 }));
 
 /** A Goal that outlasts every Intern, so only the towers or the clock end the swarm. */
@@ -27,10 +30,10 @@ export const SWARM_RULES: BattleRules = {
 
 /** Two walls with gaps, so the route winds past rows of Sniper Nests. */
 const SWARM_PIECES: readonly { pieceId: PieceId; tile: Tile }[] = [
-  ...wallWithGap(6, 12),
-  ...wallWithGap(12, 1),
+  ...wallWithGap(8, 12),
+  ...wallWithGap(14, 1),
   ...[2, 5, 8, 11].flatMap((row) =>
-    [4, 9, 15].map((column) => ({
+    [6, 11, 17].map((column) => ({
       pieceId: "sniper-nest" as const,
       tile: { column, row },
     })),

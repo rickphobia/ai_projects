@@ -2,7 +2,7 @@ import { WALL_BREAKER_PIECE_COST } from "../catalog/dudes";
 import { PIECES, type PieceId } from "../catalog/pieces";
 import {
   isOnBoard,
-  spawnLineTiles,
+  spawnZoneTiles,
   tileKey,
   tileKind,
   type Tile,
@@ -33,7 +33,7 @@ export interface PlacedPiece {
 
 /** Why a placement was refused, for the HUD message and the log. */
 export type PlacementRefusal =
-  "off-board" | "spawn-line" | "goal" | "tile-taken" | "seals-goal";
+  "off-board" | "spawn-zone" | "goal" | "tile-taken" | "seals-goal";
 
 export type PlacementResult =
   | { readonly ok: true; readonly maze: Maze }
@@ -68,7 +68,7 @@ export function placePiece(
 ): PlacementResult {
   if (!isOnBoard(tile)) return refuse("off-board");
   const kind = tileKind(tile);
-  if (kind === "spawn-line") return refuse("spawn-line");
+  if (kind === "spawn-zone") return refuse("spawn-zone");
   if (kind === "goal") return refuse("goal");
   if (pieceAt(maze, tile) !== undefined) return refuse("tile-taken");
 
@@ -78,8 +78,8 @@ export function placePiece(
   if (
     PIECES[pieceId].blocksDudes &&
     !(
-      spawnLineReachesGoal(placed.route) &&
-      spawnLineReachesGoal(placed.turnedRoute)
+      spawnZoneReachesGoal(placed.route) &&
+      spawnZoneReachesGoal(placed.turnedRoute)
     )
   ) {
     return refuse("seals-goal");
@@ -87,9 +87,9 @@ export function placePiece(
   return { ok: true, maze: placed };
 }
 
-/** The Spawn line is all walkable and joined top to bottom, so one of its tiles reaching the Goal means all do. */
-function spawnLineReachesGoal(route: Route): boolean {
-  return spawnLineTiles().some((tile) => reachesGoal(route, tile));
+/** The Spawn zone is all walkable and joined, so one of its tiles reaching the Goal means all do. */
+function spawnZoneReachesGoal(route: Route): boolean {
+  return spawnZoneTiles().some((tile) => reachesGoal(route, tile));
 }
 
 /**

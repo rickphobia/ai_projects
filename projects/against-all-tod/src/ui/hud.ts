@@ -16,7 +16,8 @@ const MESSAGE_MS = 3000;
 
 const REFUSAL_MESSAGES: Readonly<Record<RunRefusal, string>> = {
   "off-board": "That's off the Board.",
-  "spawn-line": "You can't build on the Spawn line: the Army enters there.",
+  "spawn-zone":
+    "You can't build in the Spawn zone: the Army stands there before it charges.",
   goal: "You can't build on the Goal.",
   "tile-taken": "That tile is already taken.",
   "seals-goal":
@@ -25,7 +26,7 @@ const REFUSAL_MESSAGES: Readonly<Record<RunRefusal, string>> = {
   "wrong-side": "That belongs to the other side's turn.",
   "not-enough-gold":
     "Not enough gold. Each side pays from its own wallet; press Fight when you're done.",
-  "not-spawn-line": "Squads go on the Spawn line, the Board's left edge.",
+  "not-spawn-zone": "Squads go in the Spawn zone, the Board's 3 left columns.",
   "no-crate": "This Round's crate is already taken from.",
   "slider-end": "That slider can't go any further that way.",
 };
@@ -142,7 +143,7 @@ export class Hud {
       chosen,
       this.handlers.onChooseDudeKind,
     );
-    this.hint.textContent = `Shop: pick a Squad, then tap a Spawn line tile on the left edge to buy it with Attack gold. Adding ${DUDE_KINDS[chosen].name}s now. The whole Army attacks your own Maze.`;
+    this.hint.textContent = `Shop: pick a Squad, then tap a tile of the Spawn zone, the 3 left columns, to buy it with Attack gold. Adding ${DUDE_KINDS[chosen].name}s now. The whole Army charges your own Maze at once.`;
   }
 
   showBattle(side: Side, speed: WatchSpeed): void {

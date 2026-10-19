@@ -21,6 +21,8 @@ export interface DudeState {
    * stacking on one point. Kept well inside the tile so it never brushes a wall.
    */
   readonly lane: number;
+  /** Where it stood as the battle started; the Bouncer throws it back here. */
+  readonly start: BoardPoint;
   readonly health: number;
   /** The health it started the battle with: its kind's, or more or less under a Mutation. */
   readonly fullHealth: number;
@@ -57,20 +59,24 @@ const STEP_DIRECTIONS: Readonly<Record<Step, { dx: number; dy: number }>> = {
   up: { dx: 0, dy: -1 },
 };
 
-/** A Dude of `kind` standing on the Spawn line in `spawnRow`, before it walks on. */
+/**
+ * A Dude of `kind` standing at `at` in the Spawn zone as the battle starts. Its lane is how far
+ * it stands off its row's centre line, kept to the widest lane.
+ */
 export function newDude(
   id: number,
   kind: DudeKindId,
-  spawnRow: number,
-  lane: number,
+  at: BoardPoint,
 ): DudeState {
   const entry = DUDE_KINDS[kind];
+  const offCentre = at.y - (Math.floor(at.y) + 0.5);
   return {
     id,
     kind,
-    x: 0.5,
-    y: spawnRow + 0.5 + lane,
-    lane,
+    x: at.x,
+    y: at.y,
+    lane: Math.max(-MAX_LANE, Math.min(MAX_LANE, offCentre)),
+    start: at,
     health: entry.health,
     fullHealth: entry.health,
     shield: entry.shield?.health ?? 0,

@@ -15,15 +15,15 @@ import { distanceToGoal } from "../../src/maze/route";
 import { internSquads, mazeWith, setupOf } from "./battle-setups";
 
 const STURDY_GOAL = { goalHealth: 1_000_000 };
-/** Row 6 runs straight from the Spawn line into the Goal. */
+/** Row 6 runs straight from the Spawn zone into the Goal. */
 const ROW = 6;
 
 function dudeAt(id: number, kind: DudeKindId, x: number): DudeState {
-  return { ...newDude(id, kind, ROW, 0), x };
+  return { ...newDude(id, kind, { x: 0.5, y: ROW + 0.5 }), x };
 }
 
 function battleWith(setup: BattleSetup, dudes: DudeState[]): BattleState {
-  return { ...startBattle(setup), dudes, waiting: [] };
+  return { ...startBattle(setup), dudes };
 }
 
 function setupWith(pieceId: PieceId, column: number, row = ROW): BattleSetup {
@@ -109,7 +109,18 @@ describe("the Bouncer", () => {
   // Beside the row, so Dudes walk past it.
   const setup = setupWith("bouncer", 6, ROW - 1);
 
-  it("throws the first Dude it touches back to the Spawn line, then waits", () => {
+  it("throws a Dude back to the spot it started the battle on", () => {
+    const start = { x: 2.2, y: 9.3 };
+    const thrown = { ...newDude(0, "intern", start), x: 6.5, y: ROW - 0.5 };
+    const { state } = stepBattleTimes(setup, battleWith(setup, [thrown]), 1);
+    // Thrown back, then one step's walk from there.
+    const back = state.dudes[0];
+    expect(back?.start).toEqual(start);
+    expect(back?.x).toBeCloseTo(start.x, 1);
+    expect(back?.y).toBeCloseTo(start.y, 1);
+  });
+
+  it("throws the first Dude it touches back to the Spawn zone, then waits", () => {
     const { state } = stepBattleTimes(
       setup,
       battleWith(setup, [dudeAt(0, "intern", 4.5), dudeAt(1, "intern", 4)]),
@@ -138,10 +149,14 @@ describe("the Decoy Goal", () => {
     const toBreak = Math.ceil(
       PIECES["decoy-goal"].health / DUDE_KINDS.intern.goalDamage,
     );
-    expect(hits).toHaveLength(toBreak);
+    // The Army arrives together, so more than one Dude may hit it in the step it breaks.
+    const breakStep = hits.at(-1)?.step;
+    const beforeBreak = hits.filter(({ step }) => step !== breakStep);
+    expect(beforeBreak.length).toBeLessThan(toBreak);
+    expect(hits.length).toBeGreaterThanOrEqual(toBreak);
     expect(state.maze.pieces.size).toBe(0);
     const reached = ofType(events, "reach-goal");
-    expect(reached).toHaveLength(DUDE_KINDS.intern.squadSize - toBreak);
+    expect(reached).toHaveLength(DUDE_KINDS.intern.squadSize - hits.length);
     const firstReach = reached[0]?.step ?? 0;
     expect(hits.every(({ step }) => step < firstReach)).toBe(true);
     expect(

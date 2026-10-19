@@ -1,6 +1,7 @@
-import type { Army } from "../../src/battle/army";
+import type { Army, Squad } from "../../src/battle/army";
 import type { BattleSetup } from "../../src/battle/battle";
 import { BATTLE_RULES, type BattleRules } from "../../src/catalog/battle-rules";
+import type { DudeKindId } from "../../src/catalog/dudes";
 import type { MutationId } from "../../src/catalog/mutations";
 import type { PieceId } from "../../src/catalog/pieces";
 import { BOARD_ROWS, type Tile } from "../../src/maze/board";
@@ -23,8 +24,14 @@ export function mazeWith(
   }, emptyMaze());
 }
 
-export function internSquads(...spawnRows: number[]): Army {
-  return spawnRows.map((spawnRow) => ({ dudeKind: "intern", spawnRow }));
+/** A Squad of `dudeKind` on the Spawn zone tile in `row`, in the zone's back column unless given. */
+export function squadAt(dudeKind: DudeKindId, row: number, column = 0): Squad {
+  return { dudeKind, tile: { column, row } };
+}
+
+/** A Squad of Interns in the back column of each given row. */
+export function internSquads(...rows: number[]): Army {
+  return rows.map((row) => squadAt("intern", row));
 }
 
 export function setupOf(
