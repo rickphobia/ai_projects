@@ -1,3 +1,5 @@
+import { soundsOf } from "./adapters/audio/sound-level";
+import type { GameSounds } from "./adapters/audio/sound-player";
 import type { GameView } from "./adapters/renderer/game-renderer";
 import {
   STEPS_PER_SECOND,
@@ -72,6 +74,8 @@ export class RunScreen {
   private chosenPiece: PieceId = FIRST_BUILD_PIECE;
   private chosenDudeKind: DudeKindId = FIRST_DUDE_KIND;
   private watchSpeed: WatchSpeed = 1;
+  /** The pause menu is open: the battle stands still. */
+  private paused = false;
   private battle: Battle | null = null;
   private hud: Hud | undefined;
   private endScreen: EndScreen | undefined;
@@ -88,6 +92,7 @@ export class RunScreen {
     private readonly logger: Logger,
     run: RunState,
     private readonly onRunChanged: (run: RunState) => void,
+    private readonly sounds: GameSounds,
   ) {
     this.run = run;
     this.maze = mazeOf(this.run.pieces);
@@ -282,6 +287,10 @@ export class RunScreen {
     if (this.battle !== null) this.hud?.showBattle(sideOf(this.run), speed);
   }
 
+  setPaused(paused: boolean): void {
+    this.paused = paused;
+  }
+
   /** After a Round's result: on to the next Round, or the same one Rewound. */
   continue(): void {
     if (!this.act({ type: "continue" })) return;
@@ -375,6 +384,7 @@ export class RunScreen {
   private showTricks(): void {
     const sliders = currentSliders(this.run);
     this.view.showTricks(sliders);
+    this.sounds.setVolumeTrick(sliders.volume);
     this.settings?.show(
       sliders,
       sideOf(this.run),
@@ -389,11 +399,12 @@ export class RunScreen {
 
   private watchFrame(elapsedMs: number): void {
     const battle = this.battle;
-    if (battle === null) return;
+    if (battle === null || this.paused) return;
     const due = stepsDue(battle.carryMs, elapsedMs, this.watchSpeed);
     battle.carryMs = due.carryMs;
     const ran = stepBattleTimes(battle.setup, battle.state, due.steps);
     battle.state = ran.state;
+    this.sounds.play(soundsOf(ran.events));
     for (const event of ran.events) {
       if (event.type !== "shot") battle.goldEvents.push(event);
     }
@@ -438,6 +449,7 @@ export class RunScreen {
       return;
     }
     const won = outcome.winner === side;
+    this.sounds.play(earned[side] > 0 ? ["round-end", "gold"] : ["round-end"]);
     this.logger.info("Round finished", {
       round,
       side,

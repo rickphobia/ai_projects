@@ -133,16 +133,18 @@ describe("the Hype Man", () => {
     expect(hypeSpeedFactor(hypeMan, [hypeMan], 0)).toBe(1);
   });
 
-  it("reads the battle's Volume level", () => {
+  it("reads the Volume slider", () => {
     const army = [
       { dudeKind: "hype-man" as const, spawnRow: 3 },
       { dudeKind: "intern" as const, spawnRow: 3 },
     ];
-    const internX = (volumeLevel: number, withHype = true) => {
-      const setup = setupOf(mazeWith([]), withHype ? army : army.slice(1), {
-        ...STURDY_GOAL,
-        volumeLevel,
-      });
+    const internX = (volume: number, withHype = true) => {
+      const base = setupOf(
+        mazeWith([]),
+        withHype ? army : army.slice(1),
+        STURDY_GOAL,
+      );
+      const setup = { ...base, sliders: { ...base.sliders, volume } };
       const { state } = stepBattleTimes(setup, startBattle(setup), 60);
       const first = state.dudes.find((dude) => dude.kind === "intern");
       return first?.x ?? 0;

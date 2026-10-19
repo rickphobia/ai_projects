@@ -175,6 +175,45 @@
         flex: 1;
         max-width: 10rem;
       }
+      /* The pause menu, with the honest volume slider. */
+      #pause {
+        position: fixed;
+        left: 12px;
+        bottom: 12px;
+        max-width: min(22rem, calc(100% - 24px));
+        font-size: 0.85rem;
+      }
+      #pause button.pause-toggle {
+        min-height: 44px;
+        padding: 4px 14px;
+        border-radius: 6px;
+        border: 1px solid var(--fg);
+        background: rgb(0 0 0 / 0.75);
+        color: var(--fg);
+        font: inherit;
+        cursor: pointer;
+      }
+      .pause-panel {
+        margin-bottom: 4px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: rgb(0 0 0 / 0.85);
+      }
+      .pause-panel[hidden] {
+        display: none;
+      }
+      .pause-panel h2 {
+        margin: 0 0 4px;
+        font-size: 0.95rem;
+      }
+      .pause-panel label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-height: 44px;
+        font-weight: 600;
+      }
       /* The swarm debug scene's frame rate. */
       #fps {
         position: fixed;
@@ -413,6 +452,7 @@
     <aside id="piece-info" aria-live="polite" hidden></aside>
     <section id="crate" aria-label="Draft Crate" hidden></section>
     <section id="settings" aria-label="Settings"></section>
+    <section id="pause" aria-label="Pause"></section>
     <output id="fps" hidden></output>
     <aside id="debug-panel" aria-label="Debug options" hidden></aside>
     <section

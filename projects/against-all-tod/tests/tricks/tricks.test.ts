@@ -19,6 +19,11 @@ describe("which side a slider direction helps", () => {
     expect(sideHelped("game-speed", 1)).toBe("attack");
     expect(sideHelped("game-speed", -1)).toBe("defense");
   });
+
+  it("Volume down helps attack; Volume up helps defense", () => {
+    expect(sideHelped("volume", -1)).toBe("attack");
+    expect(sideHelped("volume", 1)).toBe("defense");
+  });
 });
 
 describe("the price of a drag", () => {
@@ -42,6 +47,13 @@ describe("the price of a drag", () => {
   it("doubles again mid-battle", () => {
     expect(dragPrice("brightness", 0, -1, true)).toBe(STEP * MID);
     expect(dragPrice("brightness", -1, 0, true)).toBe(STEP * TOWARD * MID);
+  });
+
+  it("prices Volume by the same rules", () => {
+    const volume = SLIDERS.volume.stepPrice;
+    expect(dragPrice("volume", 0, -1, false)).toBe(volume);
+    expect(dragPrice("volume", -1, 0, false)).toBe(volume * TOWARD);
+    expect(dragPrice("volume", 0, 2, true)).toBe(2 * volume * MID);
   });
 
   it("uses each slider's own step price", () => {
@@ -69,10 +81,12 @@ describe("slider positions over a battle", () => {
     expect(slidersAt(NEUTRAL_SLIDERS, inputs, 9)).toEqual(NEUTRAL_SLIDERS);
     expect(slidersAt(NEUTRAL_SLIDERS, inputs, 10)).toEqual({
       brightness: -1,
+      volume: 0,
       "game-speed": 0,
     });
     expect(slidersAt(NEUTRAL_SLIDERS, inputs, 25)).toEqual({
       brightness: -1,
+      volume: 0,
       "game-speed": 1,
     });
   });
@@ -80,6 +94,7 @@ describe("slider positions over a battle", () => {
   it("end where the last input left them", () => {
     expect(slidersAfter(NEUTRAL_SLIDERS, inputs)).toEqual({
       brightness: -2,
+      volume: 0,
       "game-speed": 1,
     });
   });

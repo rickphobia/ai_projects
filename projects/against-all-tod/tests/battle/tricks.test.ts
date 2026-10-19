@@ -27,8 +27,12 @@ const LIGHTHOUSE = {
   tile: { column: 10, row: 8 },
 };
 
-function sliders(brightness: number, gameSpeed = 0): SliderPositions {
-  return { brightness, "game-speed": gameSpeed };
+function sliders(
+  brightness: number,
+  gameSpeed = 0,
+  volume = 0,
+): SliderPositions {
+  return { brightness, volume, "game-speed": gameSpeed };
 }
 
 /** An Intern standing `distance` tiles right of the Sniper Nest's centre. */
@@ -119,6 +123,36 @@ describe("Brightness up", () => {
   it("leaves tower range alone", () => {
     const maze = mazeWith([NEST]);
     expect(shootsAt(maze, SNIPER_RANGE - 0.1, sliders(2))).toBe(true);
+  });
+});
+
+describe("Volume down", () => {
+  const maze = mazeWith([NEST]);
+  const [oneStep, twoSteps] = TRICK_RULES.quietSightTiles;
+
+  it("hides Dudes from towers until they come within the catalog's tiles per step", () => {
+    expect(shootsAt(maze, oneStep + 0.5, sliders(0, 0, -1))).toBe(false);
+    expect(shootsAt(maze, oneStep - 0.5, sliders(0, 0, -1))).toBe(true);
+    expect(shootsAt(maze, twoSteps + 0.5, sliders(0, 0, -2))).toBe(false);
+    expect(shootsAt(maze, twoSteps - 0.5, sliders(0, 0, -2))).toBe(true);
+  });
+
+  it("lets towers see as far as their range at the middle and up", () => {
+    expect(shootsAt(maze, SNIPER_RANGE - 0.5, sliders(0))).toBe(true);
+    expect(shootsAt(maze, SNIPER_RANGE - 0.5, sliders(0, 0, 2))).toBe(true);
+  });
+
+  it("hides Dudes until they are 2 tiles away at two steps down", () => {
+    expect(twoSteps).toBe(2);
+  });
+
+  it("stacks with the dark: the nearer limit wins", () => {
+    const darkRange = SNIPER_RANGE * (1 - 2 * TRICK_RULES.rangeLossPerDarkStep);
+    const near = Math.min(darkRange, oneStep) - 0.5;
+    expect(shootsAt(maze, near, sliders(-2, 0, -1))).toBe(true);
+    expect(
+      shootsAt(maze, Math.min(darkRange, oneStep) + 0.5, sliders(-2, 0, -1)),
+    ).toBe(false);
   });
 });
 

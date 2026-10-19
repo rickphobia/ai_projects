@@ -107,7 +107,10 @@ export function fireTowers(
     if (tower.cooldownSteps > 1) {
       return { ...tower, cooldownSteps: tower.cooldownSteps - 1 };
     }
-    const range = stats.range * tricks.rangeFactor(tower.tile);
+    const range = Math.min(
+      stats.range * tricks.rangeFactor(tower.tile),
+      tricks.sightTiles,
+    );
     const aimed = targetFor(
       tower.tile,
       range,

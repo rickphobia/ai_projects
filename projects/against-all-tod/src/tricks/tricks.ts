@@ -11,6 +11,7 @@ export type SliderPositions = Readonly<Record<SliderId, number>>;
 
 export const NEUTRAL_SLIDERS: SliderPositions = {
   brightness: 0,
+  volume: 0,
   "game-speed": 0,
 };
 

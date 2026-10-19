@@ -1,5 +1,5 @@
-/** The Settings menu's sliders. Volume and Window size join with their own tickets. */
-export type SliderId = "brightness" | "game-speed";
+/** The Settings menu's sliders. Window size joins with its own ticket. */
+export type SliderId = "brightness" | "volume" | "game-speed";
 
 export interface SliderEntry {
   /** Stable id that saves and tests refer to. */
@@ -23,6 +23,14 @@ export const SLIDERS: Readonly<Record<SliderId, SliderEntry>> = {
     stepPrice: 20,
     attackDirection: -1,
   },
+  volume: {
+    id: "volume",
+    name: "Volume",
+    downLabel: "Quieter: towers can't hear Dudes until they're close",
+    upLabel: "Louder: Sirens reach further, Hype Men shout louder",
+    stepPrice: 20,
+    attackDirection: -1,
+  },
   "game-speed": {
     id: "game-speed",
     name: "Game speed",
@@ -33,7 +41,11 @@ export const SLIDERS: Readonly<Record<SliderId, SliderEntry>> = {
   },
 };
 
-export const SLIDER_IDS: readonly SliderId[] = ["brightness", "game-speed"];
+export const SLIDER_IDS: readonly SliderId[] = [
+  "brightness",
+  "volume",
+  "game-speed",
+];
 
 /** The tuning numbers for every slider's price and battle effect. */
 export const TRICK_RULES = {
@@ -47,6 +59,14 @@ export const TRICK_RULES = {
   rangeLossPerDarkStep: 0.25,
   /** Share of a Dude's speed lost per Brightness step up. */
   slowPerBrightStep: 0.15,
+  /**
+   * How near, in tiles, a Dude must be before a tower can target it, per Volume step down (the
+   * first entry for one step, the second for two). Siren range and Hype Man boost have their own
+   * per-step numbers in the Pieces and Dudes catalogs.
+   */
+  quietSightTiles: [3, 2],
+  /** Share of the game's real loudness added per Volume step (taken per step down). */
+  loudnessPerVolumeStep: 0.4,
   /** Share of a Dude's speed added per Game speed step (taken per step down). */
   dudeSpeedPerGameStep: 0.2,
   /** Share of a tower's time between shots added per Game speed step (taken per step down). */

@@ -30,6 +30,8 @@ import {
 /** Bump when the saved shape changes; older saves then give a fresh start. */
 export const SAVE_VERSION = 3;
 export const SAVE_KEY = "against-all-tod.save";
+/** The pause menu's actual volume, kept apart from the Run so a new Run keeps it. */
+export const ACTUAL_VOLUME_KEY = "against-all-tod.actual-volume";
 
 /** The part of `Storage` the save needs, so tests can pass a fake. */
 export type KeyValueStorage = Pick<
@@ -80,6 +82,32 @@ export class SaveStore {
     } catch (error) {
       return this.unreadable(describe(error));
     }
+  }
+
+  saveActualVolume(volume: number): void {
+    try {
+      this.storage().setItem(ACTUAL_VOLUME_KEY, String(volume));
+    } catch (error) {
+      this.logger.warn("actual volume not saved", { error });
+    }
+  }
+
+  /** The saved actual volume, or `fallback` when there is none or it can't be read. */
+  loadActualVolume(fallback: number): number {
+    let raw: string | null;
+    try {
+      raw = this.storage().getItem(ACTUAL_VOLUME_KEY);
+    } catch (error) {
+      this.logger.warn("actual volume unreadable", { error });
+      return fallback;
+    }
+    if (raw === null) return fallback;
+    const volume = Number(raw);
+    if (!Number.isFinite(volume) || volume < 0 || volume > 1) {
+      this.logger.warn("actual volume unreadable", { raw });
+      return fallback;
+    }
+    return volume;
   }
 
   private unreadable(reason: string): LoadResult {
@@ -153,6 +181,8 @@ function sliders(value: unknown): SliderPositions {
   const found = record(value, "sliders");
   return {
     brightness: sliderPosition(found.brightness),
+    // Saves from before the Volume trick have no Volume slider: it stood in the middle.
+    volume: found.volume === undefined ? 0 : sliderPosition(found.volume),
     "game-speed": sliderPosition(found["game-speed"]),
   };
 }
