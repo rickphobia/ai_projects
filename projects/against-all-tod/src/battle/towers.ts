@@ -6,6 +6,7 @@ import { distanceToGoal, type Route } from "../maze/route";
 import { DudeHits } from "./damage";
 import { squaredDistance, tileUnder, type DudeState } from "./dudes";
 import type { BattleEvent, BoardPoint } from "./events";
+import { NO_TOWER_TRICKS, type TowerTricks } from "./tricks";
 
 /** A Piece without tower stats was asked to shoot: a catalog or `towersOf` bug. */
 export class TowerStatsError extends Error {
@@ -94,6 +95,7 @@ export function fireTowers(
   route: Route,
   step: number,
   stepsPerSecond: number,
+  tricks: TowerTricks = NO_TOWER_TRICKS,
 ): VolleyResult {
   const byTile = dudesByTile(dudes);
   const events: BattleEvent[] = [];
@@ -105,7 +107,15 @@ export function fireTowers(
     if (tower.cooldownSteps > 1) {
       return { ...tower, cooldownSteps: tower.cooldownSteps - 1 };
     }
-    const aimed = targetFor(tower.tile, stats, byTile, hits, route);
+    const range = stats.range * tricks.rangeFactor(tower.tile);
+    const aimed = targetFor(
+      tower.tile,
+      range,
+      stats.hitsAir,
+      byTile,
+      hits,
+      route,
+    );
     if (aimed === null) return { ...tower, cooldownSteps: 0 };
     const shield = shieldCovering(aimed, shieldBearers, hits);
     const target = shield ?? aimed;
@@ -130,23 +140,21 @@ export function fireTowers(
         pieceTile: tower.tile,
       });
     }
-    return reloaded(tower, stats, stepsPerSecond, at);
+    const interval = stats.fireIntervalSeconds * tricks.reloadFactor;
+    return reloaded(tower, interval, stepsPerSecond, at);
   });
   return { towers: nextTowers, dudes: hits.applyTo(dudes), events };
 }
 
 function reloaded(
   tower: TowerState,
-  stats: TowerStats,
+  intervalSeconds: number,
   stepsPerSecond: number,
   aimedAt: BoardPoint,
 ): TowerState {
   return {
     ...tower,
-    cooldownSteps: Math.max(
-      1,
-      Math.round(stats.fireIntervalSeconds * stepsPerSecond),
-    ),
+    cooldownSteps: Math.max(1, Math.round(intervalSeconds * stepsPerSecond)),
     aimedAt,
   };
 }
@@ -184,7 +192,8 @@ function shieldCovering(
  */
 function targetFor(
   tile: Tile,
-  { range, hitsAir }: TowerStats,
+  range: number,
+  hitsAir: boolean,
   byTile: readonly (readonly DudeState[])[],
   hits: DudeHits,
   route: Route,

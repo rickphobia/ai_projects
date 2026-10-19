@@ -74,6 +74,23 @@ describe("SaveStore", () => {
     expect(store.load()).toEqual({ kind: "loaded", run });
   });
 
+  it("loads back the sliders and a mid-battle drag", () => {
+    const { store } = storeWith();
+    const dragged = applyRunAction(readyToFight(), {
+      type: "drag-slider",
+      slider: "game-speed",
+      to: 1,
+      atStep: 90,
+    });
+    if (!dragged.ok) throw new Error(dragged.refusal);
+    const run: RunState = {
+      ...dragged.state,
+      sliders: { brightness: -2, "game-speed": 0 },
+    };
+    store.save(run);
+    expect(store.load()).toEqual({ kind: "loaded", run });
+  });
+
   it("tags the save with its version", () => {
     const { store, storage } = storeWith();
     store.save(newRun(1));
@@ -112,6 +129,13 @@ describe("SaveStore", () => {
       JSON.stringify({
         version: SAVE_VERSION,
         run: { ...newRun(1), wallets: { defense: -5, attack: 0 } },
+      }),
+    ],
+    [
+      "a slider off its end",
+      JSON.stringify({
+        version: SAVE_VERSION,
+        run: { ...newRun(1), sliders: { brightness: 3, "game-speed": 0 } },
       }),
     ],
     [

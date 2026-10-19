@@ -10,6 +10,7 @@ import { stepsDue } from "../battle/watch-clock";
 import type { Logger } from "../logger";
 import type { FpsMeter } from "../ui/fps-meter";
 import { SWARM_ARMY, SWARM_DUDES, SWARM_RULES, swarmMaze } from "./swarm-scene";
+import { NEUTRAL_SLIDERS } from "../tricks/tricks";
 
 /**
  * The swarm debug scene on screen: the 500-Intern battle starts by itself, plays at 1x, and
@@ -28,6 +29,8 @@ export function playSwarm(
     mutations: [],
     seed,
     rules: SWARM_RULES,
+    sliders: NEUTRAL_SLIDERS,
+    sliderInputs: [],
   };
   view.showMaze(setup.maze);
   view.showRoute(false);

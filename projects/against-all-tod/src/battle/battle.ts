@@ -6,6 +6,11 @@ import { isOnBoard, tileKey, tileKind } from "../maze/board";
 import type { Maze } from "../maze/maze";
 import type { Route } from "../maze/route";
 import { createRng } from "../rng/rng";
+import {
+  slidersAt,
+  type SliderInput,
+  type SliderPositions,
+} from "../tricks/tricks";
 import { applyEffects, effectPiecesOf, type EffectPiece } from "./area-effects";
 import type { Army } from "./army";
 import {
@@ -36,6 +41,7 @@ import {
   type DecoyRoutes,
   type TrapCooldowns,
 } from "./traps";
+import { dudeSpeedFactor, towerTricks } from "./tricks";
 import {
   breakerRoute,
   breakerRoutesOf,
@@ -60,6 +66,10 @@ export interface BattleSetup {
   readonly mutations: readonly MutationId[];
   readonly seed: number;
   readonly rules: BattleRules;
+  /** Where the Settings sliders stand as the battle starts. */
+  readonly sliders: SliderPositions;
+  /** Sliders dragged mid-battle, in step order; recorded so the battle replays the same. */
+  readonly sliderInputs: readonly SliderInput[];
 }
 
 export type Side = "attack" | "defense";
@@ -170,12 +180,15 @@ export function stepBattle(
   }
   // The routes belong to the Maze, worked out again only when a Wall-breaker destroys a Piece.
   const route = routeAt(state.maze, step);
+  const sliders = slidersAt(setup.sliders, setup.sliderInputs, step);
+  const trickSpeed = dudeSpeedFactor(sliders);
   const volley = fireTowers(
     state.towers,
     onBoard,
     route,
     step,
     STEPS_PER_SECOND,
+    towerTricks(sliders, state.maze),
   );
   const effects = applyEffects(
     state.effectPieces,
@@ -242,6 +255,7 @@ export function stepBattle(
       }
     }
     const speedFactor =
+      trickSpeed *
       (hypeMen.length === 0
         ? 1
         : hypeSpeedFactor(dude, hypeMen, setup.rules.volumeLevel)) *

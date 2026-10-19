@@ -10,6 +10,7 @@ import {
   type BattleSetup,
 } from "../src/battle/battle";
 import { SWARM_ARMY, SWARM_RULES, swarmMaze } from "../src/debug/swarm-scene";
+import { NEUTRAL_SLIDERS } from "../src/tricks/tricks";
 
 const RUNS = 20;
 
@@ -19,6 +20,8 @@ const setup: BattleSetup = {
   mutations: [],
   seed: 1,
   rules: SWARM_RULES,
+  sliders: NEUTRAL_SLIDERS,
+  sliderInputs: [],
 };
 
 function runOnce(): { steps: number; mostDudes: number; ms: number } {
