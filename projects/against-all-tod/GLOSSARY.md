@@ -17,7 +17,7 @@ A Round where the player builds onto the Maze and must stop the Army from destro
 _Avoid_: Build phase, defense round
 
 **Attack turn**:
-A Round where the player adds Squads to the Army and must destroy the Goal.
+A Round where the player paints Dudes into the Army and must destroy the Goal.
 _Avoid_: Offense round, offense turn
 
 **Life**:
@@ -62,9 +62,9 @@ _Avoid_: Building, structure, turret
 The thing the Army must destroy. It has a health bar; the Attack turn is won when it reaches zero.
 _Avoid_: Base, core, castle, nexus
 
-**Spawn line**:
-The edge of the Board where the attacker places Squads.
-_Avoid_: Deployment line, start zone
+**Spawn zone**:
+The 3 columns at the left edge of the Board where the attacker paints Dudes. The defender can't build there.
+_Avoid_: Spawn line, deployment line, start zone
 
 ## The army
 
@@ -73,15 +73,23 @@ One attacking unit.
 _Avoid_: Unit, minion, soldier, creep
 
 **Dude kind**:
-One type of Dude, such as Intern or Termite. Every Dude in a Squad is the same kind.
+One type of Dude, such as Intern or Termite.
 _Avoid_: Hero, hero type, class, unit type
 
-**Squad**:
-A group of Dudes of one kind placed together on the Spawn line.
-_Avoid_: Wave, troop, group
+**Stroke**:
+The Dudes of one kind painted in a single drag.
+_Avoid_: Squad, wave, troop, group
+
+**Erase**:
+Taking back a Dude painted this Round, before the battle, for its full price. Dudes from earlier Rounds can't be erased.
+_Avoid_: Delete, sell, Undo
+
+**Dismiss**:
+Removing a Dude from an earlier Round to make room in the Spawn zone. It refunds nothing.
+_Avoid_: Sell, Erase, Undo
 
 **Army**:
-Every Squad placed so far. It all returns each Attack turn.
+Every Dude placed so far. It all returns each Attack turn, each Dude where it was painted.
 _Avoid_: Swarm, horde
 
 **Mutation**:
@@ -107,7 +115,7 @@ _Avoid_: Siege unit, sapper (Sapper is one Wall-breaker)
 ## Getting things
 
 **Draft Crate**:
-The offer at the start of each Round for the side being played: three random items, of which the player takes one for free. Defense crates hold Pieces; attack crates hold Squads and Mutations.
+The offer at the start of each Round for the side being played: three random items, of which the player takes one for free. Defense crates hold Pieces; attack crates hold free Dudes of one kind and Mutations.
 _Avoid_: Loot box, pack, draft
 
 **Defense gold**:
