@@ -15,7 +15,7 @@ import { newDude } from "../../src/battle/dudes";
 import type { KillEvent } from "../../src/battle/events";
 import { PIECES } from "../../src/catalog/pieces";
 import { tileKey } from "../../src/maze/board";
-import { internSquads, mazeWith, setupOf } from "./battle-setups";
+import { internGroups, mazeWith, setupOf } from "./battle-setups";
 
 const SIREN_STATS = PIECES.siren.stun;
 if (SIREN_STATS === null) throw new Error("the Siren must stun");
@@ -26,7 +26,7 @@ describe("a Lighthouse in battle", () => {
   const tile = { column: 9, row: 3 };
   const setup = setupOf(
     mazeWith([{ pieceId: "lighthouse", tile }]),
-    internSquads(3),
+    internGroups(3),
     { goalHealth: 1_000_000 },
   );
   const { events } = runBattle(setup);
@@ -60,7 +60,7 @@ describe("a Siren in battle", () => {
   const tile = { column: 7, row: 2 };
   const setup = setupOf(
     mazeWith([{ pieceId: "siren", tile }]),
-    internSquads(3),
+    internGroups(3),
   );
   const pulseStep = Math.round(SIREN_STATS.intervalSeconds * STEPS_PER_SECOND);
   const atPulse = stepBattleTimes(setup, startBattle(setup), pulseStep).state;
@@ -98,7 +98,7 @@ describe("the Siren's range and the Volume level", () => {
 
   it("reaches further Dudes in a battle at loud Volume", () => {
     const tile = { column: 3, row: 2 };
-    const army = internSquads(3);
+    const army = internGroups(3);
     const stunnedAt = (volume: number) => {
       const base = setupOf(mazeWith([{ pieceId: "siren", tile }]), army);
       const setup = { ...base, sliders: { ...base.sliders, volume } };

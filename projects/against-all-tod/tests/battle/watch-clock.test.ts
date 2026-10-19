@@ -15,7 +15,7 @@ import {
 import { createRng } from "../../src/rng/rng";
 import {
   crateWalls,
-  internSquads,
+  internGroups,
   mazeWith,
   setupOf,
   wallWithGap,
@@ -84,7 +84,7 @@ describe("Watch speed", () => {
       { pieceId: "sniper-nest", tile: { column: 8, row: 6 } },
       { pieceId: "sniper-nest", tile: { column: 14, row: 7 } },
     ]),
-    internSquads(1, 5, 9, 13),
+    internGroups(1, 5, 9, 13),
     {},
     77,
   );

@@ -14,12 +14,12 @@ export interface HitSource {
  * kept beside the phase's Dude list rather than in it. Every hit goes through here, so the
  * Mutations that change how damage lands work the same for shots, beams and Grinders: a small
  * shield soaks first (Explosive Shields), and a Conga Line member shares the hit evenly with its
- * living Squadmates. Kills and shield bursts are pushed to `events` as they happen.
+ * living Stroke-mates. Kills and shield bursts are pushed to `events` as they happen.
  */
 export class DudeHits {
   /** The Dudes a hit changed, by id; null marks a kill. */
   private readonly changed = new Map<number, DudeState | null>();
-  private squads: Map<number, DudeState[]> | null = null;
+  private strokes: Map<number, DudeState[]> | null = null;
 
   constructor(
     private readonly dudes: readonly DudeState[],
@@ -44,11 +44,11 @@ export class DudeHits {
     this.changed.set(dude.id, null);
   }
 
-  /** `damage` to `dude`, shared across its Squad under Conga Line. */
+  /** `damage` to `dude`, shared across its Stroke under Conga Line. */
   hurt(dude: DudeState, damage: number, source: HitSource): void {
-    const squad =
-      dude.congaSquad === undefined ? [] : this.livingSquad(dude.congaSquad);
-    const takers = squad.length === 0 ? [dude] : squad;
+    const strokeMates =
+      dude.congaStroke === undefined ? [] : this.livingStroke(dude.congaStroke);
+    const takers = strokeMates.length === 0 ? [dude] : strokeMates;
     const share = damage / takers.length;
     for (const taker of takers) this.hurtOne(taker, share, source);
   }
@@ -118,17 +118,17 @@ export class DudeHits {
     });
   }
 
-  private livingSquad(squad: number): DudeState[] {
-    if (this.squads === null) {
-      this.squads = new Map();
+  private livingStroke(stroke: number): DudeState[] {
+    if (this.strokes === null) {
+      this.strokes = new Map();
       for (const dude of this.dudes) {
-        if (dude.congaSquad === undefined) continue;
-        const members = this.squads.get(dude.congaSquad) ?? [];
+        if (dude.congaStroke === undefined) continue;
+        const members = this.strokes.get(dude.congaStroke) ?? [];
         members.push(dude);
-        this.squads.set(dude.congaSquad, members);
+        this.strokes.set(dude.congaStroke, members);
       }
     }
-    return (this.squads.get(squad) ?? []).filter(
+    return (this.strokes.get(stroke) ?? []).filter(
       (dude) => this.current(dude) !== null,
     );
   }

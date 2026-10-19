@@ -118,6 +118,10 @@ _Avoid_: Siege unit, sapper (Sapper is one Wall-breaker)
 The offer at the start of each Round for the side being played: three random items, of which the player takes one for free. Defense crates hold Pieces; attack crates hold free Dudes of one kind and Mutations.
 _Avoid_: Loot box, pack, draft
 
+**Gift**:
+Free Dudes of one kind taken from an attack Draft Crate, as many as the kind's gift size (20 Interns, 1 Ram Crew). Painting that kind uses the Gift first, then gold; what is left is lost when the Round ends.
+_Avoid_: Bonus, free Squad
+
 **Defense gold**:
 Gold earned by killing Dudes, plus a bonus for the Goal health left after a won Defense turn. Spent only on the defense side.
 _Avoid_: Blood money, coins

@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { roundOneArmy } from "../../src/battle/army";
 import { runBattle } from "../../src/battle/battle";
-import { DUDE_KINDS, ROUND_ONE_ARMY } from "../../src/catalog/dudes";
+import { DUDE_KINDS, paintRadius } from "../../src/catalog/dudes";
 import { GOLD_RULES } from "../../src/catalog/gold-rules";
 import { PIECES } from "../../src/catalog/pieces";
 import { RUN_RULES } from "../../src/catalog/run-rules";
-import { BOARD_ROWS, SPAWN_ZONE_COLUMNS } from "../../src/maze/board";
+import { SPAWN_ZONE_COLUMNS } from "../../src/maze/board";
 import {
   applyRunAction,
   battleSetupOf,
+  giftLeft,
   newRun,
   roundOf,
   sideOf,
@@ -62,14 +64,25 @@ function sniperNest(column: number, row: number): RunAction {
   };
 }
 
-/** A Squad of Interns in the Spawn zone's back column, or on another column. */
-function internSquad(row: number, column = 0): RunAction {
-  return { type: "place-squad", tile: { column, row }, dudeKind: "intern" };
+function paintIntern(x: number, y: number, stroke = 100): RunAction {
+  return { type: "paint-dude", dudeKind: "intern", at: { x, y }, stroke };
+}
+
+/** Paints `count` Interns (20 unless given) across the Spawn zone from `row` down, as one Stroke. */
+function paintInterns(row: number, count = 20): RunAction[] {
+  const spacing = 2 * paintRadius("intern") + 0.01;
+  const across = Math.floor(SPAWN_ZONE_COLUMNS / spacing);
+  return Array.from({ length: count }, (_, index) =>
+    paintIntern(
+      0.1 + (index % across) * spacing,
+      row + 0.1 + Math.floor(index / across) * spacing,
+    ),
+  );
 }
 
 const CONTINUE: RunAction = { type: "continue" };
 
-/** Two Sniper Nests either side of the Goal's row hold off the Round 1 Army, but not one more Squad of Interns. */
+/** Two Sniper Nests either side of the Goal's row hold off the Round 1 Army, but not 20 more Interns. */
 const HOLDING_MAZE = [sniperNest(11, 5), sniperNest(11, 8)];
 
 function refusalOf(state: RunState, action: RunAction) {
@@ -83,7 +96,7 @@ describe("a new Run", () => {
     expect(roundOf(run)).toBe(1);
     expect(sideOf(run)).toBe("defense");
     expect(run.pieces).toEqual([]);
-    expect(run.army).toEqual(ROUND_ONE_ARMY);
+    expect(run.army).toEqual(roundOneArmy(7));
     expect(run.lives).toBe(RUN_RULES.startingLives);
     expect(run.score).toBe(0);
     expect(run.phase).toBe("building");
@@ -109,7 +122,7 @@ describe("switching sides", () => {
     expect(roundOf(attacking)).toBe(2);
     expect(sideOf(attacking)).toBe("attack");
 
-    const wonAttack = fight(play(attacking, internSquad(6)));
+    const wonAttack = fight(play(attacking, ...paintInterns(6)));
     expect(wonAttack.phase).toBe("round-won");
     expect(wonAttack.score).toBe(2);
 
@@ -118,15 +131,15 @@ describe("switching sides", () => {
     expect(sideOf(defending)).toBe("defense");
     // Nothing despawns: the Maze and the whole Army carry into Round 3.
     expect(defending.pieces).toHaveLength(HOLDING_MAZE.length);
-    expect(defending.army).toEqual([
-      ...ROUND_ONE_ARMY,
-      { dudeKind: "intern", tile: { column: 0, row: 6 } },
-    ]);
+    expect(defending.army.slice(0, attacking.army.length)).toEqual(
+      attacking.army,
+    );
+    expect(defending.army.slice(attacking.army.length)).toHaveLength(20);
   });
 
-  it("refuses Pieces on an Attack turn and Squads on a Defense turn", () => {
+  it("refuses Pieces on an Attack turn and painting on a Defense turn", () => {
     const defending = newRun(1);
-    expect(refusalOf(defending, internSquad(6))).toBe("wrong-side");
+    expect(refusalOf(defending, paintIntern(1, 6))).toBe("wrong-side");
 
     const attacking = play(fight(play(defending, ...HOLDING_MAZE)), CONTINUE);
     expect(refusalOf(attacking, sniperNest(12, 4))).toBe("wrong-side");
@@ -136,29 +149,74 @@ describe("switching sides", () => {
 describe("placing", () => {
   const attacking = play(fight(play(newRun(1), ...HOLDING_MAZE)), CONTINUE);
 
-  it("puts a Squad on any Spawn zone tile and refuses a second Squad there", () => {
-    for (let column = 0; column < SPAWN_ZONE_COLUMNS; column++) {
-      const placed = play(attacking, internSquad(0, column));
-      expect(placed.army.at(-1)).toEqual({
-        dudeKind: "intern",
-        tile: { column, row: 0 },
-      });
-      expect(refusalOf(placed, internSquad(0, column))).toBe("tile-taken");
-    }
-    for (const { tile } of ROUND_ONE_ARMY) {
-      expect(refusalOf(attacking, internSquad(tile.row, tile.column))).toBe(
-        "tile-taken",
-      );
-    }
+  it("paints one Dude at a spot with its kind, Stroke and Round, in paint order", () => {
+    const painted = play(attacking, paintIntern(0.5, 6.5, 9));
+    expect(painted.army).toHaveLength(attacking.army.length + 1);
+    expect(painted.army.at(-1)).toEqual({
+      dudeKind: "intern",
+      at: { x: 0.5, y: 6.5 },
+      stroke: 9,
+      round: 2,
+    });
   });
 
-  it("refuses a Squad outside the Spawn zone", () => {
-    expect(refusalOf(attacking, internSquad(BOARD_ROWS))).toBe("off-board");
-    expect(refusalOf(attacking, internSquad(-1))).toBe("off-board");
-    expect(refusalOf(attacking, internSquad(5, SPAWN_ZONE_COLUMNS))).toBe(
+  it("refuses a Dude too close to another, by both their sizes", () => {
+    const painted = play(attacking, paintIntern(0.5, 6.5));
+    const spacing = 2 * paintRadius("intern");
+    expect(refusalOf(painted, paintIntern(0.5 + spacing * 0.9, 6.5))).toBe(
+      "no-room",
+    );
+    expect(refusalOf(painted, paintIntern(0.5 + spacing * 1.01, 6.5))).toBe(
+      null,
+    );
+    const rich: RunState = {
+      ...painted,
+      wallets: { ...painted.wallets, attack: 1000 },
+    };
+    const ram: RunAction = {
+      type: "paint-dude",
+      dudeKind: "ram-crew",
+      at: { x: 0.5 + spacing * 1.01, y: 6.5 },
+      stroke: 100,
+    };
+    expect(refusalOf(rich, ram)).toBe("no-room");
+  });
+
+  it("refuses a Dude outside the Spawn zone", () => {
+    expect(refusalOf(attacking, paintIntern(SPAWN_ZONE_COLUMNS, 5))).toBe(
       "not-spawn-zone",
     );
-    expect(refusalOf(attacking, internSquad(5, 12))).toBe("not-spawn-zone");
+    expect(refusalOf(attacking, paintIntern(12.5, 5))).toBe("not-spawn-zone");
+    expect(refusalOf(attacking, paintIntern(1, -0.1))).toBe("not-spawn-zone");
+    expect(refusalOf(attacking, paintIntern(1, 14))).toBe("not-spawn-zone");
+  });
+
+  it("refuses a kind not on sale unless a gift holds it", () => {
+    const sapper: RunAction = {
+      type: "paint-dude",
+      dudeKind: "sapper",
+      at: { x: 1, y: 6.5 },
+      stroke: 100,
+    };
+    expect(DUDE_KINDS.sapper.unlockScore).not.toBeNull();
+    expect(refusalOf(attacking, sapper)).toBe("not-on-sale");
+    expect(refusalOf(withGift(attacking, "sapper"), sapper)).toBeNull();
+  });
+
+  it("paints until the Attack gold runs out, then refuses", () => {
+    const gold = attacking.wallets.attack;
+    const strokes = paintInterns(6, gold + 1);
+    const affordable = play(attacking, ...strokes.slice(0, gold));
+    expect(affordable.wallets.attack).toBe(0);
+    expect(affordable.army).toHaveLength(attacking.army.length + gold);
+    const last = strokes[gold];
+    if (last === undefined) throw new Error("no extra Dude to paint");
+    expect(refusalOf(affordable, last)).toBe("not-enough-gold");
+  });
+
+  it("refuses painting during a battle", () => {
+    const fighting = play(attacking, { type: "start-battle" });
+    expect(refusalOf(fighting, paintIntern(1, 6.5))).toBe("wrong-phase");
   });
 
   it("passes on the Maze's own refusals, a Piece in the Spawn zone among them", () => {
@@ -173,7 +231,7 @@ describe("placing", () => {
 describe("wallets", () => {
   const attacking = play(fight(play(newRun(1), ...HOLDING_MAZE)), CONTINUE);
   const nestPrice = PIECES["sniper-nest"].price;
-  const squadPrice = DUDE_KINDS.intern.squadPrice;
+  const internPrice = DUDE_KINDS.intern.dudePrice;
 
   it("pays for a Piece from Defense gold only", () => {
     const run = newRun(1);
@@ -184,11 +242,11 @@ describe("wallets", () => {
     });
   });
 
-  it("pays for a Squad from Attack gold only", () => {
-    const placed = play(attacking, internSquad(0));
+  it("pays for each painted Dude from Attack gold only", () => {
+    const placed = play(attacking, ...paintInterns(0, 3));
     expect(placed.wallets).toEqual({
       defense: attacking.wallets.defense,
-      attack: attacking.wallets.attack - squadPrice,
+      attack: attacking.wallets.attack - 3 * internPrice,
     });
   });
 
@@ -200,12 +258,12 @@ describe("wallets", () => {
     expect(refusalOf(run, sniperNest(9, 2))).toBe("not-enough-gold");
   });
 
-  it("refuses a Squad Attack gold can't pay for, however much Defense gold there is", () => {
+  it("refuses a Dude Attack gold can't pay for, however much Defense gold there is", () => {
     const run: RunState = {
       ...attacking,
-      wallets: { defense: 1000, attack: squadPrice - 1 },
+      wallets: { defense: 1000, attack: internPrice - 1 },
     };
-    expect(refusalOf(run, internSquad(0))).toBe("not-enough-gold");
+    expect(refusalOf(run, paintIntern(0.5, 0.5))).toBe("not-enough-gold");
   });
 
   it("keeps what a won battle earned, into the next Round's start", () => {
@@ -220,7 +278,7 @@ describe("wallets", () => {
   });
 
   it("Rewinds both wallets to the start of the Round and adds the Rewind bonus to the side played", () => {
-    const spent = play(attacking, internSquad(0));
+    const spent = play(attacking, ...paintInterns(0));
     const lost = finish(spent, "defense");
     expect(lost.wallets).toEqual({
       defense: attacking.wallets.defense,
@@ -228,7 +286,10 @@ describe("wallets", () => {
     });
 
     // A second loss Rewinds to the gold after the first, bonus included, and adds another.
-    const lostAgain = finish(play(lost, CONTINUE, internSquad(0)), "defense");
+    const lostAgain = finish(
+      play(lost, CONTINUE, ...paintInterns(0)),
+      "defense",
+    );
     expect(lostAgain.wallets.attack).toBe(
       attacking.wallets.attack + 2 * GOLD_RULES.rewindBonus,
     );
@@ -260,7 +321,7 @@ describe("losing a Round", () => {
     const attacking = play(fight(play(newRun(1), ...HOLDING_MAZE)), CONTINUE);
     const roundStart = { pieces: attacking.pieces, army: attacking.army };
 
-    const lost = finish(play(attacking, internSquad(0)), "defense");
+    const lost = finish(play(attacking, ...paintInterns(0)), "defense");
 
     expect(lost.phase).toBe("round-lost");
     expect(lost.lives).toBe(RUN_RULES.startingLives - 1);
@@ -326,13 +387,13 @@ describe("the end of a Run", () => {
 
   it("ends at zero Lives with the Score kept as the best Score", () => {
     const won = play(fight(play(newRun(1), ...HOLDING_MAZE)), CONTINUE);
-    // Attacking with no new Squads loses to the Maze that just held.
+    // Attacking with no new Dudes loses to the Maze that just held.
     const over = loseEveryLife(won);
     expect(over.phase).toBe("run-over");
     expect(over.lives).toBe(0);
     expect(over.score).toBe(1);
     expect(over.bestScore).toBe(1);
-    expect(refusalOf(over, internSquad(6))).toBe("wrong-phase");
+    expect(refusalOf(over, paintIntern(1, 6.5))).toBe("wrong-phase");
   });
 
   it("starts a new Run in one action, keeping the best Score of the session", () => {
@@ -350,5 +411,62 @@ describe("the end of a Run", () => {
     const worse = loseEveryLife(secondRun);
     expect(worse.score).toBe(0);
     expect(worse.bestScore).toBe(1);
+  });
+});
+
+/** `state` with a crate offering a gift of `dudeKind`, taken. */
+function withGift(
+  state: RunState,
+  dudeKind: "intern" | "sapper" | "termite",
+): RunState {
+  return play(
+    {
+      ...state,
+      crate: { items: [{ kind: "gift", id: dudeKind }], rerolls: 0 },
+    },
+    { type: "take-from-crate", index: 0 },
+  );
+}
+
+describe("crate gifts", () => {
+  const attacking = play(fight(play(newRun(1), ...HOLDING_MAZE)), CONTINUE);
+  const giftSize = DUDE_KINDS.intern.giftSize;
+
+  it("holds the kind's gift size of free Dudes", () => {
+    const gifted = withGift(attacking, "intern");
+    expect(gifted.freeItem).toEqual({
+      kind: "gift",
+      id: "intern",
+      left: giftSize,
+    });
+    expect(giftLeft(gifted, "intern")).toBe(giftSize);
+    expect(giftLeft(gifted, "termite")).toBe(0);
+  });
+
+  it("uses the gift first, then gold", () => {
+    const gifted = withGift(attacking, "intern");
+    const painted = play(gifted, ...paintInterns(6, giftSize + 2));
+    expect(painted.freeItem).toBeNull();
+    expect(painted.wallets.attack).toBe(
+      attacking.wallets.attack - 2 * DUDE_KINDS.intern.dudePrice,
+    );
+    const half = play(gifted, ...paintInterns(6, 5));
+    expect(giftLeft(half, "intern")).toBe(giftSize - 5);
+    expect(half.wallets).toEqual(attacking.wallets);
+  });
+
+  it("charges gold for other kinds while a gift waits", () => {
+    const gifted = withGift(attacking, "termite");
+    const painted = play(gifted, paintIntern(1, 6.5));
+    expect(giftLeft(painted, "termite")).toBe(DUDE_KINDS.termite.giftSize);
+    expect(painted.wallets.attack).toBe(
+      attacking.wallets.attack - DUDE_KINDS.intern.dudePrice,
+    );
+  });
+
+  it("loses an unused gift when the Round ends, won or lost", () => {
+    const gifted = play(withGift(attacking, "intern"), ...paintInterns(6, 3));
+    expect(finish(gifted, "attack").freeItem).toBeNull();
+    expect(finish(gifted, "defense").freeItem).toBeNull();
   });
 });

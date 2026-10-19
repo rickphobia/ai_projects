@@ -17,7 +17,7 @@ import {
   type SliderInput,
   type SliderPositions,
 } from "../../src/tricks/tricks";
-import { internSquads, mazeWith, setupOf } from "./battle-setups";
+import { internGroups, mazeWith, setupOf } from "./battle-setups";
 
 const SNIPER_RANGE = PIECES["sniper-nest"].tower?.range ?? 0;
 const NEST = { pieceId: "sniper-nest" as const, tile: { column: 10, row: 6 } };
@@ -65,7 +65,7 @@ function shootsAt(
 
 /** How far right of where it started the first Intern has walked after `steps` steps on an empty Board. */
 function walkedAfter(steps: number, positions: SliderPositions): number {
-  const setup = withSliders(setupOf(mazeWith([]), internSquads(6)), positions);
+  const setup = withSliders(setupOf(mazeWith([]), internGroups(6)), positions);
   const { state } = stepBattleTimes(setup, startBattle(setup), steps);
   const first = state.dudes.find((dude) => dude.id === 0);
   if (first === undefined) throw new Error("the first Intern is gone");
@@ -100,7 +100,7 @@ describe("Brightness down", () => {
   });
 
   it("never touches the Lighthouse's own beam", () => {
-    const setup = setupOf(mazeWith([LIGHTHOUSE]), internSquads(8));
+    const setup = setupOf(mazeWith([LIGHTHOUSE]), internGroups(8));
     const beamHits = (positions: SliderPositions) =>
       runBattle(withSliders(setup, positions)).events.filter(
         (event) => event.type === "kill",
@@ -205,7 +205,7 @@ describe("Game speed", () => {
 });
 
 describe("a slider dragged mid-battle", () => {
-  const setup = setupOf(mazeWith([NEST]), internSquads(5, 6, 7));
+  const setup = setupOf(mazeWith([NEST]), internGroups(5, 6, 7));
   const dragged = withSliders(setup, NEUTRAL_SLIDERS, [
     { step: 4 * STEPS_PER_SECOND, slider: "brightness", position: -2 },
     { step: 6 * STEPS_PER_SECOND, slider: "game-speed", position: 2 },

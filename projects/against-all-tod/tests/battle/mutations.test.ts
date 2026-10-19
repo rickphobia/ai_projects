@@ -19,7 +19,7 @@ import { PIECES } from "../../src/catalog/pieces";
 import { goldBreakdown } from "../../src/economy/economy";
 import { BOARD_COLUMNS } from "../../src/maze/board";
 import { battleSetupOf, newRun } from "../../src/run/run";
-import { internSquads, mazeWith, setupOf, squadAt } from "./battle-setups";
+import { groupAt, internGroups, mazeWith, setupOf } from "./battle-setups";
 
 const STURDY_GOAL = { goalHealth: 1_000_000 };
 /** Row 6 runs straight from the Spawn line into the Goal. */
@@ -72,7 +72,7 @@ describe("Split", () => {
     ["split"],
     setupOf(
       mazeWith([{ pieceId: "sniper-nest", tile: nestAt }]),
-      internSquads(ROW),
+      internGroups(ROW),
       STURDY_GOAL,
     ),
   );
@@ -86,7 +86,7 @@ describe("Split", () => {
       expect(half.kind).toBe("intern");
       expect(half.health).toBe(INTERN.health * MUTATION_RULES.splitHealthShare);
       expect(half.x).toBe(kill?.at.x);
-      expect(half.id).toBeGreaterThanOrEqual(INTERN.squadSize);
+      expect(half.id).toBeGreaterThanOrEqual(INTERN.giftSize);
     }
   });
 
@@ -123,12 +123,15 @@ describe("Split", () => {
 describe("Giant", () => {
   const setup = withMutations(
     ["giant"],
-    setupOf(mazeWith([]), internSquads(2, 9), STURDY_GOAL),
+    setupOf(mazeWith([]), internGroups(2, 9), STURDY_GOAL),
   );
 
-  it("makes one Dude per Squad giant: 5× health", () => {
+  it("makes every Nth Dude of a kind giant, in paint order: 5× health", () => {
     const giants = startBattle(setup).dudes.filter((dude) => dude.giant);
-    expect(giants).toHaveLength(2);
+    expect(giants.map((dude) => dude.id)).toEqual([
+      INTERN.giantEvery - 1,
+      2 * INTERN.giantEvery - 1,
+    ]);
     for (const dude of giants) {
       expect(dude.health).toBe(
         INTERN.health * MUTATION_RULES.giantHealthMultiplier,
@@ -157,7 +160,7 @@ describe("Explosive Shields", () => {
   const nestAt = { column: 4, row: ROW + 1 };
   const plain = setupOf(
     mazeWith([{ pieceId: "sniper-nest", tile: nestAt }]),
-    [squadAt("intern", ROW, 2)],
+    [...groupAt("intern", ROW, 2)],
     STURDY_GOAL,
   );
   const shielded = withMutations(["explosive-shields"], plain);
@@ -209,33 +212,40 @@ describe("Explosive Shields", () => {
 describe("Conga Line", () => {
   const setup = withMutations(
     ["conga-line"],
-    setupOf(mazeWith([]), internSquads(3, 10), STURDY_GOAL),
+    setupOf(mazeWith([]), internGroups(3, 10), STURDY_GOAL),
   );
 
-  it("stands each Squad in single file along its tile's centre line", () => {
+  it("lines each Stroke up in single file from where it was painted", () => {
     const { dudes } = startBattle(setup);
     expect(dudes.every((dude) => dude.lane === 0)).toBe(true);
-    expect(new Set(dudes.map((dude) => dude.congaSquad))).toEqual(
-      new Set([0, 1]),
+    expect(new Set(dudes.map((dude) => dude.congaStroke))).toEqual(
+      new Set(setup.army.map((placed) => placed.stroke)),
     );
-    for (const row of [3, 10]) {
-      const line = dudes.filter((dude) => Math.floor(dude.y) === row);
-      expect(line).toHaveLength(INTERN.squadSize);
-      expect(line.every((dude) => dude.y === row + 0.5)).toBe(true);
-      expect(new Set(line.map((dude) => dude.x)).size).toBe(line.length);
-      expect(line.every((dude) => dude.start.x === dude.x)).toBe(true);
+    for (const [index, placed] of setup.army.entries()) {
+      expect(dudes[index]?.congaStroke).toBe(placed.stroke);
+      expect(dudes[index]?.start).toEqual(placed.at);
     }
   });
 
-  it("shares a hit across the Squad's living members", () => {
-    const squad = [0, 1, 2, 3].map((id) =>
-      internAt(id, 1.5 + id * 0.3, { congaSquad: 0 }),
+  it("makes a one-Dude Stroke a line of one", () => {
+    const lone = withMutations(
+      ["conga-line"],
+      setupOf(mazeWith([]), groupAt("intern", ROW, 0, 1), STURDY_GOAL),
+    );
+    const [dude] = startBattle(lone).dudes;
+    expect(dude?.congaStroke).toBe(lone.army[0]?.stroke);
+    expect(dude?.lane).toBe(0);
+  });
+
+  it("shares a hit across the Stroke's living members", () => {
+    const line = [0, 1, 2, 3].map((id) =>
+      internAt(id, 1.5 + id * 0.3, { congaStroke: 0 }),
     );
     const outsider = internAt(4, 1.5);
     const events: BattleEvent[] = [];
-    const hits = new DudeHits([...squad, outsider], 1, events);
-    hits.hurt(squad[0] ?? outsider, 40, NEST);
-    const after = hits.applyTo([...squad, outsider]);
+    const hits = new DudeHits([...line, outsider], 1, events);
+    hits.hurt(line[0] ?? outsider, 40, NEST);
+    const after = hits.applyTo([...line, outsider]);
     expect(after.slice(0, 4).map((dude) => dude.health)).toEqual([
       20, 20, 20, 20,
     ]);
@@ -244,15 +254,15 @@ describe("Conga Line", () => {
   });
 
   it("wastes focused fire: a shot that kills an Intern alone kills nobody", () => {
-    const squad = [0, 1].map((id) =>
-      internAt(id, 1.5 + id * 0.3, { congaSquad: 0 }),
+    const line = [0, 1].map((id) =>
+      internAt(id, 1.5 + id * 0.3, { congaStroke: 0 }),
     );
     const maze = mazeWith([
       { pieceId: "sniper-nest", tile: { column: 4, row: ROW + 1 } },
     ]);
     const volley = fireTowers(
       towersOf(maze),
-      squad,
+      line,
       maze.route,
       1,
       STEPS_PER_SECOND,
@@ -264,7 +274,7 @@ describe("Conga Line", () => {
       INTERN.health - SNIPER.damage / 2,
     ]);
   });
-  it("doesn't share a Grinder hit with a Squadmate that has just reached the Goal", () => {
+  it("doesn't share a Grinder hit with a Stroke-mate that has just reached the Goal", () => {
     const grinderAt = { column: 5, row: ROW };
     const setup = withMutations(
       ["conga-line"],
@@ -279,7 +289,7 @@ describe("Conga Line", () => {
       x,
       health,
       shield: 0,
-      congaSquad: 0,
+      congaStroke: 0,
     });
     const atGoal = bro(0, BOARD_COLUMNS - 0.5, 10);
     const ontoGrinder = bro(
@@ -365,7 +375,7 @@ describe("Ghost Mode", () => {
 
 describe("Gold Teeth", () => {
   it("doubles the Attack gold for Dudes reaching the Goal", () => {
-    const setup = setupOf(mazeWith([]), internSquads(ROW), STURDY_GOAL);
+    const setup = setupOf(mazeWith([]), internGroups(ROW), STURDY_GOAL);
     const { events } = runBattle(setup);
     const reachedGold = (mutations: MutationId[]) =>
       goldBreakdown(events, {
@@ -403,10 +413,7 @@ describe("Mutations together", () => {
           { pieceId: "sniper-nest", tile: { column: 5, row: 4 } },
           { pieceId: "lighthouse", tile: { column: 9, row: 8 } },
         ]),
-        [
-          ...internSquads(2, 6),
-          { dudeKind: "shield-bro", tile: { column: 0, row: 9 } },
-        ],
+        [...internGroups(2, 6), ...groupAt("shield-bro", 9, 0)],
       ),
     );
     const first = runBattle(setup);

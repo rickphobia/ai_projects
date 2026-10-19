@@ -1,10 +1,10 @@
-import type { Army, Squad } from "../../src/battle/army";
+import type { Army, PlacedDude } from "../../src/battle/army";
 import type { BattleSetup } from "../../src/battle/battle";
 import { BATTLE_RULES, type BattleRules } from "../../src/catalog/battle-rules";
-import type { DudeKindId } from "../../src/catalog/dudes";
+import { DUDE_KINDS, type DudeKindId } from "../../src/catalog/dudes";
 import type { MutationId } from "../../src/catalog/mutations";
 import type { PieceId } from "../../src/catalog/pieces";
-import { BOARD_ROWS, type Tile } from "../../src/maze/board";
+import { BOARD_COLUMNS, BOARD_ROWS, type Tile } from "../../src/maze/board";
 import { emptyMaze, placePiece, type Maze } from "../../src/maze/maze";
 import { NEUTRAL_SLIDERS } from "../../src/tricks/tricks";
 
@@ -24,14 +24,31 @@ export function mazeWith(
   }, emptyMaze());
 }
 
-/** A Squad of `dudeKind` on the Spawn zone tile in `row`, in the zone's back column unless given. */
-export function squadAt(dudeKind: DudeKindId, row: number, column = 0): Squad {
-  return { dudeKind, tile: { column, row } };
+/**
+ * `count` Dudes of `dudeKind` (its crate gift size unless given) painted on an even grid over the
+ * Spawn zone tile in `row`, in the zone's back column unless given: one Stroke per tile.
+ */
+export function groupAt(
+  dudeKind: DudeKindId,
+  row: number,
+  column = 0,
+  count = DUDE_KINDS[dudeKind].giftSize,
+): PlacedDude[] {
+  const across = Math.ceil(Math.sqrt(count));
+  return Array.from({ length: count }, (_, index) => ({
+    dudeKind,
+    at: {
+      x: column + ((index % across) + 0.5) / across,
+      y: row + (Math.floor(index / across) + 0.5) / across,
+    },
+    stroke: row * BOARD_COLUMNS + column,
+    round: 1,
+  }));
 }
 
-/** A Squad of Interns in the back column of each given row. */
-export function internSquads(...rows: number[]): Army {
-  return rows.map((row) => squadAt("intern", row));
+/** A group of Interns in the back column of each given row. */
+export function internGroups(...rows: number[]): Army {
+  return rows.flatMap((row) => groupAt("intern", row));
 }
 
 export function setupOf(

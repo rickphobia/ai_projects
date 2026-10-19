@@ -8,7 +8,7 @@ import { BOARD_COLUMNS, BOARD_ROWS } from "../../src/maze/board";
 import { emptyMaze } from "../../src/maze/maze";
 import { distanceToGoal } from "../../src/maze/route";
 import { createRng } from "../../src/rng/rng";
-import { internSquads, mazeWith, setupOf } from "./battle-setups";
+import { internGroups, mazeWith, setupOf } from "./battle-setups";
 
 const SNIPER = PIECES["sniper-nest"];
 const SNIPER_STATS = SNIPER.tower;
@@ -53,7 +53,7 @@ describe("a Sniper Nest in battle", () => {
   const nestTile = { column: 9, row: 3 };
   const setup = setupOf(
     mazeWith([{ pieceId: "sniper-nest", tile: nestTile }]),
-    internSquads(3),
+    internGroups(3),
     { goalHealth: 1_000_000 },
   );
   const { events } = runBattle(setup);

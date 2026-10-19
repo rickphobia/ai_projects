@@ -1,8 +1,7 @@
 import { Application, Container, Graphics, type Ticker } from "pixi.js";
-import type { Army } from "../../battle/army";
 import type { BattleState } from "../../battle/battle";
 import type { ShotEvent } from "../../battle/events";
-import type { DudeKindId } from "../../catalog/dudes";
+import type { DudeState } from "../../battle/dudes";
 import type { PieceId } from "../../catalog/pieces";
 import type { Logger } from "../../logger";
 import type { Tile } from "../../maze/board";
@@ -11,11 +10,11 @@ import type { SliderPositions } from "../../tricks/tricks";
 import {
   listenToPointer,
   tileAtPoint,
+  type PaintHandlers,
   type PointerKind,
 } from "../input/board-pointer";
 import { TILE_SIZE, loadBoardTextures } from "./board-textures";
 import {
-  ATTACK_COLOUR,
   BOARD_PIXEL_SIZE,
   DEFENSE_COLOUR,
   createBoardView,
@@ -33,7 +32,6 @@ import { GoalHealthBar } from "./goal-health-view";
 import { drawPieces, pieceView, type Turrets } from "./pieces-view";
 import { PlacementCursor } from "./placement-cursor";
 import { drawRoute } from "./route-view";
-import { drawSquads, squadView } from "./squads-view";
 import { TricksView } from "./tricks-view";
 import { UnitsView, dudeDisc } from "./units-view";
 
@@ -53,12 +51,10 @@ export interface GameView {
   showMaze(maze: Maze): void;
   /** Hides the route preview, which would hide Dudes during a battle. */
   showRoute(visible: boolean): void;
-  /** Redraws the Squads in the Spawn zone; an empty Army hides them, as during a battle. */
-  showArmy(army: Army): void;
+  /** Draws the Army standing where it was painted, while building (see `armyDudes`). */
+  showArmy(dudes: readonly DudeState[]): void;
   /** The Piece the placement cursor shows. */
   choosePiece(pieceId: PieceId): void;
-  /** The Squad the placement cursor shows, on an Attack turn. */
-  chooseSquad(dudeKind: DudeKindId): void;
   /** Marks the tile under the mouse as a place the Piece may or may not go; null hides it. */
   showPlacementCursor(tile: Tile | null, allowed: boolean): void;
   /** Draws a battle's Dudes, shots and turrets; `newShots` are the shots since the last call. */
@@ -77,6 +73,8 @@ export interface BoardTileHandlers {
   /** The tile under the mouse, or null off the Board. Touch never hovers. */
   readonly onHover: (tile: Tile | null) => void;
   readonly onTap: (tile: Tile, kind: PointerKind) => void;
+  /** Painting, with every point in tiles of the Board (see `BoardPoint`). */
+  readonly paint: PaintHandlers;
 }
 
 /** Starts PixiJS in `host` and draws the Board, scaled to fit whenever the host resizes. */
@@ -114,7 +112,6 @@ export async function startRenderer(
   const textures = await loadBoardTextures();
   const board = createBoardView(textures);
   const pieces = new Container({ label: "pieces" });
-  const squads = new Container({ label: "squads" });
   const route = new Graphics({ label: "route" });
   const disc = dudeDisc();
   // Drawn at the closest zoom's resolution, so discs stay crisp zoomed in.
@@ -138,7 +135,6 @@ export async function startRenderer(
     pieces,
     tricks.view,
     route,
-    squads,
     units.view,
     goalHealth.view,
     cursor.view,
@@ -180,14 +176,11 @@ export async function startRenderer(
     showRoute: (visible) => {
       route.visible = visible;
     },
-    showArmy: (army) => {
-      drawSquads(squads, textures, army);
+    showArmy: (dudes) => {
+      units.showStanding(dudes);
     },
     choosePiece: (pieceId) => {
       cursor.setGhost(pieceView(textures, pieceId), DEFENSE_COLOUR);
-    },
-    chooseSquad: (dudeKind) => {
-      cursor.setGhost(squadView(textures, dudeKind), ATTACK_COLOUR);
     },
     showPlacementCursor: (tile, allowed) => {
       cursor.show(tile, allowed);
@@ -222,6 +215,11 @@ export async function startRenderer(
     listenToBoard: (handlers) => {
       const tileAt = (point: { x: number; y: number }) =>
         tileAtPoint(screenToBoard(point, camera), TILE_SIZE);
+      const boardPointAt = (point: { x: number; y: number }) => {
+        const pixels = screenToBoard(point, camera);
+        return { x: pixels.x / TILE_SIZE, y: pixels.y / TILE_SIZE };
+      };
+      const { paint } = handlers;
       listenToPointer(app.canvas, {
         onHover: (point) => {
           handlers.onHover(point === null ? null : tileAt(point));
@@ -235,6 +233,18 @@ export async function startRenderer(
         },
         onZoom: (centre, factor) => {
           aim(zoomAt(camera, centre, factor, bounds));
+        },
+        paint: {
+          canPaintAt: (point) => paint.canPaintAt(boardPointAt(point)),
+          onPaintStart: (point) => {
+            paint.onPaintStart(boardPointAt(point));
+          },
+          onPaintMove: (point) => {
+            paint.onPaintMove(boardPointAt(point));
+          },
+          onPaintEnd: () => {
+            paint.onPaintEnd();
+          },
         },
       });
     },

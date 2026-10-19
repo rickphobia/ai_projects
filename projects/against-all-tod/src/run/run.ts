@@ -1,7 +1,18 @@
-import type { Army, Squad } from "../battle/army";
+import {
+  hasRoom,
+  isSpawnZonePoint,
+  roundOneArmy,
+  type Army,
+  type PlacedDude,
+} from "../battle/army";
 import type { BattleSetup, Side } from "../battle/battle";
+import type { BoardPoint } from "../battle/events";
 import { BATTLE_RULES, type BattleRules } from "../catalog/battle-rules";
-import { DUDE_KINDS, ROUND_ONE_ARMY, type DudeKindId } from "../catalog/dudes";
+import {
+  DUDE_KINDS,
+  DUDE_KINDS_ON_SALE,
+  type DudeKindId,
+} from "../catalog/dudes";
 import { GOLD_RULES } from "../catalog/gold-rules";
 import type { MutationId } from "../catalog/mutations";
 import { PIECES, type PieceId } from "../catalog/pieces";
@@ -14,7 +25,7 @@ import {
   startingWallets,
   type Wallets,
 } from "../economy/economy";
-import { isInSpawnZone, isOnBoard, tileKey, type Tile } from "../maze/board";
+import { tileKey, type Tile } from "../maze/board";
 import {
   emptyMaze,
   placePiece,
@@ -29,7 +40,7 @@ import {
   type SliderInput,
   type SliderPositions,
 } from "../tricks/tricks";
-import { crateFor, sameItem, type Crate } from "./crate";
+import { crateFor, type Crate } from "./crate";
 
 /**
  * The whole Run as a pure state machine: actions in, new state or a typed refusal out. No DOM,
@@ -55,8 +66,17 @@ export interface RoundSnapshot {
   readonly sliders: SliderPositions;
 }
 
-/** A Piece or Squad taken from a crate, waiting to be placed for free. */
-export type FreeItem = Extract<CrateItem, { kind: "piece" | "squad" }>;
+/**
+ * Taken from a crate and waiting to be placed for free: a Piece, or a gift of Dudes of one kind
+ * with `left` still to paint. Lost if the Round ends first.
+ */
+export type FreeItem =
+  | Extract<CrateItem, { kind: "piece" }>
+  | {
+      readonly kind: "gift";
+      readonly id: DudeKindId;
+      readonly left: number;
+    };
 
 /** Plain data only (no Maps or classes), so a save can JSON it as it is. */
 export interface RunState extends RoundSnapshot {
@@ -83,10 +103,12 @@ export type RunAction =
       readonly pieceId: PieceId;
     }
   | {
-      readonly type: "place-squad";
-      /** Any tapped tile; only Spawn zone tiles are accepted. */
-      readonly tile: Tile;
+      readonly type: "paint-dude";
       readonly dudeKind: DudeKindId;
+      /** In tiles; only spots in the Spawn zone with room around them are accepted. */
+      readonly at: BoardPoint;
+      /** The drag it is painted in; see `nextStroke`. */
+      readonly stroke: number;
     }
   | { readonly type: "take-from-crate"; readonly index: number }
   | { readonly type: "reroll-crate" }
@@ -115,12 +137,16 @@ export type RunRefusal =
   | PlacementRefusal
   /** The action doesn't fit the phase, such as placing during a battle. */
   | "wrong-phase"
-  /** Placing a Piece on an Attack turn, or a Squad on a Defense turn. */
+  /** Placing a Piece on an Attack turn, or painting a Dude on a Defense turn. */
   | "wrong-side"
   /** The side's own wallet can't pay for it. */
   | "not-enough-gold"
-  /** A Squad anywhere outside the Spawn zone. */
+  /** A Dude painted anywhere outside the Spawn zone. */
   | "not-spawn-zone"
+  /** A Dude painted too close to another. */
+  | "no-room"
+  /** A Dude kind the shop doesn't sell and no gift holds. */
+  | "not-on-sale"
   /** The crate is already taken from, or has no such item. */
   | "no-crate"
   /** A slider dragged off its end, or not moved at all. */
@@ -133,7 +159,7 @@ export type RunResult =
 export function newRun(seed: number, bestScore = 0): RunState {
   const board: RoundSnapshot = {
     pieces: [],
-    army: ROUND_ONE_ARMY,
+    army: roundOneArmy(seed >>> 0),
     mutations: [],
     wallets: startingWallets(),
     sliders: NEUTRAL_SLIDERS,
@@ -199,9 +225,9 @@ export function piecePrice(pieceId: PieceId): number {
   return PIECES[pieceId].price;
 }
 
-/** What a Squad costs in Attack gold. */
-export function squadPrice(dudeKind: DudeKindId): number {
-  return DUDE_KINDS[dudeKind].squadPrice;
+/** What one painted Dude costs in Attack gold. */
+export function dudePrice(dudeKind: DudeKindId): number {
+  return DUDE_KINDS[dudeKind].dudePrice;
 }
 
 /** The Maze built from the placed Pieces, in the order they went down. */
@@ -237,24 +263,18 @@ export function battleSetupOf(
   };
 }
 
-/** Null when a Squad may go on `tile` now; otherwise why not. Only Spawn zone tiles take Squads, one per tile. */
-export function checkSquad(
+/** Null when a Dude of `dudeKind` may be painted at `at` now; otherwise why not. */
+export function checkPaint(
   state: RunState,
-  tile: Tile,
+  at: BoardPoint,
   dudeKind: DudeKindId,
 ): RunRefusal | null {
-  const refusal = checkPlacing(
-    state,
-    "attack",
-    priceNow(state, { kind: "squad", id: dudeKind }),
-  );
-  if (refusal !== null) return refusal;
-  if (!isOnBoard(tile)) return "off-board";
-  if (!isInSpawnZone(tile)) return "not-spawn-zone";
-  if (state.army.some((squad) => tileKey(squad.tile) === tileKey(tile))) {
-    return "tile-taken";
-  }
-  return null;
+  if (state.phase !== "building") return "wrong-phase";
+  if (sideOf(state) !== "attack") return "wrong-side";
+  if (!canPaintKind(state, dudeKind)) return "not-on-sale";
+  if (!isSpawnZonePoint(at)) return "not-spawn-zone";
+  if (!hasRoom(state.army, dudeKind, at)) return "no-room";
+  return checkPlacing(state, "attack", dudePriceNow(state, dudeKind));
 }
 
 /** Null when `pieceId` may go on `tile` now; otherwise why not. */
@@ -271,20 +291,8 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
   switch (action.type) {
     case "place-piece":
       return placeOnMaze(state, action.tile, action.pieceId);
-    case "place-squad": {
-      const refusal = checkSquad(state, action.tile, action.dudeKind);
-      if (refusal !== null) return refuse(refusal);
-      const squad: Squad = {
-        dudeKind: action.dudeKind,
-        tile: action.tile,
-      };
-      const item: FreeItem = { kind: "squad", id: action.dudeKind };
-      return accept({
-        ...usedFreeItem(state, item),
-        army: [...state.army, squad],
-        wallets: paid(state.wallets, "attack", priceNow(state, item)),
-      });
-    }
+    case "paint-dude":
+      return paintDude(state, action.dudeKind, action.at, action.stroke);
     case "take-from-crate":
       return takeFromCrate(state, action.index);
     case "reroll-crate": {
@@ -323,16 +331,44 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
 }
 
 function placeOnMaze(state: RunState, tile: Tile, pieceId: PieceId): RunResult {
-  const item: FreeItem = { kind: "piece", id: pieceId };
-  const price = priceNow(state, item);
+  const price = piecePriceNow(state, pieceId);
   const refusal = checkPlacing(state, "defense", price);
   if (refusal !== null) return refuse(refusal);
   const placed = placePiece(mazeOf(state.pieces), tile, pieceId);
   if (!placed.ok) return refuse(placed.refusal);
+  const free = state.freeItem;
   return accept({
-    ...usedFreeItem(state, item),
+    ...state,
+    freeItem: free?.kind === "piece" && free.id === pieceId ? null : free,
     pieces: [...state.pieces, { pieceId, tile }],
     wallets: paid(state.wallets, "defense", price),
+  });
+}
+
+/** Paints one Dude, from the gift while it lasts, then for gold. */
+function paintDude(
+  state: RunState,
+  dudeKind: DudeKindId,
+  at: BoardPoint,
+  stroke: number,
+): RunResult {
+  const refusal = checkPaint(state, at, dudeKind);
+  if (refusal !== null) return refuse(refusal);
+  const dude: PlacedDude = { dudeKind, at, stroke, round: roundOf(state) };
+  const army = [...state.army, dude];
+  const gift = state.freeItem;
+  if (gift?.kind === "gift" && gift.id === dudeKind && gift.left > 0) {
+    const left = gift.left - 1;
+    return accept({
+      ...state,
+      army,
+      freeItem: left === 0 ? null : { ...gift, left },
+    });
+  }
+  return accept({
+    ...state,
+    army,
+    wallets: paid(state.wallets, "attack", dudePrice(dudeKind)),
   });
 }
 
@@ -344,6 +380,10 @@ function takeFromCrate(state: RunState, index: number): RunResult {
   const taken = { ...state, crate: null };
   if (item.kind === "mutation") {
     return accept({ ...taken, mutations: [...state.mutations, item.id] });
+  }
+  if (item.kind === "gift") {
+    const left = DUDE_KINDS[item.id].giftSize;
+    return accept({ ...taken, freeItem: { ...item, left } });
   }
   return accept({ ...taken, freeItem: item });
 }
@@ -400,17 +440,28 @@ function dragSlider(
   });
 }
 
-/** Zero for the waiting free item, otherwise the shop price. */
-export function priceNow(state: RunState, item: FreeItem): number {
-  if (state.freeItem !== null && sameItem(state.freeItem, item)) return 0;
-  return item.kind === "piece" ? piecePrice(item.id) : squadPrice(item.id);
+/** Zero for the waiting free Piece, otherwise the shop price. */
+export function piecePriceNow(state: RunState, pieceId: PieceId): number {
+  const free = state.freeItem;
+  return free?.kind === "piece" && free.id === pieceId
+    ? 0
+    : piecePrice(pieceId);
 }
 
-function usedFreeItem(state: RunState, placed: FreeItem): RunState {
-  if (state.freeItem === null || !sameItem(state.freeItem, placed)) {
-    return state;
-  }
-  return { ...state, freeItem: null };
+/** Zero while the crate gift has Dudes of this kind left, otherwise the price per Dude. */
+export function dudePriceNow(state: RunState, dudeKind: DudeKindId): number {
+  return giftLeft(state, dudeKind) > 0 ? 0 : dudePrice(dudeKind);
+}
+
+/** Whether `dudeKind` can be painted at all now: the shop sells it, or the gift still holds some. */
+export function canPaintKind(state: RunState, dudeKind: DudeKindId): boolean {
+  return DUDE_KINDS_ON_SALE.includes(dudeKind) || giftLeft(state, dudeKind) > 0;
+}
+
+/** Free Dudes of `dudeKind` the crate gift still holds. */
+export function giftLeft(state: RunState, dudeKind: DudeKindId): number {
+  const gift = state.freeItem;
+  return gift?.kind === "gift" && gift.id === dudeKind ? gift.left : 0;
 }
 
 function checkPlacing(

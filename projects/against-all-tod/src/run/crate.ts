@@ -41,7 +41,3 @@ function draw(
   }
   return drawn;
 }
-
-export function sameItem(a: CrateItem, b: CrateItem): boolean {
-  return a.kind === b.kind && a.id === b.id;
-}

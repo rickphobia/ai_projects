@@ -11,7 +11,8 @@ import type { PieceId } from "./pieces";
 /** One thing a Draft Crate can offer. */
 export type CrateItem =
   | { readonly kind: "piece"; readonly id: PieceId }
-  | { readonly kind: "squad"; readonly id: DudeKindId }
+  /** A gift of free Dudes of one kind, as many as its `giftSize`. */
+  | { readonly kind: "gift"; readonly id: DudeKindId }
   | { readonly kind: "mutation"; readonly id: MutationId };
 
 export interface CrateRules {
@@ -26,7 +27,7 @@ export const CRATE_RULES: CrateRules = {
   rerollPrice: { defense: 15, attack: 15 },
 };
 
-/** Defense crates hold Pieces; attack crates hold Squads and Mutations. */
+/** Defense crates hold Pieces; attack crates hold Dude gifts and Mutations. */
 export const CRATE_POOLS: Readonly<Record<Side, readonly CrateItem[]>> = {
   defense: [
     { kind: "piece", id: "crate-wall" },
@@ -41,7 +42,7 @@ export const CRATE_POOLS: Readonly<Record<Side, readonly CrateItem[]>> = {
   ],
   attack: [
     ...Object.values(DUDE_KINDS).map(({ id }): CrateItem => ({
-      kind: "squad",
+      kind: "gift",
       id,
     })),
     ...Object.values(MUTATIONS).map(({ id }): CrateItem => ({

@@ -26,9 +26,12 @@ export interface DudeKindEntry {
   readonly goalDamage: number;
   /** How big it is; the Sniper Nest shoots the biggest Dude in range. */
   readonly size: number;
-  readonly squadSize: number;
-  /** In Attack gold, for one Squad from the shop. */
-  readonly squadPrice: number;
+  /** In whole Attack gold, for one painted Dude. */
+  readonly dudePrice: number;
+  /** Free Dudes of this kind in an attack crate's gift. */
+  readonly giftSize: number;
+  /** Giant Mutation: every this-many-th Dude of the kind, in paint order, is giant. */
+  readonly giantEvery: number;
   /** What one Dude is worth in gold, killed or getting through; bigger kinds are worth more. */
   readonly goldValue: number;
   /** Flies straight to the Goal over the Maze; only towers that hit air can shoot it. */
@@ -100,13 +103,14 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     ...ORDINARY,
     id: "intern",
     name: "Intern",
-    description: "Cheap fodder that comes 20 to a Squad.",
+    description: "Cheap fodder: paint a crowd of them.",
     health: 30,
     speed: 1.6,
     goalDamage: 5,
     size: 1,
-    squadSize: 20,
-    squadPrice: 20,
+    dudePrice: 1,
+    giftSize: 20,
+    giantEvery: 20,
     goldValue: 1,
   },
   termite: {
@@ -118,8 +122,9 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     speed: 1.4,
     goalDamage: 3,
     size: 1,
-    squadSize: 10,
-    squadPrice: 30,
+    dudePrice: 3,
+    giftSize: 10,
+    giantEvery: 10,
     goldValue: 1,
     wallBreaker: { attack: "chew", damagePerSecond: 4 },
   },
@@ -133,8 +138,9 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     speed: 1,
     goalDamage: 20,
     size: 4,
-    squadSize: 1,
-    squadPrice: 60,
+    dudePrice: 60,
+    giftSize: 1,
+    giantEvery: 1,
     goldValue: 8,
     wallBreaker: {
       attack: "ram",
@@ -152,8 +158,9 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     speed: 0.8,
     goalDamage: 8,
     size: 2,
-    squadSize: 5,
-    squadPrice: 35,
+    dudePrice: 7,
+    giftSize: 5,
+    giantEvery: 5,
     goldValue: 3,
     flies: true,
   },
@@ -167,8 +174,9 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     speed: 1.2,
     goalDamage: 10,
     size: 3,
-    squadSize: 3,
-    squadPrice: 40,
+    dudePrice: 13,
+    giftSize: 3,
+    giantEvery: 3,
     goldValue: 5,
     shield: { health: 200, radius: 1.5 },
   },
@@ -181,8 +189,9 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     speed: 1.4,
     goalDamage: 5,
     size: 2,
-    squadSize: 3,
-    squadPrice: 35,
+    dudePrice: 12,
+    giftSize: 3,
+    giantEvery: 3,
     goldValue: 3,
     hypeAura: { range: 2, speedBoost: 0.4, boostPerVolumeStep: 0.25 },
   },
@@ -195,8 +204,9 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     speed: 2,
     goalDamage: 5,
     size: 1,
-    squadSize: 3,
-    squadPrice: 45,
+    dudePrice: 15,
+    giftSize: 3,
+    giantEvery: 3,
     goldValue: 2,
     wallBreaker: { attack: "blast" },
     unlockScore: 5,
@@ -210,8 +220,9 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     speed: 1.3,
     goalDamage: 6,
     size: 1,
-    squadSize: 8,
-    squadPrice: 35,
+    dudePrice: 4,
+    giftSize: 8,
+    giantEvery: 8,
     goldValue: 2,
     tunnelTiles: 3,
     unlockScore: 15,
@@ -225,19 +236,49 @@ export const DUDE_KINDS: Readonly<Record<DudeKindId, DudeKindEntry>> = {
     speed: 2.2,
     goalDamage: 2,
     size: 1,
-    squadSize: 4,
-    squadPrice: 25,
+    dudePrice: 6,
+    giftSize: 4,
+    giantEvery: 4,
     goldValue: 1,
     drawsFire: true,
     unlockScore: 25,
   },
 };
 
-/** The small game-made Army of Round 1, before the player has attacked: two Squads in the middle of the Spawn zone. */
-export const ROUND_ONE_ARMY: readonly {
-  readonly dudeKind: DudeKindId;
-  readonly tile: { readonly column: number; readonly row: number };
-}[] = [
-  { dudeKind: "intern", tile: { column: 1, row: 3 } },
-  { dudeKind: "intern", tile: { column: 1, row: 10 } },
-];
+/** The kinds a Run can buy from the start; the rest come from crate gifts until Unlocks arrive. */
+export const DUDE_KINDS_ON_SALE: readonly DudeKindId[] = Object.values(
+  DUDE_KINDS,
+).flatMap(({ id, unlockScore }) => (unlockScore === null ? [id] : []));
+
+/** How painted Dudes keep room around them in the Spawn zone. */
+export interface PaintRules {
+  /**
+   * In tiles: the room a size-1 Dude keeps around its centre. A bigger kind's grows with the
+   * square root of its size, so it takes `size` times the area. Tuned so a full zone holds about
+   * 500 Interns.
+   */
+  readonly sizeOneRadius: number;
+}
+
+export const PAINT_RULES: PaintRules = { sizeOneRadius: 0.155 };
+
+/** In tiles: two Dudes' centres must stay at least the sum of their radii apart. */
+export function paintRadius(
+  kind: DudeKindId,
+  rules: PaintRules = PAINT_RULES,
+): number {
+  return rules.sizeOneRadius * Math.sqrt(DUDE_KINDS[kind].size);
+}
+
+/** The small game-made Army of Round 1, before the player has attacked: two blobs of Interns. */
+export const ROUND_ONE_ARMY = {
+  dudeKind: "intern",
+  dudesPerBlob: 20,
+  /** In tiles; each blob is a Stroke of its own. */
+  blobCentres: [
+    { x: 1.5, y: 3.5 },
+    { x: 1.5, y: 10.5 },
+  ],
+  /** In tiles: how far from its centre a blob's Dudes may stand. */
+  blobRadius: 1.4,
+} as const;
