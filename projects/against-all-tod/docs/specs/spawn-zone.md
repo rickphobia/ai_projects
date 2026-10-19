@@ -91,7 +91,7 @@ The left 3 columns of the Board become the **Spawn zone** (the Board grows to 22
 - **Catalog.** Per Dude kind: `squadSize` and `squadPrice` are replaced by `dudePrice` (whole gold), `giftSize` (crate gift) and `giantEvery` (Giant's N), the last two starting at the old Squad size. A new paint rule: the room a Dude needs as a radius that grows with the square root of its size, tuned so a full zone holds about 500 Interns. All in the catalog.
 - **Run actions.** `place-squad` is replaced by:
   - `paint-dude` { dudeKind, at (point in tiles), stroke } — refused when not the building phase of an Attack turn, outside the zone, too close to another Dude, kind not on sale, or not enough gold. Uses the gift first, else charges `dudePrice`.
-  - `erase-dude` { index or id } — this Round's Dude: refund its price to the wallet, or to the gift if it came from one. An older Dude: Dismiss, no refund.
+  - `erase-dude` { index } — refused when not the building phase of an Attack turn, or no Dude at that index. This Round's Dude: refund its price to the wallet, or to the gift if it came from one (the Dude records `fromGift`). An older Dude: Dismiss, no refund. The eraser drag removes every Dude within twice its paint radius of the pointer.
   - A new Stroke number is taken by the UI at the start of each drag; the Run keeps the next free one.
   The Run records, per Dude painted this Round, whether it came from gold or the gift, so Erase knows what to give back. Rewind already restores the Army and wallets from the Round's start.
 - **Free item.** The squad free item becomes a gift `{ dudeKind, left }`. Painting that kind takes from `left` until it is 0.

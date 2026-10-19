@@ -11,6 +11,7 @@ import { BATTLE_RULES, type BattleRules } from "../catalog/battle-rules";
 import {
   DUDE_KINDS,
   DUDE_KINDS_ON_SALE,
+  paintRadius,
   type DudeKindId,
 } from "../catalog/dudes";
 import { GOLD_RULES } from "../catalog/gold-rules";
@@ -110,6 +111,12 @@ export type RunAction =
       /** The drag it is painted in; see `nextStroke`. */
       readonly stroke: number;
     }
+  | {
+      /** Erases a Dude painted this Round for a refund, or Dismisses an older one for nothing. */
+      readonly type: "erase-dude";
+      /** Its place in the Army. */
+      readonly index: number;
+    }
   | { readonly type: "take-from-crate"; readonly index: number }
   | { readonly type: "reroll-crate" }
   | {
@@ -147,6 +154,8 @@ export type RunRefusal =
   | "no-room"
   /** A Dude kind the shop doesn't sell and no gift holds. */
   | "not-on-sale"
+  /** Erasing a Dude the Army doesn't have. */
+  | "no-dude"
   /** The crate is already taken from, or has no such item. */
   | "no-crate"
   /** A slider dragged off its end, or not moved at all. */
@@ -293,6 +302,8 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
       return placeOnMaze(state, action.tile, action.pieceId);
     case "paint-dude":
       return paintDude(state, action.dudeKind, action.at, action.stroke);
+    case "erase-dude":
+      return eraseDude(state, action.index);
     case "take-from-crate":
       return takeFromCrate(state, action.index);
     case "reroll-crate": {
@@ -355,20 +366,49 @@ function paintDude(
   const refusal = checkPaint(state, at, dudeKind);
   if (refusal !== null) return refuse(refusal);
   const dude: PlacedDude = { dudeKind, at, stroke, round: roundOf(state) };
-  const army = [...state.army, dude];
   const gift = state.freeItem;
   if (gift?.kind === "gift" && gift.id === dudeKind && gift.left > 0) {
     const left = gift.left - 1;
     return accept({
       ...state,
-      army,
+      army: [...state.army, { ...dude, fromGift: true }],
       freeItem: left === 0 ? null : { ...gift, left },
     });
   }
   return accept({
     ...state,
-    army,
+    army: [...state.army, dude],
     wallets: paid(state.wallets, "attack", dudePrice(dudeKind)),
+  });
+}
+
+/**
+ * Removes one Dude. Painted this Round, it is Erased: its price goes back to Attack gold, or to
+ * the gift if it came from one. Older, it is Dismissed: nothing comes back.
+ */
+function eraseDude(state: RunState, index: number): RunResult {
+  if (state.phase !== "building") return refuse("wrong-phase");
+  if (sideOf(state) !== "attack") return refuse("wrong-side");
+  const dude = state.army[index];
+  if (dude === undefined) return refuse("no-dude");
+  const erased = {
+    ...state,
+    army: state.army.filter((_, at) => at !== index),
+  };
+  if (dude.round !== roundOf(state)) return accept(erased);
+  if (dude.fromGift === true) {
+    const left = giftLeft(state, dude.dudeKind) + 1;
+    return accept({
+      ...erased,
+      freeItem: { kind: "gift", id: dude.dudeKind, left },
+    });
+  }
+  return accept({
+    ...erased,
+    wallets: {
+      ...state.wallets,
+      attack: state.wallets.attack + dudePrice(dude.dudeKind),
+    },
   });
 }
 
@@ -456,6 +496,19 @@ export function dudePriceNow(state: RunState, dudeKind: DudeKindId): number {
 /** Whether `dudeKind` can be painted at all now: the shop sells it, or the gift still holds some. */
 export function canPaintKind(state: RunState, dudeKind: DudeKindId): boolean {
   return DUDE_KINDS_ON_SALE.includes(dudeKind) || giftLeft(state, dudeKind) > 0;
+}
+
+/**
+ * Where in the Army each Dude under the eraser at `at` stands. The eraser reaches twice a Dude's
+ * painting room, the spacing painting keeps, so a drag through a crowd misses none.
+ */
+export function dudesUnder(army: Army, at: BoardPoint): number[] {
+  return army.flatMap((dude, index) => {
+    const radius = 2 * paintRadius(dude.dudeKind);
+    const dx = dude.at.x - at.x;
+    const dy = dude.at.y - at.y;
+    return dx * dx + dy * dy < radius * radius ? [index] : [];
+  });
 }
 
 /** Free Dudes of `dudeKind` the crate gift still holds. */

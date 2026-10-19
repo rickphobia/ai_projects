@@ -30,6 +30,7 @@ const REFUSAL_MESSAGES: Readonly<Record<RunRefusal, string>> = {
     "Paint Dudes in the Spawn zone, the Board's 3 left columns.",
   "no-room": "No room there: each Dude keeps a little space around it.",
   "not-on-sale": "That Dude kind isn't on sale yet.",
+  "no-dude": "There's no Dude there to erase.",
   "no-crate": "This Round's crate is already taken from.",
   "slider-end": "That slider can't go any further that way.",
 };
@@ -86,6 +87,7 @@ export function roundOverMessage(won: boolean, livesLeft: number): string {
 export interface HudHandlers {
   readonly onChoosePiece: (pieceId: PieceId) => void;
   readonly onChooseDudeKind: (dudeKind: DudeKindId) => void;
+  readonly onChooseEraser: () => void;
   readonly onFight: () => void;
   readonly onWatchSpeed: (speed: WatchSpeed) => void;
   readonly onContinue: () => void;
@@ -139,15 +141,26 @@ export class Hud {
     this.hint.textContent = `Shop: pick a Piece, then tap a tile to buy it with Defense gold, or tap a Piece to see what it does. Placing a ${PIECES[chosen].name} now. Drag to pan; pinch or scroll to zoom.`;
   }
 
-  /** The unit bar: `chosen` is the brush; `freeItem` puts the gift's count on its kind. */
-  showAttackBuilding(chosen: DudeKindId, freeItem: FreeItem | null): void {
+  /**
+   * The unit bar: `chosen` is the brush, unless `erasing` picks the eraser; `freeItem` puts the
+   * gift's count on its kind.
+   */
+  showAttackBuilding(
+    chosen: DudeKindId,
+    freeItem: FreeItem | null,
+    erasing: boolean,
+  ): void {
     this.heading.textContent = SIDE_NAMES.attack;
+    const eraser = this.button("Eraser", erasing, this.handlers.onChooseEraser);
     this.showShop(
       attackItems(this.stock, freeItem),
-      chosen,
+      erasing ? null : chosen,
       this.handlers.onChooseDudeKind,
+      eraser,
     );
-    this.hint.textContent = `Unit bar: pick a Dude kind, then drag in the Spawn zone, the 3 left columns, to paint ${DUDE_KINDS[chosen].name}s, each paid with Attack gold as it appears. Drag elsewhere to pan. The whole Army charges your own Maze at once.`;
+    this.hint.textContent = erasing
+      ? "Eraser: drag over Dudes in the Spawn zone. This Round's Dudes are Erased for their price back; older ones, dimmed, are Dismissed for nothing."
+      : `Unit bar: pick a Dude kind, then drag in the Spawn zone, the 3 left columns, to paint ${DUDE_KINDS[chosen].name}s, each paid with Attack gold as it appears. Drag elsewhere to pan. The whole Army charges your own Maze at once.`;
   }
 
   showBattle(side: Side, speed: WatchSpeed): void {
@@ -192,11 +205,15 @@ export class Hud {
     }, MESSAGE_MS);
   }
 
-  /** One button per item the side's shop sells, with its price, the chosen one pressed, then Fight. */
+  /**
+   * One button per item the side's shop sells, with its price, the chosen one pressed (none when
+   * `chosen` is null), any `tools` after them, then Fight.
+   */
   private showShop<Id extends string>(
     items: readonly ShopItem<Id>[],
-    chosen: Id,
+    chosen: Id | null,
     onChoose: (id: Id) => void,
+    ...tools: HTMLButtonElement[]
   ): void {
     const choiceButtons = items.map((item) =>
       this.button(itemLabel(item), item.id === chosen, () => {
@@ -205,7 +222,7 @@ export class Hud {
     );
     const fight = this.button("Fight", null, this.handlers.onFight);
     fight.classList.add("hud-fight");
-    this.controls.replaceChildren(...choiceButtons, fight);
+    this.controls.replaceChildren(...choiceButtons, ...tools, fight);
   }
 
   /** `pressed` is null for a plain button, true or false for one of a set of choices. */

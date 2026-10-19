@@ -239,6 +239,7 @@ function placedDude(value: unknown): PlacedDude {
     at: spot,
     stroke: count(found.stroke, "stroke"),
     round: count(found.round, "round painted"),
+    ...(found.fromGift === true ? { fromGift: true } : {}),
   };
 }
 

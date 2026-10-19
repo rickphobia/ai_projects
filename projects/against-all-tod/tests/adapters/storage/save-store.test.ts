@@ -75,7 +75,7 @@ describe("SaveStore", () => {
     expect(store.load()).toEqual({ kind: "loaded", run });
   });
 
-  it("loads back a painted Army and a half-used crate gift", () => {
+  it("loads back a painted Army, which Dudes came from the gift, and a half-used crate gift", () => {
     const { store } = storeWith();
     const start = newRun(42);
     const run: RunState = {
@@ -83,7 +83,13 @@ describe("SaveStore", () => {
       score: 1,
       army: [
         ...start.army,
-        { dudeKind: "termite", at: { x: 0.25, y: 6.75 }, stroke: 5, round: 2 },
+        {
+          dudeKind: "termite",
+          at: { x: 0.25, y: 6.75 },
+          stroke: 5,
+          round: 2,
+          fromGift: true,
+        },
         { dudeKind: "intern", at: { x: 2.9, y: 13.1 }, stroke: 6, round: 2 },
       ],
       crate: null,

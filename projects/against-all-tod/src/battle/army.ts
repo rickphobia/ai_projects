@@ -17,6 +17,8 @@ export interface PlacedDude {
   readonly stroke: number;
   /** The Round it was painted in. */
   readonly round: number;
+  /** Painted from a crate gift, so Erasing it gives it back to the gift instead of gold. */
+  readonly fromGift?: true;
 }
 
 /** Every Dude placed so far, in paint order; it all attacks each battle. */
