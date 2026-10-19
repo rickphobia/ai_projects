@@ -21,7 +21,7 @@ import type { SliderId } from "./catalog/tricks";
 import { giveGold, jumpToRound } from "./debug/debug-options";
 import { goldEarned, type BattleEnd } from "./economy/economy";
 import type { Logger } from "./logger";
-import type { Tile } from "./maze/board";
+import { tileKey, type Tile } from "./maze/board";
 import { pieceAt, type Maze } from "./maze/maze";
 import {
   applyRunAction,
@@ -35,6 +35,8 @@ import {
   runStatusOf,
   sideOf,
   sliderPriceNow,
+  undoPriceNow,
+  undoValue,
   windowSizeOf,
   type RunAction,
   type RunState,
@@ -94,6 +96,12 @@ export class RunScreen {
   private strokeChanged = false;
   /** The eraser is chosen instead of a Dude kind. */
   private erasing = false;
+  /** An Undo being paid for: what the player has picked to destroy so far. */
+  private undoing: {
+    readonly slider: SliderId;
+    readonly pieces: readonly Tile[];
+    readonly dudes: readonly number[];
+  } | null = null;
 
   /** `run` is a new or loaded Run; `onRunChanged` saves it after every accepted action. */
   constructor(
@@ -138,6 +146,10 @@ export class RunScreen {
         );
       },
       onTap: (tile, kind) => {
+        if (this.undoing !== null) {
+          this.pickPieceForUndo(tile);
+          return;
+        }
         // Tapping a Piece asks what it does; on touch that is the only way to ask.
         if (this.showPieceInfo(tile)) return;
         this.pieceInfo.hide();
@@ -262,7 +274,71 @@ export class RunScreen {
     this.showTricks();
   }
 
+  /** Starts picking own Pieces or Dudes to pay for an Undo; a free Undo is paid at once. */
+  startUndo(slider: SliderId): void {
+    if (this.run.phase !== "building") return;
+    this.undoing = { slider, pieces: [], dudes: [] };
+    if (undoPriceNow(this.run, slider) === 0) {
+      this.payUndo();
+      return;
+    }
+    this.showBuilding();
+  }
+
+  cancelUndo(): void {
+    this.undoing = null;
+    this.showBuilding();
+  }
+
+  payUndo(): void {
+    const undoing = this.undoing;
+    if (undoing === null) return;
+    const freeBefore = this.run.freeUndos;
+    if (!this.act({ type: "undo", ...undoing })) return;
+    this.undoing = null;
+    this.logger.info("trick undone", {
+      round: roundOf(this.run),
+      side: sideOf(this.run),
+      slider: undoing.slider,
+      free: this.run.freeUndos < freeBefore,
+      piecesDestroyed: undoing.pieces.length,
+      dudesDestroyed: undoing.dudes.length,
+    });
+    this.showRunStatus();
+    this.showBuilding();
+  }
+
+  /** Picks or unpicks the player's own Piece on `tile` for the Undo. */
+  private pickPieceForUndo(tile: Tile): void {
+    const undoing = this.undoing;
+    if (undoing === null || sideOf(this.run) !== "defense") return;
+    if (pieceAt(this.maze, tile) === undefined) return;
+    const key = tileKey(tile);
+    const picked = undoing.pieces.some((at) => tileKey(at) === key);
+    this.undoing = {
+      ...undoing,
+      pieces: picked
+        ? undoing.pieces.filter((at) => tileKey(at) !== key)
+        : [...undoing.pieces, tile],
+    };
+    this.showBuilding();
+  }
+
+  /** Picks every Dude under the brush at `at` for the Undo. */
+  private pickDudesForUndo(at: BoardPoint): void {
+    const undoing = this.undoing;
+    if (undoing === null) return;
+    const fresh = dudesUnder(this.run.army, at).filter(
+      (index) => !undoing.dudes.includes(index),
+    );
+    if (fresh.length === 0) return;
+    this.undoing = { ...undoing, dudes: [...undoing.dudes, ...fresh] };
+    this.showArmy();
+    this.showTricks();
+  }
+
   fight(): void {
+    this.undoing = null;
     if (!this.act({ type: "start-battle" })) return;
     this.watchBattle();
   }
@@ -388,6 +464,10 @@ export class RunScreen {
    */
   private paintAt(at: BoardPoint, first: boolean): void {
     if (this.stroke === null) return;
+    if (this.undoing !== null) {
+      this.pickDudesForUndo(at);
+      return;
+    }
     if (this.erasing) {
       this.eraseAt(at);
       return;
@@ -459,13 +539,15 @@ export class RunScreen {
     const round = roundOf(this.run);
     // While erasing, older Dudes fade: Erasing them is a Dismiss, with nothing back.
     const dimmed =
-      this.erasing && sideOf(this.run) === "attack"
-        ? new Set(
-            this.run.army.flatMap((dude, index) =>
-              dude.round === round ? [] : [index],
-            ),
-          )
-        : new Set<number>();
+      this.undoing !== null
+        ? new Set(this.undoing.dudes)
+        : this.erasing && sideOf(this.run) === "attack"
+          ? new Set(
+              this.run.army.flatMap((dude, index) =>
+                dude.round === round ? [] : [index],
+              ),
+            )
+          : new Set<number>();
     this.view.showArmy(
       armyDudes(this.run.army, this.run.mutations, windowSizeOf(this.run)),
       dimmed,
@@ -502,7 +584,16 @@ export class RunScreen {
   /** The Board as the Run has it, ready for placing. */
   private showBuilding(): void {
     this.view.clearBattle();
-    this.view.showMaze(this.maze);
+    // Pieces picked for an Undo are shown already gone; tapping their tile again brings them back.
+    const picked = new Set(this.undoing?.pieces.map(tileKey));
+    this.view.showMaze(
+      picked.size === 0
+        ? this.maze
+        : mazeOf(
+            this.run.pieces.filter(({ tile }) => !picked.has(tileKey(tile))),
+            windowSizeOf(this.run),
+          ),
+    );
     this.view.showRoute(this.routeVisible);
     this.view.showGoalHealth(BATTLE_RULES.goalHealth, BATTLE_RULES.goalHealth);
     this.showTricks();
@@ -526,6 +617,20 @@ export class RunScreen {
       sideOf(this.run),
       this.run.phase === "fighting",
       (slider, to) => sliderPriceNow(this.run, slider, to),
+      this.run.phase === "building"
+        ? (slider) => undoPriceNow(this.run, slider)
+        : null,
+      this.undoing === null
+        ? null
+        : {
+            slider: this.undoing.slider,
+            price: undoPriceNow(this.run, this.undoing.slider),
+            picked: undoValue(
+              this.run,
+              this.undoing.pieces,
+              this.undoing.dudes,
+            ),
+          },
     );
   }
 

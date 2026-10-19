@@ -81,3 +81,8 @@ export function slidersAfter(
 ): SliderPositions {
   return slidersAt(start, inputs, Infinity);
 }
+
+/** What Undoing `slider` from `position` costs: more the further it stands from the middle. */
+export function undoPrice(slider: SliderId, position: number): number {
+  return SLIDERS[slider].undoStepPrice * Math.abs(position);
+}

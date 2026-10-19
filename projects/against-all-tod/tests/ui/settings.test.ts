@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { SLIDERS } from "../../src/catalog/tricks";
-import { positionLabel, stepHint } from "../../src/ui/settings";
+import {
+  positionLabel,
+  stepHint,
+  undoLabel,
+  undoPickHint,
+} from "../../src/ui/settings";
 
 describe("Settings menu labels", () => {
   it("says what a step does, whom it helps and what it costs", () => {
@@ -20,5 +25,21 @@ describe("Settings menu labels", () => {
     expect(positionLabel(-2)).toBe("-2");
     expect(positionLabel(0)).toBe("0");
     expect(positionLabel(1)).toBe("+1");
+  });
+
+  it("says what an Undo destroys, or that it is free", () => {
+    expect(undoLabel("defense", 40)).toBe(
+      "Undo · destroy 40g of your own Pieces",
+    );
+    expect(undoLabel("attack", 25)).toBe(
+      "Undo · destroy 25g of your own Dudes",
+    );
+    expect(undoLabel("attack", 0)).toBe("Undo · free");
+  });
+
+  it("counts what is picked for an Undo against its price", () => {
+    expect(undoPickHint("brightness", "defense", 30, 40)).toBe(
+      "Brightness Undo: picked 30g of 40g. Tap your Pieces to pick them.",
+    );
   });
 });

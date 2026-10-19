@@ -10,6 +10,8 @@ export interface SliderEntry {
   readonly upLabel: string;
   /** Gold for one step away from the middle, in the paying side's own gold. */
   readonly stepPrice: number;
+  /** Undo price for each step the slider stands from the middle, paid in Pieces or Dudes. */
+  readonly undoStepPrice: number;
   /** The direction that helps the attack: -1 for down, 1 for up. The other helps the defense. */
   readonly attackDirection: -1 | 1;
   /** Whether it can be dragged during a battle, as well as between battles. */
@@ -23,6 +25,7 @@ export const SLIDERS: Readonly<Record<SliderId, SliderEntry>> = {
     downLabel: "Darker: towers see less far, except on lit tiles",
     upLabel: "Brighter: Dudes are dazzled and slow down",
     stepPrice: 20,
+    undoStepPrice: 20,
     attackDirection: -1,
     midBattle: true,
   },
@@ -32,6 +35,7 @@ export const SLIDERS: Readonly<Record<SliderId, SliderEntry>> = {
     downLabel: "Quieter: towers can't hear Dudes until they're close",
     upLabel: "Louder: Sirens reach further, Hype Men shout louder",
     stepPrice: 20,
+    undoStepPrice: 20,
     attackDirection: -1,
     midBattle: true,
   },
@@ -43,6 +47,7 @@ export const SLIDERS: Readonly<Record<SliderId, SliderEntry>> = {
     upLabel:
       "Bigger: an open lane along the top and bottom edges, Pieces on it crushed if it closes",
     stepPrice: 30,
+    undoStepPrice: 30,
     attackDirection: 1,
     // It reshapes the Board and moves painted Dudes, which a running battle can't take.
     midBattle: false,
@@ -53,6 +58,7 @@ export const SLIDERS: Readonly<Record<SliderId, SliderEntry>> = {
     downLabel: "Slower: Dudes slow down, towers get extra shots",
     upLabel: "Faster: Dudes speed up, towers reload slower",
     stepPrice: 25,
+    undoStepPrice: 25,
     attackDirection: 1,
     midBattle: true,
   },

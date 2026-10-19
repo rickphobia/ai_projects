@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runBattle, startBattle } from "../../src/battle/battle";
 import { GOLD_RULES } from "../../src/catalog/gold-rules";
+import { PIECES } from "../../src/catalog/pieces";
 import { SLIDERS, TRICK_RULES, type SliderId } from "../../src/catalog/tricks";
 import {
   applyRunAction,
@@ -8,6 +9,8 @@ import {
   currentSliders,
   newRun,
   sideOf,
+  undoPriceNow,
+  undoValue,
   type RunAction,
   type RunState,
 } from "../../src/run/run";
@@ -62,6 +65,7 @@ describe("dragging a slider between battles", () => {
       type: "continue",
     });
     expect(sideOf(attacking)).toBe("attack");
+    expect(attacking.army.length).toBeGreaterThan(1);
     const dragged = play(attacking, drag("brightness", 1));
     expect(dragged.wallets.attack).toBe(attacking.wallets.attack - BRIGHT_STEP);
     expect(dragged.wallets.defense).toBe(attacking.wallets.defense);
@@ -229,5 +233,120 @@ describe("the Window size trick", () => {
     const lost = finish(play(squeezed, START), "defense");
     expect(lost.sliders["window-size"]).toBe(0);
     expect(lost.army).toEqual(attacking.army);
+  });
+});
+
+describe("Undo", () => {
+  const wall = { type: "place-piece", pieceId: "crate-wall" } as const;
+  const WALL_PRICE = PIECES["crate-wall"].price;
+  const rich = (state: RunState): RunState => ({
+    ...state,
+    wallets: { defense: 10_000, attack: 10_000 },
+  });
+  const tiles = Array.from({ length: 6 }, (_, row) => ({ column: 8, row }));
+  const built = play(
+    rich(newRun(1)),
+    drag("brightness", 2),
+    ...tiles.map((tile) => ({ ...wall, tile })),
+  );
+  const undoOf = (
+    slider: SliderId,
+    pieces: readonly { column: number; row: number }[] = [],
+    dudes: readonly number[] = [],
+  ) => ({ type: "undo", slider, pieces, dudes }) as const;
+  const wallsFor = (state: RunState, slider: SliderId) =>
+    tiles.slice(0, Math.ceil(undoPriceNow(state, slider) / WALL_PRICE));
+
+  it("is priced from the catalog, more the further the slider stands from the middle", () => {
+    const one = play(rich(newRun(1)), drag("brightness", 1));
+    expect(undoPriceNow(one, "brightness")).toBe(
+      SLIDERS.brightness.undoStepPrice,
+    );
+    expect(undoPriceNow(built, "brightness")).toBe(
+      2 * SLIDERS.brightness.undoStepPrice,
+    );
+    expect(undoPriceNow(built, "volume")).toBe(0);
+  });
+
+  it("is refused until the picked Pieces cover the price", () => {
+    const enough = wallsFor(built, "brightness");
+    expect(enough.length).toBeLessThan(tiles.length);
+    expect(refusalOf(built, undoOf("brightness", enough.slice(1)))).toBe(
+      "undo-short",
+    );
+    expect(refusalOf(built, undoOf("volume"))).toBe("nothing-to-undo");
+    expect(
+      refusalOf(built, undoOf("brightness", [{ column: 1, row: 1 }])),
+    ).toBe("no-piece");
+  });
+
+  it("snaps the slider to the middle and destroys exactly the picked Pieces, gold untouched", () => {
+    const picked = wallsFor(built, "brightness");
+    const undone = play(built, undoOf("brightness", picked));
+    expect(undone.sliders.brightness).toBe(0);
+    expect(undone.wallets).toEqual(built.wallets);
+    expect(undone.pieces.map((piece) => piece.tile)).toEqual(
+      tiles.slice(picked.length),
+    );
+  });
+
+  it("on an Attack turn takes the picked Dudes, older Rounds included, with nothing refunded", () => {
+    const attacking = play(
+      rich(
+        play(finish(play(newRun(1), START), "defense"), { type: "continue" }),
+      ),
+      drag("game-speed", 1),
+    );
+    expect(sideOf(attacking)).toBe("attack");
+    expect(attacking.army.length).toBeGreaterThan(1);
+    const price = undoPriceNow(attacking, "game-speed");
+    const picked: number[] = [];
+    while (
+      undoValue(attacking, [], picked) < price &&
+      picked.length < attacking.army.length
+    ) {
+      picked.push(picked.length);
+    }
+    expect(
+      refusalOf(attacking, undoOf("game-speed", [], picked.slice(1))),
+    ).toBe("undo-short");
+    expect(refusalOf(attacking, undoOf("game-speed", tiles))).toBe(
+      "wrong-side",
+    );
+    const undone = play(attacking, undoOf("game-speed", [], picked));
+    expect(undone.sliders["game-speed"]).toBe(0);
+    expect(undone.army).toEqual(attacking.army.slice(picked.length));
+    expect(undone.wallets).toEqual(attacking.wallets);
+  });
+
+  it("is free with a free Undo: nothing destroyed, one free Undo used", () => {
+    const holding = { ...built, freeUndos: 1 };
+    expect(undoPriceNow(holding, "brightness")).toBe(0);
+    const undone = play(holding, undoOf("brightness", tiles));
+    expect(undone.sliders.brightness).toBe(0);
+    expect(undone.pieces).toEqual(built.pieces);
+    expect(undone.freeUndos).toBe(0);
+  });
+
+  it("can't happen mid-battle", () => {
+    expect(refusalOf(play(built, START), undoOf("brightness", tiles))).toBe(
+      "wrong-phase",
+    );
+  });
+
+  it("resizes the Board for Window size: Pieces on the closing lane are crushed", () => {
+    const wide = play(
+      rich(newRun(1)),
+      drag("window-size", 1),
+      { ...wall, tile: { column: 5, row: -1 } },
+      ...tiles.map((tile) => ({ ...wall, tile })),
+    );
+    const picked = wallsFor(wide, "window-size");
+    const undone = play(wide, undoOf("window-size", picked));
+    expect(undone.sliders["window-size"]).toBe(0);
+    expect(undone.pieces.map((piece) => piece.tile)).toEqual(
+      tiles.slice(picked.length),
+    );
+    expect(() => battleSetupOf(undone)).not.toThrow();
   });
 });

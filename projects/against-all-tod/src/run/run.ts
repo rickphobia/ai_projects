@@ -40,6 +40,7 @@ import {
   dragPrice,
   NEUTRAL_SLIDERS,
   slidersAfter,
+  undoPrice,
   type SliderInput,
   type SliderPositions,
 } from "../tricks/tricks";
@@ -97,6 +98,8 @@ export interface RunState extends RoundSnapshot {
   readonly freeItem: FreeItem | null;
   /** Sliders dragged during the battle being fought, in step order; empty between battles. */
   readonly sliderInputs: readonly SliderInput[];
+  /** Undos the player holds that skip the payment (boss crates give them). */
+  readonly freeUndos: number;
 }
 
 export type RunAction =
@@ -128,6 +131,18 @@ export type RunAction =
       readonly to: number;
       /** During a battle, the step the drag takes effect from; ignored between battles. */
       readonly atStep: number;
+    }
+  | {
+      /**
+       * Snaps `slider` back to the middle. The side being played destroys its own Pieces (Defense)
+       * or Dudes (Attack) worth at least the Undo price; a free Undo destroys nothing.
+       */
+      readonly type: "undo";
+      readonly slider: SliderId;
+      /** Tiles of the Pieces to destroy, on a Defense turn. */
+      readonly pieces: readonly Tile[];
+      /** Places in the Army of the Dudes to destroy, on an Attack turn. */
+      readonly dudes: readonly number[];
     }
   | { readonly type: "start-battle" }
   | {
@@ -161,7 +176,13 @@ export type RunRefusal =
   /** The crate is already taken from, or has no such item. */
   | "no-crate"
   /** A slider dragged off its end, or not moved at all. */
-  | "slider-end";
+  | "slider-end"
+  /** Undoing a slider that already stands in the middle. */
+  | "nothing-to-undo"
+  /** Picking for an Undo a Piece that isn't there. */
+  | "no-piece"
+  /** The Pieces or Dudes picked for an Undo are worth less than its price. */
+  | "undo-short";
 
 export type RunResult =
   | { readonly ok: true; readonly state: RunState }
@@ -186,6 +207,7 @@ export function newRun(seed: number, bestScore = 0): RunState {
     crate: null,
     freeItem: null,
     sliderInputs: [],
+    freeUndos: 0,
   });
 }
 
@@ -330,6 +352,8 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
     }
     case "drag-slider":
       return dragSlider(state, action.slider, action.to, action.atStep);
+    case "undo":
+      return undo(state, action.slider, action.pieces, action.dudes);
     case "start-battle":
       if (state.phase !== "building") return refuse("wrong-phase");
       return accept({ ...state, phase: "fighting" });
@@ -484,7 +508,9 @@ function dragSlider(
   if (price === null) return refuse("slider-end");
   const wallets = spend(state.wallets, sideOf(state), price);
   if (wallets === null) return refuse("not-enough-gold");
-  if (slider === "window-size") return resizeWindow(state, wallets, to);
+  if (slider === "window-size") {
+    return resizeWindow({ ...state, wallets }, to);
+  }
   if (state.phase === "building") {
     return accept({
       ...state,
@@ -505,11 +531,7 @@ function dragSlider(
  * Window size between battles: Pieces on a lane that closes are crushed, and Dudes in Spawn zone
  * rows that close are squeezed into the nearest open row. Refused if the Goal would be cut off.
  */
-function resizeWindow(
-  state: RunState,
-  wallets: Wallets,
-  windowSize: number,
-): RunResult {
+function resizeWindow(state: RunState, windowSize: number): RunResult {
   const resized = resizeMaze(
     mazeOf(state.pieces, windowSizeOf(state)),
     windowSize,
@@ -518,7 +540,6 @@ function resizeWindow(
   const crushed = new Set(resized.crushed.map(({ tile }) => tileKey(tile)));
   return accept({
     ...state,
-    wallets,
     sliders: { ...state.sliders, "window-size": windowSize },
     pieces:
       crushed.size === 0
@@ -526,6 +547,67 @@ function resizeWindow(
         : state.pieces.filter(({ tile }) => !crushed.has(tileKey(tile))),
     army: squeezeArmy(state.army, windowSize),
   });
+}
+
+/** What Undoing `slider` costs now, in Pieces or Dudes; zero with a free Undo. */
+export function undoPriceNow(state: RunState, slider: SliderId): number {
+  return state.freeUndos > 0 ? 0 : undoPrice(slider, state.sliders[slider]);
+}
+
+/** What the picked Pieces or Dudes count toward an Undo: each its shop price, nothing refunded. */
+export function undoValue(
+  state: RunState,
+  pieces: readonly Tile[],
+  dudes: readonly number[],
+): number {
+  const picked = new Set(pieces.map(tileKey));
+  const pieceValue = state.pieces
+    .filter(({ tile }) => picked.has(tileKey(tile)))
+    .reduce((sum, { pieceId }) => sum + piecePrice(pieceId), 0);
+  const dudeValue = state.army
+    .filter((_, index) => dudes.includes(index))
+    .reduce((sum, { dudeKind }) => sum + dudePrice(dudeKind), 0);
+  return pieceValue + dudeValue;
+}
+
+/**
+ * Only between battles: Window size can't move mid-battle, and picking Pieces or Dudes needs the
+ * Board still. Window size snaps back through the same resize a drag does, so Pieces on a lane
+ * that closes are crushed and Dudes squeezed.
+ */
+function undo(
+  state: RunState,
+  slider: SliderId,
+  pieces: readonly Tile[],
+  dudes: readonly number[],
+): RunResult {
+  if (state.phase !== "building") return refuse("wrong-phase");
+  if (state.sliders[slider] === 0) return refuse("nothing-to-undo");
+  const side = sideOf(state);
+  if (side === "attack" ? pieces.length > 0 : dudes.length > 0) {
+    return refuse("wrong-side");
+  }
+  const tiles = new Set(state.pieces.map(({ tile }) => tileKey(tile)));
+  if (pieces.some((tile) => !tiles.has(tileKey(tile)))) {
+    return refuse("no-piece");
+  }
+  if (dudes.some((index) => state.army[index] === undefined)) {
+    return refuse("no-dude");
+  }
+  const free = state.freeUndos > 0;
+  if (!free && undoValue(state, pieces, dudes) < undoPriceNow(state, slider)) {
+    return refuse("undo-short");
+  }
+  const gone = new Set(free ? [] : pieces.map(tileKey));
+  const paid: RunState = free
+    ? { ...state, freeUndos: state.freeUndos - 1 }
+    : {
+        ...state,
+        pieces: state.pieces.filter(({ tile }) => !gone.has(tileKey(tile))),
+        army: state.army.filter((_, index) => !dudes.includes(index)),
+      };
+  if (slider === "window-size") return resizeWindow(paid, 0);
+  return accept({ ...paid, sliders: { ...paid.sliders, [slider]: 0 } });
 }
 
 /** Zero for the waiting free Piece, otherwise the shop price. */
