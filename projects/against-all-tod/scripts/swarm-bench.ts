@@ -22,6 +22,7 @@ const setup: BattleSetup = {
   rules: SWARM_RULES,
   sliders: NEUTRAL_SLIDERS,
   sliderInputs: [],
+  curse: null,
 };
 
 function runOnce(): { steps: number; mostDudes: number; ms: number } {
