@@ -10,9 +10,9 @@ The pitch as first written had holes that would make people quit: no way to lose
 
 A solo browser game, **Against All TOD**, played on a 20×14 tile Board seen from above.
 
-A Run starts on an empty Board. Round 1 is a Defense turn against a small game-made Army. Every Round the player wins, they switch sides: build the Maze on a Defense turn, add Squads to the Army on an Attack turn, and each time try to beat what they built one Round ago. Nothing on the Board ever despawns, so by Round 15 the Maze and the Army are the history of every choice made.
+A Run starts on an empty Board. Round 1 is a Defense turn against a small game-made Army. Every Round the player wins, they switch sides: build the Maze on a Defense turn, paint Dudes into the Army on an Attack turn, and each time try to beat what they built one Round ago. Nothing on the Board ever despawns, so by Round 15 the Maze and the Army are the history of every choice made.
 
-Each Round opens a Draft Crate for the side being played (pick 1 of 3 for free), announces a random Curse, and lets the player spend that side's own gold. Gold pays for the margin of victory, not for just winning. The player can also open the game's own Settings menu and drag Brightness, Volume, Window size or Game speed to bend the battle. Each slider pulls both ways, every drag costs gold, and a trick stays until someone Undoes it by destroying their own Pieces or Squads.
+Each Round opens a Draft Crate for the side being played (pick 1 of 3 for free), announces a random Curse, and lets the player spend that side's own gold. Gold pays for the margin of victory, not for just winning. The player can also open the game's own Settings menu and drag Brightness, Volume, Window size or Game speed to bend the battle. Each slider pulls both ways, every drag costs gold, and a trick stays until someone Undoes it by destroying their own Pieces or Dudes.
 
 The player has 3 Lives. A lost Round costs a Life and Rewinds the Round with bonus gold. At zero Lives the Run ends, the Score (Rounds won) is compared to the best Score, and Score milestones Unlock new Pieces and Dude kinds for later Runs.
 
@@ -45,13 +45,13 @@ It runs in any modern desktop browser and on phones and tablets in landscape, sa
 
 19. As a defender, I want an empty 20×14 tile Board at the start of a Run, so that the Maze is entirely mine.
 20. As a defender, I want every Piece to snap to tiles, so that the Maze is tidy and easy to read.
-21. As a defender, I want Dudes to walk the shortest open route from the Spawn line to the Goal, so that placing Pieces shapes their path.
+21. As a defender, I want Dudes to walk the shortest open route from the Spawn zone to the Goal, so that placing Pieces shapes their path.
 22. As a defender, I want a placement that would seal the Goal off to be refused with a clear message, so that I know why it failed.
 23. As a defender, I want to see the route Dudes will take before the battle, so that I can plan my Maze.
 24. As a defender, I want floor Pieces (Tax Booth, Grinder) to be walkable, so that I can put them on the route.
 25. As a defender, I want no way to sell or move a placed Piece, so that the permanent Board means something.
-26. As an attacker, I want to place each Squad on a Spawn line tile, so that I choose where the Army enters.
-27. As an attacker, I want every Squad I have ever placed to come back each Attack turn in the same place, so that my Army compounds.
+26. As an attacker, I want to paint single Dudes anywhere in the Spawn zone by dragging, so that I choose where and in what shape the Army stands (see `specs/spawn-zone.md`).
+27. As an attacker, I want every Dude I have ever placed to come back each Attack turn in the same place, so that my Army compounds.
 28. As a player, I want the Goal to have a visible health bar, so that I can see how close a Round is.
 
 ### Draft Crates and the shop
@@ -59,7 +59,7 @@ It runs in any modern desktop browser and on phones and tablets in landscape, sa
 29. As a player, I want a Draft Crate of 3 random items for the side I'm playing at the start of each Round, so that every Round offers something new.
 30. As a player, I want to take 1 item from the crate for free, so that I always get something.
 31. As a defender, I want defense crates to hold Pieces, so that the crate fits my turn.
-32. As an attacker, I want attack crates to hold Squads and Mutations, so that the crate fits my turn.
+32. As an attacker, I want attack crates to hold gifts of free Dudes and Mutations, so that the crate fits my turn.
 33. As a player, I want to reroll the crate for gold, so that bad luck doesn't decide a Round.
 34. As a player, I want a shop where I can buy more items for my side with that side's gold, so that I control my build beyond luck.
 35. As a player, I want crates and the shop to offer only what I have Unlocked, so that Unlocks matter.
@@ -86,18 +86,18 @@ It runs in any modern desktop browser and on phones and tablets in landscape, sa
 50. As a defender, I want a Sniper Nest with huge range that always shoots the biggest Dude and is blind in the dark, so that big Dudes have a counter.
 51. As a defender, I want a Tax Booth that moves some Attack gold into Defense gold for every Dude that crosses it, so that I can drain the attacker.
 52. As a defender, I want a Grinder that instantly kills small Dudes, pays double gold and jams for 3 seconds after each kill, so that swarms of Interns have a counter.
-53. As a defender who has Unlocked it, I want a Bouncer that throws the first Dude it touches back to the Spawn line, so that I can reset a runner.
+53. As a defender who has Unlocked it, I want a Bouncer that throws the first Dude it touches back to where it was painted, so that I can reset a runner.
 54. As a defender who has Unlocked it, I want a Decoy Goal that Dudes go for first until it breaks, so that I can buy time.
 55. As a defender, I want to tap or hover over any Piece to see what it does, so that I never have to guess.
 56. As a defender, I want Lighthouse and Sniper Nest to be the only Pieces that hit Balloonists, so that air Dudes have clear counters.
 
 ### Dude kinds
 
-57. As an attacker, I want Interns that come 20 to a Squad, so that I have cheap fodder.
+57. As an attacker, I want Interns that cost 1 gold each and come 20 to a crate gift, so that I have cheap fodder.
 58. As an attacker, I want Termites that slowly chew through a wall so the others re-route through the hole, so that I can open the Maze.
 59. As an attacker, I want a Ram Crew of 4 carrying a ram that smashes a wall or tower in one hit and slows as carriers die, so that I can break the strongest Pieces.
 60. As an attacker, I want Balloonists that float straight over the Maze, so that I can skip a long Maze.
-61. As an attacker, I want a Shield Bro whose shield blocks shots for the Dudes behind him, so that I can protect a Squad.
+61. As an attacker, I want a Shield Bro whose shield blocks shots for the Dudes behind him, so that I can protect the Dudes around him.
 62. As an attacker, I want a Hype Man that speeds up nearby Dudes with a boost that grows with Volume, so that Volume matters to me too.
 63. As an attacker who has Unlocked it, I want a Sapper that runs to the nearest wall and blows up himself and the wall, so that I can open a hole fast.
 64. As an attacker who has Unlocked it, I want a Mole that tunnels under 3 tiles of Maze and pops up, so that I can skip a choke point.
@@ -107,9 +107,9 @@ It runs in any modern desktop browser and on phones and tablets in landscape, sa
 ### Mutations
 
 67. As an attacker, I want a Split Mutation where a Dude splits into two halves when it dies, so that my Army gets messier to kill.
-68. As an attacker, I want a Giant Mutation that makes one Dude per Squad giant (5× health, half speed), so that every Squad has a tank.
+68. As an attacker, I want a Giant Mutation that makes every Nth Dude of a kind giant (5× health, half speed; N per kind, 20 for Interns), so that the Army has tanks.
 69. As an attacker, I want Explosive Shields, where every Dude's small shield stuns nearby towers for 1 second when it breaks, so that my Army fights back.
-70. As an attacker, I want a Conga Line Mutation where a Squad walks in single file and shares damage across the line, so that focused fire is wasted.
+70. As an attacker, I want a Conga Line Mutation where each Stroke walks in single file and shares damage across the line, so that focused fire is wasted.
 71. As an attacker, I want Ghost Mode where dead Dudes keep walking for 3 seconds and can't be shot, so that dying near the Goal still counts.
 72. As an attacker, I want Gold Teeth so that Dudes reaching the Goal earn double Attack gold, so that I can build for income.
 73. As a player, I want Mutations to stay for the rest of the Run and apply to every Dude, so that the Army compounds.
@@ -134,13 +134,13 @@ It runs in any modern desktop browser and on phones and tablets in landscape, sa
 86. As an attacker, I want Volume down to make Dudes invisible until they are 2 tiles from a tower and really quiet the game, so that my Army sneaks in.
 87. As a defender, I want Volume up to make Sirens reach further, so that noise helps me.
 88. As an attacker, I want Window size up to add an open lane along the top and bottom edges, so that I get a route around the Maze.
-89. As a defender, I want Window size down to squeeze the Spawn line so Squads bunch up, so that my splash damage feasts.
+89. As a defender, I want Window size down to squeeze the Spawn zone so Dudes bunch up, so that my splash damage feasts.
 90. As an attacker, I want Game speed up to make Dudes move faster than towers can turn and aim, so that I can outrun the defense.
 91. As a defender, I want Game speed down to give my towers extra shots, so that slow-mo helps me.
 92. As a player, I want every slider drag to cost the current side's gold, so that tricks are a real spend.
 93. As a player, I want to pull a trick mid-battle for double the price, so that I have something to do while the battle plays.
 94. As a player, I want a trick to stay until it's Undone, so that every dirty trick comes back to bite me.
-95. As a player, I want to Undo a trick by choosing which of my own Pieces or Squads to destroy, up to the trick's price, so that getting out of a trick is a painful choice.
+95. As a player, I want to Undo a trick by choosing which of my own Pieces or Dudes to destroy, up to the trick's price, so that getting out of a trick is a painful choice.
 96. As a player, I want the dark and the silence to keep units readable with glowing outlines, so that a trick changes how the battle plays, not whether I can see it.
 97. As a player who wants quiet, I want an "Actual volume (we promise)" slider in the pause menu, so that I can set real sound without touching the game's tricks.
 
@@ -191,7 +191,7 @@ Engine and tools follow decision 0001: TypeScript (strict), Vite, PixiJS for ren
 - **battle**: a real-time battle stepped at a fixed 1/60 s, as a pure function of (Board, Army, Mutations, slider positions, Curse, boss, seed, mid-battle inputs). It moves Dudes, runs tower targeting and damage, Wall-breaker damage to Pieces, Turnstile turns, Mole tunnelling, Balloonist flight, Mutation effects, slider effects and Curse effects, and emits events (kill, reach Goal, Piece destroyed, gold moved by Tax Booth). It ends on Goal at zero (attack win), no Dudes left (defense win) or 90 s of game time (defense win). The same inputs always give the same result.
 - **economy**: turns a battle's events and end state into Defense gold and Attack gold: per kill, Goal health bonus, per Dude reaching the Goal, per survivor at Goal break, per Piece destroyed, Tax Booth transfers, Gold Teeth doubling, Grinder doubling, Rewind bonus.
 - **tricks**: slider positions, the price of each drag (doubled mid-battle), and the Undo price. It knows which direction helps which side.
-- **run**: the whole Run as a state machine driven by actions (pick from crate, reroll, buy, place Piece, place Squad, drag slider, Undo, start battle, battle finished, continue). It owns Lives, Rewind snapshots, side switching, Round numbering, Curse rolls, Boss Rounds, boss crates, Score, hints shown and the end of the Run. It refuses illegal actions with a typed reason (not enough gold, would seal the Goal, wrong side, tile taken).
+- **run**: the whole Run as a state machine driven by actions (pick from crate, reroll, buy, place Piece, paint Dude, erase Dude, dismiss Dude, drag slider, Undo, start battle, battle finished, continue). It owns Lives, Rewind snapshots, side switching, Round numbering, Curse rolls, Boss Rounds, boss crates, Score, hints shown and the end of the Run. It refuses illegal actions with a typed reason (not enough gold, would seal the Goal, wrong side, tile taken).
 - **progress**: best Score and Unlocks across Runs, and which Unlocks a Score earns.
 - **adapters/storage**: saves and loads the Run, progress and actual volume to browser storage, with a version number. Unknown versions or broken data give a fresh start plus a warning instead of a crash.
 - **adapters/renderer**: draws the Board, Pieces, Dudes, effects, darkness with outlines, the route preview and the zoom/pan camera with PixiJS, using batched sprites from the Kenney packs. It reads state; it never changes rules.
@@ -203,9 +203,9 @@ Engine and tools follow decision 0001: TypeScript (strict), Vite, PixiJS for ren
 
 ### Rules settled in the grilling
 
-- The Board is 20 columns × 14 rows. The Spawn line is the left column, the Goal sits on the right edge, and Dudes travel left to right.
+- The Board is 22 columns × 14 rows. The Spawn zone is the left 3 columns, where nothing can be built; the Maze has the other 19. The Goal sits on the right edge, and Dudes travel left to right.
 - Pieces that block: Crate Wall, Turnstile, Lighthouse, Siren, Sniper Nest, Bouncer, Decoy Goal. Walkable floor Pieces: Tax Booth, Grinder. A Turnstile placement is legal only if the Goal stays reachable in both of its positions.
-- A Squad is one Dude kind on one Spawn line tile. Squads cannot be moved or removed except by Undo payment or Window size squeezing.
+- The Army is single Dudes, each standing where it was painted in the Spawn zone, and the whole Army charges at once when a battle starts. A Dude painted this Round can be Erased for its price back; an older one can only be Dismissed (no refund), paid away in an Undo, or moved by Window size squeezing. Painting rules are in `specs/spawn-zone.md`.
 - The Run alternates sides after each won Round: odd Rounds are Defense turns, even Rounds are Attack turns. Round N = Rounds won + 1. A Rewind keeps the Round number.
 - On a Defense turn the whole Army (plus the boss on a Boss Round) attacks the Maze. On an Attack turn the player adds to the Army and attacks the Maze as it stands (plus the boss tower on a Boss Round).
 - Curses start from Round 2, one per Round, picked at random from all 8, each hurting one side.
@@ -216,8 +216,8 @@ Engine and tools follow decision 0001: TypeScript (strict), Vite, PixiJS for ren
 - Ghost Mode Dudes that reach the Goal still damage it and still pay.
 - Each slider has a neutral middle and 2 steps each way. Brightness down, Volume down, Window size up and Game speed up help attack; the opposite directions help defense. Whichever side is being played pays for a drag from its own wallet.
 - Moving a slider back toward the middle costs twice the normal step price, so tricks are sticky and Undo stays worth having.
-- Undo resets one slider to the middle. The side being played pays by destroying its own Pieces or Squads of its choice worth at least the Undo price. A free Undo from a boss crate skips the payment.
-- Window size up adds an empty lane along the top and bottom edges. Window size down closes Spawn line tiles from both ends, moving Squads on them onto the nearest open Spawn line tile. When a lane closes again, any Piece placed on it is crushed.
+- Undo resets one slider to the middle. The side being played pays by destroying its own Pieces or Dudes of its choice worth at least the Undo price. A free Undo from a boss crate skips the payment.
+- Window size up adds an empty lane along the top and bottom edges. Window size down closes Spawn zone rows from both ends, pushing the Dudes in them into the nearest open row. When a lane closes again, any Piece placed on it is crushed.
 - Watch speed changes how many fixed steps run per real second, never the result. The Game speed trick changes Dude speed against tower turn and fire rate.
 - Mid-battle tricks are recorded as timed inputs, so a battle with them is still reproducible from its seed.
 - Unlock order by best Score milestone: Sapper (5), Bouncer (10), Mole (15), Decoy Goal (20), Streaker (25). Numbers live in the catalog and will be tuned.
@@ -232,7 +232,7 @@ Every ticket that draws something new follows these rules, so the game looks lik
 
 - **One art pack.** Sprites come from Kenney's Tower Defense (top-down) pack: flat, top-down, 64 px tiles, soft outlines. When it has nothing that fits, use another Kenney CC0 pack in the same flat top-down style, never pixel art, isometric or 3D-rendered sprites. Copy only the tiles used into `assets/<pack>/` with its licence, and add the pack to the README credits.
 - **Palette.** Background `#16201a`, text `#e8efe9`, muted text `#9fb3a5`, defense `#3d8bfd`, attack `#ff5a36`, refused `#ff3030`. The Board itself keeps the pack's own grass, dirt and stone colours. A new colour is added next to these (the CSS variables in `index.html` and the constants in `adapters/renderer/board-view.ts`, kept matching), never written inline.
-- **Side colours mean side.** Anything that belongs to the defense is marked in the defense colour (turrets, tracers, the Goal frame); anything that belongs to the attack in the attack colour (Dude discs, Squads, the Spawn line stripe). Blue and orange-red are used for nothing else, so a glance at the Board tells who owns what.
+- **Side colours mean side.** Anything that belongs to the defense is marked in the defense colour (turrets, tracers, the Goal frame); anything that belongs to the attack in the attack colour (Dude discs, the Spawn zone stripe). Blue and orange-red are used for nothing else, so a glance at the Board tells who owns what.
 - **Dudes.** Every Dude stands on a disc in the attack colour with a light rim. Dude kinds differ by sprite shape and disc size (small kinds smaller, big kinds bigger), not by colour. A Dude must stay readable on a phone at fit-to-window zoom. Mutations add a small mark or outline, not a new colour.
 - **Pieces.** A Piece is a Kenney base tile with its own top sprite, tinted in the defense colour where it has a working part. Each Piece kind has its own silhouette, so it is recognised without reading its name.
 - **Effects.** Short and flat: tracers, hit flashes and death puffs last about a fifth of a second. No screen shake or full-screen flashes for ordinary hits; save those for the Goal breaking and boss moments. Effects reuse shared textures and pooled sprites, so 500 Dudes still run at 60 fps.
