@@ -1,5 +1,10 @@
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
-import { BOARD_COLUMNS, BOARD_ROWS, isOnBoard, type Tile } from "../maze/board";
+import {
+  BOARD_COLUMNS,
+  BOARD_ROWS,
+  isOnLargestBoard,
+  type Tile,
+} from "../maze/board";
 import {
   distanceToGoal,
   routeStep,
@@ -156,10 +161,11 @@ export function tunnelExit(
   const here = distanceToGoal(route, tile);
   if (here === null) return null;
   const next = { column: tile.column + 1, row: tile.row };
-  if (!isOnBoard(next) || distanceToGoal(route, next) !== null) return null;
+  if (!isOnLargestBoard(next) || distanceToGoal(route, next) !== null)
+    return null;
   for (let ahead = 2; ahead <= tunnelTiles + 1; ahead++) {
     const exit = { column: tile.column + ahead, row: tile.row };
-    if (!isOnBoard(exit)) return null;
+    if (!isOnLargestBoard(exit)) return null;
     const there = distanceToGoal(route, exit);
     if (there !== null) return there < here ? exit : null;
   }

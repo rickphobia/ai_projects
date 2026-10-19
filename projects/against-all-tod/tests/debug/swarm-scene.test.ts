@@ -29,7 +29,7 @@ describe("the swarm scene", () => {
 
   it("stands as an Army a player could paint: in the zone, every Dude with its room", () => {
     for (const [index, dude] of SWARM_ARMY.entries()) {
-      expect(isSpawnZonePoint(dude.at)).toBe(true);
+      expect(isSpawnZonePoint(dude.at, 0)).toBe(true);
       // Its neighbours are within a row or two of it in the list.
       const near = SWARM_ARMY.slice(Math.max(0, index - 25), index);
       expect(hasRoom(near, dude.dudeKind, dude.at)).toBe(true);

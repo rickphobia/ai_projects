@@ -2,6 +2,7 @@ import {
   hasRoom,
   isSpawnZonePoint,
   roundOneArmy,
+  squeezeArmy,
   type Army,
   type PlacedDude,
 } from "../battle/army";
@@ -19,7 +20,7 @@ import type { MutationId } from "../catalog/mutations";
 import { PIECES, type PieceId } from "../catalog/pieces";
 import { CRATE_RULES, type CrateItem } from "../catalog/pools";
 import { RUN_RULES } from "../catalog/run-rules";
-import type { SliderId } from "../catalog/tricks";
+import { SLIDERS, type SliderId } from "../catalog/tricks";
 import {
   addGold,
   spend,
@@ -30,6 +31,7 @@ import { tileKey, type Tile } from "../maze/board";
 import {
   emptyMaze,
   placePiece,
+  resizeMaze,
   type Maze,
   type PlacedPiece,
   type PlacementRefusal,
@@ -239,8 +241,11 @@ export function dudePrice(dudeKind: DudeKindId): number {
   return DUDE_KINDS[dudeKind].dudePrice;
 }
 
-/** The Maze built from the placed Pieces, in the order they went down. */
-export function mazeOf(pieces: readonly PlacedPiece[]): Maze {
+/** The Maze built from the placed Pieces, in the order they went down, at a Window size. */
+export function mazeOf(
+  pieces: readonly PlacedPiece[],
+  windowSize: number,
+): Maze {
   return pieces.reduce((maze, { pieceId, tile }) => {
     const placed = placePiece(maze, tile, pieceId);
     if (!placed.ok) {
@@ -249,7 +254,12 @@ export function mazeOf(pieces: readonly PlacedPiece[]): Maze {
       );
     }
     return placed.maze;
-  }, emptyMaze());
+  }, emptyMaze(windowSize));
+}
+
+/** Where the Window size slider stands: it is never dragged mid-battle, so `sliders` has it. */
+export function windowSizeOf(state: RoundSnapshot): number {
+  return state.sliders["window-size"];
 }
 
 export class RunStateError extends Error {
@@ -262,7 +272,7 @@ export function battleSetupOf(
   rules: BattleRules = BATTLE_RULES,
 ): BattleSetup {
   return {
-    maze: mazeOf(state.pieces),
+    maze: mazeOf(state.pieces, windowSizeOf(state)),
     army: state.army,
     mutations: state.mutations,
     seed: roundSeed(state.seed, roundOf(state)),
@@ -281,7 +291,7 @@ export function checkPaint(
   if (state.phase !== "building") return "wrong-phase";
   if (sideOf(state) !== "attack") return "wrong-side";
   if (!canPaintKind(state, dudeKind)) return "not-on-sale";
-  if (!isSpawnZonePoint(at)) return "not-spawn-zone";
+  if (!isSpawnZonePoint(at, windowSizeOf(state))) return "not-spawn-zone";
   if (!hasRoom(state.army, dudeKind, at)) return "no-room";
   return checkPlacing(state, "attack", dudePriceNow(state, dudeKind));
 }
@@ -345,7 +355,11 @@ function placeOnMaze(state: RunState, tile: Tile, pieceId: PieceId): RunResult {
   const price = piecePriceNow(state, pieceId);
   const refusal = checkPlacing(state, "defense", price);
   if (refusal !== null) return refuse(refusal);
-  const placed = placePiece(mazeOf(state.pieces), tile, pieceId);
+  const placed = placePiece(
+    mazeOf(state.pieces, windowSizeOf(state)),
+    tile,
+    pieceId,
+  );
   if (!placed.ok) return refuse(placed.refusal);
   const free = state.freeItem;
   return accept({
@@ -447,6 +461,14 @@ export function sliderPriceNow(
   );
 }
 
+/** Whether `slider` can be dragged in the Run's phase: between battles, or mid-battle if it allows. */
+function canDragNow(state: RunState, slider: SliderId): boolean {
+  return (
+    state.phase === "building" ||
+    (state.phase === "fighting" && SLIDERS[slider].midBattle)
+  );
+}
+
 /**
  * The side being played pays. Between battles the slider simply moves; mid-battle the drag is
  * recorded as a timed input, so the battle replays the same from its seed.
@@ -457,13 +479,12 @@ function dragSlider(
   to: number,
   atStep: number,
 ): RunResult {
-  if (state.phase !== "building" && state.phase !== "fighting") {
-    return refuse("wrong-phase");
-  }
+  if (!canDragNow(state, slider)) return refuse("wrong-phase");
   const price = sliderPriceNow(state, slider, to);
   if (price === null) return refuse("slider-end");
   const wallets = spend(state.wallets, sideOf(state), price);
   if (wallets === null) return refuse("not-enough-gold");
+  if (slider === "window-size") return resizeWindow(state, wallets, to);
   if (state.phase === "building") {
     return accept({
       ...state,
@@ -477,6 +498,33 @@ function dragSlider(
     ...state,
     wallets,
     sliderInputs: [...state.sliderInputs, { step, slider, position: to }],
+  });
+}
+
+/**
+ * Window size between battles: Pieces on a lane that closes are crushed, and Dudes in Spawn zone
+ * rows that close are squeezed into the nearest open row. Refused if the Goal would be cut off.
+ */
+function resizeWindow(
+  state: RunState,
+  wallets: Wallets,
+  windowSize: number,
+): RunResult {
+  const resized = resizeMaze(
+    mazeOf(state.pieces, windowSizeOf(state)),
+    windowSize,
+  );
+  if (!resized.ok) return refuse(resized.refusal);
+  const crushed = new Set(resized.crushed.map(({ tile }) => tileKey(tile)));
+  return accept({
+    ...state,
+    wallets,
+    sliders: { ...state.sliders, "window-size": windowSize },
+    pieces:
+      crushed.size === 0
+        ? state.pieces
+        : state.pieces.filter(({ tile }) => !crushed.has(tileKey(tile))),
+    army: squeezeArmy(state.army, windowSize),
   });
 }
 

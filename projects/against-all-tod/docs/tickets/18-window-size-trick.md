@@ -4,15 +4,15 @@
 
 **Blocked by:** 17 (Volume trick, real sound and sound effects), 26 (Erase and Dismiss)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** tricks, battle/tricks, maze, renderer/board, ui/settings
 
 **Effort:** medium
 
-- [ ] Window size follows the same pricing rules as the other sliders
-- [ ] Each step up adds one empty row on the top and bottom edges; the route recomputes
-- [ ] Each step down closes the outermost Spawn zone rows; their Dudes move to the nearest open row, and their painted spots move with them
-- [ ] Closing a lane destroys any Piece on it
-- [ ] The Board frame visibly grows and shrinks
-- [ ] Tests: lanes added and removed, routes using new lanes, Dudes squeezed, Pieces crushed
+- [x] Window size follows the same pricing rules as the other sliders
+- [x] Each step up adds one empty row on the top and bottom edges; the route recomputes
+- [x] Each step down closes the outermost Spawn zone rows; their Dudes move to the nearest open row, and their painted spots move with them
+- [x] Closing a lane destroys any Piece on it
+- [x] The Board frame visibly grows and shrinks
+- [x] Tests: lanes added and removed, routes using new lanes, Dudes squeezed, Pieces crushed

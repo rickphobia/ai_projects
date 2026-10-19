@@ -217,7 +217,7 @@ Engine and tools follow decision 0001: TypeScript (strict), Vite, PixiJS for ren
 - Each slider has a neutral middle and 2 steps each way. Brightness down, Volume down, Window size up and Game speed up help attack; the opposite directions help defense. Whichever side is being played pays for a drag from its own wallet.
 - Moving a slider back toward the middle costs twice the normal step price, so tricks are sticky and Undo stays worth having.
 - Undo resets one slider to the middle. The side being played pays by destroying its own Pieces or Dudes of its choice worth at least the Undo price. A free Undo from a boss crate skips the payment.
-- Window size up adds an empty lane along the top and bottom edges. Window size down closes Spawn zone rows from both ends, pushing the Dudes in them into the nearest open row. When a lane closes again, any Piece placed on it is crushed.
+- Window size up adds an empty lane along the top and bottom edges. Window size down closes Spawn zone rows from both ends, pushing the Dudes in them into the nearest open row. When a lane closes again, any Piece placed on it is crushed. Window size is dragged only between battles, since it reshapes the Board and moves painted Dudes, and a drag that would cut the Spawn zone off from the Goal is refused, like a placement that seals it.
 - Watch speed changes how many fixed steps run per real second, never the result. The Game speed trick changes Dude speed against tower turn and fire rate.
 - Mid-battle tricks are recorded as timed inputs, so a battle with them is still reproducible from its seed.
 - Unlock order by best Score milestone: Sapper (5), Bouncer (10), Mole (15), Decoy Goal (20), Streaker (25). Numbers live in the catalog and will be tuned.

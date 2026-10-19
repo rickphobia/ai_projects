@@ -7,6 +7,9 @@ import {
 } from "../catalog/tricks";
 import { sideHelped, type SliderPositions } from "../tricks/tricks";
 
+/** Shown instead of the step hints for a slider that can't be dragged during a battle. */
+export const BETWEEN_BATTLES_HINT = "Only between battles";
+
 /** What a drag one step each way would cost now; null at that end of the slider. */
 export type PriceOf = (slider: SliderId, to: number) => number | null;
 
@@ -76,7 +79,7 @@ export class SettingsMenu {
       ? `Mid-battle: every drag costs ${String(TRICK_RULES.midBattleMultiplier)}× in ${side} gold.`
       : `Every drag costs ${side} gold; back toward the middle costs ${String(TRICK_RULES.towardMiddleMultiplier)}×.`;
     const rows = SLIDER_IDS.map((slider) =>
-      this.sliderRow(slider, sliders[slider], priceOf),
+      this.sliderRow(slider, sliders[slider], midBattle, priceOf),
     );
     this.panel.replaceChildren(heading, note, ...rows);
   }
@@ -84,6 +87,7 @@ export class SettingsMenu {
   private sliderRow(
     slider: SliderId,
     position: number,
+    midBattle: boolean,
     priceOf: PriceOf,
   ): HTMLElement {
     const row = this.doc.createElement("div");
@@ -101,6 +105,11 @@ export class SettingsMenu {
       this.handlers.onDrag(slider, Number(input.value));
     });
     label.append(name, input);
+    if (midBattle && !SLIDERS[slider].midBattle) {
+      input.disabled = true;
+      row.append(label, this.hint(BETWEEN_BATTLES_HINT));
+      return row;
+    }
     const down = this.hint(stepHint(slider, -1, priceOf(slider, position - 1)));
     const up = this.hint(stepHint(slider, 1, priceOf(slider, position + 1)));
     row.append(label, down, up);

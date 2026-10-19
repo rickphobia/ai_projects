@@ -1,5 +1,5 @@
-/** The Settings menu's sliders. Window size joins with its own ticket. */
-export type SliderId = "brightness" | "volume" | "game-speed";
+/** The Settings menu's sliders. */
+export type SliderId = "brightness" | "volume" | "window-size" | "game-speed";
 
 export interface SliderEntry {
   /** Stable id that saves and tests refer to. */
@@ -12,6 +12,8 @@ export interface SliderEntry {
   readonly stepPrice: number;
   /** The direction that helps the attack: -1 for down, 1 for up. The other helps the defense. */
   readonly attackDirection: -1 | 1;
+  /** Whether it can be dragged during a battle, as well as between battles. */
+  readonly midBattle: boolean;
 }
 
 export const SLIDERS: Readonly<Record<SliderId, SliderEntry>> = {
@@ -22,6 +24,7 @@ export const SLIDERS: Readonly<Record<SliderId, SliderEntry>> = {
     upLabel: "Brighter: Dudes are dazzled and slow down",
     stepPrice: 20,
     attackDirection: -1,
+    midBattle: true,
   },
   volume: {
     id: "volume",
@@ -30,6 +33,19 @@ export const SLIDERS: Readonly<Record<SliderId, SliderEntry>> = {
     upLabel: "Louder: Sirens reach further, Hype Men shout louder",
     stepPrice: 20,
     attackDirection: -1,
+    midBattle: true,
+  },
+  "window-size": {
+    id: "window-size",
+    name: "Window size",
+    downLabel:
+      "Smaller: the Spawn zone closes at top and bottom, Dudes bunch up",
+    upLabel:
+      "Bigger: an open lane along the top and bottom edges, Pieces on it crushed if it closes",
+    stepPrice: 30,
+    attackDirection: 1,
+    // It reshapes the Board and moves painted Dudes, which a running battle can't take.
+    midBattle: false,
   },
   "game-speed": {
     id: "game-speed",
@@ -38,12 +54,14 @@ export const SLIDERS: Readonly<Record<SliderId, SliderEntry>> = {
     upLabel: "Faster: Dudes speed up, towers reload slower",
     stepPrice: 25,
     attackDirection: 1,
+    midBattle: true,
   },
 };
 
 export const SLIDER_IDS: readonly SliderId[] = [
   "brightness",
   "volume",
+  "window-size",
   "game-speed",
 ];
 

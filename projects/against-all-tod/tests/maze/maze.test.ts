@@ -13,6 +13,7 @@ import {
   placePiece,
   placedPieces,
   removePiece,
+  resizeMaze,
   wallBreakerRoutes,
   type Maze,
 } from "../../src/maze/maze";
@@ -121,7 +122,7 @@ describe("placing Pieces", () => {
   });
 
   it("refuses every Spawn zone tile with its own reason", () => {
-    for (const tile of spawnZoneTiles()) {
+    for (const tile of spawnZoneTiles(0)) {
       expect(checkPlacement(emptyMaze(), tile, CRATE_WALL)).toBe("spawn-zone");
     }
     expect(checkPlacement(emptyMaze(), { column: 3, row: 0 }, CRATE_WALL)).toBe(
@@ -206,7 +207,7 @@ describe("the route", () => {
 
   it("starts from every Spawn zone tile", () => {
     const maze = build(wallDown(10, range(0, BOARD_ROWS - 1)));
-    for (const tile of spawnZoneTiles()) {
+    for (const tile of spawnZoneTiles(0)) {
       expect(pathToGoal(maze.route, tile).at(-1)?.column).toBe(21);
     }
   });
@@ -249,5 +250,65 @@ describe("the route", () => {
     expect(routeStep(maze.route, { column: 20, row: 0 })).toBe("no-route");
     expect(routeStep(maze.route, { column: 21, row: 0 })).toBe("no-route");
     expect(pathToGoal(maze.route, { column: 21, row: 0 })).toEqual([]);
+  });
+});
+
+describe("the Maze at another Window size", () => {
+  const fullWall = wallDown(10, range(0, BOARD_ROWS));
+
+  it("lets Pieces go on an open lane, but not on one that isn't open", () => {
+    expect(
+      checkPlacement(emptyMaze(1), { column: 5, row: -1 }, CRATE_WALL),
+    ).toBeNull();
+    expect(
+      checkPlacement(emptyMaze(1), { column: 5, row: -2 }, CRATE_WALL),
+    ).toBe("off-board");
+    expect(
+      checkPlacement(emptyMaze(-1), { column: 1, row: 0 }, CRATE_WALL),
+    ).toBe("spawn-zone");
+  });
+
+  it("routes Dudes round a wall the whole height of the old Board by a lane", () => {
+    expect(() => build(fullWall)).toThrow(/seals-goal/);
+    const maze = build(fullWall, emptyMaze(1));
+    const path = pathToGoal(maze.route, { column: 0, row: 6 });
+    expect(path.at(-1)?.column).toBe(21);
+    expect(path.some(({ row }) => row === -1 || row === BOARD_ROWS)).toBe(true);
+  });
+
+  it("crushes the Pieces on a lane that closes and keeps the rest", () => {
+    const onLanes = [
+      { column: 5, row: -2 },
+      { column: 6, row: 15 },
+      { column: 7, row: -1 },
+    ];
+    const maze = build([...onLanes, { column: 8, row: 0 }], emptyMaze(2));
+    const result = resizeMaze(maze, 1);
+    if (!result.ok) throw new Error(result.refusal);
+    expect(result.crushed.map(({ tile }) => tile)).toEqual(onLanes.slice(0, 2));
+    expect(placedPieces(result.maze).map(({ tile }) => tile)).toEqual([
+      { column: 7, row: -1 },
+      { column: 8, row: 0 },
+    ]);
+    expect(result.maze.windowSize).toBe(1);
+  });
+
+  it("refuses to close the lane that the only way to the Goal runs along", () => {
+    const maze = build(fullWall, emptyMaze(1));
+    expect(resizeMaze(maze, 0)).toEqual({ ok: false, refusal: "seals-goal" });
+  });
+
+  it("refuses to close the Spawn zone rows that the only way out starts from", () => {
+    const maze = build(wallDown(3, range(2, BOARD_ROWS)));
+    expect(resizeMaze(maze, -1).ok).toBe(true);
+    expect(resizeMaze(maze, -2)).toEqual({ ok: false, refusal: "seals-goal" });
+  });
+
+  it("keeps Dudes out of closed Spawn zone rows", () => {
+    const maze = emptyMaze(-1);
+    expect(pathToGoal(maze.route, { column: 1, row: 0 })).toEqual([]);
+    expect(pathToGoal(maze.route, { column: 1, row: 1 }).at(-1)?.column).toBe(
+      21,
+    );
   });
 });

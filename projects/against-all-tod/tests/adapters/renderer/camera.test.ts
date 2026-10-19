@@ -20,7 +20,7 @@ const BOUNDS: CameraBounds = {
 };
 
 const tileOnScreen = (x: number, y: number, camera: Camera) =>
-  tileAtPoint(screenToBoard({ x, y }, camera), TILE);
+  tileAtPoint(screenToBoard({ x, y }, camera), TILE, 0);
 
 describe("screen to tile", () => {
   it("matches the Board's pixels when the camera is at rest", () => {

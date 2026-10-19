@@ -1,9 +1,12 @@
 import {
-  BOARD_COLUMNS,
-  BOARD_ROWS,
+  LARGEST_BOARD_TILE_COUNT,
+  MAX_WINDOW_STEPS,
   allTiles,
   goalTiles,
   isOnBoard,
+  isOnLargestBoard,
+  tileIndex,
+  tileKind,
   type Tile,
 } from "./board";
 
@@ -12,7 +15,8 @@ export type Step = "up" | "down" | "left" | "right";
 
 /**
  * One shortest-route direction field from the Goal, shared by every Dude: each tile holds
- * its step toward the Goal, so hundreds of Dudes cost one calculation per Maze change.
+ * its step toward the Goal, so hundreds of Dudes cost one calculation per Maze change. It covers
+ * the largest Board, so lookups never need the Window size; tiles off the Board reach nothing.
  */
 export interface Route {
   /** Route cost to the target (steps, on an ordinary route), by tile index; null where it can't be reached. */
@@ -33,23 +37,38 @@ const STEP_ORDER: readonly Step[] = ["right", "down", "up", "left"];
 /** Where routes aim when several steps are equally short, so they cut toward the Goal rather than run along an edge. */
 const GOAL_CENTRE = goalCentre();
 
-/** Breadth-first from every Goal tile over the tiles `isWalkable` allows. */
-export function computeRoute(isWalkable: (tile: Tile) => boolean): Route {
-  return computeWeightedRoute((tile) => (isWalkable(tile) ? 1 : null));
+const LARGEST_BOARD_TILES = allTiles(MAX_WINDOW_STEPS);
+
+/** Breadth-first from every Goal tile over the tiles `isWalkable` allows at a Window size. */
+export function computeRoute(
+  isWalkable: (tile: Tile) => boolean,
+  windowSize: number,
+): Route {
+  return computeWeightedRoute(
+    (tile) => (isWalkable(tile) ? 1 : null),
+    windowSize,
+  );
 }
 
 /**
  * The cheapest-route field toward `targets` (the Goal unless given), where stepping onto a tile
- * costs `enterCost` and null means it can't be entered; stepping onto a target costs 1. Costs
+ * costs `enterCost` and null means it can't be entered; stepping onto a target costs 1. Tiles off
+ * the Board at `windowSize`, and Spawn zone tiles it has closed, can't be entered either. Costs
  * are whole numbers, so one bucket per total cost is the whole priority queue.
  */
 export function computeWeightedRoute(
   enterCost: (tile: Tile) => number | null,
+  windowSize: number,
   targets: readonly Tile[] = goalTiles(),
 ): Route {
-  const tileCount = BOARD_COLUMNS * BOARD_ROWS;
-  const distances = new Array<number | null>(tileCount).fill(null);
-  const costs = allTiles().map(enterCost);
+  const distances = new Array<number | null>(LARGEST_BOARD_TILE_COUNT).fill(
+    null,
+  );
+  const costs = LARGEST_BOARD_TILES.map((tile) =>
+    isOnBoard(tile, windowSize) && tileKind(tile, windowSize) !== "closed"
+      ? enterCost(tile)
+      : null,
+  );
   for (const tile of targets) {
     distances[indexOf(tile)] = 0;
     costs[indexOf(tile)] = 1;
@@ -73,7 +92,9 @@ export function computeWeightedRoute(
     }
   }
 
-  const steps = allTiles().map((tile) => bestStep(tile, distances, costs));
+  const steps = LARGEST_BOARD_TILES.map((tile) =>
+    bestStep(tile, distances, costs),
+  );
   return { distances, steps };
 }
 
@@ -135,7 +156,7 @@ function neighbours(tile: Tile): [Step, Tile][] {
   return STEP_ORDER.map((step): [Step, Tile] => [
     step,
     moved(tile, step),
-  ]).filter(([, neighbour]) => isOnBoard(neighbour));
+  ]).filter(([, neighbour]) => isOnLargestBoard(neighbour));
 }
 
 function moved(tile: Tile, step: Step): Tile {
@@ -143,8 +164,9 @@ function moved(tile: Tile, step: Step): Tile {
   return { column: tile.column + offset.column, row: tile.row + offset.row };
 }
 
+/** -1 off the largest Board, which every lookup reads as nothing there. */
 function indexOf(tile: Tile): number {
-  return tile.row * BOARD_COLUMNS + tile.column;
+  return isOnLargestBoard(tile) ? tileIndex(tile) : -1;
 }
 
 function goalCentre(): { column: number; row: number } {

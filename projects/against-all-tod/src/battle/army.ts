@@ -4,7 +4,7 @@ import {
   ROUND_ONE_ARMY,
   type DudeKindId,
 } from "../catalog/dudes";
-import { isInSpawnZone } from "../maze/board";
+import { isInSpawnZone, spawnZoneRows } from "../maze/board";
 import { createRng } from "../rng/rng";
 import type { BoardPoint } from "./events";
 
@@ -24,9 +24,32 @@ export interface PlacedDude {
 /** Every Dude placed so far, in paint order; it all attacks each battle. */
 export type Army = readonly PlacedDude[];
 
-/** Whether `at` is inside the Spawn zone; false off the Board. */
-export function isSpawnZonePoint(at: BoardPoint): boolean {
-  return isInSpawnZone({ column: Math.floor(at.x), row: Math.floor(at.y) });
+/** Whether `at` is inside the Spawn zone at a Window size; false off the Board. */
+export function isSpawnZonePoint(at: BoardPoint, windowSize: number): boolean {
+  return isInSpawnZone(
+    { column: Math.floor(at.x), row: Math.floor(at.y) },
+    windowSize,
+  );
+}
+
+/**
+ * The Army once the Spawn zone has the rows it has at `windowSize`: each Dude standing in a row
+ * that closed moves straight up or down into the nearest open row, keeping its place within the
+ * row, so Dudes from several closed rows end up closer together than painting allows. The move
+ * is to the painted spot itself, so the Bouncer sends a Dude back to where it now stands. Dudes
+ * already in an open row stay put, and the same Army comes back when none had to move.
+ */
+export function squeezeArmy(army: Army, windowSize: number): Army {
+  const { first, last } = spawnZoneRows(windowSize);
+  const squeezed = army.map((dude) => {
+    const row = Math.floor(dude.at.y);
+    const intoRow = Math.min(last, Math.max(first, row));
+    if (intoRow === row) return dude;
+    return { ...dude, at: { x: dude.at.x, y: dude.at.y - row + intoRow } };
+  });
+  return squeezed.every((dude, index) => dude === army[index])
+    ? army
+    : squeezed;
 }
 
 /** Whether a Dude of `kind` at `at` keeps its room from every Dude in the Army. */
@@ -79,7 +102,8 @@ export function roundOneArmy(seed: number): Army {
         x: centre.x + Math.cos(angle) * distance,
         y: centre.y + Math.sin(angle) * distance,
       };
-      if (!isSpawnZonePoint(at) || !hasRoom(army, dudeKind, at)) continue;
+      // A Run starts with the Window size at its neutral 0.
+      if (!isSpawnZonePoint(at, 0) || !hasRoom(army, dudeKind, at)) continue;
       army.push({ dudeKind, at, stroke, round: 1 });
       placed++;
     }

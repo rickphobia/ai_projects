@@ -40,13 +40,20 @@ export interface PointerSample {
 /** How far a press may wander and still count as a tap. A finger wobbles more than a mouse. */
 const TAP_SLOP: Readonly<Record<PointerKind, number>> = { mouse: 6, touch: 12 };
 
-/** The tile under a point in the Board's own pixels, or null off the Board. */
-export function tileAtPoint(point: Point, tileSize: number): Tile | null {
+/**
+ * The tile under a point in the Board's own pixels (row 0's top at y 0, so lanes above it are at
+ * negative y), or null off the Board at that Window size.
+ */
+export function tileAtPoint(
+  point: Point,
+  tileSize: number,
+  windowSize: number,
+): Tile | null {
   const tile = {
     column: Math.floor(point.x / tileSize),
     row: Math.floor(point.y / tileSize),
   };
-  return isOnBoard(tile) ? tile : null;
+  return isOnBoard(tile, windowSize) ? tile : null;
 }
 
 /**

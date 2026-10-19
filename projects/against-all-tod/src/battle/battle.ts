@@ -118,12 +118,13 @@ export class ArmySetupError extends Error {
 export function armyDudes(
   army: Army,
   mutations: readonly MutationId[],
+  windowSize: number,
 ): DudeState[] {
   const giants = giantsOf(army);
   return army.map((placed, index) => {
-    if (!isSpawnZonePoint(placed.at)) {
+    if (!isSpawnZonePoint(placed.at, windowSize)) {
       throw new ArmySetupError(
-        `A ${placed.dudeKind} stands at (${String(placed.at.x)}, ${String(placed.at.y)}), which is not in the Spawn zone.`,
+        `A ${placed.dudeKind} stands at (${String(placed.at.x)}, ${String(placed.at.y)}), which is not in the Spawn zone at Window size ${String(windowSize)}.`,
       );
     }
     const dude = newDude(index, placed.dudeKind, placed.at);
@@ -133,7 +134,7 @@ export function armyDudes(
 
 /** The battle before its first step: the whole Army standing in the Spawn zone, towers ready. */
 export function startBattle(setup: BattleSetup): BattleState {
-  const dudes = armyDudes(setup.army, setup.mutations);
+  const dudes = armyDudes(setup.army, setup.mutations, setup.maze.windowSize);
   const hasWallBreakers = setup.army.some(({ dudeKind }) =>
     isWallBreaker(dudeKind),
   );

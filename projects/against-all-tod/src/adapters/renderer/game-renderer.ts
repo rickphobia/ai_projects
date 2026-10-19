@@ -14,11 +14,7 @@ import {
   type PointerKind,
 } from "../input/board-pointer";
 import { TILE_SIZE, loadBoardTextures } from "./board-textures";
-import {
-  BOARD_PIXEL_SIZE,
-  DEFENSE_COLOUR,
-  createBoardView,
-} from "./board-view";
+import { DEFENSE_COLOUR, boardPixelFrame, createBoardView } from "./board-view";
 import {
   clampCamera,
   fittedCamera,
@@ -47,7 +43,7 @@ export class RendererStartError extends Error {
 
 /** What the rest of the game may ask of the renderer. It draws state; it never changes rules. */
 export interface GameView {
-  /** Redraws the Pieces and the route preview. */
+  /** Redraws the Pieces and the route preview, and the Board's frame if the Window size changed. */
   showMaze(maze: Maze): void;
   /** Hides the route preview, which would hide Dudes during a battle. */
   showRoute(visible: boolean): void;
@@ -113,7 +109,11 @@ export async function startRenderer(
   }
 
   const textures = await loadBoardTextures();
-  const board = createBoardView(textures);
+  // The camera moves `board`; `world` inside it puts the top lane's top at the camera's 0, so
+  // everything drawn by tile (row 0 at y 0) stays put when lanes open above it.
+  const board = new Container({ label: "board" });
+  const world = new Container({ label: "world" });
+  const ground = new Container({ label: "ground" });
   const pieces = new Container({ label: "pieces" });
   const route = new Graphics({ label: "route" });
   const disc = dudeDisc();
@@ -134,7 +134,8 @@ export async function startRenderer(
   let drawnMaze: Maze | null = null;
   // The route goes over the Pieces so a path squeezing past walls stays readable. The dark goes
   // over the Board and Pieces but under the Dudes, which glow instead.
-  board.addChild(
+  world.addChild(
+    ground,
     pieces,
     tricks.view,
     route,
@@ -142,11 +143,14 @@ export async function startRenderer(
     goalHealth.view,
     cursor.view,
   );
+  board.addChild(world);
   app.stage.addChild(board);
 
+  let windowSize = 0;
+  let frame = boardPixelFrame(windowSize);
   const boundsFor = (width: number, height: number): CameraBounds => ({
     view: { width, height },
-    content: BOARD_PIXEL_SIZE,
+    content: { width: frame.width, height: frame.height },
     margin: VIEW_MARGIN,
     maxScale: MAX_SCALE,
   });
@@ -157,11 +161,26 @@ export async function startRenderer(
     board.scale.set(camera.scale);
     board.position.set(camera.x, camera.y);
   };
-  aim(camera);
   app.renderer.on("resize", (width: number, height: number) => {
     bounds = boundsFor(width, height);
     aim(clampCamera(camera, bounds));
   });
+  /** Redraws the ground for a Window size and fits the camera to the new frame. */
+  const drawGround = (size: number): void => {
+    windowSize = size;
+    frame = boardPixelFrame(size);
+    for (const old of ground.removeChildren()) old.destroy({ children: true });
+    ground.addChild(createBoardView(textures, size));
+    world.position.set(0, -frame.top);
+    bounds = boundsFor(app.screen.width, app.screen.height);
+    aim(fittedCamera(bounds));
+  };
+  drawGround(windowSize);
+  /** A point under the camera in the pixels things are drawn in, row 0's top at y 0. */
+  const worldPointAt = (point: { x: number; y: number }) => {
+    const pixels = screenToBoard(point, camera);
+    return { x: pixels.x, y: pixels.y + frame.top };
+  };
 
   const drawTricks = (): void => {
     if (sliders === null || drawnMaze === null) return;
@@ -171,9 +190,10 @@ export async function startRenderer(
 
   return {
     showMaze: (maze) => {
+      if (maze.windowSize !== windowSize) drawGround(maze.windowSize);
       turrets = drawPieces(pieces, textures, maze);
       drawnMaze = maze;
-      drawRoute(route, maze.route);
+      drawRoute(route, maze.route, maze.windowSize);
       drawTricks();
     },
     showRoute: (visible) => {
@@ -217,9 +237,9 @@ export async function startRenderer(
     },
     listenToBoard: (handlers) => {
       const tileAt = (point: { x: number; y: number }) =>
-        tileAtPoint(screenToBoard(point, camera), TILE_SIZE);
+        tileAtPoint(worldPointAt(point), TILE_SIZE, windowSize);
       const boardPointAt = (point: { x: number; y: number }) => {
-        const pixels = screenToBoard(point, camera);
+        const pixels = worldPointAt(point);
         return { x: pixels.x / TILE_SIZE, y: pixels.y / TILE_SIZE };
       };
       const { paint } = handlers;

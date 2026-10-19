@@ -32,7 +32,7 @@ function sliders(
   gameSpeed = 0,
   volume = 0,
 ): SliderPositions {
-  return { brightness, volume, "game-speed": gameSpeed };
+  return { brightness, volume, "window-size": 0, "game-speed": gameSpeed };
 }
 
 /** An Intern standing `distance` tiles right of the Sniper Nest's centre. */

@@ -15,6 +15,7 @@ import type { PlacedPiece } from "../../maze/maze";
 import type { Crate } from "../../run/crate";
 import {
   mazeOf,
+  windowSizeOf,
   type FreeItem,
   type RoundSnapshot,
   type RunPhase,
@@ -150,8 +151,8 @@ export function parseSave(raw: string): RunState {
     sliderInputs: list(run.sliderInputs, "sliderInputs").map(sliderInput),
   };
   // A Piece that no longer fits the Maze (say, after a rule change) makes the save unusable.
-  mazeOf(state.pieces);
-  mazeOf(state.roundStart.pieces);
+  mazeOf(state.pieces, windowSizeOf(state));
+  mazeOf(state.roundStart.pieces, windowSizeOf(state.roundStart));
   return state;
 }
 
@@ -173,12 +174,16 @@ function snapshot(
   value: Readonly<Record<string, unknown>>,
   name: string,
 ): RoundSnapshot {
+  const positions = sliders(value.sliders);
+  const windowSize = positions["window-size"];
   return {
     pieces: list(value.pieces, `${name}.pieces`).map(placedPiece),
-    army: list(value.army, `${name}.army`).map(placedDude) satisfies Army,
+    army: list(value.army, `${name}.army`).map((dude) =>
+      placedDude(dude, windowSize),
+    ) satisfies Army,
     mutations: list(value.mutations, `${name}.mutations`).map(mutationId),
     wallets: wallets(value.wallets),
-    sliders: sliders(value.sliders),
+    sliders: positions,
   };
 }
 
@@ -188,6 +193,11 @@ function sliders(value: unknown): SliderPositions {
     brightness: sliderPosition(found.brightness),
     // Saves from before the Volume trick have no Volume slider: it stood in the middle.
     volume: found.volume === undefined ? 0 : sliderPosition(found.volume),
+    // Likewise for saves from before the Window size trick.
+    "window-size":
+      found["window-size"] === undefined
+        ? 0
+        : sliderPosition(found["window-size"]),
     "game-speed": sliderPosition(found["game-speed"]),
   };
 }
@@ -223,15 +233,16 @@ function tile(value: unknown): Tile {
   const found = record(value, "tile");
   return {
     column: count(found.column, "column"),
-    row: count(found.row, "row"),
+    // Rows above the neutral Board's top are negative: the lanes Window size up adds.
+    row: wholeNumber(found.row, "row"),
   };
 }
 
-function placedDude(value: unknown): PlacedDude {
+function placedDude(value: unknown, windowSize: number): PlacedDude {
   const found = record(value, "placed Dude");
   const at = record(found.at, "spot");
   const spot = { x: coordinate(at.x), y: coordinate(at.y) };
-  if (!isSpawnZonePoint(spot)) {
+  if (!isSpawnZonePoint(spot, windowSize)) {
     throw new SaveFormatError("Dude outside the Spawn zone");
   }
   return {
@@ -325,6 +336,14 @@ function list(value: unknown, name: string): readonly unknown[] {
 /** A whole number of zero or more: gold, Lives, Score, seeds and tiles all are. */
 function count(value: unknown, name: string): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    throw new SaveFormatError(`${name} is not a whole number`);
+  }
+  return value;
+}
+
+/** A whole number that may be negative. */
+function wholeNumber(value: unknown, name: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
     throw new SaveFormatError(`${name} is not a whole number`);
   }
   return value;
