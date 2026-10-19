@@ -299,6 +299,26 @@ describe("SaveStore", () => {
     expect(warn).toHaveBeenCalled();
   });
 
+  it("keeps the best Score and the first-Run flag", () => {
+    const run = { ...readyToFight(), bestScore: 12, firstRun: false };
+    const { store } = storeWith();
+    store.save(run);
+    expect(store.load()).toEqual({ kind: "loaded", run });
+  });
+
+  it("treats a save from before hints as past the first Run", () => {
+    const run = readyToFight();
+    const old: Record<string, unknown> = { ...run };
+    delete old.firstRun;
+    const { store } = storeWith(
+      JSON.stringify({ version: SAVE_VERSION, run: old }),
+    );
+    expect(store.load()).toEqual({
+      kind: "loaded",
+      run: { ...run, firstRun: false },
+    });
+  });
+
   it("loads a save from before the Volume trick with Volume in the middle", () => {
     const run = readyToFight();
     const oldSliders = {

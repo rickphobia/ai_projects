@@ -83,21 +83,40 @@ describe("Draft Crate", () => {
 
   it("rolls the same crate from the same seed", () => {
     expect(newRun(42).crate).toEqual(newRun(42).crate);
-    expect(crateFor(9, "attack", [], 0)).toEqual(crateFor(9, "attack", [], 0));
+    expect(crateFor(9, "attack", [], 0, 0)).toEqual(
+      crateFor(9, "attack", [], 0, 0),
+    );
   });
 
   it("offers different items when the pool is big enough", () => {
-    const ids = crateFor(3, "attack", [], 0).items.map((item) =>
+    const ids = crateFor(3, "attack", [], 0, 0).items.map((item) =>
       JSON.stringify(item),
     );
     expect(new Set(ids).size).toBe(CRATE_RULES.size);
+  });
+
+  it("offers only what the best Score has Unlocked", () => {
+    const seeds = Array.from({ length: 200 }, (_, seed) => seed);
+    const offered = (side: "attack" | "defense", bestScore: number) =>
+      seeds.flatMap((seed) =>
+        crateFor(seed, side, [], bestScore, 0).items.map((item) =>
+          "id" in item ? item.id : item.kind,
+        ),
+      );
+    expect(offered("defense", 0)).not.toContain("bouncer");
+    expect(offered("defense", 0)).not.toContain("decoy-goal");
+    expect(offered("attack", 0)).not.toContain("sapper");
+    expect(offered("defense", 10)).toContain("bouncer");
+    expect(offered("defense", 10)).not.toContain("decoy-goal");
+    expect(offered("attack", 5)).toContain("sapper");
+    expect(offered("attack", 5)).not.toContain("mole");
   });
 
   it("leaves out Mutations the Army already has", () => {
     const owned = CRATE_POOLS.attack.flatMap((item) =>
       item.kind === "mutation" ? [item.id] : [],
     );
-    const items = crateFor(5, "attack", owned, 0).items;
+    const items = crateFor(5, "attack", owned, 0, 0).items;
     expect(items.every((item) => item.kind === "gift")).toBe(true);
   });
 

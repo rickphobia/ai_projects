@@ -16,7 +16,7 @@ import {
 import type { BattleEvent, BoardPoint, ShotEvent } from "./battle/events";
 import { stepsDue, type WatchSpeed } from "./battle/watch-clock";
 import { BATTLE_RULES } from "./catalog/battle-rules";
-import { DUDE_KINDS_ON_SALE, type DudeKindId } from "./catalog/dudes";
+import type { DudeKindId } from "./catalog/dudes";
 import { PIECES, type PieceId } from "./catalog/pieces";
 import type { SliderId } from "./catalog/tricks";
 import { giveGold, jumpToRound } from "./debug/debug-options";
@@ -48,13 +48,7 @@ import type { Hud } from "./ui/hud";
 import type { PieceInfo } from "./ui/piece-info";
 import { roundReport, type RoundReportPanel } from "./ui/report";
 import type { SettingsMenu } from "./ui/settings";
-import type { ShopStock } from "./ui/shop";
 
-/** What the shop sells each side until Unlocks arrive. */
-export const SHOP_STOCK: ShopStock = {
-  pieces: ["crate-wall", "sniper-nest"],
-  dudeKinds: DUDE_KINDS_ON_SALE,
-};
 /** The Piece chosen when the page opens. */
 export const FIRST_BUILD_PIECE: PieceId = "crate-wall";
 const FIRST_DUDE_KIND: DudeKindId = "intern";
@@ -203,6 +197,11 @@ export class RunScreen {
         endScreen.show(this.run.score, this.run.bestScore);
         return;
     }
+  }
+
+  /** The best Score so far, which decides what the shop sells. */
+  get bestScore(): number {
+    return this.run.bestScore;
   }
 
   choosePiece(pieceId: PieceId): void {

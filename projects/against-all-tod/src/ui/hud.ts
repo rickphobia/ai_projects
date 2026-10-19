@@ -12,6 +12,7 @@ import {
   type ShopItem,
   type ShopStock,
 } from "./shop";
+import { roundHint } from "./hints";
 
 /** How long a refusal stays on screen. */
 const MESSAGE_MS = 3000;
@@ -130,6 +131,7 @@ export class Hud {
   private readonly heading: HTMLElement;
   private readonly controls: HTMLElement;
   private readonly hint: HTMLElement;
+  private readonly roundHint: HTMLElement;
   private readonly message: HTMLElement;
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
   /** The Round whose Curse was last announced, so each Round's is announced once. */
@@ -137,7 +139,8 @@ export class Hud {
 
   constructor(
     private readonly host: HTMLElement,
-    private readonly stock: ShopStock,
+    /** A getter, because Unlocks change what the shop sells from one Run to the next. */
+    private readonly stock: () => ShopStock,
     private readonly handlers: HudHandlers,
   ) {
     this.doc = host.ownerDocument;
@@ -150,15 +153,21 @@ export class Hud {
     this.controls.className = "hud-controls";
     top.append(this.status, this.heading, this.controls);
     this.hint = this.doc.createElement("p");
+    this.roundHint = this.doc.createElement("p");
+    this.roundHint.className = "hud-round-hint";
+    this.roundHint.hidden = true;
     this.message = this.doc.createElement("p");
     this.message.className = "hud-message";
     this.message.setAttribute("role", "status");
     this.message.hidden = true;
-    host.replaceChildren(top, this.hint, this.message);
+    host.replaceChildren(top, this.hint, this.roundHint, this.message);
   }
 
   showRunStatus(status: RunStatus): void {
     this.status.textContent = runStatus(status);
+    const hint = roundHint(status.round, status.firstRun);
+    this.roundHint.textContent = hint ?? "";
+    this.roundHint.hidden = hint === null;
     const announcements = [
       ...(status.boss === null ? [] : [bossAnnouncement(status.boss)]),
       ...(status.curse === null ? [] : [curseAnnouncement(status.curse)]),
@@ -174,7 +183,7 @@ export class Hud {
   showDefenseBuilding(chosen: PieceId): void {
     this.heading.textContent = SIDE_NAMES.defense;
     this.showShop(
-      defenseItems(this.stock),
+      defenseItems(this.stock()),
       chosen,
       this.handlers.onChoosePiece,
     );
@@ -193,7 +202,7 @@ export class Hud {
     this.heading.textContent = SIDE_NAMES.attack;
     const eraser = this.button("Eraser", erasing, this.handlers.onChooseEraser);
     this.showShop(
-      attackItems(this.stock, freeItems),
+      attackItems(this.stock(), freeItems),
       erasing ? null : chosen,
       this.handlers.onChooseDudeKind,
       eraser,
