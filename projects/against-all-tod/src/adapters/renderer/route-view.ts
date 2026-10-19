@@ -9,10 +9,14 @@ import { ATTACK_COLOUR } from "./board-view";
  * (every route out of the zone crosses it), each shared stretch drawn once, so the player sees
  * where the Army funnels through the Maze.
  */
-export function drawRoute(graphics: Graphics, route: Route): void {
+export function drawRoute(
+  graphics: Graphics,
+  route: Route,
+  windowSize: number,
+): void {
   graphics.clear();
   const drawn = new Set<string>();
-  const front = spawnZoneTiles().filter(
+  const front = spawnZoneTiles(windowSize).filter(
     ({ column }) => column === SPAWN_ZONE_COLUMNS - 1,
   );
   for (const start of front) {

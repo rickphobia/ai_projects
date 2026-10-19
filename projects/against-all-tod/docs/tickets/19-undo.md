@@ -13,4 +13,5 @@
 - [ ] Undo price per slider comes from the catalog and grows with how far the slider is from the middle
 - [ ] Player picks Pieces (Defense turn) or Dudes (Attack turn, with the eraser, earlier Rounds included, nothing refunded) to destroy; Undo is refused until the picked value covers the price
 - [ ] A free Undo item (from boss crates later) skips the payment
+- [ ] Undoing Window size resizes the Board the way a drag does (`resizeMaze` and `squeezeArmy`, through the Run's Window size drag), not just a slider reset: Pieces left on a closed lane would otherwise make the Maze unbuildable
 - [ ] Tests: price, refusal when short, chosen items destroyed, free Undo

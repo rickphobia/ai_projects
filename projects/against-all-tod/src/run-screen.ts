@@ -35,6 +35,7 @@ import {
   runStatusOf,
   sideOf,
   sliderPriceNow,
+  windowSizeOf,
   type RunAction,
   type RunState,
 } from "./run/run";
@@ -104,7 +105,7 @@ export class RunScreen {
     private readonly sounds: GameSounds,
   ) {
     this.run = run;
-    this.maze = mazeOf(this.run.pieces);
+    this.maze = mazeOf(this.run.pieces, windowSizeOf(this.run));
   }
 
   /**
@@ -156,7 +157,7 @@ export class RunScreen {
         canPaintAt: (at) =>
           this.run.phase === "building" &&
           sideOf(this.run) === "attack" &&
-          isSpawnZonePoint(at),
+          isSpawnZonePoint(at, windowSizeOf(this.run)),
         onPaintStart: (at) => {
           this.stroke = nextStroke(this.run.army);
           this.paintAt(at, true);
@@ -254,6 +255,8 @@ export class RunScreen {
         wallets: this.run.wallets,
       });
       this.showRunStatus();
+      // The Board changed shape: lanes, crushed Pieces, squeezed Dudes.
+      if (slider === "window-size") this.showBuilding();
     }
     // A refused drag snaps the slider back.
     this.showTricks();
@@ -362,8 +365,12 @@ export class RunScreen {
       this.hud?.showRefusal(result.refusal);
       return false;
     }
-    if (result.state.pieces !== this.run.pieces) {
-      this.maze = mazeOf(result.state.pieces);
+    const windowSize = windowSizeOf(result.state);
+    if (
+      result.state.pieces !== this.run.pieces ||
+      windowSize !== windowSizeOf(this.run)
+    ) {
+      this.maze = mazeOf(result.state.pieces, windowSize);
     }
     this.run = result.state;
     this.onRunChanged(this.run);
@@ -459,7 +466,10 @@ export class RunScreen {
             ),
           )
         : new Set<number>();
-    this.view.showArmy(armyDudes(this.run.army, this.run.mutations), dimmed);
+    this.view.showArmy(
+      armyDudes(this.run.army, this.run.mutations, windowSizeOf(this.run)),
+      dimmed,
+    );
     this.showRunStatus();
     if (this.run.phase === "building") {
       this.cratePanel?.show(
@@ -592,7 +602,12 @@ export class RunScreen {
     this.showRunStatus();
     this.showTricks();
     // Over the HUD or end screen; closing it shows what comes next.
-    this.report?.show(roundReport(battle.goldEvents, battleEnd), won);
+    const report = roundReport(
+      battle.goldEvents,
+      battleEnd,
+      battle.setup.maze.windowSize,
+    );
+    this.report?.show(report, won);
     if (this.run.phase === "run-over") {
       this.logger.info("Run over", {
         seed: this.run.seed,

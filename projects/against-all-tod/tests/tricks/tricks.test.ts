@@ -82,11 +82,13 @@ describe("slider positions over a battle", () => {
     expect(slidersAt(NEUTRAL_SLIDERS, inputs, 10)).toEqual({
       brightness: -1,
       volume: 0,
+      "window-size": 0,
       "game-speed": 0,
     });
     expect(slidersAt(NEUTRAL_SLIDERS, inputs, 25)).toEqual({
       brightness: -1,
       volume: 0,
+      "window-size": 0,
       "game-speed": 1,
     });
   });
@@ -95,6 +97,7 @@ describe("slider positions over a battle", () => {
     expect(slidersAfter(NEUTRAL_SLIDERS, inputs)).toEqual({
       brightness: -2,
       volume: 0,
+      "window-size": 0,
       "game-speed": 1,
     });
   });

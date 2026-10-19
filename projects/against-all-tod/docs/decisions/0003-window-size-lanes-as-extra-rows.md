@@ -1,0 +1,7 @@
+# Window size lanes are extra rows outside 0–13, and the slider moves only between battles
+
+Window size up adds lanes along the top and bottom edges. We gave them rows -1, -2 above and 14, 15 below, rather than renumbering the Board from its new top row, so every saved Piece, painted Dude and test keeps its tile whatever the Window size. Arrays kept by tile (routes, the towers' Dudes-by-tile) cover the largest Board through `tileIndex`, so they never need resizing. Saves now accept negative rows. The slider is also refused mid-battle, unlike the other three (spec story 93). It reshapes the Board and moves painted Dudes, and a running battle would have to re-seat Dudes already walking a closing lane and move the Bouncer's return spots under it. A resize that would cut the Spawn zone off from the Goal is refused, the same rule as placing a Piece.
+
+**Trade-offs:** every layout call takes the Window size, and route fields cost 18 rows instead of 14. The attacker can't pull Window size as a mid-battle surprise. A defender's own walls can block their own Window size down, when it would seal the Goal.
+
+**Considered Options:** renumbering rows from the frame's top (every stored tile would shift on each resize); making Window size mid-battle too, with Dudes on a closing lane pushed inward and crushed Pieces destroyed mid-step (a lot of battle-step code for one trick, and harder to keep reproducible).

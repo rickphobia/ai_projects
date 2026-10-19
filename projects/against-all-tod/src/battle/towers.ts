@@ -1,6 +1,14 @@
 import { DUDE_KINDS } from "../catalog/dudes";
 import { PIECES, type PieceId, type TowerStats } from "../catalog/pieces";
-import { BOARD_COLUMNS, BOARD_ROWS, type Tile } from "../maze/board";
+import {
+  BOARD_COLUMNS,
+  FIRST_LANE_ROW,
+  LARGEST_BOARD_TILE_COUNT,
+  LAST_LANE_ROW,
+  isOnLargestBoard,
+  tileIndex,
+  type Tile,
+} from "../maze/board";
 import { placedPieces, type Maze } from "../maze/maze";
 import { distanceToGoal, type Route } from "../maze/route";
 import { DudeHits } from "./damage";
@@ -205,12 +213,12 @@ function targetFor(
   const centreY = tile.row + 0.5;
   const firstColumn = Math.max(0, Math.floor(centreX - range));
   const lastColumn = Math.min(BOARD_COLUMNS - 1, Math.floor(centreX + range));
-  const firstRow = Math.max(0, Math.floor(centreY - range));
-  const lastRow = Math.min(BOARD_ROWS - 1, Math.floor(centreY + range));
+  const firstRow = Math.max(FIRST_LANE_ROW, Math.floor(centreY - range));
+  const lastRow = Math.min(LAST_LANE_ROW, Math.floor(centreY + range));
   let best: { dude: DudeState; candidate: TargetCandidate } | null = null;
   for (let row = firstRow; row <= lastRow; row++) {
     for (let column = firstColumn; column <= lastColumn; column++) {
-      const here = byTile[row * BOARD_COLUMNS + column] ?? [];
+      const here = byTile[tileIndex({ column, row })] ?? [];
       if (here.length === 0) continue;
       const stepsLeft = distanceToGoal(route, { column, row }) ?? Infinity;
       for (const placed of here) {
@@ -235,15 +243,15 @@ function targetFor(
   return best?.dude ?? null;
 }
 
-/** The Dudes standing on each tile, by tile index (row by row from the top left). */
+/** The Dudes standing on each tile of the largest Board, by `tileIndex`. */
 function dudesByTile(dudes: readonly DudeState[]): DudeState[][] {
   const byTile = Array.from(
-    { length: BOARD_COLUMNS * BOARD_ROWS },
+    { length: LARGEST_BOARD_TILE_COUNT },
     (): DudeState[] => [],
   );
   for (const dude of dudes) {
-    const { column, row } = tileUnder(dude);
-    byTile[row * BOARD_COLUMNS + column]?.push(dude);
+    const tile = tileUnder(dude);
+    if (isOnLargestBoard(tile)) byTile[tileIndex(tile)]?.push(dude);
   }
   return byTile;
 }

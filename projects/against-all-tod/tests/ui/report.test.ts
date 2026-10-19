@@ -38,12 +38,16 @@ const events: BattleEvent[] = [
 ];
 
 describe("roundReport", () => {
-  const report = roundReport(events, {
-    winner: "defense",
-    goalHealth: 13,
-    survivors: [],
-    mutations: [],
-  });
+  const report = roundReport(
+    events,
+    {
+      winner: "defense",
+      goalHealth: 13,
+      survivors: [],
+      mutations: [],
+    },
+    0,
+  );
 
   it("adds up the Goal damage", () => {
     expect(report.goalDamage).toBe(7);
@@ -68,13 +72,36 @@ describe("roundReport", () => {
   });
 
   it("keeps a death on the Board's far edge on the Board", () => {
-    const edge = roundReport([kill(1, "sniper-nest", BOARD_COLUMNS, 2)], {
-      winner: "defense",
-      goalHealth: 20,
-      survivors: [],
-      mutations: [],
-    });
+    const edge = roundReport(
+      [kill(1, "sniper-nest", BOARD_COLUMNS, 2)],
+      {
+        winner: "defense",
+        goalHealth: 20,
+        survivors: [],
+        mutations: [],
+      },
+      0,
+    );
     expect(edge.deaths[2]?.[BOARD_COLUMNS - 1]).toBe(1);
+  });
+
+  it("maps the lanes Window size up opened as rows of their own", () => {
+    const lanes = roundReport(
+      [
+        kill(1, "sniper-nest", 4.5, -0.5),
+        kill(2, "sniper-nest", 4.5, 0.5),
+        kill(3, "sniper-nest", 4.5, 14.5),
+      ],
+      { winner: "defense", goalHealth: 20, survivors: [], mutations: [] },
+      1,
+    );
+    expect(lanes.deaths).toHaveLength(16);
+    expect(lanes.deaths.map((row) => row[4])).toEqual([
+      1,
+      1,
+      ...new Array<number>(13).fill(0),
+      1,
+    ]);
   });
 
   it("breaks the gold down per wallet", () => {

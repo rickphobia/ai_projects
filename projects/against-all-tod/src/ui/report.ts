@@ -6,7 +6,7 @@ import {
   type BattleEnd,
   type GoldBreakdown,
 } from "../economy/economy";
-import { BOARD_COLUMNS, BOARD_ROWS } from "../maze/board";
+import { BOARD_COLUMNS, boardRows } from "../maze/board";
 
 /** Everything the Round report shows, built from one battle's events and how it ended. */
 export interface RoundReport {
@@ -17,18 +17,22 @@ export interface RoundReport {
     readonly pieceId: PieceId;
     readonly kills: number;
   }[];
-  /** Deaths per tile, `deaths[row][column]`. */
+  /** Deaths per tile, `deaths[row][column]`, from the Board's top row (a lane, if any are open). */
   readonly deaths: readonly (readonly number[])[];
   readonly gold: GoldBreakdown;
 }
 
+/** `windowSize` is the Window size the battle was fought at, which sets the Board's rows. */
 export function roundReport(
   events: readonly BattleEvent[],
   end: BattleEnd,
+  windowSize: number,
 ): RoundReport {
   let goalDamage = 0;
   const kills = new Map<PieceId, number>();
-  const deaths = Array.from({ length: BOARD_ROWS }, () =>
+  const rows = boardRows(windowSize);
+  const rowCount = rows.last - rows.first + 1;
+  const deaths = Array.from({ length: rowCount }, () =>
     new Array<number>(BOARD_COLUMNS).fill(0),
   );
   for (const event of events) {
@@ -36,7 +40,7 @@ export function roundReport(
       goalDamage += event.damage;
     } else if (event.type === "kill") {
       kills.set(event.pieceId, (kills.get(event.pieceId) ?? 0) + 1);
-      const row = clamp(Math.floor(event.at.y), BOARD_ROWS);
+      const row = clamp(Math.floor(event.at.y) - rows.first, rowCount);
       const column = clamp(Math.floor(event.at.x), BOARD_COLUMNS);
       const cells = deaths[row];
       if (cells !== undefined) cells[column] = (cells[column] ?? 0) + 1;
@@ -112,7 +116,7 @@ export class RoundReportPanel {
     map.className = "report-deaths";
     map.setAttribute("aria-label", "Where Dudes died");
     map.style.gridTemplateColumns = `repeat(${String(BOARD_COLUMNS)}, 1fr)`;
-    map.style.aspectRatio = `${String(BOARD_COLUMNS)} / ${String(BOARD_ROWS)}`;
+    map.style.aspectRatio = `${String(BOARD_COLUMNS)} / ${String(report.deaths.length)}`;
     for (const row of report.deaths) {
       for (const count of row) {
         const cell = el("span");

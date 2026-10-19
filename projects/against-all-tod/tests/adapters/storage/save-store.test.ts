@@ -7,7 +7,12 @@ import {
   type KeyValueStorage,
 } from "../../../src/adapters/storage/save-store";
 import type { Logger } from "../../../src/logger";
-import { applyRunAction, newRun, type RunState } from "../../../src/run/run";
+import {
+  applyRunAction,
+  newRun,
+  type RunAction,
+  type RunState,
+} from "../../../src/run/run";
 
 class FakeStorage implements KeyValueStorage {
   readonly items = new Map<string, string>();
@@ -110,7 +115,12 @@ describe("SaveStore", () => {
     if (!dragged.ok) throw new Error(dragged.refusal);
     const run: RunState = {
       ...dragged.state,
-      sliders: { brightness: -2, volume: 1, "game-speed": 0 },
+      sliders: {
+        brightness: -2,
+        volume: 1,
+        "window-size": 0,
+        "game-speed": 0,
+      },
     };
     store.save(run);
     expect(store.load()).toEqual({ kind: "loaded", run });
@@ -258,4 +268,44 @@ describe("SaveStore", () => {
     );
     expect(store.load()).toEqual({ kind: "loaded", run });
   });
+
+  it("loads back a Piece on a lane and an Army squeezed by Window size", () => {
+    const rich = {
+      ...newRun(42),
+      wallets: { defense: 1000, attack: 1000 },
+    };
+    const resize = (to: number): RunAction => ({
+      type: "drag-slider",
+      slider: "window-size",
+      to,
+      atStep: 0,
+    });
+    const lane = apply(apply(rich, resize(1)), {
+      type: "place-piece",
+      tile: { column: 5, row: -1 },
+      pieceId: "crate-wall",
+    });
+    const edgeDude = {
+      dudeKind: "intern",
+      at: { x: 1.5, y: 0.5 },
+      stroke: 9,
+      round: 1,
+    } as const;
+    const squeezed = apply(
+      { ...rich, army: [...rich.army, edgeDude] },
+      resize(-2),
+    );
+    for (const run of [lane, squeezed]) {
+      const { store } = storeWith();
+      store.save(run);
+      expect(store.load()).toEqual({ kind: "loaded", run });
+    }
+    expect(squeezed.army.at(-1)?.at).toEqual({ x: 1.5, y: 2.5 });
+  });
 });
+
+function apply(state: RunState, action: RunAction): RunState {
+  const result = applyRunAction(state, action);
+  if (!result.ok) throw new Error(result.refusal);
+  return result.state;
+}

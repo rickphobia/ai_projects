@@ -1,11 +1,11 @@
 import { Container, Graphics, Text } from "pixi.js";
 import { litTiles } from "../../battle/area-effects";
-import { allTiles, tileKey } from "../../maze/board";
+import { allTiles, tileKey, tileKind } from "../../maze/board";
 import { placedPieces, type Maze } from "../../maze/maze";
 import type { SliderPositions } from "../../tricks/tricks";
 import { TILE_SIZE } from "./board-textures";
 import {
-  BOARD_PIXEL_SIZE,
+  boardPixelFrame,
   DARK_COLOUR,
   DEFENSE_COLOUR,
   LIGHT_WASH_COLOUR,
@@ -37,7 +37,6 @@ export class TricksView {
   private maze: Maze | null = null;
 
   constructor() {
-    this.speedBadge.position.set(TILE_SIZE * 0.25, TILE_SIZE * 0.15);
     this.view.addChild(this.shade, this.speedBadge);
   }
 
@@ -51,15 +50,18 @@ export class TricksView {
     this.sliders = sliders;
     this.maze = maze;
     this.shade.clear();
+    const frame = boardPixelFrame(maze.windowSize);
+    this.speedBadge.position.set(
+      TILE_SIZE * 0.25,
+      frame.top + TILE_SIZE * 0.15,
+    );
     const brightness = sliders.brightness;
     if (brightness < 0) this.drawDark(maze, -brightness);
     if (brightness > 0) {
-      this.shade
-        .rect(0, 0, BOARD_PIXEL_SIZE.width, BOARD_PIXEL_SIZE.height)
-        .fill({
-          color: LIGHT_WASH_COLOUR,
-          alpha: BRIGHT_ALPHA_PER_STEP * brightness,
-        });
+      this.shade.rect(0, frame.top, frame.width, frame.height).fill({
+        color: LIGHT_WASH_COLOUR,
+        alpha: BRIGHT_ALPHA_PER_STEP * brightness,
+      });
     }
     const speed = sliders["game-speed"];
     this.speedBadge.text =
@@ -68,8 +70,10 @@ export class TricksView {
 
   private drawDark(maze: Maze, steps: number): void {
     const lit = litTiles(maze);
-    for (const tile of allTiles()) {
+    for (const tile of allTiles(maze.windowSize)) {
+      // Closed Spawn zone tiles aren't drawn, so the dark leaves them alone too.
       if (lit.has(tileKey(tile))) continue;
+      if (tileKind(tile, maze.windowSize) === "closed") continue;
       this.shade.rect(
         tile.column * TILE_SIZE,
         tile.row * TILE_SIZE,

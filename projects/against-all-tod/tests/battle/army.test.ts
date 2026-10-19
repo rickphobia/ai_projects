@@ -5,6 +5,7 @@ import {
   isSpawnZonePoint,
   nextStroke,
   roundOneArmy,
+  squeezeArmy,
   type PlacedDude,
 } from "../../src/battle/army";
 import {
@@ -26,11 +27,11 @@ function placed(
 
 describe("the Spawn zone as points", () => {
   it("holds points inside the 3 left columns and nowhere else", () => {
-    expect(isSpawnZonePoint({ x: 0, y: 0 })).toBe(true);
-    expect(isSpawnZonePoint({ x: 2.99, y: 13.99 })).toBe(true);
-    expect(isSpawnZonePoint({ x: SPAWN_ZONE_COLUMNS, y: 5 })).toBe(false);
-    expect(isSpawnZonePoint({ x: -0.01, y: 5 })).toBe(false);
-    expect(isSpawnZonePoint({ x: 1, y: 14 })).toBe(false);
+    expect(isSpawnZonePoint({ x: 0, y: 0 }, 0)).toBe(true);
+    expect(isSpawnZonePoint({ x: 2.99, y: 13.99 }, 0)).toBe(true);
+    expect(isSpawnZonePoint({ x: SPAWN_ZONE_COLUMNS, y: 5 }, 0)).toBe(false);
+    expect(isSpawnZonePoint({ x: -0.01, y: 5 }, 0)).toBe(false);
+    expect(isSpawnZonePoint({ x: 1, y: 14 }, 0)).toBe(false);
   });
 });
 
@@ -98,7 +99,7 @@ describe("the Round 1 Army", () => {
     );
     for (const [index, dude] of army.entries()) {
       expect(dude.dudeKind).toBe("intern");
-      expect(isSpawnZonePoint(dude.at)).toBe(true);
+      expect(isSpawnZonePoint(dude.at, 0)).toBe(true);
       const others = army.filter((_, other) => other !== index);
       expect(hasRoom(others, dude.dudeKind, dude.at)).toBe(true);
     }
@@ -107,5 +108,48 @@ describe("the Round 1 Army", () => {
   it("is the same from the same seed and differs with another", () => {
     expect(roundOneArmy(7)).toEqual(army);
     expect(roundOneArmy(8)).not.toEqual(army);
+  });
+});
+
+describe("squeezing the Army", () => {
+  it("pushes Dudes in closed rows into the nearest open row, keeping their place in the row", () => {
+    const army = [
+      placed("intern", 1.5, 0.25),
+      placed("intern", 1.5, 1.75),
+      placed("intern", 0.5, 13.5),
+      placed("intern", 2.5, 6.5),
+    ];
+    expect(squeezeArmy(army, -2).map(({ at }) => at)).toEqual([
+      { x: 1.5, y: 2.25 },
+      { x: 1.5, y: 2.75 },
+      { x: 0.5, y: 11.5 },
+      { x: 2.5, y: 6.5 },
+    ]);
+  });
+
+  it("packs Dudes closer together than painting allows", () => {
+    const army = [placed("intern", 1.5, 0.5), placed("intern", 1.5, 1.5)];
+    expect(
+      hasRoom(army.slice(1), "intern", army[0]?.at ?? { x: 0, y: 0 }),
+    ).toBe(true);
+    const squeezed = squeezeArmy(army, -2);
+    const [first, second] = squeezed;
+    expect(first?.at).toEqual(second?.at);
+    expect(squeezed.every(({ at }) => isSpawnZonePoint(at, -2))).toBe(true);
+  });
+
+  it("pushes Dudes off a lane that closes onto the Board's edge rows", () => {
+    const army = [placed("intern", 1.5, -1.5), placed("intern", 1.5, 14.25)];
+    expect(squeezeArmy(army, 0).map(({ at }) => at)).toEqual([
+      { x: 1.5, y: 0.5 },
+      { x: 1.5, y: 13.25 },
+    ]);
+  });
+
+  it("keeps everything else about a squeezed Dude, and the same Army when none moves", () => {
+    const army = [placed("streaker", 1.5, 0.5, 4)];
+    const [squeezed] = squeezeArmy(army, -1);
+    expect(squeezed).toEqual({ ...army[0], at: { x: 1.5, y: 1.5 } });
+    expect(squeezeArmy(army, 2)).toBe(army);
   });
 });

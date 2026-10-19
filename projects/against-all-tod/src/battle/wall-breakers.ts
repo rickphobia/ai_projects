@@ -1,6 +1,6 @@
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { PIECES } from "../catalog/pieces";
-import { isOnBoard, tileKey, type Tile } from "../maze/board";
+import { isOnLargestBoard, tileKey, type Tile } from "../maze/board";
 import {
   removePiece,
   wallBreakerRoutes,
@@ -112,7 +112,7 @@ export function pieceInTheWay(
     column: tile.column + offset.column,
     row: tile.row + offset.row,
   };
-  if (!isOnBoard(next)) return null;
+  if (!isOnLargestBoard(next)) return null;
   const piece = maze.pieces.get(tileKey(next));
   return piece !== undefined && PIECES[piece.pieceId].blocksDudes
     ? piece

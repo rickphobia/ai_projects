@@ -24,6 +24,8 @@ export interface Maze {
   readonly route: Route;
   /** The route while every Turnstile stands turned; the same object as `route` when there are none. */
   readonly turnedRoute: Route;
+  /** Where the Window size slider stood when the Maze was built: it sets the Board's rows. */
+  readonly windowSize: number;
 }
 
 export interface PlacedPiece {
@@ -39,8 +41,9 @@ export type PlacementResult =
   | { readonly ok: true; readonly maze: Maze }
   | { readonly ok: false; readonly refusal: PlacementRefusal };
 
-export function emptyMaze(): Maze {
-  return withPieces(new Map());
+/** No Pieces yet, on the Board at `windowSize` (the neutral Board unless given). */
+export function emptyMaze(windowSize = 0): Maze {
+  return withPieces(new Map(), windowSize);
 }
 
 export function pieceAt(maze: Maze, tile: Tile): PieceId | undefined {
@@ -66,37 +69,71 @@ export function placePiece(
   tile: Tile,
   pieceId: PieceId,
 ): PlacementResult {
-  if (!isOnBoard(tile)) return refuse("off-board");
-  const kind = tileKind(tile);
-  if (kind === "spawn-zone") return refuse("spawn-zone");
+  if (!isOnBoard(tile, maze.windowSize)) return refuse("off-board");
+  const kind = tileKind(tile, maze.windowSize);
+  if (kind === "spawn-zone" || kind === "closed") return refuse("spawn-zone");
   if (kind === "goal") return refuse("goal");
   if (pieceAt(maze, tile) !== undefined) return refuse("tile-taken");
 
   const placed = withPieces(
     new Map(maze.pieces).set(tileKey(tile), { pieceId, tile }),
+    maze.windowSize,
   );
-  if (
-    PIECES[pieceId].blocksDudes &&
-    !(
-      spawnZoneReachesGoal(placed.route) &&
-      spawnZoneReachesGoal(placed.turnedRoute)
-    )
-  ) {
+  if (PIECES[pieceId].blocksDudes && !reachesGoalBothWays(placed)) {
     return refuse("seals-goal");
   }
   return { ok: true, maze: placed };
 }
 
+function reachesGoalBothWays(maze: Maze): boolean {
+  return (
+    spawnZoneReachesGoal(maze.route, maze.windowSize) &&
+    spawnZoneReachesGoal(maze.turnedRoute, maze.windowSize)
+  );
+}
+
 /** The Spawn zone is all walkable and joined, so one of its tiles reaching the Goal means all do. */
-function spawnZoneReachesGoal(route: Route): boolean {
-  return spawnZoneTiles().some((tile) => reachesGoal(route, tile));
+function spawnZoneReachesGoal(route: Route, windowSize: number): boolean {
+  return spawnZoneTiles(windowSize).some((tile) => reachesGoal(route, tile));
+}
+
+export type ResizeResult =
+  | {
+      readonly ok: true;
+      readonly maze: Maze;
+      /** The Pieces that stood on lanes the resize closed, in the order they were placed. */
+      readonly crushed: readonly PlacedPiece[];
+    }
+  | { readonly ok: false; readonly refusal: "seals-goal" };
+
+/**
+ * The Maze on the Board at another Window size. Pieces on a lane that closes are crushed. A
+ * resize that would leave the Spawn zone no way to the Goal (closing the lane the only open way
+ * ran along, or the zone rows next to it) is refused, as placing a Piece that seals it is.
+ */
+export function resizeMaze(maze: Maze, windowSize: number): ResizeResult {
+  const pieces = placedPieces(maze);
+  const kept = pieces.filter(({ tile }) => isOnBoard(tile, windowSize));
+  const crushed = pieces.filter(({ tile }) => !isOnBoard(tile, windowSize));
+  const resized = withPieces(
+    new Map(kept.map((piece) => [tileKey(piece.tile), piece])),
+    windowSize,
+  );
+  if (!reachesGoalBothWays(resized)) {
+    return { ok: false, refusal: "seals-goal" };
+  }
+  return { ok: true, maze: resized, crushed };
 }
 
 /**
  * The open tiles a Turnstile's arms block: left and right of it, or above and below once
  * turned. All Turnstiles turn together, so a Maze only ever has these two layouts.
  */
-export function turnstileArms(tile: Tile, turned: boolean): Tile[] {
+export function turnstileArms(
+  tile: Tile,
+  turned: boolean,
+  windowSize: number,
+): Tile[] {
   const arms = turned
     ? [
         { column: tile.column, row: tile.row - 1 },
@@ -106,7 +143,9 @@ export function turnstileArms(tile: Tile, turned: boolean): Tile[] {
         { column: tile.column - 1, row: tile.row },
         { column: tile.column + 1, row: tile.row },
       ];
-  return arms.filter((arm) => isOnBoard(arm) && tileKind(arm) === "open");
+  return arms.filter(
+    (arm) => isOnBoard(arm, windowSize) && tileKind(arm, windowSize) === "open",
+  );
 }
 
 /** The Maze without the Piece on `tile`, with its routes worked out again; unchanged if the tile is empty. */
@@ -115,7 +154,7 @@ export function removePiece(maze: Maze, tile: Tile): Maze {
   if (!maze.pieces.has(key)) return maze;
   const pieces = new Map(maze.pieces);
   pieces.delete(key);
-  return withPieces(pieces);
+  return withPieces(pieces, maze.windowSize);
 }
 
 /** The direction fields Wall-breakers follow instead of the route, for one Turnstile layout. */
@@ -137,7 +176,7 @@ export function wallBreakerRoutes(
   maze: Maze,
   turned: boolean,
 ): WallBreakerRoutes {
-  const arms = armsOf(maze.pieces, turned);
+  const arms = armsOf(maze.pieces, turned, maze.windowSize);
   const blocking = placedPieces(maze).filter(
     ({ pieceId }) => PIECES[pieceId].blocksDudes,
   );
@@ -146,21 +185,27 @@ export function wallBreakerRoutes(
     const key = tileKey(tile);
     if (arms.has(key)) return null;
     return blocks.has(key) ? WALL_BREAKER_PIECE_COST : 1;
-  });
+  }, maze.windowSize);
   const toNearestWall = computeWeightedRoute(
     (tile) => {
       const key = tileKey(tile);
       return arms.has(key) || blocks.has(key) ? null : 1;
     },
+    maze.windowSize,
     blocking.map(({ tile }) => tile),
   );
   return { throughWalls, toNearestWall };
 }
 
-function withPieces(pieces: ReadonlyMap<string, PlacedPiece>): Maze {
-  const route = routeAround(pieces, false);
-  const turnedRoute = hasTurnstile(pieces) ? routeAround(pieces, true) : route;
-  return { pieces, route, turnedRoute };
+function withPieces(
+  pieces: ReadonlyMap<string, PlacedPiece>,
+  windowSize: number,
+): Maze {
+  const route = routeAround(pieces, false, windowSize);
+  const turnedRoute = hasTurnstile(pieces)
+    ? routeAround(pieces, true, windowSize)
+    : route;
+  return { pieces, route, turnedRoute, windowSize };
 }
 
 function hasTurnstile(pieces: ReadonlyMap<string, PlacedPiece>): boolean {
@@ -173,19 +218,23 @@ function hasTurnstile(pieces: ReadonlyMap<string, PlacedPiece>): boolean {
 function armsOf(
   pieces: ReadonlyMap<string, PlacedPiece>,
   turned: boolean,
+  windowSize: number,
 ): Set<string> {
   return new Set(
     [...pieces.values()]
       .filter(({ pieceId }) => PIECES[pieceId].turnIntervalSeconds !== null)
-      .flatMap(({ tile }) => turnstileArms(tile, turned).map(tileKey)),
+      .flatMap(({ tile }) =>
+        turnstileArms(tile, turned, windowSize).map(tileKey),
+      ),
   );
 }
 
 function routeAround(
   pieces: ReadonlyMap<string, PlacedPiece>,
   turned: boolean,
+  windowSize: number,
 ): Route {
-  const arms = armsOf(pieces, turned);
+  const arms = armsOf(pieces, turned, windowSize);
   return computeRoute((tile) => {
     const key = tileKey(tile);
     const piece = pieces.get(key);
@@ -193,7 +242,7 @@ function routeAround(
       !arms.has(key) &&
       (piece === undefined || !PIECES[piece.pieceId].blocksDudes)
     );
-  });
+  }, windowSize);
 }
 
 function refuse(refusal: PlacementRefusal): PlacementResult {

@@ -6,18 +6,33 @@ import {
 
 describe("tileAtPoint", () => {
   it("finds the tile a point is inside", () => {
-    expect(tileAtPoint({ x: 0, y: 0 }, 64)).toEqual({ column: 0, row: 0 });
-    expect(tileAtPoint({ x: 63.9, y: 64 }, 64)).toEqual({ column: 0, row: 1 });
-    expect(tileAtPoint({ x: 1407, y: 895 }, 64)).toEqual({
+    expect(tileAtPoint({ x: 0, y: 0 }, 64, 0)).toEqual({ column: 0, row: 0 });
+    expect(tileAtPoint({ x: 63.9, y: 64 }, 64, 0)).toEqual({
+      column: 0,
+      row: 1,
+    });
+    expect(tileAtPoint({ x: 1407, y: 895 }, 64, 0)).toEqual({
       column: 21,
       row: 13,
     });
   });
 
   it("is null off the Board", () => {
-    expect(tileAtPoint({ x: -1, y: 10 }, 64)).toBeNull();
-    expect(tileAtPoint({ x: 1408, y: 10 }, 64)).toBeNull();
-    expect(tileAtPoint({ x: 10, y: 896 }, 64)).toBeNull();
+    expect(tileAtPoint({ x: -1, y: 10 }, 64, 0)).toBeNull();
+    expect(tileAtPoint({ x: 1408, y: 10 }, 64, 0)).toBeNull();
+    expect(tileAtPoint({ x: 10, y: 896 }, 64, 0)).toBeNull();
+  });
+
+  it("finds lane tiles above and below once Window size has opened them", () => {
+    expect(tileAtPoint({ x: 10, y: -1 }, 64, 1)).toEqual({
+      column: 0,
+      row: -1,
+    });
+    expect(tileAtPoint({ x: 10, y: 896 }, 64, 1)).toEqual({
+      column: 0,
+      row: 14,
+    });
+    expect(tileAtPoint({ x: 10, y: -65 }, 64, 1)).toBeNull();
   });
 });
 

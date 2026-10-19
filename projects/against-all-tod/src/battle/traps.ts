@@ -122,15 +122,20 @@ export function decoyRoutesOf(maze: Maze): DecoyRoutes | null {
     .map(({ tile }) => tile);
   if (decoys.length === 0) return null;
   return {
-    unturned: fieldTo(decoys, maze.route),
-    turned: fieldTo(decoys, maze.turnedRoute),
+    unturned: fieldTo(decoys, maze.route, maze.windowSize),
+    turned: fieldTo(decoys, maze.turnedRoute, maze.windowSize),
   };
 }
 
 /** The field to the decoys over the tiles Dudes can walk in one layout: those that reach the Goal. */
-function fieldTo(decoys: readonly Tile[], route: Route): Route {
+function fieldTo(
+  decoys: readonly Tile[],
+  route: Route,
+  windowSize: number,
+): Route {
   return computeWeightedRoute(
     (tile) => (distanceToGoal(route, tile) === null ? null : 1),
+    windowSize,
     decoys,
   );
 }

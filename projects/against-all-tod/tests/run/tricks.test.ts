@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { runBattle } from "../../src/battle/battle";
+import { runBattle, startBattle } from "../../src/battle/battle";
 import { GOLD_RULES } from "../../src/catalog/gold-rules";
-import { SLIDERS, TRICK_RULES } from "../../src/catalog/tricks";
+import { SLIDERS, TRICK_RULES, type SliderId } from "../../src/catalog/tricks";
 import {
   applyRunAction,
   battleSetupOf,
@@ -29,7 +29,7 @@ function refusalOf(state: RunState, action: RunAction) {
   return result.ok ? null : result.refusal;
 }
 
-function drag(slider: "brightness" | "game-speed", to: number, atStep = 0) {
+function drag(slider: SliderId, to: number, atStep = 0) {
   return { type: "drag-slider", slider, to, atStep } as const;
 }
 
@@ -139,5 +139,95 @@ describe("dragging a slider mid-battle", () => {
     const lost = finish(dragged, "attack");
     expect(lost.sliders).toEqual(NEUTRAL_SLIDERS);
     expect(lost.sliderInputs).toEqual([]);
+  });
+});
+
+describe("the Window size trick", () => {
+  const WINDOW_STEP = SLIDERS["window-size"].stepPrice;
+  const wall = { type: "place-piece", pieceId: "crate-wall" } as const;
+  const rich = (state: RunState): RunState => ({
+    ...state,
+    wallets: { defense: 10_000, attack: 10_000 },
+  });
+  const attacking = play(finish(play(newRun(1), START), "defense"), {
+    type: "continue",
+  });
+
+  it("is priced like every other slider: a step away, double back toward the middle", () => {
+    const bigger = play(newRun(1), drag("window-size", 1));
+    expect(bigger.wallets.defense).toBe(
+      GOLD_RULES.startingDefenseGold - WINDOW_STEP,
+    );
+    const back = play(bigger, drag("window-size", 0));
+    expect(back.wallets.defense).toBe(
+      bigger.wallets.defense - WINDOW_STEP * TRICK_RULES.towardMiddleMultiplier,
+    );
+    expect(refusalOf(newRun(1), drag("window-size", 3))).toBe("slider-end");
+  });
+
+  it("can't be dragged mid-battle, and charges nothing for trying", () => {
+    expect(refusalOf(play(newRun(1), START), drag("window-size", 1, 60))).toBe(
+      "wrong-phase",
+    );
+  });
+
+  it("opens a lane a Piece can go on, and the battle's Maze has it", () => {
+    const tile = { column: 5, row: -1 };
+    expect(refusalOf(newRun(1), { ...wall, tile })).toBe("off-board");
+    const built = play(newRun(1), drag("window-size", 1), { ...wall, tile });
+    expect(built.pieces.map((piece) => piece.tile)).toEqual([tile]);
+    expect(battleSetupOf(built).maze.windowSize).toBe(1);
+  });
+
+  it("crushes the Pieces on a lane when it closes again", () => {
+    const built = play(
+      rich(newRun(1)),
+      drag("window-size", 2),
+      { ...wall, tile: { column: 5, row: -2 } },
+      { ...wall, tile: { column: 6, row: -1 } },
+      { ...wall, tile: { column: 7, row: 15 } },
+      drag("window-size", 1),
+    );
+    expect(built.pieces.map((piece) => piece.tile)).toEqual([
+      { column: 6, row: -1 },
+    ]);
+  });
+
+  it("is refused when closing a lane would cut the Spawn zone off from the Goal", () => {
+    const rows = Array.from({ length: 14 }, (_, row) => row);
+    const walled = play(
+      rich(newRun(1)),
+      drag("window-size", 1),
+      ...rows.map((row) => ({ ...wall, tile: { column: 10, row } })),
+    );
+    expect(refusalOf(walled, drag("window-size", 0))).toBe("seals-goal");
+  });
+
+  it("squeezes Dudes into the nearest open row and fights from there", () => {
+    const painted = play(attacking, {
+      type: "paint-dude",
+      dudeKind: "intern",
+      at: { x: 1.5, y: 0.5 },
+      stroke: 99,
+    });
+    const squeezed = play(painted, drag("window-size", -1));
+    expect(squeezed.army.at(-1)?.at).toEqual({ x: 1.5, y: 1.5 });
+    expect(squeezed.army).toHaveLength(painted.army.length);
+    expect(
+      refusalOf(squeezed, {
+        type: "paint-dude",
+        dudeKind: "intern",
+        at: { x: 1.5, y: 0.5 },
+        stroke: 100,
+      }),
+    ).toBe("not-spawn-zone");
+    expect(() => startBattle(battleSetupOf(squeezed))).not.toThrow();
+  });
+
+  it("is Rewound with the Board and Army after a loss", () => {
+    const squeezed = play(rich(attacking), drag("window-size", -2));
+    const lost = finish(play(squeezed, START), "defense");
+    expect(lost.sliders["window-size"]).toBe(0);
+    expect(lost.army).toEqual(attacking.army);
   });
 });

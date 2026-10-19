@@ -63,8 +63,12 @@ The thing the Army must destroy. It has a health bar; the Attack turn is won whe
 _Avoid_: Base, core, castle, nexus
 
 **Spawn zone**:
-The 3 columns at the left edge of the Board where the attacker paints Dudes. The defender can't build there.
+The 3 columns at the left edge of the Board where the attacker paints Dudes. The defender can't build there. Window size down closes its top and bottom rows.
 _Avoid_: Spawn line, deployment line, start zone
+
+**Lane**:
+An extra row along the top or bottom edge of the Board, added by each step of Window size up. It starts empty, Pieces can be built on it, and they are crushed when it closes again.
+_Avoid_: Edge row, extra row, border
 
 ## The army
 
