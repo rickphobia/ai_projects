@@ -150,7 +150,7 @@ export function strike(
 }
 
 /**
- * The Pieces Wall-breakers hit during one step, in the order they hit them. A Piece destroyed
+ * The Pieces Wall-breakers (and Dudes reaching a Decoy Goal) hit during one step, in the order they hit them. A Piece destroyed
  * earlier in the step can't be hit again: the Wall-breaker at it waits for the route to open.
  */
 export class PieceHits {
@@ -181,16 +181,9 @@ export class PieceHits {
     const key = tileKey(piece.tile);
     if (this.gone.has(key)) return { dude, destroyed: null };
     const struck = strike(dude, step, stepsPerSecond);
-    if (struck.damage === 0) return { dude: struck.dude, destroyed: null };
-    const health =
-      (this.health.get(key) ?? PIECES[piece.pieceId].health) - struck.damage;
-    if (health > 0) {
-      this.health.set(key, health);
+    if (!this.damage(piece, struck.damage)) {
       return { dude: struck.dude, destroyed: null };
     }
-    this.health.delete(key);
-    this.gone.add(key);
-    this.destroyed.push(piece);
     const destroyed: PieceDestroyedEvent = {
       type: "piece-destroyed",
       step,
@@ -200,6 +193,22 @@ export class PieceHits {
       dudeKind: dude.kind,
     };
     return { dude: struck.dude, destroyed };
+  }
+
+  /** Takes `damage` off a standing Piece's health; true when that destroyed it. */
+  damage(piece: PlacedPiece, damage: number): boolean {
+    const key = tileKey(piece.tile);
+    if (damage === 0 || this.gone.has(key)) return false;
+    const health =
+      (this.health.get(key) ?? PIECES[piece.pieceId].health) - damage;
+    if (health > 0) {
+      this.health.set(key, health);
+      return false;
+    }
+    this.health.delete(key);
+    this.gone.add(key);
+    this.destroyed.push(piece);
+    return true;
   }
 
   /** Health of every damaged Piece still standing, by `tileKey`. */

@@ -15,6 +15,13 @@ const TURRET_LABEL = "turret";
 /** The Lighthouse's lamp and the Siren's horn: the turret sprite in their own colours. */
 const LIGHTHOUSE_COLOUR = 0xffe066;
 const SIREN_COLOUR = 0xff5c8a;
+/** Floor Pieces are a flat slab, see-through so they read as walkable. */
+const TAX_BOOTH_COLOUR = 0x7dd87d;
+const GRINDER_COLOUR = 0xb0b0b0;
+const FLOOR_ALPHA = 0.7;
+const FLOOR_SCALE = 0.8;
+const BOUNCER_COLOUR = 0xff9f1c;
+const DECOY_GOAL_COLOUR = 0xffd700;
 /** A Turnstile arm is a crate shrunk to this share of a tile, so the arm reads as part of the Piece. */
 const ARM_SCALE = 0.7;
 
@@ -40,8 +47,36 @@ export function pieceView(
     case "turnstile":
       piece.addChild(turnstileSprites(textures));
       break;
+    case "tax-booth":
+      piece.addChild(floorSprite(textures, TAX_BOOTH_COLOUR));
+      break;
+    case "grinder":
+      piece.addChild(floorSprite(textures, GRINDER_COLOUR));
+      break;
+    case "bouncer":
+      piece.addChild(
+        new Sprite({ texture: textures.crateWall, tint: BOUNCER_COLOUR }),
+      );
+      break;
+    case "decoy-goal":
+      piece.addChild(
+        new Sprite({ texture: textures.stoneBase, tint: DECOY_GOAL_COLOUR }),
+      );
+      break;
   }
   return piece;
+}
+
+function floorSprite(textures: BoardTextures, colour: ColorSource): Sprite {
+  const slab = new Sprite({
+    texture: textures.towerBase,
+    anchor: 0.5,
+    scale: FLOOR_SCALE,
+    tint: colour,
+    alpha: FLOOR_ALPHA,
+  });
+  slab.position.set(TILE_SIZE / 2, TILE_SIZE / 2);
+  return slab;
 }
 
 function towerSprites(

@@ -1,6 +1,7 @@
 import type { Side } from "../battle/battle";
 import type { BattleEvent } from "../battle/events";
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
+import { PIECES, type PieceId } from "../catalog/pieces";
 import { GOLD_RULES, type GoldRules } from "../catalog/gold-rules";
 
 /** Gold for each side. The two never mix: each side spends only its own. */
@@ -29,11 +30,14 @@ export interface GoldBreakdown {
   readonly defense: {
     readonly kills: number;
     readonly goalHealthLeft: number;
+    readonly taxed: number;
   };
   readonly attack: {
     readonly reachedGoal: number;
     readonly survivors: number;
     readonly piecesDestroyed: number;
+    /** Paid to the defense through Tax Booths; taken off the Attack gold. */
+    readonly taxPaid: number;
   };
 }
 
@@ -46,13 +50,16 @@ export function goldBreakdown(
   let kills = 0;
   let reachedGoal = 0;
   let piecesDestroyed = 0;
+  let taxed = 0;
   for (const event of events) {
     if (event.type === "kill") {
-      kills += rules.perKill * DUDE_KINDS[event.dudeKind].goldValue;
+      kills += killGold(event.pieceId, event.dudeKind, rules);
     } else if (event.type === "reach-goal") {
       reachedGoal += rules.perReachGoal * DUDE_KINDS[event.dudeKind].goldValue;
     } else if (event.type === "piece-destroyed") {
       piecesDestroyed += rules.perPieceDestroyed;
+    } else if (event.type === "taxed") {
+      taxed += rules.perTaxedDude;
     }
   }
   let goalHealthLeft = 0;
@@ -67,12 +74,25 @@ export function goldBreakdown(
     }
   }
   return {
-    defense: { kills, goalHealthLeft },
-    attack: { reachedGoal, survivors, piecesDestroyed },
+    defense: { kills, goalHealthLeft, taxed },
+    attack: { reachedGoal, survivors, piecesDestroyed, taxPaid: taxed },
   };
 }
 
-/** The gold a battle earns each side, from everything it emitted and how it ended. */
+function killGold(
+  pieceId: PieceId,
+  dudeKind: DudeKindId,
+  rules: GoldRules,
+): number {
+  const trap = PIECES[pieceId].trap;
+  const multiplier = trap?.kind === "grinder" ? trap.killGoldMultiplier : 1;
+  return rules.perKill * DUDE_KINDS[dudeKind].goldValue * multiplier;
+}
+
+/**
+ * The gold a battle earns each side, from everything it emitted and how it ended. Attack gold
+ * is negative when Tax Booths took more than the attacker earned; `addGold` takes it from the wallet.
+ */
 export function goldEarned(
   events: readonly BattleEvent[],
   end: BattleEnd,
@@ -80,15 +100,20 @@ export function goldEarned(
 ): Wallets {
   const { defense, attack } = goldBreakdown(events, end, rules);
   return {
-    defense: defense.kills + defense.goalHealthLeft,
-    attack: attack.reachedGoal + attack.survivors + attack.piecesDestroyed,
+    defense: defense.kills + defense.goalHealthLeft + defense.taxed,
+    attack:
+      attack.reachedGoal +
+      attack.survivors +
+      attack.piecesDestroyed -
+      attack.taxPaid,
   };
 }
 
+/** A wallet never goes below zero: a Tax Booth can't take gold the attacker doesn't have. */
 export function addGold(wallets: Wallets, gold: Wallets): Wallets {
   return {
-    defense: wallets.defense + gold.defense,
-    attack: wallets.attack + gold.attack,
+    defense: Math.max(0, wallets.defense + gold.defense),
+    attack: Math.max(0, wallets.attack + gold.attack),
   };
 }
 

@@ -37,4 +37,26 @@ describe("the Piece catalog", () => {
       .sort();
     expect(hitters).toEqual(["lighthouse", "sniper-nest"]);
   });
+
+  it("has walkable floor Tax Booth and Grinder, and blocking Bouncer and Decoy Goal", () => {
+    expect(PIECES["tax-booth"].blocksDudes).toBe(false);
+    expect(PIECES.grinder.blocksDudes).toBe(false);
+    expect(PIECES.bouncer.blocksDudes).toBe(true);
+    expect(PIECES["decoy-goal"].blocksDudes).toBe(true);
+  });
+
+  it("marks the Bouncer and Decoy Goal as Unlocks, Bouncer first", () => {
+    const unlocked = Object.values(PIECES)
+      .filter(({ unlockScore }) => unlockScore !== null)
+      .sort((a, b) => (a.unlockScore ?? 0) - (b.unlockScore ?? 0))
+      .map(({ id }) => id);
+    expect(unlocked).toEqual(["bouncer", "decoy-goal"]);
+  });
+
+  it("lets the Grinder kill only Interns, Termites and Streakers outright", () => {
+    const trap = PIECES.grinder.trap;
+    expect(trap?.kind === "grinder" ? [...trap.smallKinds].sort() : []).toEqual(
+      ["intern", "streaker", "termite"],
+    );
+  });
 });

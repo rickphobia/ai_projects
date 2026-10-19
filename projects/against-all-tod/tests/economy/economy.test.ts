@@ -3,6 +3,7 @@ import type {
   KillEvent,
   PieceDestroyedEvent,
   ReachGoalEvent,
+  TaxedEvent,
 } from "../../src/battle/events";
 import { DUDE_KINDS } from "../../src/catalog/dudes";
 import { GOLD_RULES, type GoldRules } from "../../src/catalog/gold-rules";
@@ -148,5 +149,39 @@ describe("addGold", () => {
     expect(
       addGold({ defense: 1, attack: 2 }, { defense: 10, attack: 20 }),
     ).toEqual({ defense: 11, attack: 22 });
+  });
+});
+
+describe("Tax Booths and Grinders", () => {
+  const taxed: TaxedEvent = {
+    type: "taxed",
+    step: 1,
+    pieceTile: tile,
+    dudeId: 1,
+    dudeKind: "intern",
+  };
+
+  it("move Attack gold to Defense gold per Dude taxed", () => {
+    const rules = { ...RULES, perTaxedDude: 2 };
+    expect(goldEarned([taxed, taxed], ATTACK_WIN, rules)).toEqual({
+      defense: 4,
+      attack: -4,
+    });
+  });
+
+  it("never take an Attack wallet below zero", () => {
+    expect(
+      addGold({ defense: 10, attack: 3 }, { defense: 4, attack: -4 }),
+    ).toEqual({
+      defense: 14,
+      attack: 0,
+    });
+  });
+
+  it("pay double for a Grinder kill", () => {
+    const ground: KillEvent = { ...kill(1), pieceId: "grinder" };
+    expect(goldEarned([ground], DEFENSE_WIN, RULES).defense).toBe(
+      2 * 3 * intern,
+    );
   });
 });

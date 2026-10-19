@@ -3,7 +3,15 @@
  * means changing a number here, and tests read the numbers from here rather than copying them.
  */
 export type PieceId =
-  "crate-wall" | "sniper-nest" | "turnstile" | "lighthouse" | "siren";
+  | "crate-wall"
+  | "sniper-nest"
+  | "turnstile"
+  | "lighthouse"
+  | "siren"
+  | "tax-booth"
+  | "grinder"
+  | "bouncer"
+  | "decoy-goal";
 
 export interface PieceEntry {
   /** Stable id that saves and tests refer to. */
@@ -11,7 +19,7 @@ export interface PieceEntry {
   readonly name: string;
   /** One line for the piece info panel. */
   readonly description: string;
-  /** Blocking Pieces shape the route; floor Pieces (later tickets) are walked over. */
+  /** Blocking Pieces shape the route; floor Pieces (Tax Booth, Grinder) are walked over. */
   readonly blocksDudes: boolean;
   /** In Defense gold. */
   readonly price: number;
@@ -25,7 +33,37 @@ export interface PieceEntry {
   readonly stun: StunStats | null;
   /** Seconds between quarter turns, for Pieces that turn (and so block different tiles); null otherwise. */
   readonly turnIntervalSeconds: number | null;
+  /** What it does to the Dudes that cross or touch it; null for Pieces that only block or shoot. */
+  readonly trap: TrapStats | null;
+  /** The best Score that Unlocks it; null when it is there from the start. */
+  readonly unlockScore: number | null;
 }
+
+/** Floor Pieces act on Dudes walking onto their tile; the Bouncer on Dudes beside it; the Decoy Goal draws Dudes in. */
+export type TrapStats =
+  /** Every walking Dude that steps onto it moves Attack gold into Defense gold (the amount is a gold rule). */
+  | { readonly kind: "tax-booth" }
+  | {
+      readonly kind: "grinder";
+      /** Dude kinds it kills outright. */
+      readonly smallKinds: readonly DudeKindId[];
+      /** Health taken from any other Dude that steps onto it. */
+      readonly damage: number;
+      /** It does nothing for this long after each kill. */
+      readonly jamSeconds: number;
+      /** Its kills pay this many times the usual Defense gold. */
+      readonly killGoldMultiplier: number;
+    }
+  | {
+      readonly kind: "bouncer";
+      /** A walking Dude this close to its tile centre, in tiles, is touching it. */
+      readonly touchRange: number;
+      readonly cooldownSeconds: number;
+    }
+  /** Walkers that can reach it go for it before the Goal; each one hits it with its Goal damage and vanishes. */
+  | { readonly kind: "decoy-goal" };
+
+import type { DudeKindId } from "./dudes";
 
 export interface TowerStats {
   /** In tiles, from the centre of the Piece's tile. */
@@ -74,6 +112,8 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
     beam: null,
     stun: null,
     turnIntervalSeconds: null,
+    trap: null,
+    unlockScore: null,
   },
   "sniper-nest": {
     id: "sniper-nest",
@@ -86,6 +126,8 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
     beam: null,
     stun: null,
     turnIntervalSeconds: null,
+    trap: null,
+    unlockScore: null,
   },
   turnstile: {
     id: "turnstile",
@@ -99,6 +141,8 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
     beam: null,
     stun: null,
     turnIntervalSeconds: 5,
+    trap: null,
+    unlockScore: null,
   },
   lighthouse: {
     id: "lighthouse",
@@ -119,6 +163,8 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
     },
     stun: null,
     turnIntervalSeconds: null,
+    trap: null,
+    unlockScore: null,
   },
   siren: {
     id: "siren",
@@ -138,5 +184,72 @@ export const PIECES: Readonly<Record<PieceId, PieceEntry>> = {
       hitsAir: false,
     },
     turnIntervalSeconds: null,
+    trap: null,
+    unlockScore: null,
+  },
+  "tax-booth": {
+    id: "tax-booth",
+    name: "Tax Booth",
+    description:
+      "Floor. Every Dude that walks over it pays the defender from the attacker's gold.",
+    blocksDudes: false,
+    price: 30,
+    health: 100,
+    tower: null,
+    beam: null,
+    stun: null,
+    turnIntervalSeconds: null,
+    trap: { kind: "tax-booth" },
+    unlockScore: null,
+  },
+  grinder: {
+    id: "grinder",
+    name: "Grinder",
+    description:
+      "Floor. Kills small Dudes outright for double gold, then jams for 3 seconds.",
+    blocksDudes: false,
+    price: 45,
+    health: 100,
+    tower: null,
+    beam: null,
+    stun: null,
+    turnIntervalSeconds: null,
+    trap: {
+      kind: "grinder",
+      smallKinds: ["intern", "termite", "streaker"],
+      damage: 60,
+      jamSeconds: 3,
+      killGoldMultiplier: 2,
+    },
+    unlockScore: null,
+  },
+  bouncer: {
+    id: "bouncer",
+    name: "Bouncer",
+    description: "Throws the first Dude it touches back to the Spawn line.",
+    blocksDudes: true,
+    price: 40,
+    health: 150,
+    tower: null,
+    beam: null,
+    stun: null,
+    turnIntervalSeconds: null,
+    trap: { kind: "bouncer", touchRange: 1.1, cooldownSeconds: 6 },
+    unlockScore: 10,
+  },
+  "decoy-goal": {
+    id: "decoy-goal",
+    name: "Decoy Goal",
+    description:
+      "Dudes go for it first until it breaks. Dudes that hit it earn nothing.",
+    blocksDudes: true,
+    price: 35,
+    health: 60,
+    tower: null,
+    beam: null,
+    stun: null,
+    turnIntervalSeconds: null,
+    trap: { kind: "decoy-goal" },
+    unlockScore: 20,
   },
 };

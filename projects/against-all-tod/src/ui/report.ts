@@ -66,11 +66,13 @@ export function goldLines(
     defense: [
       ["Kills", gold.defense.kills],
       ["Goal health left", gold.defense.goalHealthLeft],
+      ["Tax Booths", gold.defense.taxed],
     ],
     attack: [
       ["Dudes at the Goal", gold.attack.reachedGoal],
       ["Survivors", gold.attack.survivors],
       ["Pieces destroyed", gold.attack.piecesDestroyed],
+      ["Tax Booths", -gold.attack.taxPaid],
     ],
   };
 }
