@@ -27,13 +27,18 @@ export const NO_TOWER_TRICKS: TowerTricks = {
  * own beam is not a tower, so the dark never touches it). Game speed up slows reloading; down
  * speeds it. Volume down hides Dudes from towers until they come close.
  */
-export function towerTricks(sliders: SliderPositions, maze: Maze): TowerTricks {
+export function towerTricks(
+  sliders: SliderPositions,
+  maze: Maze,
+  /** False under a Power Cut: Lighthouses light nothing. */
+  lightsOn = true,
+): TowerTricks {
   const reloadFactor =
     1 + TRICK_RULES.reloadPerGameStep * sliders["game-speed"];
   const sightTiles = quietSight(sliders.volume);
   const dark = Math.max(0, -sliders.brightness);
   if (dark === 0) return { ...NO_TOWER_TRICKS, reloadFactor, sightTiles };
-  const lit = litTilesOf(maze);
+  const lit = lightsOn ? litTilesOf(maze) : new Set<string>();
   const darkFactor = Math.max(0, 1 - TRICK_RULES.rangeLossPerDarkStep * dark);
   return {
     rangeFactor: (tile) => (lit.has(tileKey(tile)) ? 1 : darkFactor),

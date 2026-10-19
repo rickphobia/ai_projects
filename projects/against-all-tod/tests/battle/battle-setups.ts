@@ -66,6 +66,7 @@ export function setupOf(
     rules: { ...BATTLE_RULES, ...rules },
     sliders: NEUTRAL_SLIDERS,
     sliderInputs: [],
+    curse: null,
   };
 }
 

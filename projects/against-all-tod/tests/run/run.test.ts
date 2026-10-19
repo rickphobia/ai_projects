@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { roundOneArmy } from "../../src/battle/army";
 import { runBattle } from "../../src/battle/battle";
+import { earthquake } from "../../src/battle/curses";
+import { CURSE_IDS } from "../../src/catalog/curses";
 import { DUDE_KINDS, paintRadius } from "../../src/catalog/dudes";
 import { GOLD_RULES } from "../../src/catalog/gold-rules";
 import { PIECES } from "../../src/catalog/pieces";
@@ -9,6 +11,7 @@ import { SPAWN_ZONE_COLUMNS } from "../../src/maze/board";
 import {
   applyRunAction,
   battleSetupOf,
+  curseOf,
   dudesUnder,
   giftLeft,
   newRun,
@@ -542,5 +545,59 @@ describe("erasing", () => {
     expect(lost.wallets.attack).toBe(
       attacking.wallets.attack + GOLD_RULES.rewindBonus,
     );
+  });
+});
+
+describe("Curses", () => {
+  it("rolls none in Round 1, then one per Round from the seed", () => {
+    const run = newRun(1);
+    expect(curseOf(run)).toBeNull();
+    const roundTwo = finish(run, "defense");
+    expect(curseOf(roundTwo)).not.toBeNull();
+    expect(battleSetupOf(roundTwo).curse).toBe(curseOf(roundTwo));
+    expect(curseOf(finish(newRun(1), "defense"))).toBe(curseOf(roundTwo));
+  });
+
+  it("rolls every Curse across seeds", () => {
+    const rolled = new Set(
+      Array.from({ length: 200 }, (_, seed) =>
+        curseOf(finish(newRun(seed), "defense")),
+      ),
+    );
+    expect([...rolled].sort()).toEqual([...CURSE_IDS].sort());
+  });
+
+  it("keeps the same Curse after a Rewind", () => {
+    const roundTwo = play(finish(newRun(1), "defense"), { type: "continue" });
+    const rewound = finish(roundTwo, "defense");
+    expect(rewound.phase).toBe("round-lost");
+    expect(curseOf(rewound)).toBe(curseOf(roundTwo));
+  });
+
+  it("removes the Piece an Earthquake moved when a Wall-breaker destroys it", () => {
+    const seed = Array.from({ length: 500 }, (_, at) => at).find(
+      (at) => curseOf(finish(newRun(at), "defense")) === "earthquake",
+    );
+    if (seed === undefined) throw new Error("no seed rolls an Earthquake");
+    const walls = [5, 6, 7].map((row) => ({
+      pieceId: "crate-wall" as const,
+      tile: { column: 10, row },
+    }));
+    const fighting = play(
+      { ...finish(newRun(seed), "defense"), pieces: walls },
+      { type: "continue" },
+      { type: "start-battle" },
+    );
+    const setup = battleSetupOf(fighting);
+    const quake = earthquake(setup.maze, setup.seed);
+    if (quake === null) throw new Error("a wall must be able to move");
+    const won = play(fighting, {
+      type: "battle-finished",
+      winner: "attack",
+      earned: EARNED,
+      destroyed: [quake.to],
+    });
+    expect(won.pieces.map(({ tile }) => tile)).not.toContainEqual(quake.from);
+    expect(won.pieces).toHaveLength(2);
   });
 });

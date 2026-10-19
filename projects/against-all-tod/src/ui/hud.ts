@@ -1,5 +1,6 @@
 import type { BattleOutcome, Side } from "../battle/battle";
 import { WATCH_SPEEDS, type WatchSpeed } from "../battle/watch-clock";
+import { CURSES, type CurseId } from "../catalog/curses";
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { PIECES, type PieceId } from "../catalog/pieces";
 import type { FreeItem, RunRefusal, RunStatus } from "../run/run";
@@ -69,7 +70,10 @@ export function battleStatus(
   return `Goal ${String(Math.ceil(goalHealth))}/${String(maxHealth)} · ${clock}`;
 }
 
-/** "Round 3 · Defense turn · Lives 2 · Score 2 · Defense gold 50 · Attack gold 40". */
+/**
+ * "Round 3 · Defense turn · Lives 2 · Score 2 · Defense gold 50 · Attack gold 40", then the
+ * Round's Curse, if any.
+ */
 export function runStatus(status: RunStatus): string {
   return [
     `Round ${String(status.round)}`,
@@ -78,7 +82,21 @@ export function runStatus(status: RunStatus): string {
     `Score ${String(status.score)}`,
     `Defense gold ${String(status.wallets.defense)}`,
     `Attack gold ${String(status.wallets.attack)}`,
+    ...(status.curse === null ? [] : [curseStatus(status.curse)]),
   ].join(" · ");
+}
+
+/** "Curse: Rust (towers fire 20% slower)", for the status line all Round. */
+export function curseStatus(curse: CurseId): string {
+  const { name, description } = CURSES[curse];
+  const effect = description.charAt(0).toLowerCase() + description.slice(1);
+  return `Curse: ${name} (${effect.replace(/\.$/, "")})`;
+}
+
+/** "Curse this Round: Rust, hurting the defense. Towers fire 20% slower.", announced as building starts. */
+export function curseAnnouncement(curse: CurseId): string {
+  const { name, hurts, description } = CURSES[curse];
+  return `Curse this Round: ${name}, hurting the ${hurts}. ${description}`;
 }
 
 /** The line under the heading after a battle: what the result means for the Run. */
@@ -106,6 +124,8 @@ export class Hud {
   private readonly hint: HTMLElement;
   private readonly message: HTMLElement;
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The Round whose Curse was last announced, so each Round's is announced once. */
+  private announcedRound: number | null = null;
 
   constructor(
     private readonly host: HTMLElement,
@@ -131,6 +151,10 @@ export class Hud {
 
   showRunStatus(status: RunStatus): void {
     this.status.textContent = runStatus(status);
+    if (status.curse !== null && status.round !== this.announcedRound) {
+      this.showMessage(curseAnnouncement(status.curse));
+    }
+    this.announcedRound = status.round;
     // The heading and the chosen button wear the side's colour.
     this.host.setAttribute("data-side", status.side);
   }

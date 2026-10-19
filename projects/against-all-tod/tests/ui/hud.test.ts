@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { CURSES } from "../../src/catalog/curses";
 import type { RunRefusal } from "../../src/run/run";
 import {
   battleStatus,
+  curseAnnouncement,
+  curseStatus,
   outcomeMessage,
   refusalMessage,
   roundOverMessage,
@@ -32,14 +35,53 @@ describe("runStatus", () => {
   it("shows the Round, the side, the Lives, the Score and both wallets", () => {
     const wallets = { defense: 50, attack: 40 };
     expect(
-      runStatus({ round: 3, side: "defense", lives: 2, score: 2, wallets }),
+      runStatus({
+        round: 3,
+        side: "defense",
+        lives: 2,
+        score: 2,
+        wallets,
+        curse: null,
+      }),
     ).toBe(
       "Round 3 · Defense turn · Lives 2 · Score 2 · Defense gold 50 · Attack gold 40",
     );
     expect(
-      runStatus({ round: 4, side: "attack", lives: 1, score: 3, wallets }),
+      runStatus({
+        round: 4,
+        side: "attack",
+        lives: 1,
+        score: 3,
+        wallets,
+        curse: null,
+      }),
     ).toBe(
       "Round 4 · Attack turn · Lives 1 · Score 3 · Defense gold 50 · Attack gold 40",
+    );
+  });
+});
+
+describe("the Curse in the HUD", () => {
+  it("ends the status line with the Round's Curse and its effect", () => {
+    const wallets = { defense: 50, attack: 40 };
+    expect(
+      runStatus({
+        round: 2,
+        side: "attack",
+        lives: 3,
+        score: 1,
+        wallets,
+        curse: "rust",
+      }),
+    ).toBe(
+      `Round 2 · Attack turn · Lives 3 · Score 1 · Defense gold 50 · Attack gold 40 · ${curseStatus("rust")}`,
+    );
+    expect(curseStatus("rust")).toBe("Curse: Rust (towers fire 20% slower)");
+  });
+
+  it("announces the Curse with the side it hurts and what it does", () => {
+    expect(curseAnnouncement("mud")).toBe(
+      `Curse this Round: Mud, hurting the attack. ${CURSES.mud.description}`,
     );
   });
 });

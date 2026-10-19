@@ -7,8 +7,10 @@ import {
   type PlacedDude,
 } from "../battle/army";
 import type { BattleSetup, Side } from "../battle/battle";
+import { earthquake } from "../battle/curses";
 import type { BoardPoint } from "../battle/events";
 import { BATTLE_RULES, type BattleRules } from "../catalog/battle-rules";
+import { CURSE_IDS, CURSE_RULES, type CurseId } from "../catalog/curses";
 import {
   DUDE_KINDS,
   DUDE_KINDS_ON_SALE,
@@ -28,6 +30,7 @@ import {
   type Wallets,
 } from "../economy/economy";
 import { tileKey, type Tile } from "../maze/board";
+import { createRng } from "../rng/rng";
 import {
   emptyMaze,
   placePiece,
@@ -232,6 +235,7 @@ export interface RunStatus {
   readonly lives: number;
   readonly score: number;
   readonly wallets: Wallets;
+  readonly curse: CurseId | null;
 }
 
 export function runStatusOf(state: RunState): RunStatus {
@@ -241,7 +245,20 @@ export function runStatusOf(state: RunState): RunStatus {
     lives: state.lives,
     score: state.score,
     wallets: state.wallets,
+    curse: curseOf(state),
   };
+}
+
+/**
+ * The Round's Curse, rolled from the Round's seed, so a Rewound Round keeps the same one. Worked
+ * out rather than stored, so a save needs nothing new. Null before the first cursed Round.
+ */
+export function curseOf(state: RunState): CurseId | null {
+  const round = roundOf(state);
+  if (round < CURSE_RULES.firstCursedRound) return null;
+  // Its own stream off the Round's seed, so the roll doesn't follow the crate's or the battle's.
+  const rng = createRng((roundSeed(state.seed, round) ^ 0xc0_75e5) >>> 0);
+  return CURSE_IDS[Math.floor(rng() * CURSE_IDS.length)] ?? null;
 }
 
 export function roundOf(state: RunState): number {
@@ -301,6 +318,7 @@ export function battleSetupOf(
     rules,
     sliders: state.sliders,
     sliderInputs: state.sliderInputs,
+    curse: curseOf(state),
   };
 }
 
@@ -677,7 +695,7 @@ function winRound(
 ): RunState {
   const wallets = addGold(state.wallets, earned);
   const sliders = currentSliders(state);
-  const gone = new Set(destroyed.map(tileKey));
+  const gone = new Set(boardTiles(state, destroyed).map(tileKey));
   const pieces =
     gone.size === 0
       ? state.pieces
@@ -698,6 +716,23 @@ function winRound(
       sliders,
     },
   });
+}
+
+/**
+ * Where the destroyed Pieces stand on the Board. An Earthquake moved one Piece for the battle
+ * only, so a Piece destroyed on its shaken tile is the one from the tile it left.
+ */
+function boardTiles(state: RunState, destroyed: readonly Tile[]): Tile[] {
+  if (curseOf(state) !== "earthquake" || destroyed.length === 0) {
+    return [...destroyed];
+  }
+  const setup = battleSetupOf(state);
+  const quake = earthquake(setup.maze, setup.seed);
+  if (quake === null) return [...destroyed];
+  const shaken = tileKey(quake.to);
+  return destroyed.map((tile) =>
+    tileKey(tile) === shaken ? quake.from : tile,
+  );
 }
 
 /**

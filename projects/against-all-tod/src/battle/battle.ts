@@ -1,4 +1,5 @@
 import type { BattleRules } from "../catalog/battle-rules";
+import type { CurseId } from "../catalog/curses";
 import { DUDE_KINDS } from "../catalog/dudes";
 import type { MutationId } from "../catalog/mutations";
 import { PIECES } from "../catalog/pieces";
@@ -12,6 +13,16 @@ import {
 } from "../tricks/tricks";
 import { applyEffects, effectPiecesOf, type EffectPiece } from "./area-effects";
 import { giantsOf, isSpawnZonePoint, type Army } from "./army";
+import {
+  curseReloadFactor,
+  cursedMaze,
+  curseSpeedFactor,
+  hypeMenWork,
+  powerOn,
+  waitsInJam,
+  wallBreakersBreak,
+  withoutAuditedTax,
+} from "./curses";
 import {
   hypeSpeedFactor,
   newDude,
@@ -68,6 +79,8 @@ export interface BattleSetup {
   readonly sliders: SliderPositions;
   /** Sliders dragged mid-battle, in step order; recorded so the battle replays the same. */
   readonly sliderInputs: readonly SliderInput[];
+  /** The Round's Curse; null in Round 1 and in debug scenes. */
+  readonly curse: CurseId | null;
 }
 
 export type Side = "attack" | "defense";
@@ -134,23 +147,24 @@ export function armyDudes(
 
 /** The battle before its first step: the whole Army standing in the Spawn zone, towers ready. */
 export function startBattle(setup: BattleSetup): BattleState {
-  const dudes = armyDudes(setup.army, setup.mutations, setup.maze.windowSize);
-  const hasWallBreakers = setup.army.some(({ dudeKind }) =>
-    isWallBreaker(dudeKind),
-  );
+  const maze = cursedMaze(setup.maze, setup.curse, setup.seed);
+  const dudes = armyDudes(setup.army, setup.mutations, maze.windowSize);
+  const hasWallBreakers =
+    wallBreakersBreak(setup.curse) &&
+    setup.army.some(({ dudeKind }) => isWallBreaker(dudeKind));
   return {
     step: 0,
     goalHealth: setup.rules.goalHealth,
-    maze: setup.maze,
+    maze,
     pieceHealth: new Map(),
-    breakerRoutes: hasWallBreakers ? breakerRoutesOf(setup.maze) : null,
-    decoyRoutes: decoyRoutesOf(setup.maze),
+    breakerRoutes: hasWallBreakers ? breakerRoutesOf(maze) : null,
+    decoyRoutes: decoyRoutesOf(maze),
     trapCooldowns: new Map(),
     dudes,
     ghosts: [],
     nextDudeId: dudes.length,
-    towers: towersOf(setup.maze),
-    effectPieces: effectPiecesOf(setup.maze),
+    towers: towersOf(maze),
+    effectPieces: powerOn(setup.curse) ? effectPiecesOf(maze) : [],
     events: [],
     outcome: null,
   };
@@ -168,14 +182,18 @@ export function stepBattle(
   // The routes belong to the Maze, worked out again only when a Wall-breaker destroys a Piece.
   const route = routeAt(state.maze, step);
   const sliders = slidersAt(setup.sliders, setup.sliderInputs, step);
-  const trickSpeed = dudeSpeedFactor(sliders);
+  const trickSpeed = dudeSpeedFactor(sliders) * curseSpeedFactor(setup.curse);
+  const tricks = towerTricks(sliders, state.maze, powerOn(setup.curse));
   const volley = fireTowers(
     state.towers,
     onBoard,
     route,
     step,
     STEPS_PER_SECOND,
-    towerTricks(sliders, state.maze),
+    {
+      ...tricks,
+      reloadFactor: tricks.reloadFactor * curseReloadFactor(setup.curse),
+    },
   );
   const effects = applyEffects(
     state.effectPieces,
@@ -188,9 +206,9 @@ export function stepBattle(
   const events = [...volley.events, ...effects.events];
   const dudes: DudeState[] = [];
   let goalHealth = state.goalHealth;
-  const hypeMen = effects.dudes.filter(
-    (dude) => DUDE_KINDS[dude.kind].hypeAura !== null,
-  );
+  const hypeMen = hypeMenWork(setup.curse)
+    ? effects.dudes.filter((dude) => DUDE_KINDS[dude.kind].hypeAura !== null)
+    : [];
   const breakerRoutes =
     state.breakerRoutes === null
       ? null
@@ -217,7 +235,10 @@ export function stepBattle(
     // A Conga Line Stroke-mate's Grinder hit earlier in this loop may have hurt or killed it.
     const dude = floorHits.current(placed);
     if (dude === null) continue;
-    if ((dude.stunnedUntilStep ?? 0) > step) {
+    if (
+      (dude.stunnedUntilStep ?? 0) > step ||
+      waitsInJam(setup.curse, dude, setup.army.length, step, STEPS_PER_SECOND)
+    ) {
       dudes.push(dude);
       continue;
     }
@@ -302,7 +323,7 @@ export function stepBattle(
     dudes: living,
     ghosts,
     nextDudeId: afterlife.nextDudeId,
-    events,
+    events: withoutAuditedTax(setup.curse, events),
     outcome: outcomeAfter(
       setup.rules,
       step,

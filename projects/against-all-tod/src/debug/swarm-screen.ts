@@ -31,6 +31,7 @@ export function playSwarm(
     rules: SWARM_RULES,
     sliders: NEUTRAL_SLIDERS,
     sliderInputs: [],
+    curse: null,
   };
   view.showMaze(setup.maze);
   view.showRoute(false);
