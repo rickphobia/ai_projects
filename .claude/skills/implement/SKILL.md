@@ -28,8 +28,9 @@ Implement the ticket or spec the user names, usually `projects/<name>/docs/ticke
 5. If the project has something to look at or play (a web page, a game), build it and publish the build as a private Artifact, with its asset files passed as supporting `files`. Put `▶ Try this version: <link>` as the PR body's second line, so the user can try it before merging. Republish to the same link after later pushes. If a file is over the 15 MB Artifact limit, write `▶ No Artifact preview (<file> is <size>): try it with scripts/try-pr.sh <PR number>` instead; for projects that `scripts/try-pr.sh` builds, the Beelink preview timer replaces that line with the preview's link once it is up. Skip this for projects with nothing visual.
 6. Push and open a PR using /pr. Show the user the test output and the PR link.
 7. Get the PR green and mergeable: fix merge conflicts by merging `main` in (never force-push) and fix failing CI, including the `ci-gate` check. Never merge it yourself: the user merges.
-   - Cloud session: watch with `subscribe_pr_activity` until it is merged or closed, and answer review comments.
-   - Local session: `gh pr checks <number> --watch --fail-fast`, and `gh pr view <number> --json mergeable` for conflicts. Once green and mergeable, tell the user and stop; they resume the session for review comments.
+   - Local session: `gh pr checks <number> --watch --fail-fast` (one command that returns when CI finishes, not an event stream), and `gh pr view <number> --json mergeable` for conflicts. Once green and mergeable, tell the user and stop; they resume the session for review comments.
+   - Cloud session, big change (the step 1 threshold): watch with `subscribe_pr_activity` until it is merged or closed, and answer review comments.
+   - Cloud session, small change: don't subscribe, since every GitHub event is re-read for the rest of the session. Tell the user the PR is open and stop; they resume the session if CI fails or they leave comments.
 8. Deploy, if the project has `deploy/update-site.sh` and the user says the PR is merged: a local session on the Beelink runs it, then checks the live URL with `curl -I` as the project README says. A cloud session can't reach the server, so it tells the user to run it.
 
 Never weaken, skip or delete a test to make it pass. If you can't get it green, say what's failing.
