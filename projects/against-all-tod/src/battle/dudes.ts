@@ -1,4 +1,5 @@
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
+import { MUTATION_RULES, type MutationRules } from "../catalog/mutations";
 import {
   BOARD_COLUMNS,
   BOARD_ROWS,
@@ -195,15 +196,24 @@ export function hypeSpeedFactor(
   return best;
 }
 
-/** What a Dude reaching the Goal emits: the Goal health it takes is its kind's Goal damage. */
+/** What a Dude reaching the Goal emits: the Goal health it takes is its Goal damage. */
 export function reachGoal(dude: DudeState, step: number): ReachGoalEvent {
   return {
     type: "reach-goal",
     step,
     dudeId: dude.id,
     dudeKind: dude.kind,
-    damage: DUDE_KINDS[dude.kind].goalDamage,
+    damage: goalDamageOf(dude),
   };
+}
+
+/** What a Dude does to a Goal or Decoy Goal it reaches: its kind's Goal damage, a share of it for a Split half. */
+export function goalDamageOf(
+  dude: DudeState,
+  rules: MutationRules = MUTATION_RULES,
+): number {
+  const damage = DUDE_KINDS[dude.kind].goalDamage;
+  return dude.half ? damage * rules.splitGoalDamageShare : damage;
 }
 
 /** The tile a Dude is standing on. */

@@ -101,7 +101,7 @@ A permanent change to every Dude in the Army, taken from an attack Draft Crate.
 _Avoid_: Upgrade, buff, perk
 
 **Half**:
-One of the two Dudes a dying Dude becomes under the Split Mutation, each with half its full health. A Half doesn't split again.
+One of the two Dudes a dying Dude becomes under the Split Mutation, each with half its full health and half its kind's Goal damage. A Half doesn't split again.
 _Avoid_: Clone, child
 
 **Ghost**:

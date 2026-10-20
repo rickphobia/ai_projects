@@ -22,7 +22,8 @@ export const MUTATIONS: Readonly<Record<MutationId, MutationEntry>> = {
   split: {
     id: "split",
     name: "Split",
-    description: "A Dude splits into two halves when it dies.",
+    description:
+      "A Dude splits into two halves when it dies, each hitting the Goal half as hard.",
   },
   giant: {
     id: "giant",
@@ -58,6 +59,8 @@ export const MUTATIONS: Readonly<Record<MutationId, MutationEntry>> = {
 export interface MutationRules {
   /** Split: each half gets this share of the dead Dude's full health. */
   readonly splitHealthShare: number;
+  /** Split: each half takes this share of its kind's Goal damage, so one Dude can't hit the Goal twice as hard. */
+  readonly splitGoalDamageShare: number;
   /** Giant: the giant's health and speed, as multiples of its kind's. */
   readonly giantHealthMultiplier: number;
   readonly giantSpeedMultiplier: number;
@@ -74,10 +77,11 @@ export interface MutationRules {
 
 export const MUTATION_RULES: MutationRules = {
   splitHealthShare: 0.5,
+  splitGoalDamageShare: 0.5,
   giantHealthMultiplier: 5,
   giantSpeedMultiplier: 0.5,
-  smallShieldHealth: 15,
-  shieldBurstRange: 3,
+  smallShieldHealth: 10,
+  shieldBurstRange: 2,
   shieldBurstStunSeconds: 1,
   ghostSeconds: 3,
   goldTeethMultiplier: 2,

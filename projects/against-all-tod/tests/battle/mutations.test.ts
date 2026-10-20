@@ -112,6 +112,17 @@ describe("Split", () => {
     expect(after.halves).toEqual([]);
   });
 
+  it("lets a half take only its share of its kind's Goal damage", () => {
+    const atGoal = { x: BOARD_COLUMNS - 0.5, y: ROW + 0.5 };
+    const half = { ...internAt(5, atGoal.x), y: atGoal.y, half: true as const };
+    const end = stepBattle(setup, battleWith(setup, [half]));
+    const [reach] = ofType(end.events, "reach-goal");
+    expect(reach?.damage).toBe(
+      INTERN.goalDamage * MUTATION_RULES.splitGoalDamageShare,
+    );
+    expect(end.goalHealth).toBe(STURDY_GOAL.goalHealth - (reach?.damage ?? 0));
+  });
+
   it("gets more Dudes to the Goal than without it", () => {
     const reached = (mutations: MutationId[]) =>
       ofType(runBattle(withMutations(mutations, setup)).events, "reach-goal")
@@ -156,8 +167,8 @@ describe("Giant", () => {
 });
 
 describe("Explosive Shields", () => {
-  // Two tiles from the Spawn zone's front, so the first shot lands inside the burst range.
-  const nestAt = { column: 4, row: ROW + 1 };
+  // Right at the Spawn zone's front, so the first shot lands inside the burst range.
+  const nestAt = { column: 3, row: ROW + 1 };
   const plain = setupOf(
     mazeWith([{ pieceId: "sniper-nest", tile: nestAt }]),
     [...groupAt("intern", ROW, 2)],
@@ -172,8 +183,11 @@ describe("Explosive Shields", () => {
         (dude) => dude.smallShield === MUTATION_RULES.smallShieldHealth,
       ),
     ).toBe(true);
+    // Sturdier than an Intern, so the shot can't kill it whatever the shield and Nest numbers.
+    const sturdy = 1000;
     const intern = internAt(0, 1.5, {
       smallShield: MUTATION_RULES.smallShieldHealth,
+      health: sturdy,
     });
     const volley = fireTowers(
       towersOf(shielded.maze),
@@ -183,7 +197,7 @@ describe("Explosive Shields", () => {
       STEPS_PER_SECOND,
     );
     expect(volley.dudes[0]?.health).toBe(
-      INTERN.health - (SNIPER.damage - MUTATION_RULES.smallShieldHealth),
+      sturdy - (SNIPER.damage - MUTATION_RULES.smallShieldHealth),
     );
     expect(ofType(volley.events, "shield-burst")).toHaveLength(1);
   });
