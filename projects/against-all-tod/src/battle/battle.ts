@@ -26,6 +26,7 @@ import {
   withoutAuditedTax,
 } from "./curses";
 import {
+  goalDamageOf,
   hypeSpeedFactor,
   newDude,
   reachGoal,
@@ -361,7 +362,7 @@ function hitDecoy(
   step: number,
 ): BattleEvent {
   const tile = tileUnder(dude);
-  const damage = DUDE_KINDS[dude.kind].goalDamage;
+  const damage = goalDamageOf(dude);
   const piece = maze.pieces.get(tileKey(tile));
   if (piece !== undefined) pieceHits.damage(piece, damage);
   return {

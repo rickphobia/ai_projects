@@ -4,13 +4,13 @@
 
 **Blocked by:** 22 (Unlocks and first-Run hints)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** tests/balance, catalog/tuning
 
 **Effort:** medium
 
-- [ ] Balance tests play several seeds with simple strategies for both sides, headless
-- [ ] They check bounds (e.g. a basic Army breaks a basic Maze within N Rounds, a basic Maze holds a basic Army at least once), not exact numbers
-- [ ] Catalog numbers tuned so the checks pass; changes listed in the PR
-- [ ] Balance tests run in CI within a reasonable time
+- [x] Balance tests play several seeds with simple strategies for both sides, headless
+- [x] They check bounds (e.g. a basic Army breaks a basic Maze within N Rounds, a basic Maze holds a basic Army at least once), not exact numbers
+- [x] Catalog numbers tuned so the checks pass; changes listed in the PR
+- [x] Balance tests run in CI within a reasonable time

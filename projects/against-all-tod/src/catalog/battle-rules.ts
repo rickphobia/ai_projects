@@ -6,6 +6,6 @@ export interface BattleRules {
 }
 
 export const BATTLE_RULES: BattleRules = {
-  goalHealth: 100,
+  goalHealth: 125,
   timeLimitSeconds: 90,
 };
