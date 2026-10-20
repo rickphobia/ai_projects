@@ -25,11 +25,11 @@ export interface GoldRules {
 export const GOLD_RULES: GoldRules = {
   startingDefenseGold: 120,
   startingAttackGold: 40,
-  perKill: 1,
+  perKill: 2,
   perGoalHealthLeft: 0.5,
-  perReachGoal: 2,
+  perReachGoal: 1,
   perSurvivor: 1,
   perPieceDestroyed: 10,
   perTaxedDude: 1,
-  rewindBonus: 15,
+  rewindBonus: 40,
 };

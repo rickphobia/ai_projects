@@ -86,8 +86,10 @@ function paintInterns(row: number, count = 20): RunAction[] {
 
 const CONTINUE: RunAction = { type: "continue" };
 
-/** Two Sniper Nests either side of the Goal's row hold off the Round 1 Army, but not 20 more Interns. */
+/** Two Sniper Nests either side of the Goal's row hold off the Round 1 Army, but not `BREAKING_INTERNS` more. */
 const HOLDING_MAZE = [sniperNest(11, 5), sniperNest(11, 8)];
+/** Enough Interns, added to the Round 1 Army, to break `HOLDING_MAZE` with the Round 2 Attack gold. */
+const BREAKING_INTERNS = 30;
 
 function refusalOf(state: RunState, action: RunAction) {
   const result = applyRunAction(state, action);
@@ -126,7 +128,9 @@ describe("switching sides", () => {
     expect(roundOf(attacking)).toBe(2);
     expect(sideOf(attacking)).toBe("attack");
 
-    const wonAttack = fight(play(attacking, ...paintInterns(6)));
+    const wonAttack = fight(
+      play(attacking, ...paintInterns(6, BREAKING_INTERNS)),
+    );
     expect(wonAttack.phase).toBe("round-won");
     expect(wonAttack.score).toBe(2);
 
@@ -138,7 +142,9 @@ describe("switching sides", () => {
     expect(defending.army.slice(0, attacking.army.length)).toEqual(
       attacking.army,
     );
-    expect(defending.army.slice(attacking.army.length)).toHaveLength(20);
+    expect(defending.army.slice(attacking.army.length)).toHaveLength(
+      BREAKING_INTERNS,
+    );
   });
 
   it("refuses Pieces on an Attack turn and painting on a Defense turn", () => {

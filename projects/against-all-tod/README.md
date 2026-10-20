@@ -40,7 +40,10 @@ npm run check     # lint, format check, type check and unit tests: what CI runs
 npm run test      # unit tests only
 npm run format    # fix formatting
 npm run bench     # times the 500-Intern swarm battle headless, in ms per step
+npx vitest run tests/balance   # the balance check alone (a minute or two)
 ```
+
+The balance check (`tests/balance/`) plays whole seeded Runs headless to Round 10 with two simple fixed strategies: the basic Maze buys Sniper Nests on a fixed grid of tiles, the basic Army paints Interns across the Spawn zone, and both take every crate pick and use what it gives. For each seed it checks bounds, not exact results: the basic Army breaks the basic Maze by Round 4, the basic Maze holds a painted Army at least once, and the Run lasts past Round 4. Each seed has its own test file (`seed-N.test.ts`) so Vitest plays them in parallel. A failure prints the Run battle by battle (Round, side, won or lost, Pieces, Dudes, Curse, boss). To see how a retune plays out, add a seed file or call `playRun` and `describeRun` from `tests/balance/play-run.ts` in a scratch test.
 
 The performance target (`docs/spec.md`) is 500 Dudes at 60 fps on a mid-range laptop and at least 30 fps on a mid-range phone. To measure it, run `npm run dev` (or open any build) with `?debug=1&scene=swarm` added to the URL: the swarm debug scene sends 500 Interns at a sample Maze of walls and Sniper Nests at 1x, starts over when the battle ends, and the corner shows the frame rate, the lowest it has been and how many Dudes are on the Board. `npm run bench` checks the battle rules alone, without drawing.
 
@@ -118,7 +121,7 @@ src/
   ui/                  DOM: the HUD, Settings and pause menus, end screen, piece info, turn-your-device and start-up error screens, fps meter
   debug/               debug scenes picked from the URL (the 500-Intern swarm)
 assets/                Kenney art, with its licence
-tests/                 mirrors src/ (Vitest)
+tests/                 mirrors src/ (Vitest), plus tests/balance/ for the balance check
 scripts/itch-zip.sh    builds and zips the game for itch.io
 scripts/swarm-bench.ts times the swarm battle headless (npm run bench)
 deploy/                update-site.sh and rollback.sh for the Beelink
