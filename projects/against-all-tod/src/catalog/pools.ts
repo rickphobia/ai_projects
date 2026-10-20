@@ -4,8 +4,9 @@ import { MUTATIONS, type MutationId } from "./mutations";
 import type { PieceId } from "./pieces";
 
 /**
- * What Draft Crates hold and cost. Pure data: the pools are what is Unlocked (everything, until
- * Unlocks arrive), and balancing a crate means changing a number here.
+ * What Draft Crates hold and cost. Pure data: the pools list everything a crate can ever offer, and
+ * progress narrows them to what the player has Unlocked. Balancing a crate means changing a
+ * number here.
  */
 
 /** One thing a Draft Crate can offer. */

@@ -4,15 +4,15 @@
 
 **Blocked by:** 08 (Save, load and debug options), 21 (Boss Rounds)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** progress, run, catalog/pools, adapters/storage, ui/end-screen, ui/hints
 
 **Effort:** low
 
-- [ ] Progress module tracks best Score and Unlocks; milestones come from the catalog
-- [ ] Crate and shop pools offer only Unlocked items
-- [ ] Unlocks, best Score and first-Run flag are saved and survive between Runs
-- [ ] End screen shows new Unlocks and the next one with its Score
-- [ ] Hints in Rounds 1, 2 and 3 of the first Run only: mazing, switching sides, the Settings menu
-- [ ] Tests: Unlocks earned by Score, pools gated, hints only on the first Run
+- [x] Progress module tracks best Score and Unlocks; milestones come from the catalog
+- [x] Crate and shop pools offer only Unlocked items
+- [x] Unlocks, best Score and first-Run flag are saved and survive between Runs
+- [x] End screen shows new Unlocks and the next one with its Score
+- [x] Hints in Rounds 1, 2 and 3 of the first Run only: mazing, switching sides, the Settings menu
+- [x] Tests: Unlocks earned by Score, pools gated, hints only on the first Run

@@ -12,12 +12,7 @@ import type { BoardPoint } from "../battle/events";
 import { BATTLE_RULES, type BattleRules } from "../catalog/battle-rules";
 import type { BossId } from "../catalog/bosses";
 import { CURSE_IDS, CURSE_RULES, type CurseId } from "../catalog/curses";
-import {
-  DUDE_KINDS,
-  DUDE_KINDS_ON_SALE,
-  paintRadius,
-  type DudeKindId,
-} from "../catalog/dudes";
+import { DUDE_KINDS, paintRadius, type DudeKindId } from "../catalog/dudes";
 import { GOLD_RULES } from "../catalog/gold-rules";
 import type { MutationId } from "../catalog/mutations";
 import { PIECES, type PieceId } from "../catalog/pieces";
@@ -48,6 +43,7 @@ import {
   type SliderInput,
   type SliderPositions,
 } from "../tricks/tricks";
+import { dudeKindsOnSale } from "../progress/progress";
 import { bossFor, opensBossCrate } from "./boss-rounds";
 import { crateFor, type Crate, type CrateKind } from "./crate";
 
@@ -98,8 +94,10 @@ export interface RunState extends RoundSnapshot {
   readonly lives: number;
   /** Rounds won. The Round being played is always one more. */
   readonly score: number;
-  /** The best Score of this session, this Run included once it ends. */
+  /** The best Score of every Run so far, this one included once it ends; it decides the Unlocks. */
   readonly bestScore: number;
+  /** Whether this is the player's first Run, which shows hints in its first Rounds. */
+  readonly firstRun: boolean;
   readonly phase: RunPhase;
   /** The Board, Army and wallets as the current Round began. */
   readonly roundStart: RoundSnapshot;
@@ -197,7 +195,7 @@ export type RunResult =
   | { readonly ok: true; readonly state: RunState }
   | { readonly ok: false; readonly refusal: RunRefusal };
 
-export function newRun(seed: number, bestScore = 0): RunState {
+export function newRun(seed: number, bestScore = 0, firstRun = true): RunState {
   const board: RoundSnapshot = {
     pieces: [],
     army: roundOneArmy(seed >>> 0),
@@ -212,6 +210,7 @@ export function newRun(seed: number, bestScore = 0): RunState {
     lives: RUN_RULES.startingLives,
     score: 0,
     bestScore,
+    firstRun,
     phase: "building",
     roundStart: board,
     crate: null,
@@ -234,6 +233,7 @@ function crateOf(
     roundSeed(state.seed, roundOf(state)),
     sideOf(state),
     state.mutations,
+    state.bestScore,
     rerolls,
     kind,
   );
@@ -253,6 +253,7 @@ export interface RunStatus {
   readonly wallets: Wallets;
   readonly curse: CurseId | null;
   readonly boss: BossId | null;
+  readonly firstRun: boolean;
 }
 
 export function runStatusOf(state: RunState): RunStatus {
@@ -264,6 +265,7 @@ export function runStatusOf(state: RunState): RunStatus {
     wallets: state.wallets,
     curse: curseOf(state),
     boss: bossOf(state),
+    firstRun: state.firstRun,
   };
 }
 
@@ -412,7 +414,7 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
       return accept({ ...state, phase: "building" });
     case "new-run":
       if (state.phase !== "run-over") return refuse("wrong-phase");
-      return accept(newRun(state.seed + 1, state.bestScore));
+      return accept(newRun(state.seed + 1, state.bestScore, false));
   }
 }
 
@@ -711,7 +713,10 @@ export function dudePriceNow(state: RunState, dudeKind: DudeKindId): number {
 
 /** Whether `dudeKind` can be painted at all now: the shop sells it, or the gift still holds some. */
 export function canPaintKind(state: RunState, dudeKind: DudeKindId): boolean {
-  return DUDE_KINDS_ON_SALE.includes(dudeKind) || giftLeft(state, dudeKind) > 0;
+  return (
+    dudeKindsOnSale(state.bestScore).includes(dudeKind) ||
+    giftLeft(state, dudeKind) > 0
+  );
 }
 
 /**

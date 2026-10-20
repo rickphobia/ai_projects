@@ -152,7 +152,7 @@ describe("the boss crate", () => {
   it("holds a free Undo about as often as the catalog's chance, and only boss crates do", () => {
     const seeds = Array.from({ length: 400 }, (_, seed) => seed * 7919);
     const withUndo = seeds.filter((seed) =>
-      crateFor(seed, "defense", [], 0, "boss").items.some(
+      crateFor(seed, "defense", [], 0, 0, "boss").items.some(
         (item) => item.kind === "free-undo",
       ),
     );
@@ -160,10 +160,10 @@ describe("the boss crate", () => {
     expect(share).toBeGreaterThan(BOSS_RULES.bossCrate.freeUndoChance - 0.1);
     expect(share).toBeLessThan(BOSS_RULES.bossCrate.freeUndoChance + 0.1);
     for (const seed of seeds) {
-      const crate = crateFor(seed, "attack", [], 0, "boss");
+      const crate = crateFor(seed, "attack", [], 0, 0, "boss");
       expect(crate.items).toHaveLength(BOSS_RULES.bossCrate.size);
       expect(
-        crateFor(seed, "attack", [], 0).items.some(
+        crateFor(seed, "attack", [], 0, 0).items.some(
           (item) => item.kind === "free-undo",
         ),
       ).toBe(false);

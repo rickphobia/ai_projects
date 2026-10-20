@@ -1,11 +1,20 @@
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { PIECES, type PieceId } from "../catalog/pieces";
+import { dudeKindsOnSale } from "../progress/progress";
 import { dudePrice, piecePrice, type FreeItem } from "../run/run";
 
-/** What the shop sells each side. Unlocks (a later ticket) will narrow it. */
+/** What the shop sells each side. */
 export interface ShopStock {
   readonly pieces: readonly PieceId[];
   readonly dudeKinds: readonly DudeKindId[];
+}
+
+/** The Pieces the shop sells; the others come only from crates. */
+const SHOP_PIECES: readonly PieceId[] = ["crate-wall", "sniper-nest"];
+
+/** What the shop sells at this best Score: Dude kinds join it as they are Unlocked. */
+export function shopStock(bestScore: number): ShopStock {
+  return { pieces: SHOP_PIECES, dudeKinds: dudeKindsOnSale(bestScore) };
 }
 
 export interface ShopItem<Id extends string> {

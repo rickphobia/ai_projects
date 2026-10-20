@@ -144,6 +144,9 @@ export function parseSave(raw: string): RunState {
     lives: count(run.lives, "lives"),
     score: count(run.score, "score"),
     bestScore: count(run.bestScore, "bestScore"),
+    // A save from before hints means the player has played already.
+    firstRun:
+      run.firstRun === undefined ? false : flag(run.firstRun, "firstRun"),
     phase: phase(run.phase),
     roundStart: snapshot(record(run.roundStart, "roundStart"), "roundStart"),
     crate: run.crate === null ? null : crate(run.crate),
@@ -364,6 +367,12 @@ function count(value: unknown, name: string): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
     throw new SaveFormatError(`${name} is not a whole number`);
   }
+  return value;
+}
+
+function flag(value: unknown, name: string): boolean {
+  if (typeof value !== "boolean")
+    throw new SaveFormatError(`${name} is not true or false`);
   return value;
 }
 

@@ -10,12 +10,13 @@ import { wantsSwarmScene } from "./debug/swarm-scene";
 import { playSwarm } from "./debug/swarm-screen";
 import { chooseLogLevel, createConsoleLogger } from "./logger";
 import { BOARD_COLUMNS, BOARD_ROWS } from "./maze/board";
-import { SHOP_STOCK, FIRST_BUILD_PIECE, RunScreen } from "./run-screen";
+import { FIRST_BUILD_PIECE, RunScreen } from "./run-screen";
 import { PORTRAIT_TOUCH_QUERY, showTurnDeviceScreenWhile } from "./ui/device";
 import { EndScreen } from "./ui/end-screen";
 import { FpsMeter } from "./ui/fps-meter";
 import { CratePanel } from "./ui/crate";
 import { Hud } from "./ui/hud";
+import { shopStock } from "./ui/shop";
 import { showPauseMenu } from "./ui/pause";
 import { PieceInfo } from "./ui/piece-info";
 import { RoundReportPanel } from "./ui/report";
@@ -59,7 +60,12 @@ async function start(): Promise<void> {
     savedRun !== null && (urlSeed === null || urlSeed === savedRun.seed);
   const firstRun = keepSaved
     ? savedRun
-    : newRun(urlSeed ?? config.defaultSeed, savedRun?.bestScore ?? 0);
+    : newRun(
+        urlSeed ?? config.defaultSeed,
+        savedRun?.bestScore ?? 0,
+        // Only a player with no save at all is on their first Run.
+        savedRun === null,
+      );
   logger.info(keepSaved ? "Run loaded" : "Run started", {
     seed: firstRun.seed,
     save: loaded.kind,
@@ -76,7 +82,7 @@ async function start(): Promise<void> {
     },
     sounds,
   );
-  const hud = new Hud(requireElement("hud"), SHOP_STOCK, {
+  const hud = new Hud(requireElement("hud"), () => shopStock(run.bestScore), {
     onChoosePiece: (pieceId) => {
       run.choosePiece(pieceId);
     },

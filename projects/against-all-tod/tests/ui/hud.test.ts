@@ -45,6 +45,7 @@ describe("runStatus", () => {
         wallets,
         curse: null,
         boss: null,
+        firstRun: false,
       }),
     ).toBe(
       "Round 3 · Defense turn · Lives 2 · Score 2 · Defense gold 50 · Attack gold 40",
@@ -58,6 +59,7 @@ describe("runStatus", () => {
         wallets,
         curse: null,
         boss: null,
+        firstRun: false,
       }),
     ).toBe(
       "Round 4 · Attack turn · Lives 1 · Score 3 · Defense gold 50 · Attack gold 40",
@@ -77,6 +79,7 @@ describe("the Curse in the HUD", () => {
         wallets,
         curse: "rust",
         boss: null,
+        firstRun: false,
       }),
     ).toBe(
       `Round 2 · Attack turn · Lives 3 · Score 1 · Defense gold 50 · Attack gold 40 · ${curseStatus("rust")}`,
@@ -102,6 +105,7 @@ describe("the boss in the HUD", () => {
         wallets: { defense: 50, attack: 40 },
         curse: null,
         boss: "landlord",
+        firstRun: false,
       }),
     ).toMatch(/ · Boss: The Landlord$/);
     expect(bossAnnouncement("hr-department")).toBe(

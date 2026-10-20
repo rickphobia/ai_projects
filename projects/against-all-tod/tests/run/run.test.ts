@@ -195,6 +195,16 @@ describe("placing", () => {
     expect(refusalOf(attacking, paintIntern(1, 14))).toBe("not-spawn-zone");
   });
 
+  it("sells a Dude kind once the best Score has Unlocked it", () => {
+    const sapper: RunAction = {
+      type: "paint-dude",
+      dudeKind: "sapper",
+      at: { x: 1, y: 6.5 },
+      stroke: 100,
+    };
+    expect(refusalOf({ ...attacking, bestScore: 5 }, sapper)).toBeNull();
+  });
+
   it("refuses a kind not on sale unless a gift holds it", () => {
     const sapper: RunAction = {
       type: "paint-dude",
@@ -410,6 +420,9 @@ describe("the end of a Run", () => {
     expect(secondRun.lives).toBe(RUN_RULES.startingLives);
     expect(secondRun.pieces).toEqual([]);
     expect(secondRun.bestScore).toBe(1);
+
+    expect(firstRun.firstRun).toBe(true);
+    expect(secondRun.firstRun).toBe(false);
 
     // A worse Run doesn't lower it.
     const worse = loseEveryLife(secondRun);
