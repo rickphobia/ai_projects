@@ -44,8 +44,8 @@ internal interface TouchNavigation {
  * strokes, with whichever [penMode] is picked when each starts, are drawn by Jetpack Ink's
  * low-latency [InProgressStrokesView] in page coordinates, and handed to [ink] once finished, which
  * draws them with their page from then on and saves them. In [PenMode.Erase] the pen instead erases
- * every stroke it touches on the page it went down on, as one undo step per gesture. The pen does
- * nothing on a read-only Document.
+ * every stroke it touches on the page it went down on, as one undo step per gesture, and in
+ * [PenMode.Lasso] it works [DocumentInk.lasso]. The pen does nothing on a read-only Document.
  */
 internal class DocumentTouch(
     private val inProgress: InProgressStrokesView,
@@ -64,6 +64,9 @@ internal class DocumentTouch(
 
     // Where the eraser was last, by pointer: it erases only on the page it touched down on.
     private val erasers = mutableMapOf<Int, EraserAt>()
+
+    // The page each Lasso gesture went down on, by pointer: a loop or drag stays on that page.
+    private val lassos = mutableMapOf<Int, PageId>()
 
     private data class EraserAt(
         val pageId: PageId,
@@ -132,13 +135,23 @@ internal class DocumentTouch(
         val page = pageAt(placements(), ScreenPoint(action.x, action.y))
         if (page == null) {
             AppLog.d("pen down outside any page; no stroke")
+            // A tap beside the pages is outside any Lasso selection too.
+            ink.lasso.clear()
             return
         }
         when (val mode = penMode()) {
             PenMode.Erase -> {
                 val point = page.toPage(ScreenPoint(action.x, action.y))
                 erasers[action.pointerId] = EraserAt(page.pageId, point)
-                ink.eraseAlong(page.pageId, point, point)
+                ink.eraser.along(page.pageId, point, point)
+            }
+
+            // The Lasso follows one pointer at a time: a second would tangle its loop or drag.
+            PenMode.Lasso -> {
+                if (lassos.isEmpty()) {
+                    lassos[action.pointerId] = page.pageId
+                    ink.lasso.down(page, page.toPage(ScreenPoint(action.x, action.y)))
+                }
             }
 
             is PenMode.Draw -> {
@@ -170,10 +183,15 @@ internal class DocumentTouch(
         action: TouchAction.ExtendStroke,
     ) {
         drawing[action.pointerId]?.let { inProgress.addToStroke(event, action.pointerId, it) }
+        lassos[action.pointerId]?.let { pageId ->
+            placements().firstOrNull { it.pageId == pageId }?.let { page ->
+                ink.lasso.moveTo(page, page.toPage(ScreenPoint(action.x, action.y)))
+            }
+        }
         val last = erasers[action.pointerId] ?: return
         val page = placements().firstOrNull { it.pageId == last.pageId } ?: return
         val point = page.toPage(ScreenPoint(action.x, action.y))
-        ink.eraseAlong(last.pageId, last.point, point)
+        ink.eraser.along(last.pageId, last.point, point)
         erasers[action.pointerId] = last.copy(point = point)
     }
 
@@ -182,14 +200,16 @@ internal class DocumentTouch(
         pointerId: Int,
     ) {
         drawing.remove(pointerId)?.let { inProgress.finishStroke(event, pointerId, it) }
-        if (erasers.remove(pointerId) != null) ink.finishErase()
+        if (erasers.remove(pointerId) != null) ink.eraser.finish()
+        if (lassos.remove(pointerId) != null) ink.lasso.up()
     }
 
     private fun cancel(
         event: MotionEvent,
         pointerId: Int,
     ) {
-        if (erasers.remove(pointerId) != null) ink.cancelErase()
+        if (erasers.remove(pointerId) != null) ink.eraser.cancel()
+        if (lassos.remove(pointerId) != null) ink.lasso.cancel()
         val id = drawing.remove(pointerId) ?: return
         started.remove(id)
         inProgress.cancelStroke(id, event)

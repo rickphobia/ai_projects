@@ -1,30 +1,18 @@
 package com.rickphobia.ricknotes.ink
 
-import android.graphics.Matrix
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.core.graphics.withMatrix
 import androidx.ink.brush.Brush
 import androidx.ink.brush.InputToolType
 import androidx.ink.brush.StockBrushes
-import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
 import androidx.ink.strokes.MutableStrokeInputBatch
 import com.rickphobia.ricknotes.core.ink.PageId
-import com.rickphobia.ricknotes.core.ink.PagePoint
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.ink.Tool
+import com.rickphobia.ricknotes.core.session.PageOffset
 import com.rickphobia.ricknotes.core.session.SaveStatus
 import com.rickphobia.ricknotes.core.session.SessionWarning
-import com.rickphobia.ricknotes.core.session.strokesTouched
 import com.rickphobia.ricknotes.logging.AppLog
 import java.io.File
 import androidx.ink.strokes.Stroke as InkStroke
@@ -76,9 +64,6 @@ internal class DocumentInk private constructor(
     private val session = held.session
     private val strokes = mutableStateListOf<DrawnStroke>().apply { addAll(loaded) }
 
-    // Strokes the eraser has touched in the gesture still going on: hidden, but not yet erased.
-    private val erasing = mutableStateMapOf<StrokeId, Unit>()
-
     // Counts changes, so Compose reads canUndo and canRedo again after each one.
     private val changes = mutableIntStateOf(0)
 
@@ -88,56 +73,52 @@ internal class DocumentInk private constructor(
     val canUndo: Boolean get() = changes.intValue.let { session.canUndo }
     val canRedo: Boolean get() = changes.intValue.let { session.canRedo }
 
+    val eraser: EraserTool by lazy { EraserTool(this) }
+    val lasso: LassoTool by lazy { LassoTool(this) }
+
     fun add(stroke: DrawnStroke) {
         session.addStroke(stroke.stroke)
         strokes.add(stroke)
         changes.intValue++
     }
 
-    /** Hides the strokes on [pageId] the eraser touches moving from [from] to [to]; [finishErase] erases them. */
-    fun eraseAlong(
-        pageId: PageId,
-        from: PagePoint,
-        to: PagePoint,
-    ) {
-        val visible = strokes.map { it.stroke }.filter { it.id !in erasing }
-        strokesTouched(visible, pageId, from, to).forEach { erasing[it.id] = Unit }
-    }
-
-    /** Erases what the eraser touched in this gesture, as one undo step. */
-    fun finishErase() {
-        if (erasing.isEmpty()) return
-        val ids = erasing.keys.toSet()
+    /** Removes the strokes with these IDs, as one undo step. */
+    fun delete(ids: Set<StrokeId>) {
         session.eraseStrokes(ids)
         strokes.removeAll { it.stroke.id in ids }
-        erasing.clear()
         changes.intValue++
-        AppLog.d("erased ${ids.size} strokes")
     }
 
-    /** Shows again what a cancelled gesture touched. */
-    fun cancelErase() = erasing.clear()
+    /** Moves the strokes with these IDs by [offset], as one undo step; false if none of them is here. */
+    fun move(
+        ids: Set<StrokeId>,
+        offset: PageOffset,
+    ): Boolean = session.moveStrokes(ids, offset).also { moved -> if (moved) followSession() }
 
+    // A selection may hold strokes that an undo or redo takes away, so it is let go of.
     fun undo() {
+        lasso.clear()
         if (session.undo()) followSession() else AppLog.w("undo with nothing to undo")
     }
 
     fun redo() {
+        lasso.clear()
         if (session.redo()) followSession() else AppLog.w("redo with nothing to redo")
     }
 
     /** The page's strokes in drawing order: highlighter first, so it sits under the pen's writing. */
     fun on(pageId: PageId): List<DrawnStroke> =
         strokes
-            .filter { it.stroke.pageId == pageId && it.stroke.id !in erasing }
+            .filter { it.stroke.pageId == pageId && !eraser.hides(it.stroke.id) }
             .sortedBy { it.stroke.tool != Tool.HIGHLIGHTER }
 
-    // Matches the drawn strokes to the session's after an undo or redo, keeping meshes already built.
+    // Matches the drawn strokes to the session's after an undo, redo or move, keeping the meshes
+    // already built of strokes that haven't moved.
     private fun followSession() {
         val built = strokes.associateBy { it.stroke.id }
         val now =
             session.strokes.mapNotNull { stroke ->
-                built[stroke.id]
+                built[stroke.id]?.takeIf { it.stroke == stroke }
                     ?: stroke.toMesh()?.let { DrawnStroke(stroke, it) }
             }
         strokes.clear()
@@ -198,33 +179,5 @@ private fun Stroke.addTo(inputs: MutableStrokeInputBatch) {
             elapsedTimeMillis = point.elapsedMs,
             pressure = point.pressure,
         )
-    }
-}
-
-/**
- * Draws a page's finished strokes over it. Strokes are in PDF points, so scaling them by the page's
- * drawn width keeps them on the same spot of the page at any zoom. Ink past the page's edge is cut
- * off, as it will be in an exported PDF.
- */
-@Composable
-internal fun PageInk(
-    strokes: List<DrawnStroke>,
-    pageWidthPt: Float,
-    renderer: CanvasStrokeRenderer,
-) {
-    if (strokes.isEmpty()) return
-    Canvas(modifier = Modifier.fillMaxSize().clipToBounds()) {
-        val pixelsPerPoint = size.width / pageWidthPt
-        val pageToBox = Matrix().apply { setScale(pixelsPerPoint, pixelsPerPoint) }
-        drawIntoCanvas { canvas ->
-            val native = canvas.nativeCanvas
-            // The renderer uses the transform to pick its detail but leaves applying it to us.
-            native.withMatrix(pageToBox) {
-                strokes.forEach {
-                    renderer.draw(native, it.mesh, pageToBox)
-                    it.drawn()
-                }
-            }
-        }
     }
 }

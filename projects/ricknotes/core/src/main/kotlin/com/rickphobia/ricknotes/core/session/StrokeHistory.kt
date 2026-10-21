@@ -26,6 +26,15 @@ internal class StrokeHistory(
         return erased.isNotEmpty() && make(Change.Erased(erased))
     }
 
+    /** False, and no undo step, if none of [ids] is here or [offset] is zero. */
+    fun move(
+        ids: Set<StrokeId>,
+        offset: PageOffset,
+    ): Boolean {
+        val moving = strokeList.filter { it.id in ids }
+        return moving.isNotEmpty() && !offset.isZero && make(Change.Moved(moving, offset))
+    }
+
     fun undo(): Boolean {
         val change = undoSteps.removeLastOrNull() ?: return false
         change.undo(strokeList)
