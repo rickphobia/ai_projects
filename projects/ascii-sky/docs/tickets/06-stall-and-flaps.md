@@ -4,13 +4,13 @@
 
 **Blocked by:** 05 (Instrument panel)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** flight, screen
 
 **Effort:** medium
 
-- [ ] Lift falls away past a critical angle of attack and the Plane's nose drops; the Stall flag is set while this lasts
-- [ ] Flaps have a few settings stepped by `F`; each lowers Stall speed and adds drag
-- [ ] `[STALL]` appears on the panel only while the Stall flag is set
-- [ ] Unit tests through Advance and Draw: pulling up at low speed sets the Stall flag; lowering the nose with power clears it; Stall speed is lower with flaps down; `[STALL]` appears only with the flag set
+- [x] Lift falls away past a critical angle of attack and the Plane's nose drops; the Stall flag is set while this lasts
+- [x] Flaps have a few settings stepped by `F`; each lowers Stall speed and adds drag
+- [x] `[STALL]` appears on the panel only while the Stall flag is set
+- [x] Unit tests through Advance and Draw: pulling up at low speed sets the Stall flag; lowering the nose with power clears it; Stall speed is lower with flaps down; `[STALL]` appears only with the flag set

@@ -2,6 +2,7 @@ import type { GameState } from "../game/game";
 import type { BrightnessGrid } from "./brightness-grid";
 import { drawCockpitScreen } from "./cockpit-screen";
 import { framedScreen } from "./framed-screen";
+import { drawInstrumentPanel } from "./instrument-panel";
 import { SCREEN_COLUMNS, VIEW_ROWS } from "./screen-size";
 
 const TITLE_ART = [
@@ -28,13 +29,15 @@ export function drawGame(state: GameState, view: BrightnessGrid): string[] {
     case "title":
       return titleScreen();
     case "flying":
-      return drawCockpitScreen(view);
+      return drawCockpitScreen(
+        view,
+        drawInstrumentPanel(state.plane, state.world),
+      );
     case "paused":
-      return withBanner(drawCockpitScreen(view), [
-        "PAUSED",
-        "",
-        "Press P or Esc to carry on",
-      ]);
+      return withBanner(
+        drawCockpitScreen(view, drawInstrumentPanel(state.plane, state.world)),
+        ["PAUSED", "", "Press P or Esc to carry on"],
+      );
   }
 }
 

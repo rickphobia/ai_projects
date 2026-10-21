@@ -10,7 +10,7 @@ import {
   outcomeMessage,
   refusalMessage,
   roundOverMessage,
-  runStatus,
+  statusChips,
   takeBackButton,
 } from "../../src/ui/hud";
 
@@ -69,57 +69,37 @@ describe("refusalMessage", () => {
   });
 });
 
-describe("runStatus", () => {
-  it("shows the Round, the side, the Lives, the Score and both wallets", () => {
-    const wallets = { defense: 50, attack: 40 };
-    expect(
-      runStatus({
-        round: 3,
-        side: "defense",
-        lives: 2,
-        score: 2,
-        wallets,
-        curse: null,
-        boss: null,
-        firstRun: false,
-      }),
-    ).toBe(
-      "Round 3 · Defense turn · Lives 2 · Score 2 · Defense gold 50 · Attack gold 40",
-    );
-    expect(
-      runStatus({
-        round: 4,
-        side: "attack",
-        lives: 1,
-        score: 3,
-        wallets,
-        curse: null,
-        boss: null,
-        firstRun: false,
-      }),
-    ).toBe(
-      "Round 4 · Attack turn · Lives 1 · Score 3 · Defense gold 50 · Attack gold 40",
-    );
+const STATUS = {
+  round: 3,
+  side: "defense",
+  lives: 2,
+  score: 4,
+  wallets: { defense: 50, attack: 40 },
+  curse: null,
+  boss: null,
+  firstRun: false,
+} as const;
+
+describe("statusChips", () => {
+  it("shows Lives, both wallets, the Score and the Round as icon chips, in that order", () => {
+    expect(statusChips(STATUS)).toEqual([
+      { kind: "lives", icon: "❤", text: "2", label: "Lives 2" },
+      { kind: "defense-gold", icon: "🛡", text: "50", label: "Defense gold 50" },
+      { kind: "attack-gold", icon: "⚔", text: "40", label: "Attack gold 40" },
+      { kind: "score", icon: "★", text: "4", label: "Score 4" },
+      { kind: "round", icon: "", text: "Round 3", label: "Round 3" },
+    ]);
   });
 });
 
 describe("the Curse in the HUD", () => {
-  it("ends the status line with the Round's Curse and its effect", () => {
-    const wallets = { defense: 50, attack: 40 };
-    expect(
-      runStatus({
-        round: 2,
-        side: "attack",
-        lives: 3,
-        score: 1,
-        wallets,
-        curse: "rust",
-        boss: null,
-        firstRun: false,
-      }),
-    ).toBe(
-      `Round 2 · Attack turn · Lives 3 · Score 1 · Defense gold 50 · Attack gold 40 · ${curseStatus("rust")}`,
-    );
+  it("adds a chip with the Round's Curse and its effect", () => {
+    expect(statusChips({ ...STATUS, curse: "rust" }).at(-1)).toEqual({
+      kind: "curse",
+      icon: "☠",
+      text: "Rust",
+      label: curseStatus("rust"),
+    });
     expect(curseStatus("rust")).toBe("Curse: Rust (towers fire 20% slower)");
   });
 
@@ -131,19 +111,13 @@ describe("the Curse in the HUD", () => {
 });
 
 describe("the boss in the HUD", () => {
-  it("names the Boss Round's boss on the status line and announces what it does", () => {
-    expect(
-      runStatus({
-        round: 5,
-        side: "defense",
-        lives: 3,
-        score: 4,
-        wallets: { defense: 50, attack: 40 },
-        curse: null,
-        boss: "landlord",
-        firstRun: false,
-      }),
-    ).toMatch(/ · Boss: The Landlord$/);
+  it("adds a chip naming the Boss Round's boss and announces what it does", () => {
+    expect(statusChips({ ...STATUS, boss: "landlord" }).at(-1)).toEqual({
+      kind: "boss",
+      icon: "👑",
+      text: "The Landlord",
+      label: "Boss: The Landlord",
+    });
     expect(bossAnnouncement("hr-department")).toBe(
       `Boss Round: The HR Department. ${BOSSES["hr-department"].description}`,
     );

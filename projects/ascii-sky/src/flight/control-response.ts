@@ -15,6 +15,7 @@ export interface Situation {
   readonly pathPitchRate: number;
   readonly roll: number;
   readonly onGround: boolean;
+  readonly stalled: boolean;
 }
 
 /**
@@ -45,9 +46,11 @@ export function respondToControls(
 
 function airTarget(
   controls: Controls,
-  { air, pathPitchRate, roll }: Situation,
+  { air, pathPitchRate, roll, stalled }: Situation,
   authority: number,
 ): BodyRates {
+  // A Stalled wing drops the nose on its own, more than the slow-flying elevator can hold up.
+  const stallDrop = stalled ? TUNING.stallNoseDropRate : 0;
   return {
     rollRate:
       (axis(controls, "rollRight", "rollLeft") * TUNING.rollRate -
@@ -56,7 +59,8 @@ function airTarget(
     // Leaning against the flight path's swings damps the slow climb-and-dive a real Plane wanders into.
     pitchRate:
       (pitchTarget(controls, air) - TUNING.pathDamping * pathPitchRate) *
-      authority,
+        authority -
+      stallDrop,
     yawRate:
       (TUNING.yawStability * air.sideslip +
         axis(controls, "rudderRight", "rudderLeft") * TUNING.rudderRate) *
