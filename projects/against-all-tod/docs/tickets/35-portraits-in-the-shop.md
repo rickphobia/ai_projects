@@ -4,13 +4,13 @@
 
 **Blocked by:** 31 (Chunky cartoon UI and the top bar), 34 (Draw the Pieces in code)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** ui/shop, renderer/art-kit
 
 **Effort:** low
 
-- [ ] Every kind and Piece on sale shows its portrait above its price
-- [ ] Portraits come from the art kit at start-up, not separate image files
-- [ ] The gift count still shows on its kind
-- [ ] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`
+- [x] Every kind and Piece on sale shows its portrait above its price
+- [x] Portraits come from the art kit at start-up, not separate image files
+- [x] The gift count still shows on its kind
+- [x] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`

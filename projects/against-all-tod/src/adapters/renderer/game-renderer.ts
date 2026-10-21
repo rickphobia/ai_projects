@@ -13,7 +13,9 @@ import {
   type PaintHandlers,
   type PointerKind,
 } from "../input/board-pointer";
+import type { Portraits } from "../../ui/shop";
 import { drawArtTextures } from "./art-kit";
+import { drawPortraits } from "./portraits";
 import { TILE_SIZE, type BoardTextures } from "./board-textures";
 import {
   DEFENSE_COLOUR,
@@ -51,6 +53,8 @@ export class RendererStartError extends Error {
 
 /** What the rest of the game may ask of the renderer. It draws state; it never changes rules. */
 export interface GameView {
+  /** The shop's pictures, drawn from the Board's textures at start-up. */
+  readonly portraits: Portraits;
   /**
    * Redraws the Pieces, the route preview and the grass's decoration, and the Board's frame if
    * the Window size or the Run's `seed` (which places the decoration) changed.
@@ -200,7 +204,10 @@ export async function startRenderer(
     units.glow(tricks.dark);
   };
 
+  const portraits = await drawPortraits(app.renderer, textures);
+
   return {
+    portraits,
     showMaze: (maze, seed) => {
       if (maze.windowSize !== windowSize || seed !== groundSeed) {
         drawGround(maze.windowSize, seed);

@@ -12,6 +12,7 @@ import {
   attackItems,
   defenseItems,
   itemLabel,
+  type Portraits,
   type ShopItem,
   type ShopStock,
 } from "./shop";
@@ -220,6 +221,7 @@ export class Hud {
     private readonly host: HTMLElement,
     /** A getter, because Unlocks change what the shop sells from one Run to the next. */
     private readonly stock: () => ShopStock,
+    private readonly portraits: Portraits,
     private readonly handlers: HudHandlers,
   ) {
     this.doc = host.ownerDocument;
@@ -368,17 +370,25 @@ export class Hud {
    * One button per item the side's shop sells, with its price, the chosen one pressed (none when
    * `chosen` is null), any `tools` after them, then Take back and Fight.
    */
-  private showShop<Id extends string>(
+  private showShop<Id extends DudeKindId | PieceId>(
     items: readonly ShopItem<Id>[],
     chosen: Id | null,
     onChoose: (id: Id) => void,
     ...tools: HTMLButtonElement[]
   ): void {
-    const choiceButtons = items.map((item) =>
-      this.button(itemLabel(item), item.id === chosen, () => {
+    const choiceButtons = items.map((item) => {
+      const button = this.button(itemLabel(item), item.id === chosen, () => {
         onChoose(item.id);
-      }),
-    );
+      });
+      // The label already names the item, so screen readers skip the picture.
+      const portrait = this.doc.createElement("img");
+      portrait.className = "shop-portrait";
+      portrait.src = this.portraits[item.id];
+      portrait.alt = "";
+      button.classList.add("shop-item");
+      button.prepend(portrait);
+      return button;
+    });
     const takeBack = this.button("↶ Take back", null, this.handlers.onTakeBack);
     takeBack.classList.add("hud-take-back");
     this.labelTakeBack(takeBack);
