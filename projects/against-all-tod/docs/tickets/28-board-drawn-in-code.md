@@ -4,16 +4,16 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** renderer/art-kit, renderer/board
 
 **Effort:** medium
 
-- [ ] Grass, border, decoration, Spawn carpet, route, Goal and Crate Wall are drawn by the art kit; their Kenney tiles are no longer imported
-- [ ] Tile edges stay visible enough to place Pieces precisely
-- [ ] Decoration is placed from the Run's seed: same seed, same Board; never on a Piece, the route or the Goal (unit-tested)
-- [ ] Window size lanes and Brightness down look right (screenshots of both)
-- [ ] New colours are named next to the existing ones and as matching CSS variables
-- [ ] The spec's "Look" section says the Board is drawn in code
-- [ ] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`
+- [x] Grass, border, decoration, Spawn carpet, route, Goal and Crate Wall are drawn by the art kit; their Kenney tiles are no longer imported
+- [x] Tile edges stay visible enough to place Pieces precisely
+- [x] Decoration is placed from the Run's seed: same seed, same Board; never on a Piece, the route or the Goal (unit-tested)
+- [x] Window size lanes and Brightness down look right (screenshots of both)
+- [x] New colours are named next to the existing ones and as matching CSS variables
+- [x] The spec's "Look" section says the Board is drawn in code
+- [x] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`

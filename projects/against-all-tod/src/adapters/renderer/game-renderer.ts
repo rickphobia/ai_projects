@@ -13,8 +13,18 @@ import {
   type PaintHandlers,
   type PointerKind,
 } from "../input/board-pointer";
-import { TILE_SIZE, loadBoardTextures } from "./board-textures";
-import { DEFENSE_COLOUR, boardPixelFrame, createBoardView } from "./board-view";
+import { drawArtTextures } from "./art-kit";
+import {
+  TILE_SIZE,
+  loadKenneyTextures,
+  type BoardTextures,
+} from "./board-textures";
+import {
+  DEFENSE_COLOUR,
+  createBoardView,
+  drawGroundDecorations,
+  worldRect,
+} from "./board-view";
 import {
   clampCamera,
   fittedCamera,
@@ -24,6 +34,7 @@ import {
   type Camera,
   type CameraBounds,
 } from "./camera";
+import { groundDecorations, surroundPlants } from "./decoration";
 import { GoalHealthBar } from "./goal-health-view";
 import { drawPieces, pieceView, type Turrets } from "./pieces-view";
 import { PlacementCursor } from "./placement-cursor";
@@ -43,8 +54,11 @@ export class RendererStartError extends Error {
 
 /** What the rest of the game may ask of the renderer. It draws state; it never changes rules. */
 export interface GameView {
-  /** Redraws the Pieces and the route preview, and the Board's frame if the Window size changed. */
-  showMaze(maze: Maze): void;
+  /**
+   * Redraws the Pieces, the route preview and the grass's decoration, and the Board's frame if
+   * the Window size or the Run's `seed` (which places the decoration) changed.
+   */
+  showMaze(maze: Maze, seed: number): void;
   /** Hides the route preview, which would hide Dudes during a battle. */
   showRoute(visible: boolean): void;
   /**
@@ -108,19 +122,24 @@ export async function startRenderer(
     });
   }
 
-  const textures = await loadBoardTextures();
-  // The camera moves `board`; `world` inside it puts the top lane's top at the camera's 0, so
-  // everything drawn by tile (row 0 at y 0) stays put when lanes open above it.
+  // Drawn at the closest zoom's resolution, so shapes stay crisp zoomed in.
+  const artResolution = window.devicePixelRatio * MAX_SCALE;
+  const textures: BoardTextures = {
+    ...(await loadKenneyTextures()),
+    ...drawArtTextures(app.renderer, artResolution),
+  };
+  // The camera moves `board`; `world` inside it puts the surround's top left at the camera's 0,
+  // so everything drawn by tile (row 0 at y 0) stays put when lanes open above it.
   const board = new Container({ label: "board" });
   const world = new Container({ label: "world" });
   const ground = new Container({ label: "ground" });
+  const decorations = new Container({ label: "decorations" });
   const pieces = new Container({ label: "pieces" });
   const route = new Graphics({ label: "route" });
   const disc = dudeDisc();
-  // Drawn at the closest zoom's resolution, so discs stay crisp zoomed in.
   const discTexture = app.renderer.generateTexture({
     target: disc,
-    resolution: window.devicePixelRatio * MAX_SCALE,
+    resolution: artResolution,
     antialias: true,
   });
   disc.destroy();
@@ -136,6 +155,7 @@ export async function startRenderer(
   // over the Board and Pieces but under the Dudes, which glow instead.
   world.addChild(
     ground,
+    decorations,
     pieces,
     tricks.view,
     route,
@@ -147,10 +167,13 @@ export async function startRenderer(
   app.stage.addChild(board);
 
   let windowSize = 0;
-  let frame = boardPixelFrame(windowSize);
+  // The seed the ground was drawn for; null until the first Maze arrives.
+  let groundSeed: number | null = null;
+  let extent = worldRect(windowSize);
+  world.position.set(-extent.left, -extent.top);
   const boundsFor = (width: number, height: number): CameraBounds => ({
     view: { width, height },
-    content: { width: frame.width, height: frame.height },
+    content: { width: extent.width, height: extent.height },
     margin: VIEW_MARGIN,
     maxScale: MAX_SCALE,
   });
@@ -165,21 +188,23 @@ export async function startRenderer(
     bounds = boundsFor(width, height);
     aim(clampCamera(camera, bounds));
   });
-  /** Redraws the ground for a Window size and fits the camera to the new frame. */
-  const drawGround = (size: number): void => {
+  /** Redraws the ground for a Window size and a Run's seed, and fits the camera to the new frame. */
+  const drawGround = (size: number, seed: number): void => {
     windowSize = size;
-    frame = boardPixelFrame(size);
+    groundSeed = seed;
+    extent = worldRect(size);
     for (const old of ground.removeChildren()) old.destroy({ children: true });
-    ground.addChild(createBoardView(textures, size));
-    world.position.set(0, -frame.top);
+    ground.addChild(
+      createBoardView(textures, size, surroundPlants(seed, size)),
+    );
+    world.position.set(-extent.left, -extent.top);
     bounds = boundsFor(app.screen.width, app.screen.height);
     aim(fittedCamera(bounds));
   };
-  drawGround(windowSize);
   /** A point under the camera in the pixels things are drawn in, row 0's top at y 0. */
   const worldPointAt = (point: { x: number; y: number }) => {
     const pixels = screenToBoard(point, camera);
-    return { x: pixels.x, y: pixels.y + frame.top };
+    return { x: pixels.x + extent.left, y: pixels.y + extent.top };
   };
 
   const drawTricks = (): void => {
@@ -189,8 +214,15 @@ export async function startRenderer(
   };
 
   return {
-    showMaze: (maze) => {
-      if (maze.windowSize !== windowSize) drawGround(maze.windowSize);
+    showMaze: (maze, seed) => {
+      if (maze.windowSize !== windowSize || seed !== groundSeed) {
+        drawGround(maze.windowSize, seed);
+      }
+      drawGroundDecorations(
+        decorations,
+        textures,
+        groundDecorations(seed, maze),
+      );
       turrets = drawPieces(pieces, textures, maze);
       drawnMaze = maze;
       drawRoute(route, maze.route, maze.windowSize);

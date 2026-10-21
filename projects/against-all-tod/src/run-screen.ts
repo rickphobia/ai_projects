@@ -621,6 +621,7 @@ export class RunScreen {
             this.run.pieces.filter(({ tile }) => !picked.has(tileKey(tile))),
             windowSizeOf(this.run),
           ),
+      this.run.seed,
     );
     this.view.showRoute(this.routeVisible);
     this.view.showGoalHealth(BATTLE_RULES.goalHealth, BATTLE_RULES.goalHealth);

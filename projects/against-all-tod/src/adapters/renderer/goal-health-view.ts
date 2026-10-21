@@ -1,7 +1,7 @@
 import { Graphics } from "pixi.js";
 import { goalTiles } from "../../maze/board";
 import { TILE_SIZE } from "./board-textures";
-import { ATTACK_COLOUR, DEFENSE_COLOUR } from "./board-view";
+import { ATTACK_COLOUR, DEFENSE_COLOUR, OUTLINE_COLOUR } from "./board-view";
 
 const BAR_HEIGHT = 12;
 /** The Goal sits on the right edge, so the bar reaches left from it to stay on the Board. */
@@ -28,7 +28,7 @@ export class GoalHealthBar {
     this.view
       .clear()
       .roundRect(left - 2, this.top - 2, BAR_WIDTH + 4, BAR_HEIGHT + 4, 4)
-      .fill({ color: 0x000000, alpha: 0.6 })
+      .fill(OUTLINE_COLOUR)
       .rect(left, this.top, BAR_WIDTH, BAR_HEIGHT)
       .fill({ color: ATTACK_COLOUR, alpha: 0.7 });
     if (share > 0) {
