@@ -13,6 +13,7 @@ import { rollOnWheels } from "./ground-roll";
 import type { Plane } from "./plane";
 import { TUNING } from "./tuning";
 import { add, length, scale, type Vector3 } from "./vector";
+import { wingStalled } from "./wing";
 
 /** One fixed step of the flight model: the Plane `seconds` later, given the controls held. */
 export function stepPlane(
@@ -22,9 +23,17 @@ export function stepPlane(
   seconds: number,
 ): Plane {
   const throttle = nextThrottle(plane.throttle, controls, seconds);
+  const flapsHeld = controls.has("flapsStep");
+  const flaps =
+    flapsHeld && !plane.flapsHeld ? nextFlapSetting(plane.flaps) : plane.flaps;
   const axes = bodyAxes(plane);
   const air = airflow(plane.velocity, axes);
-  const force = totalForce(plane.velocity, axes, air, throttle);
+  const stalled =
+    !plane.onGround && wingStalled(air.angleOfAttack, plane.stalled);
+  const force = totalForce(plane.velocity, axes, air, throttle, {
+    flaps,
+    stalled,
+  });
   const rates = respondToControls(
     plane,
     controls,
@@ -33,6 +42,7 @@ export function stepPlane(
       pathPitchRate: pathPitchRate(plane.velocity, force),
       roll: plane.roll,
       onGround: plane.onGround,
+      stalled,
     },
     seconds,
   );
@@ -62,7 +72,10 @@ export function stepPlane(
     pitchRate: settled.pitchRate,
     yawRate: settled.yawRate,
     throttle,
+    flaps,
+    flapsHeld,
     brakes: controls.has("brakes"),
+    stalled,
     onGround,
   };
 }
@@ -89,6 +102,13 @@ function nextThrottle(
     0,
     Math.min(1, throttle + direction * TUNING.throttleRate * seconds),
   );
+}
+
+/** The flap setting after `flaps`, going back up after the last one. */
+function nextFlapSetting(flaps: number): number {
+  const settings = TUNING.flapSettings;
+  const index = settings.indexOf(flaps);
+  return settings[(index + 1) % settings.length] ?? 0;
 }
 
 /** The wheels hold the Plane on the ground: wings level, no sinking, the nose between nosewheel and tail. */

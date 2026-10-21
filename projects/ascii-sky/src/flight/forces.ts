@@ -1,6 +1,7 @@
 import type { Airflow, BodyAxes } from "./attitude";
 import { TUNING } from "./tuning";
 import { add, dot, normalize, scale, type Vector3, ZERO } from "./vector";
+import { dragCoefficient, liftCoefficient, type WingState } from "./wing";
 
 /** Below this airspeed the air does nothing worth computing, and its directions aren't defined. */
 const STILL_AIR_SPEED = 0.1;
@@ -11,10 +12,11 @@ export function totalForce(
   axes: BodyAxes,
   air: Airflow,
   throttle: number,
+  wing: WingState,
 ): Vector3 {
   const weight = { x: 0, y: 0, z: -TUNING.mass * TUNING.gravity };
   return add(
-    aerodynamicForce(velocity, axes, air),
+    aerodynamicForce(velocity, axes, air, wing),
     scale(axes.forward, thrust(throttle, air.speed)),
     weight,
   );
@@ -30,13 +32,14 @@ function aerodynamicForce(
   velocity: Vector3,
   axes: BodyAxes,
   air: Airflow,
+  wing: WingState,
 ): Vector3 {
   if (air.speed < STILL_AIR_SPEED) return ZERO;
   const pressureTimesArea =
     0.5 * TUNING.airDensity * air.speed * air.speed * TUNING.wingArea;
   const airflowDirection = scale(velocity, 1 / air.speed);
-  const lift = liftCoefficient(air.angleOfAttack);
-  const drag = TUNING.parasiteDrag + TUNING.inducedDrag * lift * lift;
+  const lift = liftCoefficient(air.angleOfAttack, wing);
+  const drag = dragCoefficient(lift, wing);
   return add(
     scale(perpendicularTo(airflowDirection, axes.up), pressureTimesArea * lift),
     scale(airflowDirection, -pressureTimesArea * drag),
@@ -45,11 +48,6 @@ function aerodynamicForce(
       -pressureTimesArea * TUNING.sideForce * air.sideslip,
     ),
   );
-}
-
-function liftCoefficient(angleOfAttack: number): number {
-  const lift = TUNING.liftAtZeroAngle + TUNING.liftPerRadian * angleOfAttack;
-  return Math.max(TUNING.minLift, Math.min(TUNING.maxLift, lift));
 }
 
 /** The part of `axis` at right angles to the airflow, made length 1: lift acts across the airflow, not along it. */
