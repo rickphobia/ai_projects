@@ -1,5 +1,6 @@
 package com.rickphobia.ricknotes.toolbar
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,7 +18,9 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -33,59 +36,92 @@ import com.rickphobia.ricknotes.logging.AppLog
 
 private val SWATCH = 32.dp
 
+private val BLOCK = RoundedCornerShape(4.dp)
+
 // A pink eraser block, so it doesn't look like ink.
 private const val ERASER_ARGB = 0xFFF8BBD0.toInt()
 
+private val LASSO_LINE = 2.dp
+private val LASSO_DASH = 5.dp
+
+/** What the pen is picked to be: the ink tool in use, the eraser or the Lasso. */
+enum class PenKind { INK, ERASER, LASSO }
+
 /**
- * The Document's pens, highlighter and eraser, picking [tool] or [erasing]. The tool in use has a
- * thick ring round it; tapping the pen in use moves on through [favouritePens].
+ * The Document's pens, highlighter, eraser and Lasso, picking [tool] and [kind]. The tool in use
+ * has a thick ring round it; tapping the pen in use moves on through [favouritePens].
  */
 @Composable
 fun PenToolbar(
     tool: MutableState<InkTool>,
-    erasing: MutableState<Boolean>,
+    kind: MutableState<PenKind>,
     favouritePens: FavouritePens,
 ) {
-    val current = tool.value.takeUnless { erasing.value }
+    val current = tool.value.takeIf { kind.value == PenKind.INK }
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         PenColour.entries.forEach { colour ->
             ToolSwatch(
-                colour = Color(colour.argb),
                 shape = CircleShape,
                 label = penName(colour),
                 selected = current == InkTool.Pen(colour),
                 onClick = {
                     tool.value = current?.afterTappingPen(colour, favouritePens) ?: InkTool.Pen(colour)
-                    erasing.value = false
+                    kind.value = PenKind.INK
                     AppLog.d("tool: ${tool.value}")
                 },
-            )
+            ) { ColourFill(Color(colour.argb), CircleShape) }
         }
         ToolSwatch(
-            colour = Color(InkTool.Highlighter.colourArgb),
-            shape = RoundedCornerShape(4.dp),
+            shape = BLOCK,
             label = stringResource(R.string.highlighter),
             selected = current == InkTool.Highlighter,
             onClick = {
                 tool.value = InkTool.Highlighter
-                erasing.value = false
+                kind.value = PenKind.INK
                 AppLog.d("tool: highlighter")
             },
-        )
+        ) { ColourFill(Color(InkTool.Highlighter.colourArgb), BLOCK) }
         ToolSwatch(
-            colour = Color(ERASER_ARGB),
-            shape = RoundedCornerShape(4.dp),
+            shape = BLOCK,
             label = stringResource(R.string.eraser),
-            selected = erasing.value,
+            selected = kind.value == PenKind.ERASER,
             onClick = {
-                erasing.value = true
+                kind.value = PenKind.ERASER
                 AppLog.d("tool: eraser")
             },
-        )
+        ) { ColourFill(Color(ERASER_ARGB), BLOCK) }
+        ToolSwatch(
+            shape = BLOCK,
+            label = stringResource(R.string.lasso),
+            selected = kind.value == PenKind.LASSO,
+            onClick = {
+                kind.value = PenKind.LASSO
+                AppLog.d("tool: lasso")
+            },
+        ) { LassoIcon() }
     }
+}
+
+/** A dashed loop, as the Lasso draws one. */
+@Composable
+private fun LassoIcon() {
+    val colour = MaterialTheme.colorScheme.onSurface
+    Canvas(modifier = Modifier.size(SWATCH)) {
+        val line = LASSO_LINE.toPx()
+        val dash = PathEffect.dashPathEffect(floatArrayOf(LASSO_DASH.toPx(), LASSO_DASH.toPx()))
+        drawCircle(colour, radius = (size.minDimension - line) / 2, style = Stroke(line, pathEffect = dash))
+    }
+}
+
+@Composable
+private fun ColourFill(
+    colour: Color,
+    shape: Shape,
+) {
+    Box(modifier = Modifier.size(SWATCH).background(colour, shape))
 }
 
 /** Undo and redo buttons, each disabled when there is nothing for it to do. */
@@ -124,11 +160,11 @@ fun penName(colour: PenColour): String =
 
 @Composable
 private fun ToolSwatch(
-    colour: Color,
     shape: Shape,
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
+    inside: @Composable () -> Unit,
 ) {
     val ring = if (selected) 4.dp else 1.dp
     val ringColour = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
@@ -144,6 +180,6 @@ private fun ToolSwatch(
                 },
         contentAlignment = Alignment.Center,
     ) {
-        Box(modifier = Modifier.size(SWATCH).background(colour, shape))
+        inside()
     }
 }
