@@ -20,7 +20,13 @@ export interface Plane {
   readonly yawRate: number;
   /** 0 is idle, 1 is full. */
   readonly throttle: number;
+  /** Flap deflection, one of the tuned flap settings. */
+  readonly flaps: number;
+  /** Whether F was held last step, so holding it moves the flaps one setting, not one every step. */
+  readonly flapsHeld: boolean;
   readonly brakes: boolean;
+  /** Set while the wing is past its critical angle of attack in the air. */
+  readonly stalled: boolean;
   readonly onGround: boolean;
 }
 
@@ -40,7 +46,10 @@ export function planeOnRunway(world: World): Plane {
     pitchRate: 0,
     yawRate: 0,
     throttle: 0,
+    flaps: 0,
+    flapsHeld: false,
     brakes: false,
+    stalled: false,
     onGround: true,
   };
 }

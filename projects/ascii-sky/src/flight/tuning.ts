@@ -16,14 +16,26 @@ export const TUNING = {
   airDensity: 1.225,
   wingArea: 16.2,
 
-  /** Lift coefficient with the nose on the airflow, how it grows with angle of attack, and its limits. */
+  /** Lift coefficient with the nose on the airflow, how it grows with angle of attack, and its floor. */
   liftAtZeroAngle: 0.3,
   liftPerRadian: 5,
-  maxLift: 1.5,
   minLift: -1,
+  /** Past this angle of attack the wing Stalls: about where a C172's does. */
+  criticalAngleOfAttack: 15 * DEGREES,
+  /** A Stalled wing makes this share of its lift, and flies again only this far below the critical angle. */
+  stalledLiftShare: 0.6,
+  stallRecoveryMargin: 3 * DEGREES,
+  /** While Stalled, the nose drops at this rate whatever the elevator does, until the wing flies again. */
+  stallNoseDropRate: 0.4,
   /** Drag coefficient: a fixed part, plus this times the lift coefficient squared. */
   parasiteDrag: 0.032,
   inducedDrag: 0.055,
+
+  /** The flap settings `F` steps through, then back up: a C172's 0, 10, 20 and 30 degrees. */
+  flapSettings: [0, 10 * DEGREES, 20 * DEGREES, 30 * DEGREES],
+  /** Lift and drag coefficient added per radian of flap: full flaps take the Stall speed from about 48 to 42 knots. */
+  flapLiftPerRadian: 0.95,
+  flapDragPerRadian: 0.1,
   /** How hard the fuselage pushes back against sideslip, per radian of it. */
   sideForce: 1,
 

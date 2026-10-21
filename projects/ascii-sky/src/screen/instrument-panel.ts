@@ -34,7 +34,7 @@ const FULL_THROTTLE_RPM = 2400;
 const WINDMILL_RPM_PER_KNOT = 3;
 const REDLINE_RPM = 2700;
 
-/** The Instrument panel: the glareshield, the six flight instruments and the engine box, framed. */
+/** The Instrument panel: the glareshield with the stall warning, the six flight instruments and the engine box, framed. */
 export function drawInstrumentPanel(plane: Plane, world: World): string[] {
   const axes = bodyAxes(plane);
   const air = airflow(plane.velocity, axes);
@@ -48,7 +48,8 @@ export function drawInstrumentPanel(plane: Plane, world: World): string[] {
     box("VERT SPEED", INSTRUMENT_WIDTH, verticalSpeed(plane.velocity.z)),
     box("ENGINE", ENGINE_WIDTH, engine(plane, knots)),
   ];
-  const lines = ["=".repeat(SCREEN_COLUMNS)];
+  // The stall warning sits in the middle of the glareshield, right under the pilot's view.
+  const lines = [centre(plane.stalled ? " [STALL] " : "", SCREEN_COLUMNS, "=")];
   for (let row = 0; row < PANEL_INNER_ROWS; row++) {
     lines.push(`|${boxes.map((lines) => lines[row] ?? "").join("")}|`);
   }
@@ -218,10 +219,14 @@ function engine(plane: Plane, knots: number): string[] {
     `RPM    ${String(Math.round(rpm / 10) * 10).padStart(4)}`.padEnd(18),
     `THR [${"#".repeat(filled)}${"-".repeat(barWidth - filled)}]${String(percent).padStart(3)}%`,
     "",
-    // Ticket 06 adds flap settings to the Plane; until then they stay up.
-    "FLAPS  UP".padEnd(18),
+    `FLAPS  ${flapsSetting(plane.flaps)}`.padEnd(18),
     `BRAKES ${plane.brakes ? "ON" : "OFF"}`.padEnd(18),
   ];
+}
+
+function flapsSetting(radians: number): string {
+  const degrees = Math.round(radians * DEGREES_PER_RADIAN);
+  return degrees === 0 ? "UP" : String(degrees);
 }
 
 function signed(value: number): string {

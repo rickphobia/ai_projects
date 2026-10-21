@@ -57,6 +57,7 @@ describe("the Instrument panel through Draw", () => {
       flying({ roll: 170 * DEGREE, pitch: -60 * DEGREE, throttle: 1 }),
       flying({ velocity: { x: 500, y: -500, z: -100 }, yawRate: 5 }),
       flying({ position: { x: 0, y: 0, z: 9000 }, brakes: true }),
+      flying({ stalled: true, flaps: 30 * DEGREE }),
     ];
     for (const state of states) {
       const lines = drawGame(state, VIEW);
@@ -117,6 +118,18 @@ describe("the Instrument panel through Draw", () => {
     expect(instrument(panel(flying({ brakes: true })), 6)).toContain(
       "BRAKES ON",
     );
+  });
+
+  it("shows the flaps setting in degrees", () => {
+    const flaps = instrument(panel(flying({ flaps: 20 * DEGREE })), 6);
+    expect(flaps).toContain("FLAPS  20");
+  });
+
+  it("shows [STALL] only while the Stall flag is set", () => {
+    const stalled = panel(flying({ stalled: true })).join("\n");
+    expect(stalled).toContain("[STALL]");
+    const flyingOn = panel(flying({ stalled: false })).join("\n");
+    expect(flyingOn).not.toContain("STALL");
   });
 
   it("shows pitch and bank on the attitude indicator", () => {

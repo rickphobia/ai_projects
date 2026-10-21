@@ -147,6 +147,67 @@ describe("in the air", () => {
   });
 });
 
+describe("stall and flaps", () => {
+  it("stalls when pulled up at low speed, and the nose drops", () => {
+    const stalled = pullUpUntilStalled(cruising());
+    expect(stalled.plane.stalled).toBe(true);
+    const later = fly(stalled, holding("throttleDown", "pitchUp"), 3);
+    expect(later.plane.pitch).toBeLessThan(stalled.plane.pitch - 0.1);
+  });
+
+  it("recovers from a Stall with the nose lowered and power added", () => {
+    const stalled = pullUpUntilStalled(cruising());
+    const recovered = fly(stalled, holding("pitchDown", "throttleUp"), 5);
+    expect(recovered.plane.stalled).toBe(false);
+    expect(recovered.plane.onGround).toBe(false);
+  });
+
+  it("never stalls in steady flight with the controls let go", () => {
+    let state = cruising();
+    for (let frame = 0; frame < 60 * 30; frame++) {
+      state = advance(state, holding(), FRAME);
+      expect(state.plane.stalled).toBe(false);
+    }
+  });
+
+  it("steps the flaps one setting per press of F, then back up", () => {
+    let state = cruising();
+    const settings = [state.plane.flaps];
+    for (let press = 0; press < 4; press++) {
+      // Holding F for a whole second still moves the flaps only once.
+      state = fly(state, holding("flapsStep"), 1);
+      state = advance(state, holding(), FRAME);
+      settings.push(state.plane.flaps);
+    }
+    const [up, first, second, third, wrapped] = settings;
+    expect(up).toBe(0);
+    expect(first).toBeGreaterThan(0);
+    expect(second).toBeGreaterThan(first ?? Infinity);
+    expect(third).toBeGreaterThan(second ?? Infinity);
+    expect(wrapped).toBe(0);
+  });
+
+  it("stalls at a lower speed with the flaps down", () => {
+    const clean = pullUpUntilStalled(cruising());
+    const flapsDown = pullUpUntilStalled(withFullFlaps(cruising()));
+    expect(flapsDown.plane.flaps).toBeGreaterThan(0);
+    expect(airspeed(flapsDown)).toBeLessThan(airspeed(clean) - 2);
+  });
+
+  it("slows the Plane faster with the flaps down", () => {
+    const cruise = cruising();
+    const flapsDown = withFullFlaps(cruise);
+    // Same flight, flaps changed only: lift acts across the path, so only drag can differ.
+    const clean: GameState = {
+      ...flapsDown,
+      plane: { ...flapsDown.plane, flaps: 0 },
+    };
+    const step = (state: GameState): number =>
+      airspeed(state) - airspeed(advance(state, holding(), FRAME));
+    expect(step(flapsDown)).toBeGreaterThan(step(clean));
+  });
+});
+
 describe("the World's edge", () => {
   it("holds the Plane inside", () => {
     const edge = world.halfSize;
@@ -195,6 +256,30 @@ describe("fixed steps", () => {
     expect(later.plane).toEqual(rolling.plane);
   });
 });
+
+/** Idle throttle and the nose held up, until the Stall flag sets (or a minute passes). */
+function pullUpUntilStalled(start: GameState): GameState {
+  let state = start;
+  for (let frame = 0; frame < 60 * 60 && !state.plane.stalled; frame++) {
+    state = advance(state, holding("throttleDown", "pitchUp"), FRAME);
+  }
+  return state;
+}
+
+/** Presses F until the flaps are at their last setting. */
+function withFullFlaps(start: GameState): GameState {
+  let state = start;
+  for (let press = 0; press < 3; press++) {
+    state = advance(state, holding("flapsStep"), FRAME);
+    state = advance(state, holding(), FRAME);
+  }
+  return state;
+}
+
+function airspeed(state: GameState): number {
+  const { x, y, z } = state.plane.velocity;
+  return Math.hypot(x, y, z);
+}
 
 function angleBetween(from: number, to: number): number {
   const turn = Math.abs(to - from) % (2 * Math.PI);
