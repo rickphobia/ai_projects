@@ -32,6 +32,7 @@ import {
 } from "./camera";
 import { groundDecorations, surroundPlants } from "./decoration";
 import { GoalHealthBar } from "./goal-health-view";
+import { moveParts } from "./piece-motion";
 import { drawPieces, pieceView, type MovingParts } from "./pieces-view";
 import { PlacementCursor } from "./placement-cursor";
 import { drawRoute } from "./route-view";
@@ -232,7 +233,8 @@ export async function startRenderer(
         drawnMaze = state.maze;
         drawTricks();
       }
-      units.show(state, newShots, movingParts);
+      units.show(state, newShots);
+      moveParts(movingParts, state, sliders?.volume ?? 0);
     },
     clearBattle: () => {
       units.clear();

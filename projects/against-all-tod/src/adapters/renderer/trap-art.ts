@@ -16,15 +16,16 @@ import {
   shadow,
 } from "./piece-parts";
 
+/**
+ * The trap Pieces, the ones with a `trap` in the catalog. The Tax Booth and Grinder are floor
+ * Pieces, drawn flat with no shadow so they read as walked over; the Bouncer and Decoy Goal
+ * stand like walls.
+ */
+
 /** The Grinder's teeth: a cog this many teeth round, turned by the battle view. */
 const GRINDER_TEETH = 8;
 /** The Decoy Goal leans this far (radians), so it reads as a flimsy copy of the real office. */
 const DECOY_LEAN = 0.12;
-
-/**
- * The trap Pieces. The Tax Booth and Grinder are floor Pieces, drawn flat with no shadow so they
- * read as walked over; the Bouncer and Decoy Goal stand like walls.
- */
 
 /** From above: a little ticket booth in the corner and a striped barrier arm across the lane. */
 export function taxBooth(): Graphics {

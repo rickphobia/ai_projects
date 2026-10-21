@@ -9,10 +9,12 @@ import { LAMP } from "./tower-art";
  * The part of each Piece that moves in battle, by the tile key of its Piece: a Sniper Nest's
  * barrel, a Turnstile's arms, a Lighthouse's beam, a Siren's ring, a Grinder's teeth.
  */
-export type MovingParts = ReadonlyMap<
-  string,
-  { readonly pieceId: PieceId; readonly part: Container }
->;
+export type MovingParts = ReadonlyMap<string, MovingPart>;
+
+export interface MovingPart {
+  readonly pieceId: PieceId;
+  readonly part: Container;
+}
 
 const MOVING_PART_LABEL = "moving-part";
 
@@ -32,13 +34,10 @@ export function pieceView(
     });
   switch (pieceId) {
     case "sniper-nest":
+      piece.addChild(body, centred(textures.sniperBarrel));
+      break;
     case "grinder":
-      piece.addChild(
-        body,
-        centred(
-          pieceId === "grinder" ? textures.grinderTeeth : textures.sniperBarrel,
-        ),
-      );
+      piece.addChild(body, centred(textures.grinderTeeth));
       break;
     case "turnstile":
       // The arms reach into the tiles either side, under the post.
@@ -76,10 +75,7 @@ export function drawPieces(
   maze: Maze,
 ): MovingParts {
   for (const child of layer.removeChildren()) child.destroy({ children: true });
-  const parts = new Map<
-    string,
-    { readonly pieceId: PieceId; readonly part: Container }
-  >();
+  const parts = new Map<string, MovingPart>();
   for (const { pieceId, tile } of placedPieces(maze)) {
     const piece = pieceView(textures, pieceId);
     piece.position.set(tile.column * TILE_SIZE, tile.row * TILE_SIZE);

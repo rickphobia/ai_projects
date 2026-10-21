@@ -1,4 +1,4 @@
-import { beamAngle } from "../../battle/area-effects";
+import { beamAngle, sirenRange } from "../../battle/area-effects";
 import {
   STEPS_PER_SECOND,
   turnstilesTurned,
@@ -26,9 +26,14 @@ export interface RingPose {
  * Moves each Piece's working part to where the battle has it, by sprite transforms only: tower
  * barrels toward their last shot, Lighthouse beams along their sweep, Turnstile arms with their
  * turn, Siren rings out from each pulse and Grinder teeth round unless jammed. A Lighthouse or
- * Siren the battle has switched off (Power Cut) shows no beam and no rings.
+ * Siren the battle has switched off (Power Cut) shows no beam and no rings. `volume` is the
+ * Volume trick's position, which sets how far a Siren reaches.
  */
-export function moveParts(parts: MovingParts, state: BattleState): void {
+export function moveParts(
+  parts: MovingParts,
+  state: BattleState,
+  volume: number,
+): void {
   const working = new Set(state.effectPieces.map(({ tile }) => tileKey(tile)));
   const turned = turnstilesTurned(state.step);
   for (const [key, { pieceId, part }] of parts) {
@@ -38,7 +43,7 @@ export function moveParts(parts: MovingParts, state: BattleState): void {
       part.rotation = beamAngle(beam, state.step, STEPS_PER_SECOND);
     } else if (stun !== null) {
       const ring = working.has(key)
-        ? sirenRing(stun, state.step, STEPS_PER_SECOND)
+        ? sirenRing(stun, state.step, STEPS_PER_SECOND, volume)
         : { visible: false, scale: 1, alpha: 0 };
       part.visible = ring.visible;
       part.scale.set(ring.scale);
@@ -68,12 +73,18 @@ export function moveParts(parts: MovingParts, state: BattleState): void {
   }
 }
 
-/** A ring starts at each pulse the battle fires (every `intervalSeconds`, from step 0) and grows out over `RING_SECONDS`. */
+/**
+ * A ring starts at each pulse the battle fires (every `intervalSeconds`, from step 0) and grows
+ * over `RING_SECONDS` out to the Siren's reach at this Volume; the texture is drawn at neutral
+ * Volume's reach, so scale 1 is that.
+ */
 export function sirenRing(
   stats: StunStats,
   step: number,
   stepsPerSecond: number,
+  volume: number,
 ): RingPose {
+  const reach = sirenRange(stats, volume) / stats.range;
   const interval = Math.max(
     1,
     Math.round(stats.intervalSeconds * stepsPerSecond),
@@ -84,7 +95,7 @@ export function sirenRing(
   const progress = sincePulse / ringSteps;
   return {
     visible: true,
-    scale: RING_START_SCALE + (1 - RING_START_SCALE) * progress,
+    scale: reach * (RING_START_SCALE + (1 - RING_START_SCALE) * progress),
     alpha: 1 - progress,
   };
 }
