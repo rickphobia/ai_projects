@@ -40,7 +40,7 @@ import { drawPieces, pieceView, type Turrets } from "./pieces-view";
 import { PlacementCursor } from "./placement-cursor";
 import { drawRoute } from "./route-view";
 import { TricksView } from "./tricks-view";
-import { UnitsView, dudeDisc } from "./units-view";
+import { UnitsView } from "./units-view";
 
 /** Space kept free around the Board, in screen pixels. */
 const VIEW_MARGIN = 16;
@@ -136,14 +136,7 @@ export async function startRenderer(
   const decorations = new Container({ label: "decorations" });
   const pieces = new Container({ label: "pieces" });
   const route = new Graphics({ label: "route" });
-  const disc = dudeDisc();
-  const discTexture = app.renderer.generateTexture({
-    target: disc,
-    resolution: artResolution,
-    antialias: true,
-  });
-  disc.destroy();
-  const units = new UnitsView(textures, discTexture);
+  const units = new UnitsView(textures);
   const goalHealth = new GoalHealthBar();
   const tricks = new TricksView();
   let sliders: SliderPositions | null = null;

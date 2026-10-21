@@ -47,6 +47,10 @@ export const PETAL_COLOUR = 0xfffaf0;
 export const BLOOM_COLOUR = 0xffd44d;
 /** The Spawn zone carpet under its attack-colour stripes (`--carpet`); pale, so painted Dudes stand out on it. */
 export const CARPET_COLOUR = 0xf5c9b3;
+/** The whites of a Dude's eyes (`--eye`). */
+export const EYE_COLOUR = 0xffffff;
+/** A Shield Bro's shield (`--metal`). */
+export const METAL_COLOUR = 0xaab4bd;
 
 /** The art kit's colours by CSS variable name, so a test can keep the page's variables matching. */
 export const ART_COLOURS: Readonly<Record<string, number>> = {
@@ -62,6 +66,8 @@ export const ART_COLOURS: Readonly<Record<string, number>> = {
   petal: PETAL_COLOUR,
   bloom: BLOOM_COLOUR,
   carpet: CARPET_COLOUR,
+  eye: EYE_COLOUR,
+  metal: METAL_COLOUR,
 };
 
 /** The world drawn round the Board on every side, in Board pixels: the border and the trees. */

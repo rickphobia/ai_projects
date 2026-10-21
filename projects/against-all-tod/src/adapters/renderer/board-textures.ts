@@ -1,7 +1,6 @@
 import { Texture } from "pixi.js";
 import towerBaseUrl from "../../../assets/kenney-tower-defense-top-down/towerDefense_tile181.png";
 import turretUrl from "../../../assets/kenney-tower-defense-top-down/towerDefense_tile203.png";
-import dudeUrl from "../../../assets/kenney-tower-defense-top-down/towerDefense_tile248.png";
 import type { ArtTextures } from "./art-kit";
 
 /** A Board tile is 64 px square, the size of Kenney's Tower Defense (top-down) tiles. */
@@ -13,8 +12,6 @@ export interface KenneyTextures {
   readonly towerBase: Texture;
   /** A grey turret, barrels pointing up, tinted in the defense colour. */
   readonly turret: Texture;
-  /** A grey soldier seen from above, facing up, drawn on a disc in the attack colour. */
-  readonly dude: Texture;
 }
 
 /** Everything the views draw with: the art kit's drawn shapes and the Kenney tiles left. */
@@ -26,12 +23,11 @@ export class TextureLoadError extends Error {
 
 /** Single tiles rather than the pack's tilesheet: its frames have no padding, so scaled tiles bleed their neighbours. */
 export async function loadKenneyTextures(): Promise<KenneyTextures> {
-  const [towerBase, turret, dude] = await Promise.all([
+  const [towerBase, turret] = await Promise.all([
     loadTexture("tower base", towerBaseUrl),
     loadTexture("turret", turretUrl),
-    loadTexture("dude", dudeUrl),
   ]);
-  return { towerBase, turret, dude };
+  return { towerBase, turret };
 }
 
 /**
