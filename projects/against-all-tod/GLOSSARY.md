@@ -146,6 +146,10 @@ _Avoid_: Sabotage, cheat, hack, UI weapon
 Reversing one Settings trick by destroying pieces of your own side, of your choice, up to the trick's price. Rare and painful on purpose.
 _Avoid_: Reset, revert
 
+**Take back**:
+Reversing the player's last action this Round, before the battle, for everything it cost: a placed Piece, a whole Stroke, an Erase or Dismiss, a crate pick or a Settings trick bought this Round. Pressed again, it steps further back, as far as the start of the Round. Crate rerolls and Undos can't be taken back.
+_Avoid_: Undo, redo, rollback
+
 **Watch speed**:
 How fast the player watches a battle (1x, 2x, 4x). It never changes who wins, unlike the Game speed Settings trick.
 _Avoid_: Fast-forward, game speed
