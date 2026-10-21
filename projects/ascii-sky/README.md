@@ -4,7 +4,7 @@ A browser flight simulator where everything on the Screen, the 3D World included
 
 ## Status
 
-`in progress`: title screen, keys and pause. The page opens on a title screen listing every key; any key shows the Cockpit view, a still 3D picture of the hills, the lake and the Runway drawn in characters, on a 120×45 Screen scaled to fit the window. `P`/`Esc` (or hiding the tab) pauses. Flying comes in the next tickets (`docs/tickets/`).
+`in progress`: take off and fly. The page opens on a title screen listing every key; any key puts you in the Cockpit view on the Runway, the 3D World drawn in characters on a 120×45 Screen scaled to fit the window. `W`/`S` set the throttle, `B` holds the brakes, `A`/`D` steer on the ground, and the Plane lifts off when fast enough (hold the down arrow to raise the nose). In the air the arrows pitch and roll it, a bank turns it, and the World's edge stops it. `P`/`Esc` (or hiding the tab) pauses. The Instrument panel, Stall, flaps and landing come in the next tickets (`docs/tickets/`).
 
 ## Requirements
 
@@ -61,16 +61,19 @@ The deploy scripts read their own `ASCII_SKY_*` variables from the shell; see "D
 ## How it works
 
 - `src/main.ts` is the entrypoint: it loads the config, makes the logger and builds the World, then runs a `requestAnimationFrame` loop: read the controls, call Advance, render the World, call Draw, show the Screen. Hiding the tab pauses the game. On a device without a keyboard it shows a message instead.
-- `src/game/` is the Game core. `controls.ts` names the actions a player can hold down; `game.ts` holds the game state (phase: title, flying, paused) and Advance, which moves it on given the controls and the elapsed time.
+- `src/game/` is the Game core. `controls.ts` names the actions a player can hold down; `game.ts` holds the game state (phase, the World, the Plane) and Advance, which moves it on given the controls and the elapsed time. Advance runs the flight model in fixed 1/120 s steps and carries the leftover time to the next frame, so the same controls over the same time give the same Flight at any frame rate.
+- `src/flight/` is the flight model: a light sim of a Cessna-172-like Plane. `tuning.ts` holds the numbers that set how it flies (mass, lift, drag, thrust, control rates, damping, wheel friction), so the feel is tuned there without touching the logic. `flight-model.ts` is one step: `forces.ts` (lift from angle of attack, drag, side force, thrust, weight), `control-response.ts` (the controls ease the Plane's turning rates toward a target; the tail keeps the nose near its trimmed angle of attack, and the wings drift back toward level), `attitude.ts` (the Plane's axes and how body rates turn it) and `ground-roll.ts` (wheels: rolling friction, brakes, nosewheel steering). A bank turns the Plane because the tilted lift bends the flight path and the tail swings the nose after it. The World's edge is a wall 50 m inside the edge. `cockpit-camera.ts` gives the pilot's eye pose from the Plane.
 - `src/adapters/keyboard/keyboard.ts` maps keys to actions (by `KeyboardEvent.code`, so the layout doesn't matter); any key also counts as start. It guesses a phone or tablet from the `(hover: none) and (pointer: coarse)` media query.
-- `src/world/` is the World as data: ground height and surface type (runway, grass, hill, lake) at any point of a 20×20 km area, from the hand-made layout in `world-layout.ts`. `cockpit-camera.ts` places the pilot's eye on the Runway. No three.js here, so it is unit-tested directly.
-- `src/adapters/view/` is the three.js view (decision 0001). `world-scene.ts` builds meshes from the same World data; `view-renderer.ts` renders from a camera pose into a hidden 120×32 target, one pixel per character cell of the Cockpit view, and reads it back as a brightness grid (0 to 1 per cell).
+- `src/world/` is the World as data: ground height and surface type (runway, grass, hill, lake) at any point of a 20×20 km area, from the hand-made layout in `world-layout.ts`. No three.js here, so it is unit-tested directly.
+- `src/adapters/view/` is the three.js view (decision 0001). `world-scene.ts` builds meshes from the same World data; `view-renderer.ts` renders from the cockpit camera pose, placed every frame, into a hidden 120×32 target, one pixel per character cell of the Cockpit view, and reads it back as a brightness grid (0 to 1 per cell).
 - `src/screen/` holds the Screen's size (120 columns × 45 rows, the top 32 rows being the Cockpit view) and what is drawn on it. `cockpit-screen.ts` turns a brightness grid into characters from the Character ramp ` .:-=+*#%@` (`character-ramp.ts`), draws the window frame and the top of the cowling over it, and leaves an empty box for the Instrument panel. `game-screen.ts` is Draw: the title screen, the Cockpit view, or the Cockpit view with PAUSED over it, by phase. `framed-screen.ts` draws the title and message screens.
 - `src/adapters/screen/screen-output.ts` writes the 45 lines into one `<pre>`. It refuses anything that isn't 45 lines of 120 printable ASCII characters. The `<pre>` is laid out at its natural size and scaled with a CSS transform to fit the window, so it keeps its shape and never wraps.
 
 The look of the 3D picture (how bright each surface is, the sun, the fog) is tuned in `src/adapters/view/world-scene.ts`; the field of view in `view-renderer.ts`.
 
 `docs/spec.md` describes where this is going: a pure Game core (Advance and Draw), keyboard and audio adapters.
+
+Until the Flight can end (ticket 07), meeting the ground in the air simply puts the Plane back on its wheels, however hard, and hills and the lake count as ground.
 
 ## Folder layout
 
@@ -80,7 +83,8 @@ src/
   config.ts          reads and validates VITE_* settings
   logger.ts          levelled logger over the browser console
   game/              Game core: game state, phases, Advance
-  world/             the World as data, and the cockpit camera on the Runway
+  flight/            flight model: the Plane, forces, controls, wheels, tuning numbers
+  world/             the World as data
   screen/            Screen size, Character ramp, and the text drawn on the Screen
   adapters/view/     three.js: renders the World into a brightness grid
   adapters/screen/   writes the Screen into the page
@@ -95,7 +99,8 @@ docs/                spec, tickets, decisions
 
 - Logs go to the browser console, prefixed `[ascii-sky]`. Start-up logs the build version and Screen size at `info`, then `3D view ready` once three.js has started WebGL.
 - If the browser has no WebGL (or it is turned off), the Screen says "ASCII SKY needs WebGL to draw the World" with the reason, and the console has a `3D view could not start` error. Check `chrome://gpu` or `about:support` for WebGL status.
-- Phase changes (title, flying, paused) are logged at `debug`.
+- Phase changes (title, flying, paused), lift-off and touchdown (with speed, sink rate, pitch and position) are logged at `debug`. Use them when tuning `src/flight/tuning.ts`.
+- If the game runs slowly (a frame longer than 0.25 s, e.g. software WebGL in a headless browser), each frame only counts 0.25 s, so the game runs in slow motion rather than jumping.
 - Add `?debug=1` to the page URL for debug-level logs without a rebuild, or set `VITE_DEBUG=true` and rebuild.
 - If start-up fails (a bad setting in a dev build, say), the Screen shows "ASCII SKY could not start." with the reason, and the console has the error.
 - A blank page with no log usually means the JS bundle didn't load: check the network tab for a 404 and that `VITE_BASE_PATH` matches where the page is served.
