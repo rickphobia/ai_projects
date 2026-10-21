@@ -91,29 +91,34 @@ async function start(): Promise<void> {
     },
     sounds,
   );
-  const hud = new Hud(requireElement("hud"), () => shopStock(run.bestScore), {
-    onChoosePiece: (pieceId) => {
-      run.choosePiece(pieceId);
+  const hud = new Hud(
+    requireElement("hud"),
+    () => shopStock(run.bestScore),
+    view.portraits,
+    {
+      onChoosePiece: (pieceId) => {
+        run.choosePiece(pieceId);
+      },
+      onChooseDudeKind: (dudeKind) => {
+        run.chooseDudeKind(dudeKind);
+      },
+      onChooseEraser: () => {
+        run.chooseEraser();
+      },
+      onFight: () => {
+        run.fight();
+      },
+      onTakeBack: () => {
+        run.takeBack();
+      },
+      onWatchSpeed: (speed) => {
+        run.setWatchSpeed(speed);
+      },
+      onContinue: () => {
+        run.continue();
+      },
     },
-    onChooseDudeKind: (dudeKind) => {
-      run.chooseDudeKind(dudeKind);
-    },
-    onChooseEraser: () => {
-      run.chooseEraser();
-    },
-    onFight: () => {
-      run.fight();
-    },
-    onTakeBack: () => {
-      run.takeBack();
-    },
-    onWatchSpeed: (speed) => {
-      run.setWatchSpeed(speed);
-    },
-    onContinue: () => {
-      run.continue();
-    },
-  });
+  );
   const endScreen = new EndScreen(requireElement("end-screen"), () => {
     run.newRun();
   });

@@ -9,6 +9,9 @@ export interface ShopStock {
   readonly dudeKinds: readonly DudeKindId[];
 }
 
+/** Each Dude kind's and Piece's drawing as an image URL, for its shop button. */
+export type Portraits = Readonly<Record<DudeKindId | PieceId, string>>;
+
 /** The Pieces the shop sells; the others come only from crates. */
 const SHOP_PIECES: readonly PieceId[] = ["crate-wall", "sniper-nest"];
 
