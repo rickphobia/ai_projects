@@ -12,9 +12,13 @@ internal data class RawPointer(
     val x: Float,
     val y: Float,
     val pressure: Float,
+    val touchMajor: Float,
 )
 
-/** The plain events `core`'s touch interpreter reads, one per pointer this [MotionEvent] changed. */
+/**
+ * The plain events `core`'s touch interpreter reads, one per pointer this [MotionEvent] changed.
+ * Takes touch events and the pen's hover events.
+ */
 internal fun MotionEvent.toTouchEvents(): List<TouchEvent> =
     touchEventsOf(
         actionMasked = actionMasked,
@@ -25,12 +29,19 @@ internal fun MotionEvent.toTouchEvents(): List<TouchEvent> =
     )
 
 private fun MotionEvent.rawPointer(index: Int) =
-    RawPointer(getPointerId(index), getToolType(index), getX(index), getY(index), getPressure(index))
+    RawPointer(
+        getPointerId(index),
+        getToolType(index),
+        getX(index),
+        getY(index),
+        getPressure(index),
+        getTouchMajor(index),
+    )
 
 /**
- * A down or up changes only the pointer at [actionIndex]; a move reports every pointer. A pointer
- * going up with [cancelled] set is one Android decided was unintended, such as a palm, so it is
- * cancelled rather than finished.
+ * A down or up changes only the pointer at [actionIndex]; a move or hover reports every pointer. A
+ * pointer going up with [cancelled] set is one Android decided was unintended, such as a palm (this
+ * is how a palm the screen reports reaches apps), so it is cancelled rather than finished.
  */
 internal fun touchEventsOf(
     actionMasked: Int,
@@ -49,6 +60,7 @@ internal fun touchEventsOf(
         pointer.x,
         pointer.y,
         pointer.pressure.coerceIn(0f, 1f),
+        pointer.touchMajor.coerceAtLeast(0f),
         timeMs,
     )
 
@@ -67,6 +79,14 @@ internal fun touchEventsOf(
 
         MotionEvent.ACTION_CANCEL -> {
             pointers.map { event(it, TouchPhase.CANCEL) }
+        }
+
+        MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE -> {
+            pointers.map { event(it, TouchPhase.HOVER) }
+        }
+
+        MotionEvent.ACTION_HOVER_EXIT -> {
+            pointers.map { event(it, TouchPhase.HOVER_EXIT) }
         }
 
         else -> {

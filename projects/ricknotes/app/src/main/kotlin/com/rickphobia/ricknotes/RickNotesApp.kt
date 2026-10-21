@@ -22,6 +22,8 @@ import com.rickphobia.ricknotes.home.HomeScreen
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.settings.FavouritePensEditor
 import com.rickphobia.ricknotes.settings.FavouritePensSetting
+import com.rickphobia.ricknotes.settings.FingerGesturesEditor
+import com.rickphobia.ricknotes.settings.FingerGesturesSetting
 import com.rickphobia.ricknotes.settings.SettingsActions
 import com.rickphobia.ricknotes.settings.SettingsScreen
 import com.rickphobia.ricknotes.studyfolder.AllFilesAccessScreen
@@ -104,6 +106,7 @@ fun <S> RickNotesApp(
 ) where S : SettingsSource, S : SettingsStore {
     var screen by remember(hasAllFilesAccess) { mutableStateOf(startScreen(storage.settings)) }
     val favouritePens = remember { FavouritePensSetting(storage.settings) }
+    val fingerGestures = remember { FingerGesturesSetting(storage.settings) }
 
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -136,6 +139,7 @@ fun <S> RickNotesApp(
                     SettingsScreen(
                         studyFolder = current.studyFolder,
                         favouritePens = { FavouritePensEditor(favouritePens.pens, favouritePens::change) },
+                        fingerGestures = { FingerGesturesEditor(fingerGestures.gestures, fingerGestures::change) },
                         actions =
                             SettingsActions(
                                 changeFolder = pickFolder,
@@ -151,7 +155,7 @@ fun <S> RickNotesApp(
                 }
 
                 is Screen.Document -> {
-                    DocumentScreen(current.pdf, storage.readingPositions, favouritePens.pens) {
+                    DocumentScreen(current.pdf, storage.readingPositions, favouritePens.pens, fingerGestures.gestures) {
                         screen =
                             Screen.Home(current.studyFolder)
                     }

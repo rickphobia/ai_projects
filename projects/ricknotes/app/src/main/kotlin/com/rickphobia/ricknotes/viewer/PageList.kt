@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.PagePlacement
+import com.rickphobia.ricknotes.core.touch.FingerGestures
 import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.InkLayer
 import com.rickphobia.ricknotes.ink.PageInk
@@ -64,6 +65,7 @@ internal data class OpenDocument(
     val path: String,
     val positions: ReadingPositions,
     val ink: DocumentInk,
+    val fingerGestures: FingerGestures,
     val penMode: () -> PenMode,
 )
 
@@ -164,6 +166,7 @@ private fun TouchLayer(
         placements = { list.placements(document.pageSizes) },
         navigation = navigation,
         penMode = document.penMode,
+        gestures = document.fingerGestures,
     )
 }
 

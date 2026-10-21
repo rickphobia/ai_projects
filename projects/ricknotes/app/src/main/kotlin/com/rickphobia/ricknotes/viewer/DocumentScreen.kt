@@ -26,6 +26,7 @@ import com.rickphobia.ricknotes.core.ink.FavouritePens
 import com.rickphobia.ricknotes.core.ink.InkTool
 import com.rickphobia.ricknotes.core.session.SaveStatus
 import com.rickphobia.ricknotes.core.session.SessionWarning
+import com.rickphobia.ricknotes.core.touch.FingerGestures
 import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.PenMode
@@ -51,13 +52,15 @@ private sealed interface Opening {
 
 /**
  * One Document, scrolling continuously from page to page, reopened where it was left in [positions].
- * Tapping the pen in use in the toolbar moves on through [favouritePens].
+ * Tapping the pen in use in the toolbar moves on through [favouritePens]; fingers do what
+ * [fingerGestures] says.
  */
 @Composable
 fun DocumentScreen(
     pdf: PdfEntry,
     positions: ReadingPositions,
     favouritePens: FavouritePens,
+    fingerGestures: FingerGestures,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -108,6 +111,7 @@ fun DocumentScreen(
                         pdf.path,
                         positions,
                         current.ink,
+                        fingerGestures,
                     ) { if (erasing.value) PenMode.Erase else PenMode.Draw(tool.value) },
                 )
             }

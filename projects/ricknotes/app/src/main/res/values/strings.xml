@@ -44,4 +44,10 @@
   <string name="move_up">Move up</string>
   <string name="remove">Remove</string>
   <string name="add_pen">Add %1$s</string>
+  <string name="finger_gestures">Finger gestures</string>
+  <string name="finger_gestures_help">Two fingers always scroll and zoom. A resting palm never marks or erases.</string>
+  <string name="finger_erase">Finger erase</string>
+  <string name="finger_erase_help">One finger erases whole strokes instead of scrolling.</string>
+  <string name="two_finger_tap_undo">Two-finger tap to undo</string>
+  <string name="three_finger_tap_redo">Three-finger tap to redo</string>
 </resources>

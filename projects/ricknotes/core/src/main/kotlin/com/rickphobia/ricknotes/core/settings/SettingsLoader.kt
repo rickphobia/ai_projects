@@ -2,6 +2,7 @@ package com.rickphobia.ricknotes.core.settings
 
 import com.rickphobia.ricknotes.core.ink.FavouritePens
 import com.rickphobia.ricknotes.core.ink.PenColour
+import com.rickphobia.ricknotes.core.touch.FingerGestures
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
@@ -10,6 +11,39 @@ import java.nio.file.Path
 object SettingsLoader {
     const val STUDY_FOLDER_KEY = "study_folder"
     const val FAVOURITE_PENS_KEY = "favourite_pens"
+    const val FINGER_ERASE_KEY = "finger_erase"
+    const val TWO_FINGER_TAP_UNDO_KEY = "two_finger_tap_undo"
+    const val THREE_FINGER_TAP_REDO_KEY = "three_finger_tap_redo"
+
+    /**
+     * The stored finger gestures; a switch never saved is off.
+     * @throws InvalidSettingException if a stored switch is neither "true" nor "false".
+     */
+    fun loadFingerGestures(source: SettingsSource): FingerGestures {
+        val defaults = FingerGestures()
+        return FingerGestures(
+            fingerErase = readSwitch(source, FINGER_ERASE_KEY) ?: defaults.fingerErase,
+            twoFingerTapUndo = readSwitch(source, TWO_FINGER_TAP_UNDO_KEY) ?: defaults.twoFingerTapUndo,
+            threeFingerTapRedo = readSwitch(source, THREE_FINGER_TAP_REDO_KEY) ?: defaults.threeFingerTapRedo,
+        )
+    }
+
+    fun saveFingerGestures(
+        store: SettingsStore,
+        gestures: FingerGestures,
+    ) {
+        store.write(FINGER_ERASE_KEY, gestures.fingerErase.toString())
+        store.write(TWO_FINGER_TAP_UNDO_KEY, gestures.twoFingerTapUndo.toString())
+        store.write(THREE_FINGER_TAP_REDO_KEY, gestures.threeFingerTapRedo.toString())
+    }
+
+    private fun readSwitch(
+        source: SettingsSource,
+        key: String,
+    ): Boolean? {
+        val value = source.read(key) ?: return null
+        return value.toBooleanStrictOrNull() ?: throw InvalidSettingException(key, value, "is neither true nor false")
+    }
 
     /** @throws InvalidSettingException if a stored value can't be used. */
     fun load(source: SettingsSource): Settings =
