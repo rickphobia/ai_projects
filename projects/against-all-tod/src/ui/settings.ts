@@ -6,6 +6,7 @@ import {
   type SliderId,
 } from "../catalog/tricks";
 import { sideHelped, type SliderPositions } from "../tricks/tricks";
+import { COIN_ICON, iconElement, SKULL_ICON, TRICK_ICONS } from "./trick-icons";
 
 /** Shown instead of the step hints for a slider that can't be dragged during a battle. */
 export const BETWEEN_BATTLES_HINT = "Only between battles";
@@ -28,6 +29,19 @@ export function stepHint(
 /** "-2" to "+2", with "0" for the neutral middle. */
 export function positionLabel(position: number): string {
   return position > 0 ? `+${String(position)}` : String(position);
+}
+
+/** The coin chip on a slider's handle: "◀ 20g · 40g ▶", with "–" for an end it can't pass. */
+export function handlePrice(down: number | null, up: number | null): string {
+  const cost = (price: number | null): string =>
+    price === null ? "–" : `${String(price)}g`;
+  return `◀ ${cost(down)} · ${cost(up)} ▶`;
+}
+
+/** Where the handle sits along the track, as a percentage from the left (down) end. */
+export function handlePercent(position: number): number {
+  const steps = TRICK_RULES.stepsEachWay;
+  return ((position + steps) / (2 * steps)) * 100;
 }
 
 /** "Undo · destroy 40g of your own Pieces", or "Undo · free" with a free Undo. */
@@ -82,11 +96,11 @@ export class SettingsMenu {
     this.doc = host.ownerDocument;
     this.toggle = this.doc.createElement("button");
     this.toggle.type = "button";
-    this.toggle.className = "settings-toggle";
+    this.toggle.className = "btn settings-toggle";
     this.toggle.textContent = "Settings";
     this.toggle.setAttribute("aria-expanded", "false");
     this.panel = this.doc.createElement("div");
-    this.panel.className = "settings-panel";
+    this.panel.className = "card settings-panel";
     this.panel.hidden = true;
     this.toggle.addEventListener("click", () => {
       this.panel.hidden = !this.panel.hidden;
@@ -129,7 +143,8 @@ export class SettingsMenu {
     const button = this.button(undoLabel(side, price), () => {
       this.handlers.onUndo(slider);
     });
-    button.className = "settings-undo";
+    button.className = "btn settings-undo";
+    button.prepend(iconElement(this.doc, SKULL_ICON));
     return button;
   }
 
@@ -156,6 +171,7 @@ export class SettingsMenu {
   private button(text: string, onClick: () => void): HTMLButtonElement {
     const button = this.doc.createElement("button");
     button.type = "button";
+    button.className = "btn";
     button.textContent = text;
     button.addEventListener("click", onClick);
     return button;
@@ -169,8 +185,8 @@ export class SettingsMenu {
   ): HTMLElement {
     const row = this.doc.createElement("div");
     row.className = "settings-slider";
-    const label = this.doc.createElement("label");
     const name = this.doc.createElement("span");
+    name.className = "settings-name";
     name.textContent = `${SLIDERS[slider].name} ${positionLabel(position)}`;
     const input = this.doc.createElement("input");
     input.type = "range";
@@ -178,19 +194,60 @@ export class SettingsMenu {
     input.max = String(TRICK_RULES.stepsEachWay);
     input.step = "1";
     input.value = String(position);
+    input.setAttribute("aria-label", SLIDERS[slider].name);
     input.addEventListener("change", () => {
       this.handlers.onDrag(slider, Number(input.value));
     });
-    label.append(name, input);
     if (midBattle && !SLIDERS[slider].midBattle) {
       input.disabled = true;
-      row.append(label, this.hint(BETWEEN_BATTLES_HINT));
+      row.append(
+        name,
+        this.track(slider, position, input, null),
+        this.hint(BETWEEN_BATTLES_HINT),
+      );
       return row;
     }
-    const down = this.hint(stepHint(slider, -1, priceOf(slider, position - 1)));
-    const up = this.hint(stepHint(slider, 1, priceOf(slider, position + 1)));
-    row.append(label, down, up);
+    const down = priceOf(slider, position - 1);
+    const up = priceOf(slider, position + 1);
+    row.append(
+      name,
+      this.track(slider, position, input, handlePrice(down, up)),
+      this.hint(stepHint(slider, -1, down)),
+      this.hint(stepHint(slider, 1, up)),
+    );
     return row;
+  }
+
+  /**
+   * The slider between its end icons, its track coloured by the side each end helps, with the
+   * price chip riding the handle (no chip while the slider is locked).
+   */
+  private track(
+    slider: SliderId,
+    position: number,
+    input: HTMLInputElement,
+    price: string | null,
+  ): HTMLElement {
+    const track = this.doc.createElement("div");
+    track.className = "settings-track";
+    track.style.setProperty("--down-side", `var(--${sideHelped(slider, -1)})`);
+    track.style.setProperty("--up-side", `var(--${sideHelped(slider, 1)})`);
+    track.style.setProperty("--handle", `${String(handlePercent(position))}%`);
+    const rail = this.doc.createElement("div");
+    rail.className = "settings-rail";
+    rail.append(input);
+    if (price !== null) {
+      const chip = this.doc.createElement("span");
+      chip.className = "chip settings-price";
+      chip.append(iconElement(this.doc, COIN_ICON), price);
+      rail.append(chip);
+    }
+    track.append(
+      iconElement(this.doc, TRICK_ICONS[slider].down),
+      rail,
+      iconElement(this.doc, TRICK_ICONS[slider].up),
+    );
+    return track;
   }
 
   private hint(text: string): HTMLElement {

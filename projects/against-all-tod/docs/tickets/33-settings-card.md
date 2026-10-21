@@ -4,14 +4,14 @@
 
 **Blocked by:** 31 (Chunky cartoon UI and the top bar)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** ui/settings
 
 **Effort:** low
 
-- [ ] Each trick row has its icon, side-coloured slider and coin price chip
-- [ ] Undo is a separate red skull button, never next to Take back
-- [ ] The menu still works by touch with no hover
-- [ ] Existing settings tests still pass without being weakened
-- [ ] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`
+- [x] Each trick row has its icon, side-coloured slider and coin price chip
+- [x] Undo is a separate red skull button, never next to Take back
+- [x] The menu still works by touch with no hover
+- [x] Existing settings tests still pass without being weakened
+- [x] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`
