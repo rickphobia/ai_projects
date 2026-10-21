@@ -1,7 +1,7 @@
 /** One-line hints for the first Rounds of a player's first Run, in place of a tutorial. */
 const FIRST_RUN_HINTS: readonly string[] = [
-  "Hint: place walls so the Dudes walk the long way past your towers.",
-  "Hint: you switch sides every Round. Now you attack the Maze you just built.",
+  "Hint: place walls so the Dudes walk the long way past your towers. Misplaced one? ↶ Take back (Ctrl+Z) gives its gold back.",
+  "Hint: you switch sides every Round. Now you attack the Maze you just built. ↶ Take back removes a bad Stroke.",
   "Hint: the Settings menu isn't just settings. Its sliders change the battle.",
 ];
 

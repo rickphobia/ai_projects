@@ -21,6 +21,11 @@ import {
   type RunPhase,
   type RunState,
 } from "../../run/run";
+import type {
+  ListChange,
+  TakeBackAction,
+  TakeBackEntry,
+} from "../../run/take-back";
 import {
   isSliderPosition,
   type SliderInput,
@@ -152,6 +157,11 @@ export function parseSave(raw: string): RunState {
     crate: run.crate === null ? null : crate(run.crate),
     freeItems: freeItems(run),
     sliderInputs: list(run.sliderInputs, "sliderInputs").map(sliderInput),
+    // Saves from before Take back have nothing to take back.
+    takeBack:
+      run.takeBack === undefined
+        ? []
+        : list(run.takeBack, "takeBack").map(takeBackEntry),
   };
   // A Piece that no longer fits the Maze (say, after a rule change) makes the save unusable.
   mazeOf(state.pieces, windowSizeOf(state));
@@ -319,6 +329,86 @@ function freeItem(value: unknown): FreeItem {
     };
   }
   throw new SaveFormatError("unknown crate item");
+}
+
+function takeBackEntry(value: unknown): TakeBackEntry {
+  const entry = record(value, "take back entry");
+  const before = record(entry.before, "take back before");
+  const positions = sliders(before.sliders);
+  // Dudes an action removed stood in the Spawn zone as it was before the action.
+  const windowSize = positions["window-size"];
+  return {
+    action: takeBackAction(entry.action),
+    before: {
+      wallets: wallets(before.wallets),
+      crate: before.crate === null ? null : crate(before.crate),
+      freeItems: list(before.freeItems, "take back freeItems").map(freeItem),
+      mutations: list(before.mutations, "take back mutations").map(mutationId),
+      freeUndos: count(before.freeUndos, "take back freeUndos"),
+      sliders: positions,
+    },
+    changes: list(entry.changes, "take back changes").map((each) => {
+      const change = record(each, "take back change");
+      return {
+        ...(change.pieces === undefined
+          ? {}
+          : { pieces: listChange(change.pieces, placedPiece) }),
+        ...(change.army === undefined
+          ? {}
+          : {
+              army: listChange(change.army, (dude) =>
+                placedDude(dude, windowSize),
+              ),
+            }),
+      };
+    }),
+  };
+}
+
+function takeBackAction(value: unknown): TakeBackAction {
+  const action = record(value, "take back action");
+  switch (action.kind) {
+    case "place-piece":
+      return { kind: "place-piece", pieceId: pieceId(action.pieceId) };
+    case "stroke":
+      return {
+        kind: "stroke",
+        stroke: count(action.stroke, "take back stroke"),
+        dudeKind: dudeKind(action.dudeKind),
+        dudes: count(action.dudes, "take back dudes"),
+      };
+    case "eraser-drag":
+      return {
+        kind: "eraser-drag",
+        drag: count(action.drag, "take back drag"),
+        dudes: count(action.dudes, "take back dudes"),
+      };
+    case "crate-pick":
+      return { kind: "crate-pick", item: crateItem(action.item) };
+    case "slider":
+      return { kind: "slider", slider: sliderId(action.slider) };
+    default:
+      throw new SaveFormatError("unknown take back action");
+  }
+}
+
+function listChange<Item>(
+  value: unknown,
+  item: (value: unknown) => Item,
+): ListChange<Item> {
+  const change = record(value, "take back list change");
+  return {
+    added: list(change.added, "take back added").map((at) =>
+      count(at, "take back place"),
+    ),
+    removed: list(change.removed, "take back removed").map((each) => {
+      const removed = record(each, "take back removed item");
+      return {
+        at: count(removed.at, "take back place"),
+        item: item(removed.item),
+      };
+    }),
+  };
 }
 
 function mutationId(value: unknown): MutationId {

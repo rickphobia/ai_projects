@@ -78,7 +78,7 @@ The running list of mistakes and confusions across all courses, kept in the `_er
 _Avoid_: mistake book, error_logs.pdf
 
 **Entry**:
-One item in the error log: a picture of where it happened, labelled with course, Document, page and date, plus a category, a "why" line and redo dates.
+One item in the error log: a picture of where it happened (the whole page for a Wrong entry, the snip for a Confused entry), labelled with course, Document, page and date, plus a category, a "why" line and redo dates.
 _Avoid_: error, record, card
 
 **Wrong entry**:

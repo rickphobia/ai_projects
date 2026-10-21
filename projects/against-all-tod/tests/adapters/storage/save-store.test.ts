@@ -367,6 +367,78 @@ describe("SaveStore", () => {
     }
     expect(squeezed.army.at(-1)?.at).toEqual({ x: 1.5, y: 2.5 });
   });
+
+  it("loads back the Take back history, and takes back from it", () => {
+    const takeBack: RunAction = { type: "take-back" };
+    const defending = [
+      { type: "take-from-crate", index: 0 },
+      {
+        type: "drag-slider",
+        slider: "brightness",
+        to: 1,
+        atStep: 0,
+      },
+      {
+        type: "place-piece",
+        tile: { column: 5, row: 4 },
+        pieceId: "crate-wall",
+      },
+    ] satisfies RunAction[];
+    const attackTurn: RunState = {
+      ...newRun(42),
+      score: 1,
+      army: [],
+      crate: {
+        kind: "draft",
+        items: [{ kind: "gift", id: "intern" }],
+        picks: 1,
+        rerolls: 0,
+      },
+    };
+    const paint = (y: number): RunAction => ({
+      type: "paint-dude",
+      dudeKind: "intern",
+      at: { x: 1.5, y },
+      stroke: 3,
+    });
+    const attacking = [
+      { type: "take-from-crate", index: 0 },
+      paint(2.5),
+      paint(4.5),
+      { type: "erase-dude", index: 0, drag: 3 },
+    ] satisfies RunAction[];
+    for (const run of [
+      defending.reduce(apply, newRun(42)),
+      attacking.reduce(apply, attackTurn),
+    ]) {
+      const { store } = storeWith();
+      store.save(run);
+      const loaded = store.load();
+      expect(loaded).toEqual({ kind: "loaded", run });
+      if (loaded.kind !== "loaded") return;
+      expect(apply(loaded.run, takeBack)).toEqual(apply(run, takeBack));
+    }
+  });
+
+  it("loads a save from before Take back with nothing to take back", () => {
+    const run = apply(newRun(42), {
+      type: "place-piece",
+      tile: { column: 5, row: 4 },
+      pieceId: "crate-wall",
+    });
+    const old: Record<string, unknown> = { ...run };
+    delete old.takeBack;
+    const { store } = storeWith(
+      JSON.stringify({ version: SAVE_VERSION, run: old }),
+    );
+    const loaded = store.load();
+    expect(loaded).toEqual({ kind: "loaded", run: { ...run, takeBack: [] } });
+    if (loaded.kind !== "loaded") return;
+    expect(applyRunAction(loaded.run, { type: "take-back" })).toEqual({
+      ok: false,
+      refusal: "nothing-to-take-back",
+    });
+  });
 });
 
 function apply(state: RunState, action: RunAction): RunState {

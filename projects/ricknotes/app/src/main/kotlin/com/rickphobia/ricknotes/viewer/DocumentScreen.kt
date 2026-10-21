@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -31,6 +32,7 @@ import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.PenMode
 import com.rickphobia.ricknotes.logging.AppLog
+import com.rickphobia.ricknotes.toolbar.PenKind
 import com.rickphobia.ricknotes.toolbar.PenToolbar
 import com.rickphobia.ricknotes.toolbar.UndoRedoButtons
 import kotlinx.coroutines.Dispatchers
@@ -66,7 +68,7 @@ fun DocumentScreen(
     BackHandler(onBack = onBack)
     // Each Document opens with the first Favourite pen.
     val tool = remember(pdf.path) { mutableStateOf<InkTool>(InkTool.Pen(favouritePens.colours.first())) }
-    val erasing = remember(pdf.path) { mutableStateOf(false) }
+    val kind = remember(pdf.path) { mutableStateOf(PenKind.INK) }
     val pages = remember(pdf.path) { PdfPages(File(pdf.path)) }
     DisposableEffect(pages) { onDispose { pages.close() } }
     val opening by produceState<Opening>(Opening.InProgress, pages) {
@@ -85,7 +87,7 @@ fun DocumentScreen(
             TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
             Text(text = pdf.name, style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.weight(1f))
-            PenToolbar(tool, erasing, favouritePens)
+            PenToolbar(tool, kind, favouritePens)
             (opening as? Opening.Ready)?.let { InkControls(it.ink) }
         }
         when (val current = opening) {
@@ -103,6 +105,8 @@ fun DocumentScreen(
 
             is Opening.Ready -> {
                 SaveWhenLeaving(current.ink)
+                // A Lasso selection only lasts while the Lasso is picked.
+                LaunchedEffect(current.ink, kind.value) { if (kind.value != PenKind.LASSO) current.ink.lasso.clear() }
                 current.ink.warnings.forEach { InkWarning(it) }
                 PageList(
                     OpenDocument(
@@ -112,16 +116,25 @@ fun DocumentScreen(
                         positions,
                         current.ink,
                         fingerGestures,
-                    ) { if (erasing.value) PenMode.Erase else PenMode.Draw(tool.value) },
+                    ) {
+                        when (kind.value) {
+                            PenKind.INK -> PenMode.Draw(tool.value)
+                            PenKind.ERASER -> PenMode.Erase
+                            PenKind.LASSO -> PenMode.Lasso
+                        }
+                    },
                 )
             }
         }
     }
 }
 
-/** Undo and redo, and "Not saved" while the ink isn't. */
+/** Delete while there is a Lasso selection, undo and redo, and "Not saved" while the ink isn't. */
 @Composable
 private fun InkControls(ink: DocumentInk) {
+    if (ink.lasso.selection != null) {
+        TextButton(onClick = ink.lasso::delete) { Text(stringResource(R.string.delete_selection)) }
+    }
     UndoRedoButtons(ink.canUndo, ink.canRedo, ink::undo, ink::redo)
     if (ink.saveStatus == SaveStatus.FAILED) {
         Text(

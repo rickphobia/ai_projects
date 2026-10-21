@@ -4,7 +4,10 @@ import { BOSSES, type BossId } from "../catalog/bosses";
 import { CURSES, type CurseId } from "../catalog/curses";
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { PIECES, type PieceId } from "../catalog/pieces";
+import { SLIDERS } from "../catalog/tricks";
 import type { FreeItem, RunRefusal, RunStatus } from "../run/run";
+import type { TakeBackAction } from "../run/take-back";
+import { crateItemName } from "./crate";
 import {
   attackItems,
   defenseItems,
@@ -40,6 +43,8 @@ const REFUSAL_MESSAGES: Readonly<Record<RunRefusal, string>> = {
   "no-piece": "There's no Piece there to destroy.",
   "undo-short":
     "Not enough picked: destroy more of your own to cover the Undo price.",
+  "nothing-to-take-back":
+    "Nothing to take back: this Round has no moves since its start, a crate reroll or an Undo.",
 };
 
 const OUTCOME_MESSAGES: Readonly<Record<BattleOutcome["reason"], string>> = {
@@ -115,11 +120,41 @@ export function roundOverMessage(won: boolean, livesLeft: number): string {
   return `Round lost: ${lives} left. The Board Rewinds to the start of the Round.`;
 }
 
+/** "Crate Wall", "Stroke of 12 Interns", "Eraser drag over 3 Dudes", "Brightness trick". */
+export function takeBackName(action: TakeBackAction): string {
+  const plural = (count: number, name: string) =>
+    `${String(count)} ${count === 1 ? name : `${name}s`}`;
+  switch (action.kind) {
+    case "place-piece":
+      return PIECES[action.pieceId].name;
+    case "stroke":
+      return `Stroke of ${plural(action.dudes, DUDE_KINDS[action.dudeKind].name)}`;
+    case "eraser-drag":
+      return `Eraser drag over ${plural(action.dudes, "Dude")}`;
+    case "crate-pick":
+      return `Crate pick: ${crateItemName(action.item)}`;
+    case "slider":
+      return `${SLIDERS[action.slider].name} trick`;
+  }
+}
+
+/** The Take back button for what it would reverse: greyed out when there is nothing. */
+export function takeBackButton(next: TakeBackAction | null): {
+  readonly disabled: boolean;
+  readonly label: string;
+} {
+  return next === null
+    ? { disabled: true, label: "Nothing to take back" }
+    : { disabled: false, label: `Take back: ${takeBackName(next)}` };
+}
+
 export interface HudHandlers {
   readonly onChoosePiece: (pieceId: PieceId) => void;
   readonly onChooseDudeKind: (dudeKind: DudeKindId) => void;
   readonly onChooseEraser: () => void;
   readonly onFight: () => void;
+  /** The Take back button, or Ctrl+Z / Cmd+Z. */
+  readonly onTakeBack: () => void;
   readonly onWatchSpeed: (speed: WatchSpeed) => void;
   readonly onContinue: () => void;
 }
@@ -136,6 +171,9 @@ export class Hud {
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
   /** The Round whose Curse was last announced, so each Round's is announced once. */
   private announcedRound: number | null = null;
+  /** What Take back would reverse now; the button is rebuilt with the shop, so this outlives it. */
+  private nextTakeBack: TakeBackAction | null = null;
+  private takeBackButton: HTMLButtonElement | null = null;
 
   constructor(
     private readonly host: HTMLElement,
@@ -161,6 +199,27 @@ export class Hud {
     this.message.setAttribute("role", "status");
     this.message.hidden = true;
     host.replaceChildren(top, this.hint, this.roundHint, this.message);
+    this.doc.addEventListener("keydown", (event) => {
+      if (!(event.ctrlKey || event.metaKey) || event.shiftKey) return;
+      if (event.key.toLowerCase() !== "z") return;
+      // A text box keeps its own Ctrl+Z.
+      const target = event.target;
+      if (target instanceof HTMLInputElement) return;
+      if (target instanceof HTMLTextAreaElement) return;
+      event.preventDefault();
+      handlers.onTakeBack();
+    });
+  }
+
+  /** What the Take back button would reverse, or null to grey it out. */
+  showTakeBack(next: TakeBackAction | null): void {
+    this.nextTakeBack = next;
+    if (this.takeBackButton !== null) this.labelTakeBack(this.takeBackButton);
+  }
+
+  /** "Took back: Crate Wall", after a Take back. */
+  showTookBack(action: TakeBackAction): void {
+    this.showMessage(`Took back: ${takeBackName(action)}`);
   }
 
   showRunStatus(status: RunStatus): void {
@@ -256,7 +315,7 @@ export class Hud {
 
   /**
    * One button per item the side's shop sells, with its price, the chosen one pressed (none when
-   * `chosen` is null), any `tools` after them, then Fight.
+   * `chosen` is null), any `tools` after them, then Take back and Fight.
    */
   private showShop<Id extends string>(
     items: readonly ShopItem<Id>[],
@@ -269,9 +328,20 @@ export class Hud {
         onChoose(item.id);
       }),
     );
+    const takeBack = this.button("↶ Take back", null, this.handlers.onTakeBack);
+    takeBack.classList.add("hud-take-back");
+    this.labelTakeBack(takeBack);
+    this.takeBackButton = takeBack;
     const fight = this.button("Fight", null, this.handlers.onFight);
     fight.classList.add("hud-fight");
-    this.controls.replaceChildren(...choiceButtons, ...tools, fight);
+    this.controls.replaceChildren(...choiceButtons, ...tools, takeBack, fight);
+  }
+
+  private labelTakeBack(button: HTMLButtonElement): void {
+    const { disabled, label } = takeBackButton(this.nextTakeBack);
+    button.disabled = disabled;
+    button.title = label;
+    button.setAttribute("aria-label", label);
   }
 
   /** `pressed` is null for a plain button, true or false for one of a set of choices. */

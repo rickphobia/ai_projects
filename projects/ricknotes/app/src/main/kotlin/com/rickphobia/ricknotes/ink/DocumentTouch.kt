@@ -43,8 +43,9 @@ internal interface TouchNavigation {
  * strokes, with whichever [penMode] is picked when each starts, are drawn by Jetpack Ink's
  * low-latency [InProgressStrokesView] in page coordinates, and handed to [ink] once finished, which
  * draws them with their page from then on and saves them. In [PenMode.Erase] the pen instead erases
- * every stroke it touches on the page it went down on, as one undo step per gesture; a finger does the
- * same with Finger erase on. Neither does anything on a read-only Document.
+ * every stroke it touches on the page it went down on, as one undo step per gesture (a finger does the
+ * same with Finger erase on), and in [PenMode.Lasso] it works [DocumentInk.lasso]. Neither pen nor
+ * finger does anything on a read-only Document.
  */
 internal class DocumentTouch(
     private val inProgress: InProgressStrokesView,
@@ -60,6 +61,9 @@ internal class DocumentTouch(
     private val handoff = WetInkHandoff<InProgressStrokeId>(inProgress::removeFinishedStrokes)
     private val eraser = StrokeEraser(ink, placements)
     private val fingers = FingerTouch(ink, placements, navigation, eraser)
+
+    // The page each Lasso gesture went down on, by pointer: a loop or drag stays on that page.
+    private val lassos = mutableMapOf<Int, PageId>()
 
     private data class StartedStroke(
         val pageId: PageId,
@@ -96,11 +100,26 @@ internal class DocumentTouch(
         val page = pageAt(placements(), ScreenPoint(action.x, action.y))
         if (page == null) {
             AppLog.d("pen down outside any page; no stroke")
+            // A tap beside the pages is outside any Lasso selection too.
+            ink.lasso.clear()
             return
         }
         when (val mode = penMode()) {
-            PenMode.Erase -> eraser.start(action.pointerId, page, ScreenPoint(action.x, action.y))
-            is PenMode.Draw -> startDrawing(view, event, action.pointerId, page, mode.tool)
+            PenMode.Erase -> {
+                eraser.start(action.pointerId, page, ScreenPoint(action.x, action.y))
+            }
+
+            // The Lasso follows one pointer at a time: a second would tangle its loop or drag.
+            PenMode.Lasso -> {
+                if (lassos.isEmpty()) {
+                    lassos[action.pointerId] = page.pageId
+                    ink.lasso.down(page, page.toPage(ScreenPoint(action.x, action.y)))
+                }
+            }
+
+            is PenMode.Draw -> {
+                startDrawing(view, event, action.pointerId, page, mode.tool)
+            }
         }
     }
 
@@ -127,6 +146,11 @@ internal class DocumentTouch(
         action: TouchAction.ExtendStroke,
     ) {
         drawing[action.pointerId]?.let { inProgress.addToStroke(event, action.pointerId, it) }
+        lassos[action.pointerId]?.let { pageId ->
+            placements().firstOrNull { it.pageId == pageId }?.let { page ->
+                ink.lasso.moveTo(page, page.toPage(ScreenPoint(action.x, action.y)))
+            }
+        }
         eraser.extend(action.pointerId, ScreenPoint(action.x, action.y))
     }
 
@@ -136,6 +160,7 @@ internal class DocumentTouch(
     ) {
         drawing.remove(pointerId)?.let { inProgress.finishStroke(event, pointerId, it) }
         eraser.end(pointerId)
+        if (lassos.remove(pointerId) != null) ink.lasso.up()
     }
 
     private fun cancel(
@@ -143,6 +168,7 @@ internal class DocumentTouch(
         pointerId: Int,
     ) {
         eraser.cancel(pointerId)
+        if (lassos.remove(pointerId) != null) ink.lasso.cancel()
         val id = drawing.remove(pointerId) ?: return
         started.remove(id)
         inProgress.cancelStroke(id, event)

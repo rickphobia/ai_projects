@@ -37,6 +37,8 @@
   <string name="pen_green">Green pen</string>
   <string name="highlighter">Highlighter</string>
   <string name="eraser">Eraser</string>
+  <string name="lasso">Lasso</string>
+  <string name="delete_selection">Delete</string>
   <string name="undo">Undo</string>
   <string name="redo">Redo</string>
   <string name="favourite_pens">Favourite pens</string>

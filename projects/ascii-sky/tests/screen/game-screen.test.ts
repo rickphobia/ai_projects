@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { type Action, NO_CONTROLS } from "../../src/game/controls";
 import { advance, type GameState, newGame } from "../../src/game/game";
+import { createWorld } from "../../src/world/world";
+import { WORLD_LAYOUT } from "../../src/world/world-layout";
 import type { BrightnessGrid } from "../../src/screen/brightness-grid";
 import { drawGame } from "../../src/screen/game-screen";
 import {
@@ -11,6 +13,7 @@ import {
   VIEW_ROWS,
 } from "../../src/screen/screen-size";
 
+const world = createWorld(WORLD_LAYOUT);
 const FRAME = 1 / 60;
 const VIEW: BrightnessGrid = {
   columns: VIEW_COLUMNS,
@@ -23,7 +26,7 @@ function after(...presses: Action[][]): GameState {
   return presses.reduce(
     (state, actions) =>
       advance(advance(state, new Set(actions), FRAME), NO_CONTROLS, FRAME),
-    newGame(),
+    newGame(world),
   );
 }
 
@@ -37,7 +40,7 @@ function expectFullScreen(lines: readonly string[]): void {
 
 describe("drawGame", () => {
   it("shows the title screen with every key in the title phase", () => {
-    const lines = drawGame(newGame(), VIEW);
+    const lines = drawGame(newGame(world), VIEW);
     expectFullScreen(lines);
     const text = lines.join("\n");
     expect(text).toContain("Press any key to start");

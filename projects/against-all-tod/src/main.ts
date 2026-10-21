@@ -95,6 +95,9 @@ async function start(): Promise<void> {
     onFight: () => {
       run.fight();
     },
+    onTakeBack: () => {
+      run.takeBack();
+    },
     onWatchSpeed: (speed) => {
       run.setWatchSpeed(speed);
     },

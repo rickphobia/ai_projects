@@ -230,6 +230,8 @@ Engine and tools follow decision 0001: TypeScript (strict), Vite, PixiJS for ren
 
 Every ticket that draws something new follows these rules, so the game looks like one game before any polish pass. Tickets 01–09 set this look; `docs/screenshots/03-defense-turn-battle.png` shows it.
 
+The art pass (`docs/specs/art-pass.md`, decision 0005) replaces these rules one ticket at a time: everything on the Board becomes drawn in code, and each art ticket rewrites the rule it changes here.
+
 - **One art pack.** Sprites come from Kenney's Tower Defense (top-down) pack: flat, top-down, 64 px tiles, soft outlines. When it has nothing that fits, use another Kenney CC0 pack in the same flat top-down style, never pixel art, isometric or 3D-rendered sprites. Copy only the tiles used into `assets/<pack>/` with its licence, and add the pack to the README credits.
 - **Palette.** Background `#16201a`, text `#e8efe9`, muted text `#9fb3a5`, defense `#3d8bfd`, attack `#ff5a36`, refused `#ff3030`. The Board itself keeps the pack's own grass, dirt and stone colours. A new colour is added next to these (the CSS variables in `index.html` and the constants in `adapters/renderer/board-view.ts`, kept matching), never written inline.
 - **Side colours mean side.** Anything that belongs to the defense is marked in the defense colour (turrets, tracers, the Goal frame); anything that belongs to the attack in the attack colour (Dude discs, the Spawn zone stripe). Blue and orange-red are used for nothing else, so a glance at the Board tells who owns what.

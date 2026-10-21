@@ -121,7 +121,7 @@ internal fun PageList(document: OpenDocument) {
                     document.pages,
                     pageLayout(index, size),
                     part?.let { SettledPart(it.pageWidth, it.visibleParts[index]) },
-                ) { PageInk(ink.on(PageId.ofPdfPage(index)), size.widthPt.toFloat(), strokeRenderer) }
+                ) { PageInk(ink, PageId.ofPdfPage(index), size.widthPt.toFloat(), strokeRenderer) }
             }
         }
         TouchLayer(document, PageListView(view, listState, screen, gapPx))

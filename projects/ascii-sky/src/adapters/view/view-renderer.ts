@@ -6,7 +6,7 @@ import {
 } from "three";
 import type { Logger } from "../../logger";
 import type { BrightnessGrid } from "../../screen/brightness-grid";
-import type { CameraPose } from "../../world/cockpit-camera";
+import type { CameraPose } from "../../flight/cockpit-camera";
 import type { World } from "../../world/world";
 import { buildWorldScene, toSceneZ } from "./world-scene";
 

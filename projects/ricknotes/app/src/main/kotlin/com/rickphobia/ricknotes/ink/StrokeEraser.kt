@@ -29,7 +29,7 @@ internal class StrokeEraser(
     ) {
         val point = page.toPage(at)
         erasers[pointerId] = EraserAt(page.pageId, point)
-        ink.eraseAlong(page.pageId, point, point)
+        ink.eraser.along(page.pageId, point, point)
     }
 
     /** Does nothing for a pointer that isn't erasing. */
@@ -40,16 +40,16 @@ internal class StrokeEraser(
         val last = erasers[pointerId] ?: return
         val page = placements().firstOrNull { it.pageId == last.pageId } ?: return
         val point = page.toPage(at)
-        ink.eraseAlong(last.pageId, last.point, point)
+        ink.eraser.along(last.pageId, last.point, point)
         erasers[pointerId] = last.copy(point = point)
     }
 
     fun end(pointerId: Int) {
-        if (erasers.remove(pointerId) != null) ink.finishErase()
+        if (erasers.remove(pointerId) != null) ink.eraser.finish()
     }
 
     fun cancel(pointerId: Int) {
-        if (erasers.remove(pointerId) != null) ink.cancelErase()
+        if (erasers.remove(pointerId) != null) ink.eraser.cancel()
     }
 
     /**
@@ -59,6 +59,6 @@ internal class StrokeEraser(
     fun cancelAll() {
         if (erasers.isEmpty()) return
         erasers.clear()
-        ink.cancelErase()
+        ink.eraser.cancel()
     }
 }

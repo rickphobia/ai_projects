@@ -313,11 +313,65 @@ class DocumentSessionTest {
     }
 
     @Test
+    fun `moving a Lasso selection moves those strokes, and nothing else, as one undo step`() {
+        val session = open()
+        listOf("a", "b", "c").forEach { session.addStroke(stroke(it)) }
+        val offset = PageOffset(30f, 120f)
+
+        assertTrue(session.moveStrokes(setOf(StrokeId("a"), StrokeId("c"), StrokeId("gone already")), offset))
+        assertEquals(listOf(stroke("a").movedBy(offset), stroke("b"), stroke("c").movedBy(offset)), session.strokes)
+
+        assertTrue(session.undo())
+        assertEquals("exactly where they were", listOf("a", "b", "c").map(::stroke), session.strokes)
+        assertTrue(session.redo())
+        assertEquals(listOf(stroke("a").movedBy(offset), stroke("b"), stroke("c").movedBy(offset)), session.strokes)
+    }
+
+    @Test
+    fun `moving nothing, or by nothing, is not an undo step`() {
+        val session = open()
+        session.addStroke(stroke("a"))
+
+        assertFalse(session.moveStrokes(setOf(StrokeId("not here")), PageOffset(10f, 10f)))
+        assertFalse(session.moveStrokes(setOf(StrokeId("a")), PageOffset(0f, 0f)))
+        session.undo()
+
+        assertEquals(emptyList<Stroke>(), session.strokes)
+    }
+
+    @Test
+    fun `Lasso moves and deletes, and their undos, are saved like any other change`() {
+        val session = open()
+        session.addStroke(stroke("a"))
+        session.addStroke(stroke("b"))
+        val offset = PageOffset(0f, 200f)
+
+        session.moveStrokes(setOf(StrokeId("a"), StrokeId("b")), offset)
+        clock.advance(DocumentSession.SAVE_DELAY_MS)
+        assertEquals(listOf(stroke("a").movedBy(offset), stroke("b").movedBy(offset)), open().strokes)
+
+        session.eraseStrokes(setOf(StrokeId("a"), StrokeId("b")))
+        clock.advance(DocumentSession.SAVE_DELAY_MS)
+        assertEquals(emptyList<Stroke>(), open().strokes)
+
+        session.undo()
+        clock.advance(DocumentSession.SAVE_DELAY_MS)
+        assertEquals(listOf(stroke("a").movedBy(offset), stroke("b").movedBy(offset)), open().strokes)
+
+        session.undo()
+        session.saveNow()
+        assertEquals(listOf(stroke("a"), stroke("b")), open().strokes)
+    }
+
+    @Test
     fun `a read-only Document can't be erased, and has nothing to undo`() {
         Files.writeString(inkFile, "{")
         val session = open()
 
         assertThrows(IllegalStateException::class.java) { session.eraseStrokes(setOf(StrokeId("a"))) }
+        assertThrows(
+            IllegalStateException::class.java,
+        ) { session.moveStrokes(setOf(StrokeId("a")), PageOffset(1f, 1f)) }
         assertFalse(session.undo())
     }
 

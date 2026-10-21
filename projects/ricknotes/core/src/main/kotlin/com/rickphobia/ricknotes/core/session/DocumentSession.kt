@@ -64,7 +64,11 @@ interface SaveListener {
  * beside the PDF, keeps the strokes, and saves [SAVE_DELAY_MS] after the last change or at once on
  * [saveNow]. It takes a Version of the Ink file on open and, while ink is being added, before the
  * first save at least [VERSION_INTERVAL_MS] after the last one. It may be called from any thread.
+ *
+ * It is the one seam for every change to a Document's ink, so its operations stay together even
+ * past detekt's function count; the rest are the few steps of saving, which share its lock.
  */
+@Suppress("TooManyFunctions")
 class DocumentSession private constructor(
     private val store: InkFileStore,
     private val clock: Clock,
@@ -109,6 +113,18 @@ class DocumentSession private constructor(
     fun eraseStrokes(ids: Set<StrokeId>) {
         check(!readOnly) { "${store.fileName} is open read-only" }
         edit { history.erase(ids) }
+    }
+
+    /**
+     * Moves the strokes with these IDs by [offset], as one undo step: a Lasso drag. IDs of strokes
+     * that aren't here are ignored; returns false, with no undo step, if nothing moved.
+     */
+    fun moveStrokes(
+        ids: Set<StrokeId>,
+        offset: PageOffset,
+    ): Boolean {
+        check(!readOnly) { "${store.fileName} is open read-only" }
+        return edit { history.move(ids, offset) }
     }
 
     /** Takes back the last change, or returns false if there is none. Saved like any change. */

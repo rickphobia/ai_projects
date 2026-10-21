@@ -42,6 +42,7 @@ import {
   type RunAction,
   type RunState,
 } from "./run/run";
+import { nextEraserDrag, nextTakeBack } from "./run/take-back";
 import type { CratePanel } from "./ui/crate";
 import type { EndScreen } from "./ui/end-screen";
 import type { Hud } from "./ui/hud";
@@ -89,6 +90,8 @@ export class RunScreen {
   private stroke: number | null = null;
   /** Whether the Stroke under way has painted or erased anything, so it needs saving. */
   private strokeChanged = false;
+  /** The eraser drag under way, so its erasures go back in one Take back; null when none is. */
+  private eraserDrag: number | null = null;
   /** The eraser is chosen instead of a Dude kind. */
   private erasing = false;
   /** An Undo being paid for: what the player has picked to destroy so far. */
@@ -167,6 +170,7 @@ export class RunScreen {
           isSpawnZonePoint(at, windowSizeOf(this.run)),
         onPaintStart: (at) => {
           this.stroke = nextStroke(this.run.army);
+          this.eraserDrag = nextEraserDrag(this.run);
           this.paintAt(at, true);
         },
         onPaintMove: (at) => {
@@ -338,6 +342,23 @@ export class RunScreen {
     this.showTricks();
   }
 
+  /** Reverses the newest action this Round, refunding what it cost. */
+  takeBack(): void {
+    const action = nextTakeBack(this.run);
+    const before = this.run.wallets;
+    if (!this.act({ type: "take-back" }) || action === null) return;
+    this.undoing = null;
+    const after = this.run.wallets;
+    this.logger.info("took back", {
+      round: roundOf(this.run),
+      action: action.kind,
+      goldReturned:
+        after.defense - before.defense + (after.attack - before.attack),
+    });
+    this.hud?.showTookBack(action);
+    this.showBuilding();
+  }
+
   fight(): void {
     this.undoing = null;
     if (!this.act({ type: "start-battle" })) return;
@@ -499,8 +520,13 @@ export class RunScreen {
   private eraseAt(at: BoardPoint): void {
     const under = dudesUnder(this.run.army, at);
     if (under.length === 0) return;
+    const drag = this.eraserDrag ?? nextEraserDrag(this.run);
     for (const index of under.reverse()) {
-      const result = applyRunAction(this.run, { type: "erase-dude", index });
+      const result = applyRunAction(this.run, {
+        type: "erase-dude",
+        index,
+        drag,
+      });
       if (!result.ok) {
         this.logger.debug("erase refused", { refusal: result.refusal });
         this.hud?.showRefusal(result.refusal);
@@ -515,6 +541,7 @@ export class RunScreen {
   private endStroke(): void {
     const stroke = this.stroke;
     this.stroke = null;
+    this.eraserDrag = null;
     const changed = this.strokeChanged;
     this.strokeChanged = false;
     if (stroke === null || !changed) return;
@@ -637,6 +664,7 @@ export class RunScreen {
 
   private showRunStatus(): void {
     this.hud?.showRunStatus(runStatusOf(this.run));
+    this.hud?.showTakeBack(nextTakeBack(this.run));
   }
 
   private watchFrame(elapsedMs: number): void {
