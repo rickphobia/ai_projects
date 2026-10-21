@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { SLIDERS } from "../../src/catalog/tricks";
 import {
+  handlePercent,
+  handlePrice,
   positionLabel,
   stepHint,
   undoLabel,
@@ -41,5 +43,16 @@ describe("Settings menu labels", () => {
     expect(undoPickHint("brightness", "defense", 30, 40)).toBe(
       "Brightness Undo: picked 30g of 40g. Tap your Pieces to pick them.",
     );
+  });
+
+  it("puts both step prices on the handle chip, with a dash at an end", () => {
+    expect(handlePrice(20, 40)).toBe("◀ 20g · 40g ▶");
+    expect(handlePrice(40, null)).toBe("◀ 40g · – ▶");
+  });
+
+  it("places the handle along the track by position", () => {
+    expect(handlePercent(-2)).toBe(0);
+    expect(handlePercent(0)).toBe(50);
+    expect(handlePercent(1)).toBe(75);
   });
 });
