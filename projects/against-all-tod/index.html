@@ -153,6 +153,29 @@
         box-shadow: 0 6px 0 var(--shadow);
         color: var(--fg);
       }
+      /* A card's title: a band in the side's colour that sits on the card's top edge. */
+      .ribbon {
+        width: fit-content;
+        max-width: 100%;
+        box-sizing: border-box;
+        margin: -26px auto 8px;
+        padding: 2px 18px;
+        border: 3px solid var(--outline);
+        border-radius: 10px;
+        background: var(--side, var(--defense));
+        box-shadow: 0 3px 0 var(--outline);
+        color: #fff;
+        font-family: var(--font-display);
+        font-size: 1.05rem;
+        font-weight: 700;
+        line-height: 1.3;
+        text-shadow: 0 2px 0 var(--outline);
+      }
+      /* Leaves room above a card for its ribbon to stick out. */
+      .card:has(> .ribbon) {
+        margin-top: 18px;
+        padding-top: 22px;
+      }
       /* Its own band above the Board, so it never hides a tile. */
       #hud {
         --side: var(--defense);
@@ -267,9 +290,7 @@
         left: 12px;
         bottom: 12px;
         max-width: 18rem;
-        padding: 8px 12px;
-        border-radius: 6px;
-        background: rgb(0 0 0 / 0.75);
+        text-align: center;
         pointer-events: none;
       }
       /* The game's own Settings menu, where the tricks are bought. */
@@ -334,28 +355,11 @@
         max-width: min(22rem, calc(100% - 24px));
         font-size: 0.85rem;
       }
-      #pause button.pause-toggle {
-        min-height: 44px;
-        padding: 4px 14px;
-        border-radius: 6px;
-        border: 1px solid var(--fg);
-        background: rgb(0 0 0 / 0.75);
-        color: var(--fg);
-        font: inherit;
-        cursor: pointer;
-      }
       .pause-panel {
-        margin-bottom: 4px;
-        padding: 8px 12px;
-        border-radius: 6px;
-        background: rgb(0 0 0 / 0.85);
+        margin-bottom: 8px;
       }
       .pause-panel[hidden] {
         display: none;
-      }
-      .pause-panel h2 {
-        margin: 0 0 4px;
-        font-size: 0.95rem;
       }
       .pause-panel label {
         display: flex;
@@ -401,15 +405,8 @@
         bottom: 12px;
         transform: translateX(-50%);
         max-width: calc(100% - 32px);
-        box-sizing: border-box;
-        padding: 6px 12px;
-        border-radius: 6px;
-        background: rgb(0 0 0 / 0.75);
+        padding-bottom: 14px;
         text-align: center;
-      }
-      #crate h2 {
-        margin: 0 0 4px;
-        font-size: 0.9rem;
       }
       #crate p {
         margin: 0;
@@ -422,19 +419,8 @@
         justify-content: center;
         gap: 6px;
       }
-      #crate button {
-        font: inherit;
-        font-size: 0.85rem;
-        padding: 4px 10px;
-        border-radius: 6px;
-        border: 1px solid var(--fg);
-        background: transparent;
-        color: var(--fg);
-        cursor: pointer;
-      }
-      #crate button.crate-reroll {
-        border-color: var(--muted);
-        color: var(--muted);
+      #crate .crate-reroll {
+        color: var(--gold);
       }
       #crate[hidden],
       #fps[hidden],
@@ -460,9 +446,13 @@
         background: rgb(22 32 26 / 0.92);
         cursor: pointer;
       }
-      #round-report h1 {
-        margin: 0;
-        font-size: 1.4rem;
+      .report-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        margin: auto;
+        max-width: 100%;
       }
       #round-report h2 {
         margin: 6px 0 0;
@@ -501,17 +491,6 @@
       .report-gold dd {
         margin: 0;
       }
-      #round-report button {
-        font: inherit;
-        font-weight: 600;
-        margin-top: 8px;
-        padding: 6px 20px;
-        border-radius: 8px;
-        border: none;
-        background: var(--attack);
-        color: #fff;
-        cursor: pointer;
-      }
       #end-screen {
         position: fixed;
         inset: 0;
@@ -524,29 +503,20 @@
         text-align: center;
         background: rgb(22 32 26 / 0.88);
       }
-      #end-screen h1 {
-        margin: 0;
-        font-size: 1.6rem;
-      }
       #end-screen p {
         margin: 0;
         font-size: 1.1rem;
         color: var(--muted);
       }
-      #end-screen button {
-        font: inherit;
-        font-size: 1.1rem;
-        font-weight: 600;
-        padding: 8px 24px;
-        border-radius: 8px;
-        border: none;
-        background: var(--attack);
-        color: #fff;
-        cursor: pointer;
+      .end-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        max-width: 32rem;
       }
-      #piece-info h2 {
-        margin: 0;
-        font-size: 0.95rem;
+      .end-card .btn {
+        font-size: 1.1rem;
       }
       #piece-info p {
         margin: 2px 0 0;

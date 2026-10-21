@@ -4,13 +4,13 @@
 
 **Blocked by:** 31 (Chunky cartoon UI and the top bar)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** ui/crate, ui/report, ui/end-screen, ui/pause, ui/piece-info
 
 **Effort:** low
 
-- [ ] Each of the five overlays uses the shared card and ribbon styles
-- [ ] Their buttons are at least 44 px tall on touch
-- [ ] Existing UI tests still pass without being weakened
-- [ ] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`
+- [x] Each of the five overlays uses the shared card and ribbon styles
+- [x] Their buttons are at least 44 px tall on touch
+- [x] Existing UI tests still pass without being weakened
+- [x] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`

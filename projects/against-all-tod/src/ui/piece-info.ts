@@ -8,7 +8,9 @@ export class PieceInfo {
   constructor(private readonly host: HTMLElement) {
     const doc = host.ownerDocument;
     this.name = doc.createElement("h2");
+    this.name.className = "ribbon";
     this.description = doc.createElement("p");
+    host.classList.add("card");
     host.replaceChildren(this.name, this.description);
     host.hidden = true;
   }
