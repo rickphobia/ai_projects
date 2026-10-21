@@ -7,6 +7,11 @@ import {
   type ViewRenderer,
   ViewStartError,
 } from "./adapters/view/view-renderer";
+import {
+  type CockpitSound,
+  createCockpitSound,
+} from "./adapters/audio/cockpit-sound";
+import { toneSettings } from "./adapters/audio/tone-settings";
 import { loadConfig } from "./config";
 import { cockpitCamera } from "./flight/cockpit-camera";
 import { length } from "./flight/vector";
@@ -84,6 +89,8 @@ function runGame(logger: Logger): void {
     if (document.hidden) state = pauseGame(state);
   });
 
+  const sound = startSoundOnFirstKey(logger);
+
   let lastFrame = performance.now();
   const frame = (now: number): void => {
     const previous = state;
@@ -91,9 +98,37 @@ function runGame(logger: Logger): void {
     lastFrame = now;
     logChanges(logger, previous, state);
     screen.show(drawGame(state, view.render(cockpitCamera(state.plane))));
+    sound?.update(toneSettings(state));
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
+}
+
+/**
+ * Browsers only let audio start from a user gesture, so the sound starts on the first key press.
+ * The game still runs without sound if this browser has no WebAudio.
+ */
+function startSoundOnFirstKey(logger: Logger): CockpitSound | null {
+  if (typeof AudioContext === "undefined") {
+    logger.warn("no WebAudio, playing without sound");
+    return null;
+  }
+  const sound = createCockpitSound(new AudioContext());
+  window.addEventListener(
+    "keydown",
+    () => {
+      sound.start().then(
+        () => {
+          logger.debug("sound started");
+        },
+        (error: unknown) => {
+          logger.error("sound could not start", { error });
+        },
+      );
+    },
+    { once: true },
+  );
+  return sound;
 }
 
 /** Phase changes, and lift-off and touchdown with the numbers that help tune the flight model. */

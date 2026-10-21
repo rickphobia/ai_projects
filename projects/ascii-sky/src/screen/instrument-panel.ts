@@ -1,4 +1,5 @@
 import { airflow, bodyAxes } from "../flight/attitude";
+import { engineRpm } from "../flight/engine-rpm";
 import type { Plane } from "../flight/plane";
 import type { World } from "../world/world";
 import {
@@ -26,15 +27,6 @@ const DEGREES_PER_BALL_COLUMN = 2;
 /** The heading tape shows this many degrees per column. */
 const DEGREES_PER_HEADING_COLUMN = 15;
 
-/**
- * The flight model has no engine, so RPM is shown from the throttle, plus a little windmilling
- * from the airflow, between a C172's idle and redline.
- */
-const IDLE_RPM = 700;
-const FULL_THROTTLE_RPM = 2400;
-const WINDMILL_RPM_PER_KNOT = 3;
-const REDLINE_RPM = 2700;
-
 /** The Instrument panel: the glareshield with the stall warning, the six flight instruments and the engine box, framed. */
 export function drawInstrumentPanel(plane: Plane, world: World): string[] {
   const axes = bodyAxes(plane);
@@ -47,7 +39,7 @@ export function drawInstrumentPanel(plane: Plane, world: World): string[] {
     box("TURN", INSTRUMENT_WIDTH, turnCoordinator(plane, air.sideslip)),
     box("HEADING", INSTRUMENT_WIDTH, heading(plane.heading)),
     box("VERT SPEED", INSTRUMENT_WIDTH, verticalSpeed(plane.velocity.z)),
-    box("ENGINE", ENGINE_WIDTH, engine(plane, knots)),
+    box("ENGINE", ENGINE_WIDTH, engine(plane)),
   ];
   // The stall warning sits in the middle of the glareshield, right under the pilot's view.
   const lines = [centre(plane.stalled ? " [STALL] " : "", SCREEN_COLUMNS, "=")];
@@ -205,14 +197,8 @@ function verticalSpeed(metresPerSecond: number): string[] {
 }
 
 /** RPM, the throttle as a bar, the flaps and the brakes. */
-function engine(plane: Plane, knots: number): string[] {
-  const rpm = clamp(
-    IDLE_RPM +
-      plane.throttle * (FULL_THROTTLE_RPM - IDLE_RPM) +
-      knots * WINDMILL_RPM_PER_KNOT,
-    0,
-    REDLINE_RPM,
-  );
+function engine(plane: Plane): string[] {
+  const rpm = engineRpm(plane);
   const barWidth = 10;
   const filled = Math.round(plane.throttle * barWidth);
   const percent = Math.round(plane.throttle * 100);
