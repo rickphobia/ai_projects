@@ -12,7 +12,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.ink.authoring.InProgressStrokesView
 import com.rickphobia.ricknotes.core.ink.PagePlacement
+import com.rickphobia.ricknotes.core.touch.FingerGestures
 import com.rickphobia.ricknotes.core.touch.TouchAction
+import com.rickphobia.ricknotes.core.touch.TouchInterpreter
+import com.rickphobia.ricknotes.core.touch.TouchThresholds
 
 /**
  * The layer over an open Document's pages that takes every touch on them: the pen draws in it with
@@ -25,6 +28,7 @@ internal fun InkLayer(
     placements: () -> List<PagePlacement>,
     navigation: TouchNavigation,
     penMode: () -> PenMode,
+    gestures: FingerGestures,
 ) {
     val currentPlacements = rememberUpdatedState(placements)
     val currentNavigation = rememberUpdatedState(navigation)
@@ -33,6 +37,9 @@ internal fun InkLayer(
         modifier = Modifier.fillMaxSize(),
         factory = { context ->
             TouchLayerView(context).also { layer ->
+                // The Document screen is made again on the way back from Settings, so the
+                // gestures it was made with are always the current ones.
+                val interpreter = TouchInterpreter(gestures, TouchThresholds(), pixelsPerMm(context))
                 val touch =
                     DocumentTouch(
                         inProgress = layer.inProgress,
@@ -43,11 +50,18 @@ internal fun InkLayer(
                         penMode = { mode.value() },
                     )
                 layer.inProgress.addFinishedStrokesListener(touch)
-                layer.onTouch = touch::onTouch
+                layer.onTouch = { view, event ->
+                    for (pointer in event.toTouchEvents()) touch.carryOut(view, event, interpreter.handle(pointer))
+                }
             }
         },
     )
 }
+
+private const val MM_PER_INCH = 25.4f
+
+// The screen's real density, not Android's rounded density bucket, so millimetres are millimetres.
+private fun pixelsPerMm(context: Context): Float = context.resources.displayMetrics.xdpi / MM_PER_INCH
 
 // Lets the View, made once, follow a navigation that Compose may replace on recomposition.
 private class DelegatingNavigation(
@@ -80,6 +94,12 @@ private class TouchLayerView(
     override fun onInterceptTouchEvent(event: MotionEvent): Boolean = true
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        onTouch(this, event)
+        return true
+    }
+
+    // The pen hovering keeps fingers from counting, so its hover events are ours too.
+    override fun dispatchHoverEvent(event: MotionEvent): Boolean {
         onTouch(this, event)
         return true
     }
