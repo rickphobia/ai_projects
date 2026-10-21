@@ -2,6 +2,7 @@ import { Graphics, Rectangle, type Renderer, type Texture } from "pixi.js";
 import { goalTiles } from "../../maze/board";
 import { TILE_SIZE } from "./board-textures";
 import { drawDudeTextures, type DudeTextures } from "./dude-art";
+import { drawPieceTextures, type PieceTextures } from "./piece-art";
 import {
   ATTACK_COLOUR,
   BLOOM_COLOUR,
@@ -12,21 +13,21 @@ import {
   LEAF_COLOUR,
   OFFICE_COLOUR,
   OUTLINE_COLOUR,
+  OUTLINE_WIDTH,
   PETAL_COLOUR,
   SHADOW_ALPHA,
   SHADOW_COLOUR,
+  SHADOW_OFFSET,
   WOOD_COLOUR,
 } from "./board-view";
 
 /** The shapes drawn in code (decision 0005), each baked once into a texture. */
-export interface ArtTextures extends DudeTextures {
+export interface ArtTextures extends DudeTextures, PieceTextures {
   /** One grass tile in each shade; the Board checkers them. */
   readonly grassLight: Texture;
   readonly grassDark: Texture;
   /** One tile of the Spawn zone's striped carpet; its stripes run on into the next tile. */
   readonly carpet: Texture;
-  /** The Crate Wall: two chunky crates stacked, with a shadow. */
-  readonly crateWall: Texture;
   /** The Goal: a little office building as tall as the Goal's tiles. */
   readonly office: Texture;
   readonly flower: Texture;
@@ -35,15 +36,11 @@ export interface ArtTextures extends DudeTextures {
   readonly bush: Texture;
 }
 
-/** Every drawn thing has the same outline thickness and drop shadow, so the styles match. */
-export const OUTLINE_WIDTH = 3;
-const SHADOW_OFFSET = 4;
 /** Diagonal carpet stripes repeat a whole number of times per tile, so tiles join seamlessly. */
 const STRIPE_PERIOD = TILE_SIZE / 4;
 const STRIPE_WIDTH = 7;
 const STRIPE_ALPHA = 0.45;
 const WINDOW_ALPHA = 0.8;
-const PLANK_ALPHA = 0.35;
 const HIGHLIGHT_ALPHA = 0.35;
 const DECORATION_SIZE = 16;
 const TREE_SIZE = 60;
@@ -72,13 +69,13 @@ export function drawArtTextures(
     grassLight: bake(grassTile(GRASS_LIGHT_COLOUR), TILE_SIZE, TILE_SIZE),
     grassDark: bake(grassTile(GRASS_DARK_COLOUR), TILE_SIZE, TILE_SIZE),
     carpet: bake(carpetTile(), TILE_SIZE, TILE_SIZE),
-    crateWall: bake(crateStack(), TILE_SIZE, TILE_SIZE),
     office: bake(office(officeHeight), TILE_SIZE, officeHeight),
     flower: bake(flower(), DECORATION_SIZE, DECORATION_SIZE),
     tuft: bake(tuft(), DECORATION_SIZE, DECORATION_SIZE),
     tree: bake(canopy(TREE_SIZE, 4), TREE_SIZE, TREE_SIZE),
     bush: bake(canopy(BUSH_SIZE, 3), BUSH_SIZE, BUSH_SIZE),
     ...drawDudeTextures(bake),
+    ...drawPieceTextures(bake),
   };
 }
 
@@ -104,39 +101,6 @@ function carpetTile(): Graphics {
     ]);
   }
   return carpet.fill({ color: ATTACK_COLOUR, alpha: STRIPE_ALPHA });
-}
-
-/** Seen from a little above: a wide crate at the bottom and a smaller one stacked on it. */
-function crateStack(): Graphics {
-  const stack = new Graphics()
-    .roundRect(8 + SHADOW_OFFSET, 10 + SHADOW_OFFSET, 50, 48, 6)
-    .fill({ color: SHADOW_COLOUR, alpha: SHADOW_ALPHA });
-  crate(stack, 6, 28, 52, 30);
-  crate(stack, 12, 6, 40, 26);
-  return stack;
-}
-
-/** One crate: wood with an outline, two planks and a diagonal brace. */
-function crate(
-  shape: Graphics,
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-): void {
-  shape
-    .roundRect(left, top, width, height, 4)
-    .fill(WOOD_COLOUR)
-    .stroke({ color: OUTLINE_COLOUR, width: OUTLINE_WIDTH });
-  const inset = 5;
-  shape
-    .moveTo(left + inset, top + height / 3)
-    .lineTo(left + width - inset, top + height / 3)
-    .moveTo(left + inset, top + (2 * height) / 3)
-    .lineTo(left + width - inset, top + (2 * height) / 3)
-    .moveTo(left + inset, top + inset)
-    .lineTo(left + width - inset, top + height - inset)
-    .stroke({ color: OUTLINE_COLOUR, width: 2, alpha: PLANK_ALPHA });
 }
 
 /** An office block in the defense colour: a roof band, rows of windows and a door at the bottom. */

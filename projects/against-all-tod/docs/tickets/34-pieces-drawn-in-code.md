@@ -4,15 +4,15 @@
 
 **Blocked by:** 30 (The other five Dudes and Mutation marks)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** renderer/art-kit, renderer/pieces, assets/tiles, README
 
 **Effort:** medium
 
-- [ ] Every Piece in the catalog has its own drawing; a test fails if one has none
-- [ ] Turning parts turn and the Lighthouse cone sweeps by sprite transforms, not redrawing each frame
-- [ ] Pieces stay outlined and readable in the dark (screenshot)
-- [ ] The Kenney tile folder and its README credit are gone; the Kenney sounds stay
-- [ ] The spec's "Look" rules for Pieces and the art pack are rewritten
-- [ ] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`
+- [x] Every Piece in the catalog has its own drawing; a test fails if one has none
+- [x] Turning parts turn and the Lighthouse cone sweeps by sprite transforms, not redrawing each frame
+- [x] Pieces stay outlined and readable in the dark (screenshot)
+- [x] The Kenney tile folder and its README credit are gone; the Kenney sounds stay
+- [x] The spec's "Look" rules for Pieces and the art pack are rewritten
+- [x] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`

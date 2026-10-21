@@ -40,6 +40,10 @@ export const OUTLINE_COLOUR = 0x2a2118;
 /** Drop shadows, always at `SHADOW_ALPHA` (`--shadow`). */
 export const SHADOW_COLOUR = 0x1b2a14;
 export const SHADOW_ALPHA = 0.3;
+/** Every drawn thing has the same outline thickness and drop shadow, so the styles match. */
+export const OUTLINE_WIDTH = 3;
+/** How far a standing thing's shadow falls down and to the right. */
+export const SHADOW_OFFSET = 4;
 /** Trees, bushes and grass tufts (`--leaf`). */
 export const LEAF_COLOUR = 0x3e8c3a;
 /** A flower's petals and middle (`--petal`, `--bloom`). */
@@ -49,8 +53,16 @@ export const BLOOM_COLOUR = 0xffd44d;
 export const CARPET_COLOUR = 0xf5c9b3;
 /** The whites of a Dude's eyes (`--eye`). */
 export const EYE_COLOUR = 0xffffff;
-/** A Shield Bro's shield (`--metal`). */
+/** A Shield Bro's shield and the steel Pieces (`--metal`). */
 export const METAL_COLOUR = 0xaab4bd;
+/** The Sniper Nest's sandbags (`--sandbag`). */
+export const SANDBAG_COLOUR = 0xd8c49a;
+/** The Lighthouse's bands and roof: a deep red, kept well apart from the attack colour (`--beacon-red`). */
+export const BEACON_RED_COLOUR = 0xb8323f;
+/** The Decoy Goal's cardboard (`--cardboard`). */
+export const CARDBOARD_COLOUR = 0xd6b47e;
+/** The faces of the Bouncer and The HR Department (`--skin`). */
+export const SKIN_COLOUR = 0xf1c39a;
 
 /** The art kit's colours by CSS variable name, so a test can keep the page's variables matching. */
 export const ART_COLOURS: Readonly<Record<string, number>> = {
@@ -68,6 +80,10 @@ export const ART_COLOURS: Readonly<Record<string, number>> = {
   carpet: CARPET_COLOUR,
   eye: EYE_COLOUR,
   metal: METAL_COLOUR,
+  sandbag: SANDBAG_COLOUR,
+  "beacon-red": BEACON_RED_COLOUR,
+  cardboard: CARDBOARD_COLOUR,
+  skin: SKIN_COLOUR,
 };
 
 /** The world drawn round the Board on every side, in Board pixels: the border and the trees. */
