@@ -79,6 +79,10 @@ export const TUNING = {
   /** Slower than this on the ground counts as standing still. */
   stoppedSpeed: 0.05,
 
+  /** A Touchdown is gentle under this sink rate and bank, with the nose not below level; anything else is a crash. */
+  maxGentleSinkRate: 3,
+  maxGentleBank: 10 * DEGREES,
+
   /** The Plane stops this far inside the World's edge. */
   edgeMargin: 50,
   /** The Plane waits this far in from the Runway's start, so it isn't parked on the grass. */

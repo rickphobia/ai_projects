@@ -56,6 +56,8 @@ export interface World extends WorldLayout {
   /** Height of the surface at a point: the water surface on the lake, the ground elsewhere. */
   groundHeight(x: number, y: number): number;
   surfaceAt(x: number, y: number): Surface;
+  /** Metres from the nearest point of the Runway's centreline, the line down its middle from end to end. */
+  centrelineDistance(x: number, y: number): number;
 }
 
 export function createWorld(layout: WorldLayout): World {
@@ -63,6 +65,7 @@ export function createWorld(layout: WorldLayout): World {
     ...layout,
     groundHeight: (x, y) => groundHeight(layout, x, y),
     surfaceAt: (x, y) => surfaceAt(layout, x, y),
+    centrelineDistance: (x, y) => centrelineDistance(layout.runway, x, y),
   };
 }
 
@@ -80,16 +83,30 @@ function surfaceAt(layout: WorldLayout, x: number, y: number): Surface {
 }
 
 function isOnRunway(runway: Runway, x: number, y: number): boolean {
-  const east = x - runway.x;
-  const north = y - runway.y;
-  // Turn the point into the Runway's own frame: along its length and across it.
-  const along =
-    east * Math.sin(runway.heading) + north * Math.cos(runway.heading);
-  const across =
-    east * Math.cos(runway.heading) - north * Math.sin(runway.heading);
+  const { along, across } = inRunwayFrame(runway, x, y);
   return (
     Math.abs(along) <= runway.length / 2 && Math.abs(across) <= runway.width / 2
   );
+}
+
+function centrelineDistance(runway: Runway, x: number, y: number): number {
+  const { along, across } = inRunwayFrame(runway, x, y);
+  const pastEnd = Math.max(0, Math.abs(along) - runway.length / 2);
+  return Math.hypot(across, pastEnd);
+}
+
+/** A point in the Runway's own frame: metres along its length and across it from its centre. */
+function inRunwayFrame(
+  runway: Runway,
+  x: number,
+  y: number,
+): { along: number; across: number } {
+  const east = x - runway.x;
+  const north = y - runway.y;
+  return {
+    along: east * Math.sin(runway.heading) + north * Math.cos(runway.heading),
+    across: east * Math.cos(runway.heading) - north * Math.sin(runway.heading),
+  };
 }
 
 function isInLake(lake: Lake, x: number, y: number): boolean {
