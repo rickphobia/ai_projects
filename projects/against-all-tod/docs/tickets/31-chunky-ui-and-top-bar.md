@@ -4,15 +4,15 @@
 
 **Blocked by:** 27 (Take back this Round's moves)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** ui/style, ui/hud, assets/fonts
 
 **Effort:** medium
 
-- [ ] Shared button, chip and card styles exist in the page stylesheet, using CSS variables only
-- [ ] The font is bundled with its licence, credited in the README, and works offline (no outside request)
-- [ ] The top bar shows icon chips; the active side's colour marks the turn and the active choice
-- [ ] Fight and Take back use the new button look; all HUD buttons are at least 44 px tall on touch
-- [ ] The spec's "Look" UI rule is rewritten
-- [ ] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`
+- [x] Shared button, chip and card styles exist in the page stylesheet, using CSS variables only
+- [x] The font is bundled with its licence, credited in the README, and works offline (no outside request)
+- [x] The top bar shows icon chips; the active side's colour marks the turn and the active choice
+- [x] Fight and Take back use the new button look; all HUD buttons are at least 44 px tall on touch
+- [x] The spec's "Look" UI rule is rewritten
+- [x] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`
