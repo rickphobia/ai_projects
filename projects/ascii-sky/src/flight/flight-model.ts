@@ -7,7 +7,7 @@ import {
   type BodyRates,
   turn,
 } from "./attitude";
-import { respondToControls } from "./control-response";
+import { axis, respondToControls } from "./control-response";
 import { totalForce } from "./forces";
 import { rollOnWheels } from "./ground-roll";
 import type { Plane } from "./plane";
@@ -84,9 +84,7 @@ function nextThrottle(
   controls: Controls,
   seconds: number,
 ): number {
-  const direction =
-    (controls.has("throttleUp") ? 1 : 0) -
-    (controls.has("throttleDown") ? 1 : 0);
+  const direction = axis(controls, "throttleUp", "throttleDown");
   return Math.max(
     0,
     Math.min(1, throttle + direction * TUNING.throttleRate * seconds),

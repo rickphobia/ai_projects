@@ -91,6 +91,10 @@ function pitchTarget(controls: Controls, air: Airflow): number {
 }
 
 /** +1, -1 or 0 for a pair of opposite controls; both held cancel out. */
-function axis(controls: Controls, positive: Action, negative: Action): number {
+export function axis(
+  controls: Controls,
+  positive: Action,
+  negative: Action,
+): number {
   return (controls.has(positive) ? 1 : 0) - (controls.has(negative) ? 1 : 0);
 }

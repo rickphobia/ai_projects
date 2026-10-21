@@ -9,6 +9,7 @@ import {
 } from "./adapters/view/view-renderer";
 import { loadConfig } from "./config";
 import { cockpitCamera } from "./flight/cockpit-camera";
+import { length } from "./flight/vector";
 import { chooseLogLevel, createConsoleLogger, type Logger } from "./logger";
 import { createKeyboard, hasKeyboard } from "./adapters/keyboard/keyboard";
 import { advance, type GameState, newGame, pauseGame } from "./game/game";
@@ -103,7 +104,7 @@ function logChanges(logger: Logger, from: GameState, to: GameState): void {
   if (to.plane.onGround === from.plane.onGround) return;
   const { position, velocity } = to.plane;
   logger.debug(to.plane.onGround ? "touched down" : "lifted off", {
-    speed: Math.hypot(velocity.x, velocity.y, velocity.z).toFixed(1),
+    speed: length(velocity).toFixed(1),
     sinkRate: (-velocity.z).toFixed(1),
     pitchDegrees: ((to.plane.pitch * 180) / Math.PI).toFixed(1),
     at: `${position.x.toFixed(0)},${position.y.toFixed(0)}`,

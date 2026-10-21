@@ -87,6 +87,16 @@ describe("on the Runway", () => {
     expect(heightAboveGround(climbed)).toBeGreaterThan(10);
   });
 
+  it("lifts off by itself when fast enough, with the nose left alone", () => {
+    const start = onTheRunway();
+    let state = start;
+    for (let frame = 0; frame < 60 * 60 && state.plane.onGround; frame++) {
+      state = advance(state, holding("throttleUp"), FRAME);
+    }
+    expect(state.plane.onGround).toBe(false);
+    expect(distanceFrom(start, state)).toBeLessThan(world.runway.length - 60);
+  });
+
   it("steers with the rudder and stops with the brakes", () => {
     const rolling = fly(onTheRunway(), holding("throttleUp"), 4);
     const steered = fly(rolling, holding("rudderRight"), 1);
@@ -118,12 +128,14 @@ describe("in the air", () => {
     const level = cruising();
     const banked = fly(level, holding("throttleUp", "rollRight"), 1);
     expect(banked.plane.roll).toBeGreaterThan(0.2);
-    const turned = fly(banked, holding("throttleUp"), 10);
+    const turned = fly(banked, holding("throttleUp"), 4);
+    // Still banked, and the bank has turned the Plane.
+    expect(turned.plane.roll).toBeGreaterThan(0.2);
     const headingChange = angleBetween(
       level.plane.heading,
       turned.plane.heading,
     );
-    expect(headingChange).toBeGreaterThan(0.3);
+    expect(headingChange).toBeGreaterThan(0.2);
   });
 
   it("pitches the nose up and down with the arrows", () => {
@@ -165,7 +177,7 @@ describe("fixed steps", () => {
     const choppy = fly(start, controls, 30, 1 / 20);
     let uneven = start;
     for (let frame = 0; frame < 300; frame++) {
-      // 0.07 s and 0.13 s frames, each a whole number of steps less a little.
+      // 0.07 s and 0.13 s frames: neither a whole number of steps, so time carries over.
       uneven = advance(uneven, controls, frame % 2 === 0 ? 0.07 : 0.13);
     }
     for (const other of [choppy, uneven]) {
