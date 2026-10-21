@@ -5,7 +5,7 @@ import { SaveStore } from "./adapters/storage/save-store";
 import { loadConfig } from "./config";
 import { seedFromUrl, wantsDebugOptions } from "./debug/debug-options";
 import { showDebugPanel } from "./debug/debug-panel";
-import { newRun } from "./run/run";
+import { newRun, type RunState } from "./run/run";
 import { wantsSwarmScene } from "./debug/swarm-scene";
 import { playSwarm } from "./debug/swarm-screen";
 import { chooseLogLevel, createConsoleLogger } from "./logger";
@@ -22,6 +22,13 @@ import { PieceInfo } from "./ui/piece-info";
 import { RoundReportPanel } from "./ui/report";
 import { SettingsMenu } from "./ui/settings";
 import { showStartupError } from "./ui/startup-error-screen";
+import { Banner, BannerOverlay, browserSchedule } from "./ui/banner";
+import {
+  canContinue,
+  runForTitleChoice,
+  TitleScreen,
+  wantsTitleScreen,
+} from "./ui/title-screen";
 
 async function start(): Promise<void> {
   const config = loadConfig(import.meta.env);
@@ -53,20 +60,22 @@ async function start(): Promise<void> {
   }
   const saves = new SaveStore(() => window.localStorage, logger);
   const loaded = saves.load();
-  const urlSeed = seedFromUrl(window.location.search);
   const savedRun = loaded.kind === "loaded" ? loaded.run : null;
-  // A seed in the URL starts its own Run, unless the saved Run is that seed's (a reload).
-  const keepSaved =
-    savedRun !== null && (urlSeed === null || urlSeed === savedRun.seed);
-  const firstRun = keepSaved
-    ? savedRun
-    : newRun(
-        urlSeed ?? config.defaultSeed,
-        savedRun?.bestScore ?? 0,
-        // Only a player with no save at all is on their first Run.
-        savedRun === null,
+  const firstRun = wantsTitleScreen(window.location.search)
+    ? runForTitleChoice(
+        await new TitleScreen(requireElement("title-screen")).choose(
+          savedRun?.bestScore ?? 0,
+          canContinue(savedRun),
+        ),
+        savedRun,
+        config.defaultSeed,
+      )
+    : seededRun(
+        seedFromUrl(window.location.search),
+        savedRun,
+        config.defaultSeed,
       );
-  logger.info(keepSaved ? "Run loaded" : "Run started", {
+  logger.info(firstRun === savedRun ? "Run loaded" : "Run started", {
     seed: firstRun.seed,
     save: loaded.kind,
   });
@@ -140,7 +149,14 @@ async function start(): Promise<void> {
       saves.saveActualVolume(volume);
     },
   });
-  run.begin(hud, endScreen, cratePanel, report, settings);
+  run.begin(
+    hud,
+    endScreen,
+    cratePanel,
+    report,
+    settings,
+    new Banner(new BannerOverlay(requireElement("banner")), browserSchedule),
+  );
   saves.save(firstRun);
   if (loaded.kind === "unreadable") {
     hud.showMessage("Your save couldn't be read, so this is a fresh start.");
@@ -159,6 +175,24 @@ async function start(): Promise<void> {
     });
   }
   logger.info("Board drawn");
+}
+
+/** The Run for a link without the title screen. */
+function seededRun(
+  urlSeed: number | null,
+  savedRun: RunState | null,
+  defaultSeed: number,
+): RunState {
+  // A seed in the URL starts its own Run, unless the saved Run is that seed's (a reload).
+  if (savedRun !== null && (urlSeed === null || urlSeed === savedRun.seed)) {
+    return savedRun;
+  }
+  return newRun(
+    urlSeed ?? defaultSeed,
+    savedRun?.bestScore ?? 0,
+    // Only a player with no save at all is on their first Run.
+    savedRun === null,
+  );
 }
 
 function requireElement(id: string): HTMLElement {

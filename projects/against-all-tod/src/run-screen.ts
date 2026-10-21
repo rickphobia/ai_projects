@@ -43,6 +43,7 @@ import {
   type RunState,
 } from "./run/run";
 import { nextEraserDrag, nextTakeBack } from "./run/take-back";
+import { turnBanner, type Banner } from "./ui/banner";
 import type { CratePanel } from "./ui/crate";
 import type { EndScreen } from "./ui/end-screen";
 import type { Hud } from "./ui/hud";
@@ -84,6 +85,7 @@ export class RunScreen {
   private cratePanel: CratePanel | undefined;
   private report: RoundReportPanel | undefined;
   private settings: SettingsMenu | undefined;
+  private banner: Banner | undefined;
   /** The route preview; the debug options can hide it. */
   private routeVisible = true;
   /** The Stroke being painted; null when no paint drag is under way. */
@@ -117,7 +119,8 @@ export class RunScreen {
   /**
    * Shows the Run where it stands. A Run saved mid-battle restarts that battle from its start;
    * one saved on a Round's result goes on to the next Round. The HUD, end screen and crate panel
-   * are passed in late because their buttons call back here.
+   * are passed in late because their buttons call back here. Each Round opens with its turn's
+   * banner.
    */
   begin(
     hud: Hud,
@@ -125,7 +128,9 @@ export class RunScreen {
     cratePanel: CratePanel,
     report: RoundReportPanel,
     settings: SettingsMenu,
+    banner: Banner,
   ): void {
+    this.banner = banner;
     this.report = report;
     this.settings = settings;
     this.hud = hud;
@@ -183,8 +188,8 @@ export class RunScreen {
     });
     switch (this.run.phase) {
       case "building":
-        this.logRoundStart();
         this.showBuilding();
+        this.announceRound();
         return;
       case "fighting":
         this.logRoundStart();
@@ -381,7 +386,7 @@ export class RunScreen {
     }
     this.replaceRun(jumped);
     this.logger.info("debug: jumped to Round", { round });
-    this.logRoundStart();
+    this.announceRound();
   }
 
   /** Debug option: shows or hides the route preview. */
@@ -437,8 +442,8 @@ export class RunScreen {
   /** After a Round's result: on to the next Round, or the same one Rewound. */
   continue(): void {
     if (!this.act({ type: "continue" })) return;
-    this.logRoundStart();
     this.showBuilding();
+    this.announceRound();
   }
 
   newRun(): void {
@@ -448,8 +453,8 @@ export class RunScreen {
       seed: this.run.seed,
       bestScore: this.run.bestScore,
     });
-    this.logRoundStart();
     this.showBuilding();
+    this.announceRound();
   }
 
   /** Applies a Run action; a refusal is logged and shown, and false returned. */
@@ -734,7 +739,27 @@ export class RunScreen {
     });
     this.showRunStatus();
     this.showTricks();
-    // Over the HUD or end screen; closing it shows what comes next.
+    if (this.run.phase === "run-over") {
+      this.logger.info("Run over", {
+        seed: this.run.seed,
+        score: this.run.score,
+        bestScore: this.run.bestScore,
+      });
+    }
+    // The result's banner first, so the player knows it before the report opens.
+    this.banner?.show(won ? "won" : "lost", () => {
+      this.showRoundResult(outcome, battle, battleEnd, won, bestBefore);
+    });
+  }
+
+  /** The Round report over the HUD or end screen; closing it shows what comes next. */
+  private showRoundResult(
+    outcome: BattleOutcome,
+    battle: Battle,
+    battleEnd: BattleEnd,
+    won: boolean,
+    bestBefore: number,
+  ): void {
     const report = roundReport(
       battle.goldEvents,
       battleEnd,
@@ -742,15 +767,16 @@ export class RunScreen {
     );
     this.report?.show(report, won);
     if (this.run.phase === "run-over") {
-      this.logger.info("Run over", {
-        seed: this.run.seed,
-        score: this.run.score,
-        bestScore: this.run.bestScore,
-      });
       this.endScreen?.show(this.run.score, bestBefore);
       return;
     }
     this.hud?.showRoundOver(outcome, won, this.run.lives);
+  }
+
+  /** Logs the Round's start and slides in its turn's banner. */
+  private announceRound(): void {
+    this.logRoundStart();
+    this.banner?.show(turnBanner(sideOf(this.run)));
   }
 
   private logRoundStart(): void {

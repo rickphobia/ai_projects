@@ -4,15 +4,15 @@
 
 **Blocked by:** 32 (Cards for the crate, report, end screen and Pause)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** ui/title-screen, ui/banner, main, run-screen
 
 **Effort:** medium
 
-- [ ] The title screen shows on a plain visit and is skipped with a seed or the swarm option in the URL (tested)
-- [ ] Play continues a saved Run, New Run starts a fresh one (tested)
-- [ ] Turn and win/lose banners show and skip on a tap (tested)
-- [ ] Transitions and banners never last a second or more
-- [ ] README describes the title screen
-- [ ] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`
+- [x] The title screen shows on a plain visit and is skipped with a seed or the swarm option in the URL (tested)
+- [x] Play continues a saved Run, New Run starts a fresh one (tested)
+- [x] Turn and win/lose banners show and skip on a tap (tested)
+- [x] Transitions and banners never last a second or more
+- [x] README describes the title screen
+- [x] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`

@@ -36,6 +36,8 @@
         --surface: #2a3a31;
         --gold: #ffd23f;
         --press-depth: 4px;
+        /* How long a screen fades; matches SCREEN_TRANSITION_MS in src/ui/title-screen.ts. */
+        --screen-ms: 250ms;
         --font-display: "Fredoka", system-ui, sans-serif;
         /* Chip row, button row and three text lines; see the media queries below. */
         --hud-height: 144px;
@@ -514,8 +516,169 @@
       #piece-info[hidden],
       #end-screen[hidden],
       #round-report[hidden],
-      #turn-device[hidden] {
+      #turn-device[hidden],
+      #title-screen[hidden],
+      #banner[hidden] {
         display: none;
+      }
+      /* Screens fade in rather than jump; the title screen also fades out (TitleScreen). */
+      @keyframes screen-in {
+        from {
+          opacity: 0;
+          transform: scale(0.97);
+        }
+      }
+      #title-screen,
+      #end-screen,
+      #round-report {
+        animation: screen-in var(--screen-ms) ease-out;
+      }
+      #title-screen {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 16px;
+        text-align: center;
+        background: radial-gradient(
+          circle at 50% 40%,
+          var(--grass-light),
+          var(--meadow) 75%
+        );
+      }
+      #title-screen.leaving {
+        opacity: 0;
+        transition: opacity var(--screen-ms) ease-in;
+      }
+      .title-logo {
+        width: min(480px, 90vw);
+        max-height: 50vh;
+      }
+      .title-logo text {
+        font-family: var(--font-display);
+        font-weight: 700;
+        paint-order: stroke;
+        stroke: var(--outline);
+        stroke-linejoin: round;
+      }
+      .logo-small {
+        font-size: 38px;
+        fill: var(--office);
+        stroke-width: 7px;
+      }
+      .logo-big {
+        font-size: 84px;
+        fill: var(--gold);
+        stroke-width: 10px;
+      }
+      .logo-sign,
+      .logo-post {
+        fill: var(--wood);
+        stroke: var(--outline);
+        stroke-width: 6px;
+      }
+      .logo-grain {
+        stroke: var(--board-border);
+        stroke-width: 4px;
+        stroke-linecap: round;
+      }
+      .logo-tuft {
+        fill: var(--leaf);
+      }
+      .title-menu {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+      .title-menu p {
+        margin: 0;
+      }
+      .title-buttons {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .btn.title-play {
+        min-height: 60px;
+        padding: 6px 48px;
+        background: var(--gold);
+        color: var(--outline);
+        font-size: 1.8rem;
+      }
+      /* A tap anywhere skips the banner, so it never holds up the next move. */
+      #banner {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        cursor: pointer;
+        touch-action: none;
+      }
+      .banner-ribbon {
+        margin: 0;
+        padding: 8px 48px;
+        border: 4px solid var(--outline);
+        border-radius: 14px;
+        box-shadow: 0 6px 0 var(--outline);
+        color: #fff;
+        font-family: var(--font-display);
+        font-size: clamp(2rem, 7vw, 3.5rem);
+        font-weight: 700;
+        text-shadow: 0 3px 0 var(--outline);
+        white-space: nowrap;
+        animation: banner-slide var(--banner-ms) ease-in-out forwards;
+      }
+      .banner-defense-turn {
+        background: var(--defense);
+      }
+      .banner-attack-turn {
+        background: var(--attack);
+      }
+      .banner-won {
+        background: var(--gold);
+        color: var(--outline);
+        text-shadow: none;
+      }
+      .banner-lost {
+        background: var(--surface);
+      }
+      @keyframes banner-slide {
+        from {
+          transform: translateX(-100vw);
+        }
+        20%,
+        80% {
+          transform: translateX(0);
+        }
+        to {
+          transform: translateX(100vw);
+        }
+      }
+      @keyframes banner-fade {
+        from,
+        to {
+          opacity: 0;
+        }
+        15%,
+        85% {
+          opacity: 1;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #title-screen,
+        #end-screen,
+        #round-report {
+          animation: none;
+        }
+        .banner-ribbon {
+          animation-name: banner-fade;
+        }
       }
       #round-report {
         position: fixed;
@@ -673,6 +836,34 @@
       aria-label="Round report"
       hidden
     ></section>
+    <section id="banner" aria-live="assertive" hidden></section>
+    <section id="title-screen" aria-label="Against All TOD" hidden>
+      <svg
+        class="title-logo"
+        viewBox="0 0 400 210"
+        role="img"
+        aria-label="Against All TOD"
+      >
+        <rect class="logo-post" x="72" y="140" width="20" height="60" />
+        <rect class="logo-post" x="308" y="140" width="20" height="60" />
+        <rect
+          class="logo-sign"
+          x="16"
+          y="16"
+          width="368"
+          height="144"
+          rx="20"
+        />
+        <path class="logo-grain" d="M40 56h90M250 128h110M60 140h60" />
+        <text class="logo-small" x="200" y="66" text-anchor="middle">
+          AGAINST ALL
+        </text>
+        <text class="logo-big" x="200" y="142" text-anchor="middle">TOD</text>
+        <ellipse class="logo-tuft" cx="82" cy="202" rx="34" ry="10" />
+        <ellipse class="logo-tuft" cx="318" cy="202" rx="34" ry="10" />
+      </svg>
+      <div class="title-menu"></div>
+    </section>
     <section id="turn-device" hidden>
       <h1>Turn your device</h1>
       <p>Against All TOD is played in landscape.</p>
