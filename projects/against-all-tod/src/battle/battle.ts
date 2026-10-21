@@ -114,6 +114,8 @@ export interface BattleState {
   readonly dudes: readonly DudeState[];
   /** Ghost Mode's dead still walking; kept apart, as nothing can touch them. */
   readonly ghosts: readonly Ghost[];
+  /** The setup's Mutations, so a view can mark the Dudes without the setup. */
+  readonly mutations: readonly MutationId[];
   /** The id the next new Dude (a Split half) gets. */
   readonly nextDudeId: number;
   readonly towers: readonly TowerState[];
@@ -174,6 +176,7 @@ export function startBattle(setup: BattleSetup): BattleState {
     trapCooldowns: new Map(),
     dudes,
     ghosts: [],
+    mutations: setup.mutations,
     nextDudeId: dudes.length,
     towers: towersOf(maze),
     effectPieces: powerOn(setup.curse) ? effectPiecesOf(maze) : [],
@@ -343,6 +346,7 @@ export function stepBattle(
     pieceHealth: pieceHits.pieceHealth(),
     dudes: living,
     ghosts,
+    mutations: state.mutations,
     nextDudeId: afterlife.nextDudeId,
     events: withoutAuditedTax(setup.curse, events),
     outcome: outcomeAfter(

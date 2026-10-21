@@ -25,12 +25,20 @@ describe("drawDudeTextures", () => {
     }
   });
 
-  it("gives the first five kinds their own silhouettes", () => {
+  it("gives every Dude kind its own silhouette", () => {
     const { dudes } = drawDudeTextures(fakeBake().bake);
-    const drawn = (
-      ["intern", "termite", "ram-crew", "balloonist", "shield-bro"] as const
-    ).map((kind) => dudes[kind].calm);
+    const drawn = Object.values(dudes).map(({ calm }) => calm);
+    expect(drawn).toHaveLength(Object.keys(DUDE_KINDS).length);
     expect(new Set(drawn).size).toBe(drawn.length);
+  });
+
+  it("has a gold grin for every kind and a mark for Explosive Shields and Conga Line", () => {
+    const textures = drawDudeTextures(fakeBake().bake);
+    const grins = Object.values(textures.dudes).map(({ goldGrin }) => goldGrin);
+    expect(new Set(grins).size).toBe(grins.length);
+    expect(textures.fuse).toBeInstanceOf(Texture);
+    expect(textures.congaHands).toBeInstanceOf(Texture);
+    expect(textures.fuse).not.toBe(textures.congaHands);
   });
 
   it("draws every Dude inside its frame", () => {

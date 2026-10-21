@@ -4,14 +4,14 @@
 
 **Blocked by:** 29 (Dudes with faces)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** renderer/art-kit, renderer/units
 
 **Effort:** low
 
-- [ ] Every Dude kind in the catalog has its own drawing; a test fails if a kind has none
-- [ ] Each Mutation's mark shows (a screenshot with every Mutation)
-- [ ] The Landlord is still the biggest thing on the Board
-- [ ] The debug swarm screen (500 Interns) still runs at 60 fps on the Beelink's browser; the fps is in the PR
-- [ ] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`
+- [x] Every Dude kind in the catalog has its own drawing; a test fails if a kind has none
+- [x] Each Mutation's mark shows (a screenshot with every Mutation)
+- [x] The Landlord is still the biggest thing on the Board
+- [x] The debug swarm screen (500 Interns) still runs at 60 fps on the Beelink's browser; the fps is in the PR
+- [x] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`
