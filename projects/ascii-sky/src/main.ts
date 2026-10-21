@@ -8,6 +8,7 @@ import {
   ViewStartError,
 } from "./adapters/view/view-renderer";
 import { loadConfig } from "./config";
+import { cockpitCamera } from "./flight/cockpit-camera";
 import { chooseLogLevel, createConsoleLogger, type Logger } from "./logger";
 import { createKeyboard, hasKeyboard } from "./adapters/keyboard/keyboard";
 import { advance, type GameState, newGame, pauseGame } from "./game/game";
@@ -20,7 +21,6 @@ import {
   VIEW_COLUMNS,
   VIEW_ROWS,
 } from "./screen/screen-size";
-import { cockpitCameraOnRunway } from "./world/cockpit-camera";
 import { createWorld } from "./world/world";
 import { WORLD_LAYOUT } from "./world/world-layout";
 
@@ -78,24 +78,36 @@ function runGame(logger: Logger): void {
   }
 
   const keyboard = createKeyboard(window);
-  let state: GameState = newGame();
+  let state: GameState = newGame(world);
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) state = pauseGame(state);
   });
 
   let lastFrame = performance.now();
   const frame = (now: number): void => {
-    const previousPhase = state.phase;
+    const previous = state;
     state = advance(state, keyboard.controls(), (now - lastFrame) / 1000);
     lastFrame = now;
-    if (state.phase !== previousPhase) {
-      logger.debug("phase changed", { from: previousPhase, to: state.phase });
-    }
-    // Nothing moves yet, so the camera stays at the start of the Runway.
-    screen.show(drawGame(state, view.render(cockpitCameraOnRunway(world))));
+    logChanges(logger, previous, state);
+    screen.show(drawGame(state, view.render(cockpitCamera(state.plane))));
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
+}
+
+/** Phase changes, and lift-off and touchdown with the numbers that help tune the flight model. */
+function logChanges(logger: Logger, from: GameState, to: GameState): void {
+  if (to.phase !== from.phase) {
+    logger.debug("phase changed", { from: from.phase, to: to.phase });
+  }
+  if (to.plane.onGround === from.plane.onGround) return;
+  const { position, velocity } = to.plane;
+  logger.debug(to.plane.onGround ? "touched down" : "lifted off", {
+    speed: Math.hypot(velocity.x, velocity.y, velocity.z).toFixed(1),
+    sinkRate: (-velocity.z).toFixed(1),
+    pitchDegrees: ((to.plane.pitch * 180) / Math.PI).toFixed(1),
+    at: `${position.x.toFixed(0)},${position.y.toFixed(0)}`,
+  });
 }
 
 function showStartFailure(headline: string, error: unknown): void {
