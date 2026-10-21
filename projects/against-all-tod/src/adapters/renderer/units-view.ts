@@ -1,27 +1,17 @@
-import { Container, Graphics, Sprite } from "pixi.js";
+import { Container, Graphics, Sprite, type Texture } from "pixi.js";
 import type { BattleState } from "../../battle/battle";
 import type { DudeState } from "../../battle/dudes";
 import type { ShotEvent } from "../../battle/events";
 import { BOARD_COLUMNS } from "../../maze/board";
 import { TILE_SIZE, type BoardTextures } from "./board-textures";
 import { ATTACK_COLOUR, DEFENSE_COLOUR } from "./board-view";
+import { dudeScale } from "./dude-scale";
 import { PANIC_STEPS, flop, waddle, type Waddle } from "./dude-motion";
 import type { Turrets } from "./pieces-view";
 import { aimTurrets } from "./turret-aim";
 
 /** How long a shot's tracer stays, in battle steps. */
 const TRACER_STEPS = 10;
-/** An Intern's drawing is about half a tile wide at this scale, as the old disc was. */
-const DUDE_SCALE = 1.4;
-/** Balloonists float above the Maze, so they are drawn bigger. */
-const FLYER_SCALE = 1.15;
-/** A Ram Crew is four Dudes and a ram in one, so it is drawn bigger still. */
-const RAM_CREW_SCALE = 1.5;
-/** The Landlord is a boss: the biggest thing on the Board. */
-const LANDLORD_SCALE = 2.2;
-/** Giant Mutation: a giant is drawn this much bigger, a Split half this much smaller. */
-const GIANT_SCALE = 1.6;
-const HALF_SCALE = 0.7;
 /** How see-through a Ghost Mode ghost is. */
 const GHOST_ALPHA = 0.35;
 /** How see-through an older Dude is while the eraser is chosen: Erasing it refunds nothing. */
@@ -38,10 +28,15 @@ const HALO_ALPHA = 0.7;
 const REACHED_GOAL_TILES = 1.5;
 const STILL: Waddle = { tilt: 0, bob: 0 };
 
-/** One Dude on screen: its glow and body, and what the last frame saw of it. */
+/** One Dude on screen: its glow, body and Mutation marks, and what the last frame saw of it. */
 interface DudeSprites {
   readonly halo: Sprite;
   readonly body: Sprite;
+  /** Laid over the body and moved with it; most Dudes have none, so the swarm stays cheap. */
+  readonly grin: Sprite | null;
+  readonly hands: Sprite | null;
+  /** Explosive Shields' fuse, hidden once the small shield is gone. */
+  readonly fuse: Sprite | null;
   /** Its size before facing: the body's x scale is this, negated while it walks left. */
   readonly scale: number;
   x: number;
@@ -82,6 +77,8 @@ export class UnitsView {
   private fallen: FallenDude[] = [];
   private recentShots: ShotEvent[] = [];
   private frame = 0;
+  /** Gold Teeth is on for the battle being shown. */
+  private goldTeeth = false;
 
   constructor(private readonly textures: BoardTextures) {
     this.view.addChild(this.haloLayer, this.dudeLayer, this.tracers);
@@ -97,6 +94,7 @@ export class UnitsView {
     newShots: readonly ShotEvent[],
     turrets: Turrets,
   ): void {
+    this.goldTeeth = state.mutations.includes("gold-teeth");
     this.drawDudes(state.dudes, state.ghosts, state.step);
     this.recentShots = [...this.recentShots, ...newShots].filter(
       (shot) => state.step - shot.step < TRACER_STEPS,
@@ -113,6 +111,7 @@ export class UnitsView {
     dudes: readonly DudeState[],
     dimmed: ReadonlySet<number> = new Set(),
   ): void {
+    this.goldTeeth = false;
     this.drawDudes(dudes, [], null);
     for (const id of dimmed) {
       const sprites = this.dudeSprites.get(id);
@@ -190,6 +189,14 @@ export class UnitsView {
         : UNDERGROUND_ALPHA;
     body.alpha = alpha;
     halo.alpha = HALO_ALPHA * alpha;
+    if (sprites.fuse !== null)
+      sprites.fuse.visible = (dude.smallShield ?? 0) > 0;
+    for (const mark of marksOf(sprites)) {
+      mark.position.copyFrom(body.position);
+      mark.rotation = body.rotation;
+      mark.scale.x = body.scale.x;
+      mark.alpha = alpha;
+    }
     sprites.seenInFrame = this.frame;
   }
 
@@ -200,17 +207,7 @@ export class UnitsView {
     toughness: number,
   ): DudeSprites {
     const { kind } = dude;
-    const scale =
-      DUDE_SCALE *
-      (kind === "balloonist"
-        ? FLYER_SCALE
-        : kind === "ram-crew"
-          ? RAM_CREW_SCALE
-          : kind === "landlord"
-            ? LANDLORD_SCALE
-            : 1) *
-      (dude.giant ? GIANT_SCALE : 1) *
-      (dude.half ? HALF_SCALE : 1);
+    const scale = dudeScale(kind, dude.giant, dude.half);
     const halo = new Sprite({
       texture: this.textures.dudeGlow,
       anchor: 0.5,
@@ -229,9 +226,17 @@ export class UnitsView {
     });
     this.haloLayer.addChild(halo);
     this.dudeLayer.addChild(body);
+    const mark = (texture: Texture): Sprite =>
+      this.dudeLayer.addChild(
+        new Sprite({ texture, anchor: 0.5, scale, x, y }),
+      );
     return {
       halo,
       body,
+      grin: this.goldTeeth ? mark(this.textures.dudes[kind].goldGrin) : null,
+      hands:
+        dude.congaStroke === undefined ? null : mark(this.textures.congaHands),
+      fuse: (dude.smallShield ?? 0) > 0 ? mark(this.textures.fuse) : null,
       scale,
       x,
       y,
@@ -256,6 +261,11 @@ export class UnitsView {
       body.position.set(sprites.x, sprites.y);
       body.alpha = now.alpha;
       halo.alpha = HALO_ALPHA * now.alpha;
+      for (const mark of marksOf(sprites)) {
+        mark.rotation = body.rotation;
+        mark.position.copyFrom(body.position);
+        mark.alpha = now.alpha;
+      }
       return true;
     });
   }
@@ -280,7 +290,12 @@ export class UnitsView {
   }
 }
 
-function destroy({ halo, body }: DudeSprites): void {
-  halo.destroy();
-  body.destroy();
+function marksOf({ grin, hands, fuse }: DudeSprites): Sprite[] {
+  return [grin, hands, fuse].filter((mark): mark is Sprite => mark !== null);
+}
+
+function destroy(sprites: DudeSprites): void {
+  sprites.halo.destroy();
+  sprites.body.destroy();
+  for (const mark of marksOf(sprites)) mark.destroy();
 }

@@ -2,25 +2,45 @@ import { Graphics, type Texture } from "pixi.js";
 import { DUDE_KINDS, type DudeKindId } from "../../catalog/dudes";
 import {
   ATTACK_COLOUR,
+  BLOOM_COLOUR,
   EYE_COLOUR,
   METAL_COLOUR,
   OUTLINE_COLOUR,
-  SHADOW_ALPHA,
-  SHADOW_COLOUR,
   WOOD_COLOUR,
 } from "./board-view";
+import { congaHands, fuse, goldGrin, type Mouth } from "./dude-marks";
+import {
+  DUDE_FRAME,
+  DUDE_OUTLINE,
+  HIGHLIGHT_ALPHA,
+  LEG_WIDTH,
+  blob,
+  eyes,
+  shadow,
+  type Face,
+} from "./dude-parts";
 
-/** A Dude's two baked looks: walking along, and panicked for a moment after a hit. */
+export { DUDE_FRAME } from "./dude-parts";
+
+/**
+ * A Dude's two baked looks: walking along, and panicked for a moment after a hit. Plus Gold
+ * Teeth's grin, drawn alone in the same frame at this kind's mouth, to lay over either look.
+ */
 export interface DudeFaces {
   readonly calm: Texture;
   readonly panicked: Texture;
+  readonly goldGrin: Texture;
 }
 
 export interface DudeTextures {
-  /** Every kind's look; kinds not drawn yet wear the Intern's body. */
+  /** Every kind's look. */
   readonly dudes: Readonly<Record<DudeKindId, DudeFaces>>;
   /** A Shield Bro once his shield breaks. */
   readonly shieldBroUnshielded: DudeFaces;
+  /** Explosive Shields' mark: a lit fuse on top, in the Dude's frame, laid over any kind. */
+  readonly fuse: Texture;
+  /** Conga Line's mark: two hands held out in front, on the shoulders of the Dude ahead. */
+  readonly congaHands: Texture;
   /** A soft round glow in white, tinted the attack colour under each Dude in the dark. */
   readonly dudeGlow: Texture;
 }
@@ -28,45 +48,47 @@ export interface DudeTextures {
 /** Bakes a shape into a texture `width` by `height` px from its top left, then destroys it. */
 export type Bake = (shape: Graphics, width: number, height: number) => Texture;
 
-/** Every Dude is drawn in a square this many px wide, centred on the Dude's point. */
-export const DUDE_FRAME = 48;
-/** A blob's outline: a touch thinner than the Board's, as Dudes are drawn small. */
-const DUDE_OUTLINE = 2.5;
-const LEG_WIDTH = 2;
 /** Glow is drawn white so a sprite tint can colour it. */
 const TINTABLE_WHITE = 0xffffff;
 const GLOW_RINGS = 8;
 const GLOW_RING_ALPHA = 0.14;
-const HIGHLIGHT_ALPHA = 0.35;
 
-type Face = "calm" | "panicked";
 type Drawing = (face: Face) => Graphics;
 
-/** The kinds with their own drawing so far; ticket 30 draws the rest. */
-const DRAWINGS: Partial<Record<DudeKindId, Drawing>> = {
-  intern,
-  termite,
-  "ram-crew": ramCrew,
-  balloonist,
-  "shield-bro": (face) => shieldBro(face, true),
+/** Every kind's drawing and mouth. A Record, so a new kind in the catalog fails to compile until drawn. */
+const DRAWINGS: Readonly<Record<DudeKindId, readonly [Drawing, Mouth]>> = {
+  intern: [intern, { x: 27, y: 27, width: 7 }],
+  termite: [termite, { x: 34, y: 30, width: 5 }],
+  "ram-crew": [ramCrew, { x: 30, y: 20, width: 3 }],
+  balloonist: [balloonist, { x: 26, y: 41, width: 5 }],
+  "shield-bro": [(face) => shieldBro(face, true), { x: 22, y: 28, width: 7 }],
+  "hype-man": [hypeMan, { x: 26, y: 29, width: 6 }],
+  sapper: [sapper, { x: 28, y: 30, width: 7 }],
+  mole: [mole, { x: 25, y: 29, width: 6 }],
+  streaker: [streaker, { x: 30, y: 27, width: 7 }],
+  landlord: [landlord, { x: 27, y: 31, width: 8 }],
 };
 
 export function drawDudeTextures(bake: Bake): DudeTextures {
-  const faces = (drawing: Drawing): DudeFaces => ({
-    calm: bake(drawing("calm"), DUDE_FRAME, DUDE_FRAME),
-    panicked: bake(drawing("panicked"), DUDE_FRAME, DUDE_FRAME),
+  const frame = (shape: Graphics): Texture =>
+    bake(shape, DUDE_FRAME, DUDE_FRAME);
+  const faces = (drawing: Drawing, mouth: Mouth): DudeFaces => ({
+    calm: frame(drawing("calm")),
+    panicked: frame(drawing("panicked")),
+    goldGrin: frame(goldGrin(mouth)),
   });
-  const internFaces = faces(intern);
   const dudes = Object.fromEntries(
-    Object.values(DUDE_KINDS).map(({ id }) => {
-      const drawing = DRAWINGS[id];
-      return [id, drawing === undefined ? internFaces : faces(drawing)];
-    }),
+    Object.values(DUDE_KINDS).map(({ id }) => [id, faces(...DRAWINGS[id])]),
   ) as Record<DudeKindId, DudeFaces>;
   return {
     dudes,
-    shieldBroUnshielded: faces((face) => shieldBro(face, false)),
-    dudeGlow: bake(glow(), DUDE_FRAME, DUDE_FRAME),
+    shieldBroUnshielded: faces(
+      (face) => shieldBro(face, false),
+      DRAWINGS["shield-bro"][1],
+    ),
+    fuse: frame(fuse()),
+    congaHands: frame(congaHands()),
+    dudeGlow: frame(glow()),
   };
 }
 
@@ -157,56 +179,89 @@ function shieldBro(face: Face, shielded: boolean): Graphics {
     .stroke({ color: OUTLINE_COLOUR, width: LEG_WIDTH, alpha: 0.5 });
 }
 
-/** Drawn first, so everything stands on it: a flat oval at (x, y) half `halfWidth` wide. */
-function shadow(x: number, y: number, halfWidth: number): Graphics {
-  return new Graphics()
-    .ellipse(x, y, halfWidth, halfWidth * 0.3)
-    .fill({ color: SHADOW_COLOUR, alpha: SHADOW_ALPHA });
+/** Shouting ahead through a big megaphone held up to his mouth. */
+function hypeMan(face: Face): Graphics {
+  const shape = shadow(24, 40, 13);
+  blob(shape, 21, 29, 11, 12);
+  eyes(shape, 22, 23, 3.2, face);
+  return shape
+    .poly([29, 26, 44, 18, 44, 36, 29, 31])
+    .fill(METAL_COLOUR)
+    .stroke({ color: OUTLINE_COLOUR, width: DUDE_OUTLINE, join: "round" })
+    .ellipse(44, 27, 2.5, 9)
+    .fill(OUTLINE_COLOUR);
 }
 
-/** A body or head in the attack colour with the dark outline. */
-function blob(
-  shape: Graphics,
-  x: number,
-  y: number,
-  halfWidth: number,
-  halfHeight: number,
-): void {
+/** A round black bomb strapped to his back, its fuse already lit. */
+function sapper(face: Face): Graphics {
+  const shape = shadow(24, 40, 15);
   shape
-    .ellipse(x, y, halfWidth, halfHeight)
-    .fill(ATTACK_COLOUR)
-    .stroke({ color: OUTLINE_COLOUR, width: DUDE_OUTLINE });
+    .circle(13, 25, 9)
+    .fill(OUTLINE_COLOUR)
+    .circle(10, 22, 2.5)
+    .fill({ color: EYE_COLOUR, alpha: HIGHLIGHT_ALPHA })
+    .moveTo(10, 17)
+    .quadraticCurveTo(7, 11, 10, 7)
+    .stroke({ color: OUTLINE_COLOUR, width: LEG_WIDTH, cap: "round" })
+    .circle(10, 7, 2.5)
+    .fill(BLOOM_COLOUR);
+  blob(shape, 27, 29, 11, 12);
+  eyes(shape, 29, 23, 3.3, face);
+  return shape;
 }
 
-/**
- * Two dot eyes centred on (x, y), looking ahead (right, toward the Goal). Panicked, they open
- * wide with tiny pupils over an O of a mouth.
- */
-function eyes(
-  shape: Graphics,
-  x: number,
-  y: number,
-  radius: number,
-  face: Face,
-): void {
-  const apart = radius * 1.15;
-  const panicked = face === "panicked";
-  const white = panicked ? radius * 1.3 : radius;
-  const pupil = panicked ? radius * 0.35 : radius * 0.55;
-  const look = panicked ? 0 : radius * 0.3;
-  for (const eyeX of [x - apart, x + apart]) {
-    shape
-      .circle(eyeX, y, white)
-      .fill(EYE_COLOUR)
-      .stroke({ color: OUTLINE_COLOUR, width: 1 })
-      .circle(eyeX + look, y, pupil)
-      .fill(OUTLINE_COLOUR);
+/** Just a head poking out of a mound of dirt. */
+function mole(face: Face): Graphics {
+  const shape = shadow(24, 41, 18);
+  blob(shape, 24, 26, 9, 10);
+  eyes(shape, 25, 22, 3, face);
+  return shape
+    .moveTo(5, 41)
+    .quadraticCurveTo(10, 29, 18, 31)
+    .quadraticCurveTo(24, 34, 30, 31)
+    .quadraticCurveTo(38, 29, 43, 41)
+    .closePath()
+    .fill(WOOD_COLOUR)
+    .stroke({ color: OUTLINE_COLOUR, width: DUDE_OUTLINE, join: "round" })
+    .circle(14, 37, 1.5)
+    .circle(33, 36, 1.5)
+    .fill({ color: OUTLINE_COLOUR, alpha: 0.5 });
+}
+
+/** Bare and leaning into a sprint, with motion lines streaming behind. */
+function streaker(face: Face): Graphics {
+  const shape = shadow(28, 39, 11);
+  for (const [y, length] of [
+    [20, 9],
+    [27, 12],
+    [34, 9],
+  ] as const) {
+    shape.moveTo(14 - length, y).lineTo(14, y);
   }
-  if (panicked) {
-    shape
-      .ellipse(x, y + white + radius * 0.7, radius * 0.45, radius * 0.6)
-      .fill(OUTLINE_COLOUR);
-  }
+  shape.stroke({ color: OUTLINE_COLOUR, width: LEG_WIDTH, cap: "round" });
+  blob(shape, 28, 27, 10, 11);
+  eyes(shape, 30, 21, 3.2, face);
+  return shape
+    .ellipse(24, 22, 2.5, 4)
+    .fill({ color: EYE_COLOUR, alpha: HIGHLIGHT_ALPHA });
+}
+
+/** A big round boss in a top hat, leaning on a cane. */
+function landlord(face: Face): Graphics {
+  const shape = shadow(24, 42, 16);
+  shape
+    .moveTo(39, 43)
+    .lineTo(39, 24)
+    .quadraticCurveTo(39, 19, 44, 21)
+    .stroke({ color: OUTLINE_COLOUR, width: 2.5, cap: "round" });
+  blob(shape, 24, 31, 14, 12);
+  eyes(shape, 26, 25, 3.5, face);
+  return shape
+    .roundRect(13, 15, 24, 4, 2)
+    .roundRect(17, 2, 16, 14, 2)
+    .fill(OUTLINE_COLOUR)
+    .rect(17, 11, 16, 3)
+    .fill(ATTACK_COLOUR);
 }
 
 /** Rings growing fainter outward; overlapping, they glow brightest in the middle. */
