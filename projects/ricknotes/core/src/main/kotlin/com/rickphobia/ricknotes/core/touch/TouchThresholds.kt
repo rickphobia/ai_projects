@@ -9,7 +9,7 @@ data class TouchThresholds(
     /** Fingers are ignored for this long after the pen was last touching or hovering. */
     val penLockoutMs: Long = 500,
     /** A contact wider than this is a palm or the side of a hand, not a fingertip. */
-    val maxFingertipMm: Float = 20f,
+    val maxFingertipMm: Float = 15f,
     /** A tap lasts at most this long, from the first finger down to the last one up. */
     val tapMaxMs: Long = 300,
     /** A tap's fingers each move at most this far. */

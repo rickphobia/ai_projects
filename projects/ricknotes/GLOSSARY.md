@@ -52,6 +52,10 @@ _Avoid_: correction, annotation
 An optional setting, off by default, where one finger on the page erases whole strokes instead of scrolling. Two fingers always scroll and zoom.
 _Avoid_: touch eraser, palm mode
 
+**Resting hand**:
+A palm or the side of a hand on the screen while writing. The app ignores it: it never scrolls, marks or erases. A finger counts as one if it lands while the pen hovers or touches or just after, or if its contact is wider than a fingertip.
+_Avoid_: palm mode, touch rejection
+
 **Favourite pens**:
 The short list of pen colours that tapping the current pen in the toolbar cycles through.
 

@@ -207,7 +207,7 @@ class TouchInterpreterTest {
     fun `a contact wider than a fingertip is ignored and the finger beside it still scrolls`() {
         val palm = finger(1, DOWN, 500f, 500f, contactPx = PALM_PX)
 
-        assertEquals(TouchAction.Reject(1, "contact 25.0 mm is wider than a fingertip (20.0 mm)"), palm)
+        assertEquals(TouchAction.Reject(1, "contact 25.0 mm is wider than a fingertip (15.0 mm)"), palm)
         assertEquals(TouchAction.ScrollStart, finger(2, DOWN, 100f, 500f))
         assertEquals(TouchAction.Ignore, finger(1, MOVE, 520f, 480f, contactPx = PALM_PX))
         assertEquals(TouchAction.Scroll(0f, -50f, clock + FRAME_MS), finger(2, MOVE, 100f, 450f))

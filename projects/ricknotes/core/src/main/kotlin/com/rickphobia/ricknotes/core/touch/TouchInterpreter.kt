@@ -43,12 +43,11 @@ class TouchInterpreter(
     // and sends nothing more until it lifts: it may be the hand that holds the pen.
     private fun handlePen(event: TouchEvent): TouchAction {
         hand.penSeen(event)
-        val calledOff = eraser
-        eraser = null
+        val calledOff = callOffErase()
         val drawing = penPointer
         return when {
             calledOff != null && event.phase != TouchPhase.DOWN -> {
-                TouchAction.CancelErase(calledOff)
+                calledOff
             }
 
             event.phase == TouchPhase.DOWN && drawing == null -> {
@@ -84,8 +83,15 @@ class TouchInterpreter(
         when {
             event.phase == TouchPhase.HOVER || event.phase == TouchPhase.HOVER_EXIT -> TouchAction.Ignore
             hand.alreadyRejected(event) -> TouchAction.Ignore
-            else -> hand.rejectionReason(event)?.let { reject(event.pointerId, it) } ?: counted(event)
+            else -> hand.rejectionReason(event)?.let { reject(event.pointerId, it) } ?: handleCountedFinger(event)
         }
+
+    /** Ends the finger erase going on, if there is one: the action that says so, or null. */
+    private fun callOffErase(): TouchAction.CancelErase? {
+        val erasing = eraser ?: return null
+        eraser = null
+        return TouchAction.CancelErase(erasing)
+    }
 
     // A finger already counted can be rejected too, when it spreads into a palm. Whatever it was
     // doing stops: the view no longer follows it, and the app calls off an erase it was making.
@@ -99,7 +105,8 @@ class TouchInterpreter(
         return TouchAction.Reject(id, reason)
     }
 
-    private fun counted(event: TouchEvent): TouchAction {
+    // A finger that isn't a resting hand.
+    private fun handleCountedFinger(event: TouchEvent): TouchAction {
         val before = fingers.toMap()
         when (event.phase) {
             TouchPhase.DOWN -> {
@@ -118,7 +125,10 @@ class TouchInterpreter(
                 fingers.remove(event.pointerId)
             }
         }
-        if (hand.penNear(event.timeMs)) return whilePenNear()
+        if (hand.penNear(event.timeMs)) {
+            tap.spoil()
+            return callOffErase() ?: TouchAction.Ignore
+        }
         return when (event.phase) {
             TouchPhase.DOWN -> down(before, event)
             TouchPhase.MOVE -> move(before, event)
@@ -127,19 +137,11 @@ class TouchInterpreter(
         }
     }
 
-    private fun whilePenNear(): TouchAction {
-        tap.spoil()
-        val erasing = eraser ?: return TouchAction.Ignore
-        eraser = null
-        return TouchAction.CancelErase(erasing)
-    }
-
     private fun down(
         before: Map<Int, Position>,
         event: TouchEvent,
-    ): TouchAction {
-        val erasing = eraser
-        return when {
+    ): TouchAction =
+        when {
             before.isEmpty() && gestures.fingerErase -> {
                 eraser = event.pointerId
                 TouchAction.StartErase(event.pointerId, event.x, event.y)
@@ -150,16 +152,10 @@ class TouchInterpreter(
             }
 
             // A second finger: this is a scroll or zoom (or a tap), not an erase after all.
-            erasing != null -> {
-                eraser = null
-                TouchAction.CancelErase(erasing)
-            }
-
             else -> {
-                TouchAction.Ignore
+                callOffErase() ?: TouchAction.Ignore
             }
         }
-    }
 
     private fun move(
         before: Map<Int, Position>,
@@ -202,9 +198,8 @@ class TouchInterpreter(
 
     private fun cancel(event: TouchEvent): TouchAction {
         tap.spoil()
-        if (eraser != event.pointerId) return TouchAction.Ignore
-        eraser = null
-        return TouchAction.CancelErase(event.pointerId)
+        val erased = if (eraser == event.pointerId) callOffErase() else null
+        return erased ?: TouchAction.Ignore
     }
 }
 

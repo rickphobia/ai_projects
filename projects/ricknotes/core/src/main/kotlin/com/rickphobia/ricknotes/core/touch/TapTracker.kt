@@ -12,7 +12,7 @@ internal class TapTracker(
 ) {
     private var startMs = 0L
     private val downAt = mutableMapOf<Int, Pair<Float, Float>>()
-    private var most = 0
+    private var mostFingersDown = 0
     private var spoiled = false
 
     /** A finger counted by the gesture touched down; [fingersDown] is how many are down now. */
@@ -23,11 +23,11 @@ internal class TapTracker(
         if (fingersDown == 1) {
             startMs = event.timeMs
             downAt.clear()
-            most = 0
+            mostFingersDown = 0
             spoiled = false
         }
         downAt[event.pointerId] = event.x to event.y
-        most = maxOf(most, fingersDown)
+        mostFingersDown = maxOf(mostFingersDown, fingersDown)
     }
 
     fun move(event: TouchEvent) {
@@ -41,5 +41,5 @@ internal class TapTracker(
     }
 
     /** The last finger lifted at [timeMs]: how many fingers tapped, or 0 if it wasn't a tap. */
-    fun fingersTapped(timeMs: Long): Int = if (spoiled || timeMs - startMs > maxMs) 0 else most
+    fun fingersTapped(timeMs: Long): Int = if (spoiled || timeMs - startMs > maxMs) 0 else mostFingersDown
 }
