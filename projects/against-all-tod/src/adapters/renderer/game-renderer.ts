@@ -14,11 +14,7 @@ import {
   type PointerKind,
 } from "../input/board-pointer";
 import { drawArtTextures } from "./art-kit";
-import {
-  TILE_SIZE,
-  loadKenneyTextures,
-  type BoardTextures,
-} from "./board-textures";
+import { TILE_SIZE, type BoardTextures } from "./board-textures";
 import {
   DEFENSE_COLOUR,
   createBoardView,
@@ -36,7 +32,7 @@ import {
 } from "./camera";
 import { groundDecorations, surroundPlants } from "./decoration";
 import { GoalHealthBar } from "./goal-health-view";
-import { drawPieces, pieceView, type Turrets } from "./pieces-view";
+import { drawPieces, pieceView, type MovingParts } from "./pieces-view";
 import { PlacementCursor } from "./placement-cursor";
 import { drawRoute } from "./route-view";
 import { TricksView } from "./tricks-view";
@@ -70,7 +66,7 @@ export interface GameView {
   choosePiece(pieceId: PieceId): void;
   /** Marks the tile under the mouse as a place the Piece may or may not go; null hides it. */
   showPlacementCursor(tile: Tile | null, allowed: boolean): void;
-  /** Draws a battle's Dudes, shots and turrets; `newShots` are the shots since the last call. */
+  /** Draws a battle's Dudes and shots and moves the Pieces' working parts; `newShots` are the shots since the last call. */
   showBattle(state: BattleState, newShots: readonly ShotEvent[]): void;
   clearBattle(): void;
   showGoalHealth(health: number, maxHealth: number): void;
@@ -124,10 +120,7 @@ export async function startRenderer(
 
   // Drawn at the closest zoom's resolution, so shapes stay crisp zoomed in.
   const artResolution = window.devicePixelRatio * MAX_SCALE;
-  const textures: BoardTextures = {
-    ...(await loadKenneyTextures()),
-    ...drawArtTextures(app.renderer, artResolution),
-  };
+  const textures: BoardTextures = drawArtTextures(app.renderer, artResolution);
   // The camera moves `board`; `world` inside it puts the surround's top left at the camera's 0,
   // so everything drawn by tile (row 0 at y 0) stays put when lanes open above it.
   const board = new Container({ label: "board" });
@@ -141,7 +134,7 @@ export async function startRenderer(
   const tricks = new TricksView();
   let sliders: SliderPositions | null = null;
   const cursor = new PlacementCursor(pieceView(textures, cursorPiece));
-  let turrets: Turrets = new Map();
+  let movingParts: MovingParts = new Map();
   // The Maze last drawn; a battle's differs once a Wall-breaker destroys a Piece.
   let drawnMaze: Maze | null = null;
   // The route goes over the Pieces so a path squeezing past walls stays readable. The dark goes
@@ -216,7 +209,7 @@ export async function startRenderer(
         textures,
         groundDecorations(seed, maze),
       );
-      turrets = drawPieces(pieces, textures, maze);
+      movingParts = drawPieces(pieces, textures, maze);
       drawnMaze = maze;
       drawRoute(route, maze.route, maze.windowSize);
       drawTricks();
@@ -235,11 +228,11 @@ export async function startRenderer(
     },
     showBattle: (state, newShots) => {
       if (state.maze !== drawnMaze) {
-        turrets = drawPieces(pieces, textures, state.maze);
+        movingParts = drawPieces(pieces, textures, state.maze);
         drawnMaze = state.maze;
         drawTricks();
       }
-      units.show(state, newShots, turrets);
+      units.show(state, newShots, movingParts);
     },
     clearBattle: () => {
       units.clear();

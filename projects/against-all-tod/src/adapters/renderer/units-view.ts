@@ -7,8 +7,8 @@ import { TILE_SIZE, type BoardTextures } from "./board-textures";
 import { ATTACK_COLOUR, DEFENSE_COLOUR } from "./board-view";
 import { dudeScale } from "./dude-scale";
 import { PANIC_STEPS, flop, waddle, type Waddle } from "./dude-motion";
-import type { Turrets } from "./pieces-view";
-import { aimTurrets } from "./turret-aim";
+import type { MovingParts } from "./pieces-view";
+import { moveParts } from "./piece-motion";
 
 /** How long a shot's tracer stays, in battle steps. */
 const TRACER_STEPS = 10;
@@ -57,7 +57,7 @@ interface FallenDude {
 
 /**
  * The battle as it stands: one drawn Dude per Dude, with a glow under it in the dark, shot
- * tracers in the defense colour, and tower turrets turned toward their last shot. It reads
+ * tracers in the defense colour, and the Pieces' working parts moved (`piece-motion.ts`). It reads
  * battle state only; waddling, panicking and flopping come from the Dude's id and the battle
  * step (`dude-motion.ts`), so they never change the battle.
  *
@@ -92,7 +92,7 @@ export class UnitsView {
   show(
     state: BattleState,
     newShots: readonly ShotEvent[],
-    turrets: Turrets,
+    movingParts: MovingParts,
   ): void {
     this.goldTeeth = state.mutations.includes("gold-teeth");
     this.drawDudes(state.dudes, state.ghosts, state.step);
@@ -100,7 +100,7 @@ export class UnitsView {
       (shot) => state.step - shot.step < TRACER_STEPS,
     );
     this.drawTracers(state.step);
-    aimTurrets(turrets, state);
+    moveParts(movingParts, state);
   }
 
   /**

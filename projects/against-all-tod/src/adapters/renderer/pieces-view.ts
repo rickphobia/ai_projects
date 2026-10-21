@@ -1,128 +1,72 @@
-import { Container, Sprite, type ColorSource } from "pixi.js";
+import { Container, Sprite, type Texture } from "pixi.js";
 import type { PieceId } from "../../catalog/pieces";
 import { tileKey } from "../../maze/board";
 import { placedPieces, type Maze } from "../../maze/maze";
 import { TILE_SIZE, type BoardTextures } from "./board-textures";
-import { DEFENSE_COLOUR } from "./board-view";
+import { LAMP } from "./tower-art";
 
-/** The part of a Piece that turns in battle (a turret, a lamp, a Turnstile's arms), by the tile key of its Piece. */
-export type Turrets = ReadonlyMap<
+/**
+ * The part of each Piece that moves in battle, by the tile key of its Piece: a Sniper Nest's
+ * barrel, a Turnstile's arms, a Lighthouse's beam, a Siren's ring, a Grinder's teeth.
+ */
+export type MovingParts = ReadonlyMap<
   string,
-  { readonly pieceId: PieceId; readonly turret: Container }
+  { readonly pieceId: PieceId; readonly part: Container }
 >;
 
-const TURRET_LABEL = "turret";
-/** The Lighthouse's lamp and the Siren's horn: the turret sprite in their own colours. */
-const LIGHTHOUSE_COLOUR = 0xffe066;
-const SIREN_COLOUR = 0xff5c8a;
-/** Floor Pieces are a flat slab, see-through so they read as walkable. */
-const TAX_BOOTH_COLOUR = 0x7dd87d;
-const GRINDER_COLOUR = 0xb0b0b0;
-const FLOOR_ALPHA = 0.7;
-const FLOOR_SCALE = 0.8;
-const BOUNCER_COLOUR = 0xff9f1c;
-const DECOY_GOAL_COLOUR = 0xffd700;
-/** The HR Department, a boss: a tower in corporate purple. */
-const HR_DEPARTMENT_COLOUR = 0x9b5cff;
-/** A Turnstile arm is a crate shrunk to this share of a tile, so the arm reads as part of the Piece. */
-const ARM_SCALE = 0.7;
+const MOVING_PART_LABEL = "moving-part";
 
-/** One Piece, drawn in a tile-sized box with its top left at (0, 0). */
+/** One Piece, drawn in a tile-sized box with its top left at (0, 0); its moving part at rest. */
 export function pieceView(
   textures: BoardTextures,
   pieceId: PieceId,
 ): Container {
   const piece = new Container({ label: pieceId });
+  const body = new Sprite(textures.pieces[pieceId]);
+  const centred = (texture: Texture) =>
+    new Sprite({
+      texture,
+      label: MOVING_PART_LABEL,
+      anchor: 0.5,
+      position: { x: TILE_SIZE / 2, y: TILE_SIZE / 2 },
+    });
   switch (pieceId) {
-    case "crate-wall":
-      piece.addChild(new Sprite(textures.crateWall));
-      break;
     case "sniper-nest":
-      piece.addChild(...towerSprites(textures, DEFENSE_COLOUR));
-      break;
-    case "lighthouse":
-      piece.addChild(...towerSprites(textures, LIGHTHOUSE_COLOUR));
-      break;
-    case "siren":
-      piece.addChild(...towerSprites(textures, SIREN_COLOUR));
-      break;
-    case "turnstile":
-      piece.addChild(turnstileSprites(textures));
-      break;
-    case "tax-booth":
-      piece.addChild(floorSprite(textures, TAX_BOOTH_COLOUR));
-      break;
     case "grinder":
-      piece.addChild(floorSprite(textures, GRINDER_COLOUR));
-      break;
-    case "bouncer":
       piece.addChild(
-        new Sprite({ texture: textures.crateWall, tint: BOUNCER_COLOUR }),
+        body,
+        centred(
+          pieceId === "grinder" ? textures.grinderTeeth : textures.sniperBarrel,
+        ),
       );
       break;
-    case "decoy-goal":
-      piece.addChild(decoyGoalSprite(textures));
+    case "turnstile":
+      // The arms reach into the tiles either side, under the post.
+      piece.addChild(centred(textures.turnstileArms), body);
       break;
-    case "hr-department":
-      piece.addChild(...towerSprites(textures, HR_DEPARTMENT_COLOUR));
+    case "lighthouse":
+      // The beam goes out from the lamp, behind the tower.
+      piece.addChild(
+        new Sprite({
+          texture: textures.lighthouseCone,
+          label: MOVING_PART_LABEL,
+          anchor: { x: 0, y: 0.5 },
+          position: LAMP,
+        }),
+        body,
+      );
       break;
+    case "siren": {
+      // Hidden until the battle view pulses it.
+      const ring = centred(textures.sirenRing);
+      ring.visible = false;
+      piece.addChild(ring, body);
+      break;
+    }
+    default:
+      piece.addChild(body);
   }
   return piece;
-}
-
-/** The Goal's office shrunk into one tile, in gold so it isn't mistaken for the real one. */
-function decoyGoalSprite(textures: BoardTextures): Sprite {
-  const scale = TILE_SIZE / textures.office.height;
-  return new Sprite({
-    texture: textures.office,
-    anchor: 0.5,
-    scale,
-    tint: DECOY_GOAL_COLOUR,
-    position: { x: TILE_SIZE / 2, y: TILE_SIZE / 2 },
-  });
-}
-
-function floorSprite(textures: BoardTextures, colour: ColorSource): Sprite {
-  const slab = new Sprite({
-    texture: textures.towerBase,
-    anchor: 0.5,
-    scale: FLOOR_SCALE,
-    tint: colour,
-    alpha: FLOOR_ALPHA,
-  });
-  slab.position.set(TILE_SIZE / 2, TILE_SIZE / 2);
-  return slab;
-}
-
-function towerSprites(
-  textures: BoardTextures,
-  colour: ColorSource,
-): [Sprite, Sprite] {
-  const turret = new Sprite({
-    texture: textures.turret,
-    label: TURRET_LABEL,
-    anchor: 0.5,
-    tint: colour,
-  });
-  turret.position.set(TILE_SIZE / 2, TILE_SIZE / 2);
-  return [new Sprite(textures.towerBase), turret];
-}
-
-/** The centre crate and an arm either side, unturned (left and right); the battle view turns them. */
-function turnstileSprites(textures: BoardTextures): Container {
-  const arms = new Container({ label: TURRET_LABEL });
-  arms.position.set(TILE_SIZE / 2, TILE_SIZE / 2);
-  for (const offset of [-1, 0, 1]) {
-    const crate = new Sprite({
-      texture: textures.crateWall,
-      anchor: 0.5,
-      scale: offset === 0 ? 1 : ARM_SCALE,
-      tint: offset === 0 ? 0xffffff : DEFENSE_COLOUR,
-    });
-    crate.position.set(offset * TILE_SIZE, 0);
-    arms.addChild(crate);
-  }
-  return arms;
 }
 
 /** Every Piece in the Maze. Redrawn whole: a Board holds at most a few hundred. */
@@ -130,18 +74,18 @@ export function drawPieces(
   layer: Container,
   textures: BoardTextures,
   maze: Maze,
-): Turrets {
+): MovingParts {
   for (const child of layer.removeChildren()) child.destroy({ children: true });
-  const turrets = new Map<
+  const parts = new Map<
     string,
-    { readonly pieceId: PieceId; readonly turret: Container }
+    { readonly pieceId: PieceId; readonly part: Container }
   >();
   for (const { pieceId, tile } of placedPieces(maze)) {
     const piece = pieceView(textures, pieceId);
     piece.position.set(tile.column * TILE_SIZE, tile.row * TILE_SIZE);
     layer.addChild(piece);
-    const turret = piece.getChildByLabel(TURRET_LABEL);
-    if (turret !== null) turrets.set(tileKey(tile), { pieceId, turret });
+    const part = piece.getChildByLabel(MOVING_PART_LABEL);
+    if (part !== null) parts.set(tileKey(tile), { pieceId, part });
   }
-  return turrets;
+  return parts;
 }
