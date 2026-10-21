@@ -1,6 +1,7 @@
 import { Graphics, Rectangle, type Renderer, type Texture } from "pixi.js";
 import { goalTiles } from "../../maze/board";
 import { TILE_SIZE } from "./board-textures";
+import { drawDudeTextures, type DudeTextures } from "./dude-art";
 import {
   ATTACK_COLOUR,
   BLOOM_COLOUR,
@@ -18,7 +19,7 @@ import {
 } from "./board-view";
 
 /** The shapes drawn in code (decision 0005), each baked once into a texture. */
-export interface ArtTextures {
+export interface ArtTextures extends DudeTextures {
   /** One grass tile in each shade; the Board checkers them. */
   readonly grassLight: Texture;
   readonly grassDark: Texture;
@@ -77,6 +78,7 @@ export function drawArtTextures(
     tuft: bake(tuft(), DECORATION_SIZE, DECORATION_SIZE),
     tree: bake(canopy(TREE_SIZE, 4), TREE_SIZE, TREE_SIZE),
     bush: bake(canopy(BUSH_SIZE, 3), BUSH_SIZE, BUSH_SIZE),
+    ...drawDudeTextures(bake),
   };
 }
 
