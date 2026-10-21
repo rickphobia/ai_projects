@@ -5,11 +5,13 @@ import { placedPieces, type Maze } from "../../maze/maze";
 import type { SliderPositions } from "../../tricks/tricks";
 import { TILE_SIZE } from "./board-textures";
 import {
+  BOARD_SURROUND,
   boardPixelFrame,
   DARK_COLOUR,
   DEFENSE_COLOUR,
   LIGHT_WASH_COLOUR,
   TEXT_COLOUR,
+  worldRect,
 } from "./board-view";
 
 /** How dark each Brightness step down makes an unlit tile. */
@@ -58,7 +60,8 @@ export class TricksView {
     const brightness = sliders.brightness;
     if (brightness < 0) this.drawDark(maze, -brightness);
     if (brightness > 0) {
-      this.shade.rect(0, frame.top, frame.width, frame.height).fill({
+      const world = worldRect(maze.windowSize);
+      this.shade.rect(world.left, world.top, world.width, world.height).fill({
         color: LIGHT_WASH_COLOUR,
         alpha: BRIGHT_ALPHA_PER_STEP * brightness,
       });
@@ -70,10 +73,19 @@ export class TricksView {
 
   private drawDark(maze: Maze, steps: number): void {
     const lit = litTiles(maze);
+    // The world round the Board goes dark too; closed Spawn zone tiles are part of it. The ring
+    // reaches a tile past the surround, so tree crowns hanging over its edge darken with it.
+    const frame = boardPixelFrame(maze.windowSize);
+    const outside = BOARD_SURROUND + TILE_SIZE;
+    const bottom = frame.top + frame.height;
+    this.shade
+      .rect(-outside, frame.top - outside, frame.width + 2 * outside, outside)
+      .rect(-outside, bottom, frame.width + 2 * outside, outside)
+      .rect(-outside, frame.top, outside, frame.height)
+      .rect(frame.width, frame.top, outside, frame.height);
     for (const tile of allTiles(maze.windowSize)) {
-      // Closed Spawn zone tiles aren't drawn, so the dark leaves them alone too.
-      if (lit.has(tileKey(tile))) continue;
-      if (tileKind(tile, maze.windowSize) === "closed") continue;
+      const closed = tileKind(tile, maze.windowSize) === "closed";
+      if (lit.has(tileKey(tile)) && !closed) continue;
       this.shade.rect(
         tile.column * TILE_SIZE,
         tile.row * TILE_SIZE,

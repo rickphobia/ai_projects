@@ -34,7 +34,7 @@ export function playSwarm(
     curse: null,
     boss: null,
   };
-  view.showMaze(setup.maze);
+  view.showMaze(setup.maze, seed);
   view.showRoute(false);
   view.showArmy([]);
 
