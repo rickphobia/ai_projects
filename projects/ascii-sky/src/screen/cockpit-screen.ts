@@ -1,11 +1,6 @@
 import type { BrightnessGrid } from "./brightness-grid";
 import { rampCharacter } from "./character-ramp";
-import {
-  SCREEN_COLUMNS,
-  SCREEN_ROWS,
-  VIEW_COLUMNS,
-  VIEW_ROWS,
-} from "./screen-size";
+import { VIEW_COLUMNS, VIEW_ROWS } from "./screen-size";
 
 /** Draw was handed a brightness grid that doesn't match the view area: a bug in the view adapter. */
 export class CockpitScreenError extends Error {
@@ -23,9 +18,12 @@ const STEEP = 0.7;
 
 /**
  * The Screen in the Cockpit view: the World as Character ramp characters, with the window
- * frame and the top of the nose cowling drawn over it, and the Instrument panel area below.
+ * frame and the top of the nose cowling drawn over it, and the Instrument panel below.
  */
-export function drawCockpitScreen(view: BrightnessGrid): string[] {
+export function drawCockpitScreen(
+  view: BrightnessGrid,
+  instrumentPanel: readonly string[],
+): string[] {
   checkGrid(view);
   const cells: string[][] = [];
   for (let row = 0; row < VIEW_ROWS; row++) {
@@ -37,7 +35,7 @@ export function drawCockpitScreen(view: BrightnessGrid): string[] {
   }
   drawCowling(cells);
   drawWindowFrame(cells);
-  return [...cells.map((line) => line.join("")), ...instrumentPanelArea()];
+  return [...cells.map((line) => line.join("")), ...instrumentPanel];
 }
 
 function checkGrid(view: BrightnessGrid): void {
@@ -95,15 +93,4 @@ function outlineCharacter(column: number, top: number): string {
   if (withinCell < 1 / 3) return "'";
   if (withinCell < 2 / 3) return "-";
   return "_";
-}
-
-/** The glareshield and an empty box where the Instrument panel will go. */
-function instrumentPanelArea(): string[] {
-  const panelRows = SCREEN_ROWS - VIEW_ROWS;
-  const lines = ["=".repeat(SCREEN_COLUMNS)];
-  for (let row = 1; row < panelRows - 1; row++) {
-    lines.push(`|${" ".repeat(SCREEN_COLUMNS - 2)}|`);
-  }
-  lines.push(`+${"-".repeat(SCREEN_COLUMNS - 2)}+`);
-  return lines;
 }

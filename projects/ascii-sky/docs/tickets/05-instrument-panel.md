@@ -4,13 +4,13 @@
 
 **Blocked by:** 04 (Take off and fly)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** screen
 
 **Effort:** low
 
-- [ ] Draw renders all ten readouts from the game state in the bottom rows of the Screen, using printable ASCII only
-- [ ] The attitude indicator shows both pitch and bank
-- [ ] Unit tests through Draw: for a known state, each readout shows the expected value; the Screen stays 45 lines of 120 characters
-- [ ] On the preview, the panel is readable while flying
+- [x] Draw renders all ten readouts from the game state in the bottom rows of the Screen, using printable ASCII only
+- [x] The attitude indicator shows both pitch and bank
+- [x] Unit tests through Draw: for a known state, each readout shows the expected value; the Screen stays 45 lines of 120 characters
+- [x] On the preview, the panel is readable while flying
