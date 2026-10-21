@@ -98,6 +98,19 @@
         color: #fff;
         font-weight: 600;
       }
+      #hud button.hud-take-back {
+        border-color: var(--side);
+        color: var(--side);
+      }
+      #hud button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      @media (pointer: coarse) {
+        #hud button.hud-take-back {
+          min-height: 44px;
+        }
+      }
       #hud p {
         margin: 2px 0 0;
         font-size: 0.85rem;

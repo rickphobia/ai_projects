@@ -46,6 +46,7 @@ import {
 import { dudeKindsOnSale } from "../progress/progress";
 import { bossFor, opensBossCrate } from "./boss-rounds";
 import { crateFor, type Crate, type CrateKind } from "./crate";
+import { historyAfter, takenBack, type TakeBackEntry } from "./take-back";
 
 /**
  * The whole Run as a pure state machine: actions in, new state or a typed refusal out. No DOM,
@@ -107,6 +108,8 @@ export interface RunState extends RoundSnapshot {
   readonly freeItems: readonly FreeItem[];
   /** Sliders dragged during the battle being fought, in step order; empty between battles. */
   readonly sliderInputs: readonly SliderInput[];
+  /** This Round's takeable actions before the battle, newest last; see take-back. */
+  readonly takeBack: readonly TakeBackEntry[];
 }
 
 export type RunAction =
@@ -128,6 +131,8 @@ export type RunAction =
       readonly type: "erase-dude";
       /** Its place in the Army. */
       readonly index: number;
+      /** The eraser drag it is part of; see `nextEraserDrag`. */
+      readonly drag: number;
     }
   | { readonly type: "take-from-crate"; readonly index: number }
   | { readonly type: "reroll-crate" }
@@ -151,6 +156,8 @@ export type RunAction =
       /** Places in the Army of the Dudes to destroy, on an Attack turn. */
       readonly dudes: readonly number[];
     }
+  /** Reverses the newest action in the Take back history, refunding what it cost. */
+  | { readonly type: "take-back" }
   | { readonly type: "start-battle" }
   | {
       readonly type: "battle-finished";
@@ -189,7 +196,9 @@ export type RunRefusal =
   /** Picking for an Undo a Piece that isn't there. */
   | "no-piece"
   /** The Pieces or Dudes picked for an Undo are worth less than its price. */
-  | "undo-short";
+  | "undo-short"
+  /** Taking back with nothing this Round left to take back. */
+  | "nothing-to-take-back";
 
 export type RunResult =
   | { readonly ok: true; readonly state: RunState }
@@ -216,12 +225,13 @@ export function newRun(seed: number, bestScore = 0, firstRun = true): RunState {
     crate: null,
     freeItems: [],
     sliderInputs: [],
+    takeBack: [],
   });
 }
 
-/** The Round's crate as it first opens, with no free item waiting. */
+/** The Round's crate as it first opens, with no free item waiting and nothing to take back. */
 export function withFreshCrate(state: RunState): RunState {
-  return { ...state, crate: crateOf(state, 0), freeItems: [] };
+  return { ...state, crate: crateOf(state, 0), freeItems: [], takeBack: [] };
 }
 
 function crateOf(
@@ -368,6 +378,15 @@ export function checkPiece(
 }
 
 export function applyRunAction(state: RunState, action: RunAction): RunResult {
+  const result = applyAction(state, action);
+  if (!result.ok) return result;
+  return accept({
+    ...result.state,
+    takeBack: historyAfter(state, result.state, action),
+  });
+}
+
+function applyAction(state: RunState, action: RunAction): RunResult {
   switch (action.type) {
     case "place-piece":
       return placeOnMaze(state, action.tile, action.pieceId);
@@ -397,6 +416,11 @@ export function applyRunAction(state: RunState, action: RunAction): RunResult {
       return dragSlider(state, action.slider, action.to, action.atStep);
     case "undo":
       return undo(state, action.slider, action.pieces, action.dudes);
+    case "take-back": {
+      if (state.phase !== "building") return refuse("wrong-phase");
+      const taken = takenBack(state);
+      return taken === null ? refuse("nothing-to-take-back") : accept(taken);
+    }
     case "start-battle":
       if (state.phase !== "building") return refuse("wrong-phase");
       return accept({ ...state, phase: "fighting" });
