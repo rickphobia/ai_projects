@@ -77,21 +77,62 @@ export function battleStatus(
   return `Goal ${String(Math.ceil(goalHealth))}/${String(maxHealth)} · ${clock}`;
 }
 
-/**
- * "Round 3 · Defense turn · Lives 2 · Score 2 · Defense gold 50 · Attack gold 40", then the
- * Round's Curse and boss, if any.
- */
-export function runStatus(status: RunStatus): string {
-  return [
-    `Round ${String(status.round)}`,
-    SIDE_NAMES[status.side],
-    `Lives ${String(status.lives)}`,
-    `Score ${String(status.score)}`,
-    `Defense gold ${String(status.wallets.defense)}`,
-    `Attack gold ${String(status.wallets.attack)}`,
-    ...(status.curse === null ? [] : [curseStatus(status.curse)]),
-    ...(status.boss === null ? [] : [`Boss: ${BOSSES[status.boss].name}`]),
-  ].join(" · ");
+/** One chip on the top bar: an icon and a short value, with the full words for screen readers. */
+export interface StatusChip {
+  readonly kind:
+    | "lives"
+    | "defense-gold"
+    | "attack-gold"
+    | "score"
+    | "round"
+    | "curse"
+    | "boss";
+  /** Empty for a chip that is only words. */
+  readonly icon: string;
+  readonly text: string;
+  readonly label: string;
+}
+
+/** ❤ Lives, 🛡 Defense gold, ⚔ Attack gold, ★ Score and the Round, then the Round's Curse and boss, if any. */
+export function statusChips(status: RunStatus): StatusChip[] {
+  const count = (
+    kind: StatusChip["kind"],
+    icon: string,
+    name: string,
+    value: number,
+  ): StatusChip => ({
+    kind,
+    icon,
+    text: String(value),
+    label: `${name} ${String(value)}`,
+  });
+  const round = `Round ${String(status.round)}`;
+  const chips: StatusChip[] = [
+    count("lives", "❤", "Lives", status.lives),
+    count("defense-gold", "🛡", "Defense gold", status.wallets.defense),
+    count("attack-gold", "⚔", "Attack gold", status.wallets.attack),
+    count("score", "★", "Score", status.score),
+    { kind: "round", icon: "", text: round, label: round },
+  ];
+  if (status.curse !== null) {
+    const { name } = CURSES[status.curse];
+    chips.push({
+      kind: "curse",
+      icon: "☠",
+      text: name,
+      label: curseStatus(status.curse),
+    });
+  }
+  if (status.boss !== null) {
+    const { name } = BOSSES[status.boss];
+    chips.push({
+      kind: "boss",
+      icon: "👑",
+      text: name,
+      label: `Boss: ${name}`,
+    });
+  }
+  return chips;
 }
 
 /** "Boss Round: The Landlord. Joins the Army…", announced as building starts. */
@@ -184,12 +225,14 @@ export class Hud {
     this.doc = host.ownerDocument;
     const top = this.doc.createElement("div");
     top.className = "hud-top";
-    this.status = this.doc.createElement("span");
+    this.status = this.doc.createElement("ul");
     this.status.className = "hud-status";
+    this.status.setAttribute("aria-label", "Run status");
     this.heading = this.doc.createElement("h1");
+    this.heading.className = "chip hud-turn";
+    top.append(this.status, this.heading);
     this.controls = this.doc.createElement("div");
     this.controls.className = "hud-controls";
-    top.append(this.status, this.heading, this.controls);
     this.hint = this.doc.createElement("p");
     this.roundHint = this.doc.createElement("p");
     this.roundHint.className = "hud-round-hint";
@@ -198,7 +241,13 @@ export class Hud {
     this.message.className = "hud-message";
     this.message.setAttribute("role", "status");
     this.message.hidden = true;
-    host.replaceChildren(top, this.hint, this.roundHint, this.message);
+    host.replaceChildren(
+      top,
+      this.controls,
+      this.hint,
+      this.roundHint,
+      this.message,
+    );
     this.doc.addEventListener("keydown", (event) => {
       if (!(event.ctrlKey || event.metaKey) || event.shiftKey) return;
       if (event.key.toLowerCase() !== "z") return;
@@ -223,7 +272,9 @@ export class Hud {
   }
 
   showRunStatus(status: RunStatus): void {
-    this.status.textContent = runStatus(status);
+    this.status.replaceChildren(
+      ...statusChips(status).map((chip) => this.chip(chip)),
+    );
     const hint = roundHint(status.round, status.firstRun);
     this.roundHint.textContent = hint ?? "";
     this.roundHint.hidden = hint === null;
@@ -334,7 +385,10 @@ export class Hud {
     this.takeBackButton = takeBack;
     const fight = this.button("Fight", null, this.handlers.onFight);
     fight.classList.add("hud-fight");
-    this.controls.replaceChildren(...choiceButtons, ...tools, takeBack, fight);
+    const choices = this.doc.createElement("div");
+    choices.className = "hud-choices";
+    choices.append(...choiceButtons, ...tools);
+    this.controls.replaceChildren(choices, takeBack, fight);
   }
 
   private labelTakeBack(button: HTMLButtonElement): void {
@@ -342,6 +396,23 @@ export class Hud {
     button.disabled = disabled;
     button.title = label;
     button.setAttribute("aria-label", label);
+  }
+
+  /** The icon is hidden from screen readers, which read the label instead. */
+  private chip({ kind, icon, text, label }: StatusChip): HTMLLIElement {
+    const chip = this.doc.createElement("li");
+    chip.className = `chip chip-${kind}`;
+    chip.title = label;
+    chip.setAttribute("aria-label", label);
+    if (icon !== "") {
+      const glyph = this.doc.createElement("span");
+      glyph.className = "chip-icon";
+      glyph.setAttribute("aria-hidden", "true");
+      glyph.textContent = icon;
+      chip.append(glyph);
+    }
+    chip.append(text);
+    return chip;
   }
 
   /** `pressed` is null for a plain button, true or false for one of a set of choices. */
@@ -352,6 +423,7 @@ export class Hud {
   ): HTMLButtonElement {
     const button = this.doc.createElement("button");
     button.type = "button";
+    button.className = "btn";
     button.textContent = label;
     if (pressed !== null) button.setAttribute("aria-pressed", String(pressed));
     button.addEventListener("click", onClick);
