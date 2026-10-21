@@ -1,5 +1,12 @@
+import type { CrashCause, Ending, FlightEnd } from "../flight/touchdown";
 import type { GameState } from "../game/game";
+import { blockLetters } from "./block-letters";
 import type { BrightnessGrid } from "./brightness-grid";
+import {
+  DEGREES_PER_RADIAN,
+  FEET_PER_METRE,
+  KNOTS_PER_METRE_PER_SECOND,
+} from "./cockpit-units";
 import { drawCockpitScreen } from "./cockpit-screen";
 import { framedScreen } from "./framed-screen";
 import { drawInstrumentPanel } from "./instrument-panel";
@@ -38,7 +45,51 @@ export function drawGame(state: GameState, view: BrightnessGrid): string[] {
         drawCockpitScreen(view, drawInstrumentPanel(state.plane, state.world)),
         ["PAUSED", "", "Press P or Esc to carry on"],
       );
+    case "ended":
+      return withBanner(
+        drawCockpitScreen(view, drawInstrumentPanel(state.plane, state.world)),
+        state.flightEnd === null ? [] : endingBanner(state.flightEnd),
+      );
   }
+}
+
+const ENDING_TITLES: Readonly<Record<Ending, string>> = {
+  landed: "LANDED",
+  landedOffRunway: "LANDED OFF-RUNWAY",
+  crashed: "CRASHED",
+};
+
+const CRASH_CAUSES: Readonly<Record<CrashCause, string>> = {
+  tooHard: "came down too hard",
+  tooBanked: "banked too steeply",
+  noseDown: "touched down nose first",
+  lake: "into the lake",
+  hill: "into a hill",
+};
+
+function endingBanner({ ending, stats, crashCause }: FlightEnd): string[] {
+  const title = ENDING_TITLES[ending];
+  const why =
+    crashCause !== null
+      ? CRASH_CAUSES[crashCause]
+      : ending === "landed"
+        ? "a gentle Touchdown on the Runway"
+        : "a gentle Touchdown on grass";
+  const sinkRate = Math.round((stats.sinkRate * FEET_PER_METRE * 60) / 10) * 10;
+  return [
+    ...blockLetters(title),
+    "",
+    `${title}: ${why}`,
+    "",
+    [
+      `SINK RATE ${String(sinkRate)} FT/MIN`,
+      `SPEED ${String(Math.round(stats.speed * KNOTS_PER_METRE_PER_SECOND))} KNOTS`,
+      `BANK ${String(Math.round(Math.abs(stats.bank) * DEGREES_PER_RADIAN))} DEG`,
+      `${String(Math.round(stats.centrelineDistance * FEET_PER_METRE))} FT OFF CENTRELINE`,
+    ].join("   "),
+    "",
+    "Press R to fly again",
+  ];
 }
 
 function titleScreen(): string[] {

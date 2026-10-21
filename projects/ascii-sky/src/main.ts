@@ -101,6 +101,17 @@ function logChanges(logger: Logger, from: GameState, to: GameState): void {
   if (to.phase !== from.phase) {
     logger.debug("phase changed", { from: from.phase, to: to.phase });
   }
+  if (to.flightEnd !== null && from.flightEnd === null) {
+    const { ending, stats, crashCause } = to.flightEnd;
+    logger.info("flight ended", {
+      ending,
+      crashCause,
+      sinkRate: stats.sinkRate.toFixed(1),
+      speed: stats.speed.toFixed(1),
+      bankDegrees: ((stats.bank * 180) / Math.PI).toFixed(1),
+      centrelineDistance: stats.centrelineDistance.toFixed(1),
+    });
+  }
   if (to.plane.onGround === from.plane.onGround) return;
   const { position, velocity } = to.plane;
   logger.debug(to.plane.onGround ? "touched down" : "lifted off", {

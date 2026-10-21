@@ -21,6 +21,17 @@ describe("World", () => {
     }
   });
 
+  it("measures distance from the Runway centreline, past its ends too", () => {
+    const { runway } = world;
+    expect(world.centrelineDistance(runway.x, runway.y)).toBe(0);
+    expect(world.centrelineDistance(runway.x + 7, runway.y + 100)).toBeCloseTo(
+      7,
+    );
+    expect(
+      world.centrelineDistance(runway.x, runway.y + runway.length / 2 + 300),
+    ).toBeCloseTo(300);
+  });
+
   it("has grass just beside the Runway", () => {
     const { runway } = world;
     expect(world.surfaceAt(runway.x + runway.width, runway.y)).toBe("grass");

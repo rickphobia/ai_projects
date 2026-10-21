@@ -1,11 +1,12 @@
 import { airflow, bodyAxes } from "../flight/attitude";
 import type { Plane } from "../flight/plane";
 import type { World } from "../world/world";
+import {
+  DEGREES_PER_RADIAN,
+  FEET_PER_METRE,
+  KNOTS_PER_METRE_PER_SECOND,
+} from "./cockpit-units";
 import { SCREEN_COLUMNS, SCREEN_ROWS, VIEW_ROWS } from "./screen-size";
-
-const KNOTS_PER_METRE_PER_SECOND = 1.94384;
-const FEET_PER_METRE = 3.28084;
-const DEGREES_PER_RADIAN = 180 / Math.PI;
 
 /** Each flight instrument is a box this wide; the engine box takes the rest of the row. */
 const INSTRUMENT_WIDTH = 16;
