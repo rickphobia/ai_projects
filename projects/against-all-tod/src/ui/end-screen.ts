@@ -38,14 +38,19 @@ export class EndScreen {
   ) {
     const doc = host.ownerDocument;
     const heading = doc.createElement("h1");
+    heading.className = "ribbon";
     heading.textContent = "Out of Lives: the Run is over";
     this.scores = doc.createElement("p");
     this.unlocks = doc.createElement("p");
     const newRun = doc.createElement("button");
     newRun.type = "button";
+    newRun.className = "btn";
     newRun.textContent = "New Run";
     newRun.addEventListener("click", onNewRun);
-    host.replaceChildren(heading, this.scores, this.unlocks, newRun);
+    const card = doc.createElement("div");
+    card.className = "card end-card";
+    card.append(heading, this.scores, this.unlocks, newRun);
+    host.replaceChildren(card);
     host.hidden = true;
   }
 

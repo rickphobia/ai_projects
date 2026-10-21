@@ -76,6 +76,7 @@ export class CratePanel {
     private readonly handlers: CrateHandlers,
   ) {
     this.doc = host.ownerDocument;
+    host.classList.add("card");
     host.hidden = true;
   }
 
@@ -94,6 +95,8 @@ export class CratePanel {
       ...(crate === null ? [] : this.crateParts(crate, side)),
       ...lines,
     );
+    // The ribbon wears the colour of the side the crate is for.
+    this.host.style.setProperty("--side", `var(--${side})`);
     this.host.hidden = false;
   }
 
@@ -103,6 +106,7 @@ export class CratePanel {
 
   private crateParts(crate: Crate, side: Side): HTMLElement[] {
     const heading = this.doc.createElement("h2");
+    heading.className = "ribbon";
     heading.textContent = crateHeading(crate);
     const items = crate.items.map((item, index) => {
       const button = this.button(crateItemName(item), () => {
@@ -112,7 +116,7 @@ export class CratePanel {
       return button;
     });
     const reroll = this.button(rerollLabel(side), this.handlers.onReroll);
-    reroll.className = "crate-reroll";
+    reroll.classList.add("crate-reroll");
     const row = this.doc.createElement("div");
     row.className = "crate-items";
     row.append(...items, reroll);
@@ -122,6 +126,7 @@ export class CratePanel {
   private button(label: string, onClick: () => void): HTMLButtonElement {
     const button = this.doc.createElement("button");
     button.type = "button";
+    button.className = "btn";
     button.textContent = label;
     button.addEventListener("click", onClick);
     return button;

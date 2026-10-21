@@ -102,6 +102,7 @@ export class RoundReportPanel {
     };
 
     const heading = el("h1", won ? "Round won" : "Round lost");
+    heading.className = "ribbon";
     const damage = el("p", `Goal damage: ${String(report.goalDamage)}`);
 
     const kills = el("ul");
@@ -144,7 +145,10 @@ export class RoundReportPanel {
 
     const close = el("button", "Close");
     close.type = "button";
-    this.host.replaceChildren(
+    close.className = "btn";
+    const card = el("div");
+    card.className = "card report-card";
+    card.append(
       heading,
       damage,
       el("h2", "Kills per Piece"),
@@ -154,6 +158,7 @@ export class RoundReportPanel {
       gold,
       close,
     );
+    this.host.replaceChildren(card);
     this.host.hidden = false;
   }
 

@@ -20,14 +20,15 @@ export function showPauseMenu(
   const doc = host.ownerDocument;
   const toggle = doc.createElement("button");
   toggle.type = "button";
-  toggle.className = "pause-toggle";
+  toggle.className = "btn pause-toggle";
   toggle.textContent = "Pause";
   toggle.setAttribute("aria-expanded", "false");
 
   const panel = doc.createElement("div");
-  panel.className = "pause-panel";
+  panel.className = "card pause-panel";
   panel.hidden = true;
   const heading = doc.createElement("h2");
+  heading.className = "ribbon";
   heading.textContent = "Paused";
   const label = doc.createElement("label");
   const name = doc.createElement("span");
