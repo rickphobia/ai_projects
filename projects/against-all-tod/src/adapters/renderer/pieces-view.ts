@@ -61,15 +61,25 @@ export function pieceView(
       );
       break;
     case "decoy-goal":
-      piece.addChild(
-        new Sprite({ texture: textures.stoneBase, tint: DECOY_GOAL_COLOUR }),
-      );
+      piece.addChild(decoyGoalSprite(textures));
       break;
     case "hr-department":
       piece.addChild(...towerSprites(textures, HR_DEPARTMENT_COLOUR));
       break;
   }
   return piece;
+}
+
+/** The Goal's office shrunk into one tile, in gold so it isn't mistaken for the real one. */
+function decoyGoalSprite(textures: BoardTextures): Sprite {
+  const scale = TILE_SIZE / textures.office.height;
+  return new Sprite({
+    texture: textures.office,
+    anchor: 0.5,
+    scale,
+    tint: DECOY_GOAL_COLOUR,
+    position: { x: TILE_SIZE / 2, y: TILE_SIZE / 2 },
+  });
 }
 
 function floorSprite(textures: BoardTextures, colour: ColorSource): Sprite {

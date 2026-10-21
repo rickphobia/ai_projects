@@ -1,24 +1,14 @@
 import { Texture } from "pixi.js";
-import grassUrl from "../../../assets/kenney-tower-defense-top-down/towerDefense_tile024.png";
-import crateWallUrl from "../../../assets/kenney-tower-defense-top-down/towerDefense_tile063.png";
-import dirtUrl from "../../../assets/kenney-tower-defense-top-down/towerDefense_tile158.png";
 import towerBaseUrl from "../../../assets/kenney-tower-defense-top-down/towerDefense_tile181.png";
-import stoneBaseUrl from "../../../assets/kenney-tower-defense-top-down/towerDefense_tile182.png";
 import turretUrl from "../../../assets/kenney-tower-defense-top-down/towerDefense_tile203.png";
 import dudeUrl from "../../../assets/kenney-tower-defense-top-down/towerDefense_tile248.png";
+import type { ArtTextures } from "./art-kit";
 
-/** Kenney's Tower Defense (top-down) tiles are 64 px square; one tile per Board tile. */
+/** A Board tile is 64 px square, the size of Kenney's Tower Defense (top-down) tiles. */
 export const TILE_SIZE = 64;
 
-export interface BoardTextures {
-  /** Open ground. */
-  readonly grass: Texture;
-  /** The Spawn zone. */
-  readonly dirt: Texture;
-  /** Under the Goal. */
-  readonly stoneBase: Texture;
-  /** The Crate Wall Piece. */
-  readonly crateWall: Texture;
+/** Kenney tiles still in use until their art tickets draw them in code too (decision 0005). */
+export interface KenneyTextures {
   /** Under a tower Piece. */
   readonly towerBase: Texture;
   /** A grey turret, barrels pointing up, tinted in the defense colour. */
@@ -27,23 +17,21 @@ export interface BoardTextures {
   readonly dude: Texture;
 }
 
+/** Everything the views draw with: the art kit's drawn shapes and the Kenney tiles left. */
+export type BoardTextures = KenneyTextures & ArtTextures;
+
 export class TextureLoadError extends Error {
   override name = "TextureLoadError";
 }
 
 /** Single tiles rather than the pack's tilesheet: its frames have no padding, so scaled tiles bleed their neighbours. */
-export async function loadBoardTextures(): Promise<BoardTextures> {
-  const [grass, dirt, stoneBase, crateWall, towerBase, turret, dude] =
-    await Promise.all([
-      loadTexture("grass", grassUrl),
-      loadTexture("dirt", dirtUrl),
-      loadTexture("stone base", stoneBaseUrl),
-      loadTexture("crate wall", crateWallUrl),
-      loadTexture("tower base", towerBaseUrl),
-      loadTexture("turret", turretUrl),
-      loadTexture("dude", dudeUrl),
-    ]);
-  return { grass, dirt, stoneBase, crateWall, towerBase, turret, dude };
+export async function loadKenneyTextures(): Promise<KenneyTextures> {
+  const [towerBase, turret, dude] = await Promise.all([
+    loadTexture("tower base", towerBaseUrl),
+    loadTexture("turret", turretUrl),
+    loadTexture("dude", dudeUrl),
+  ]);
+  return { towerBase, turret, dude };
 }
 
 /**

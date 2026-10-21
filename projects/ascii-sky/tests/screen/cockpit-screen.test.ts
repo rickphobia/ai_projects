@@ -4,6 +4,10 @@ import {
   CockpitScreenError,
   drawCockpitScreen,
 } from "../../src/screen/cockpit-screen";
+import { planeOnRunway } from "../../src/flight/plane";
+import { drawInstrumentPanel } from "../../src/screen/instrument-panel";
+import { createWorld } from "../../src/world/world";
+import { WORLD_LAYOUT } from "../../src/world/world-layout";
 import {
   PRINTABLE_ASCII,
   SCREEN_COLUMNS,
@@ -11,6 +15,9 @@ import {
   VIEW_COLUMNS,
   VIEW_ROWS,
 } from "../../src/screen/screen-size";
+
+const world = createWorld(WORLD_LAYOUT);
+const PANEL = drawInstrumentPanel(planeOnRunway(world), world);
 
 function uniformGrid(brightness: number): BrightnessGrid {
   return {
@@ -28,7 +35,7 @@ function viewCentre(lines: readonly string[]): string {
 describe("drawCockpitScreen", () => {
   it("is always 45 lines of 120 printable ASCII characters", () => {
     for (const brightness of [0, 0.3, 1]) {
-      const lines = drawCockpitScreen(uniformGrid(brightness));
+      const lines = drawCockpitScreen(uniformGrid(brightness), PANEL);
       expect(lines).toHaveLength(SCREEN_ROWS);
       for (const line of lines) {
         expect(line).toHaveLength(SCREEN_COLUMNS);
@@ -38,13 +45,13 @@ describe("drawCockpitScreen", () => {
   });
 
   it("shows a uniform brightness grid as its ramp character", () => {
-    expect(viewCentre(drawCockpitScreen(uniformGrid(0)))).toBe(" ");
-    expect(viewCentre(drawCockpitScreen(uniformGrid(0.45)))).toBe("=");
-    expect(viewCentre(drawCockpitScreen(uniformGrid(1)))).toBe("@");
+    expect(viewCentre(drawCockpitScreen(uniformGrid(0), PANEL))).toBe(" ");
+    expect(viewCentre(drawCockpitScreen(uniformGrid(0.45), PANEL))).toBe("=");
+    expect(viewCentre(drawCockpitScreen(uniformGrid(1), PANEL))).toBe("@");
   });
 
   it("draws the window frame over the edges of the view", () => {
-    const lines = drawCockpitScreen(uniformGrid(1));
+    const lines = drawCockpitScreen(uniformGrid(1), PANEL);
     expect(lines[0]).toMatch(/^=+$/);
     for (let row = 1; row < VIEW_ROWS; row++) {
       expect(lines[row]?.slice(0, 2)).toBe("||");
@@ -54,7 +61,7 @@ describe("drawCockpitScreen", () => {
   });
 
   it("draws the top of the cowling as a dark nose at the bottom centre of the view", () => {
-    const lines = drawCockpitScreen(uniformGrid(1));
+    const lines = drawCockpitScreen(uniformGrid(1), PANEL);
     const centre = Math.floor(SCREEN_COLUMNS / 2);
     const bottomOfView = lines[VIEW_ROWS - 1] ?? "";
     expect(bottomOfView[centre]).toBe(" ");
@@ -74,6 +81,8 @@ describe("drawCockpitScreen", () => {
       rows: 10,
       values: new Float32Array(100),
     };
-    expect(() => drawCockpitScreen(tooSmall)).toThrow(CockpitScreenError);
+    expect(() => drawCockpitScreen(tooSmall, PANEL)).toThrow(
+      CockpitScreenError,
+    );
   });
 });
