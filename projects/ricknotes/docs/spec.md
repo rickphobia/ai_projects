@@ -147,7 +147,7 @@ Milestones 1–2 are specified in detail below and ticketed now. Milestone 2 is 
 75. As a student, I want a "Collect errors" button, which also runs when I close a Document, so that my red ink reaches the error log without copying.
 76. As a student, I want only groups whose last red stroke is over a minute old collected, so that a half-finished correction isn't logged.
 77. As a student, I want collecting again to add only new red ink, never duplicates, so that the log stays clean.
-78. As a student, I want each **Wrong entry** to show a cropped picture of the question and my red ink, labelled with course, Document, page and date, so that I can redo it without opening the Document.
+78. As a student, I want each **Wrong entry** to show a picture of the whole page as it was when collected (slide, my ink and my red ink), with a box around that mistake's red ink and the Entry opening zoomed to that box, labelled with course, Document, page and date, so that the question is always in the picture wherever it sits on the page, and I can redo it without opening the Document.
 79. As a student, I want to pick a category (concept, algebra, careless, misread) and write a one-line "why" for each Entry, so that I see patterns in my mistakes.
 80. As a student, I want each Entry to get redo dates 3 and 7 days later, and a Review screen listing Entries due today, so that I actually redo them.
 81. As a student, I want an Entry to stay if I later erase its red ink, and to be deleted only from the Review screen, so that the log is a real record.
@@ -257,7 +257,7 @@ The second test seam. It takes plain touch events (pointer ID, pen or finger, po
 - **Sync:** FolderSync, two-way, every 15 minutes and when the app goes to the background, "keep both" on conflict, skipping the app's temporary files and `.versions`. The app detects Conflict copies by FolderSync's naming (check the exact pattern when building this) and warns; it never merges them.
 - **Notebooks** are made with Android's built-in PDF writer: A4 portrait pages with the background printed in, chosen at creation. More pages are added as inserted pages.
 - **Send to:** Android share menu with the Document (later a Snip) and the Preset's prompt on the clipboard; the ticket checks how the Gemini and Claude apps each receive shared files and text. "Include my ink" arrives with export in milestone 6.
-- **Error log:** `_error_log/error_log.json` is the source of truth, with one picture per Entry beside it; `error_log.pdf` is generated from them and never edited. Entries remember the stroke IDs they came from, which is how "no duplicates" is checked.
+- **Error log:** `_error_log/error_log.json` is the source of truth, with one picture per Entry beside it (a Wrong entry's picture is the whole rendered page, and the Entry stores the box around its red ink in page coordinates); `error_log.pdf` is generated from them and never edited. Entries remember the stroke IDs they came from, which is how "no duplicates" is checked.
 - **Export** draws pages, inserted pages, strokes and Snips into a new PDF with Android's PDF writer. The exact file naming and location are decided when milestone 6 is grilled.
 - **Snips:** "Lift subject" uses Google's on-device ML Kit subject segmentation (the tablet has Google Play services); "make white see-through" is our own pixel step. Placed Snips are stored as described in the Ink file format.
 - **Converter:** LibreOffice in Docker on the Beelink, listening only on the Tailscale address, with a health check and a deploy script (decision 0006).
