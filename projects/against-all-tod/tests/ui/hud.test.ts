@@ -11,7 +11,43 @@ import {
   refusalMessage,
   roundOverMessage,
   runStatus,
+  takeBackButton,
 } from "../../src/ui/hud";
+
+describe("takeBackButton", () => {
+  it("is greyed out with nothing to take back", () => {
+    expect(takeBackButton(null)).toEqual({
+      disabled: true,
+      label: "Nothing to take back",
+    });
+  });
+
+  it("names the action it would reverse", () => {
+    expect(
+      takeBackButton({ kind: "place-piece", pieceId: "crate-wall" }),
+    ).toEqual({ disabled: false, label: "Take back: Crate Wall" });
+    const label = (action: Parameters<typeof takeBackButton>[0]) =>
+      takeBackButton(action).label;
+    expect(
+      label({ kind: "stroke", stroke: 4, dudeKind: "intern", dudes: 12 }),
+    ).toBe("Take back: Stroke of 12 Interns");
+    expect(label({ kind: "eraser-drag", drag: 0, dudes: 1 })).toBe(
+      "Take back: Eraser drag over 1 Dude",
+    );
+    expect(
+      label({ kind: "crate-pick", item: { kind: "piece", id: "siren" } }),
+    ).toBe("Take back: Crate pick: Siren");
+    expect(label({ kind: "slider", slider: "brightness" })).toBe(
+      "Take back: Brightness trick",
+    );
+  });
+
+  it("explains a refused Take back", () => {
+    expect(refusalMessage("nothing-to-take-back")).toMatch(
+      /Nothing to take back/,
+    );
+  });
+});
 
 describe("refusalMessage", () => {
   it.each<RunRefusal>([

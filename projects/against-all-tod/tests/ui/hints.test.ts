@@ -8,6 +8,11 @@ describe("roundHint", () => {
     expect(roundHint(3, true)).toMatch(/Settings menu/);
   });
 
+  it("mentions Take back in Rounds 1 and 2", () => {
+    expect(roundHint(1, true)).toMatch(/Take back/);
+    expect(roundHint(2, true)).toMatch(/Take back/);
+  });
+
   it("stops after Round 3", () => {
     expect(roundHint(4, true)).toBeNull();
   });

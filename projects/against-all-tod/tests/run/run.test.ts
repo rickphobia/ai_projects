@@ -499,7 +499,11 @@ describe("crate gifts", () => {
 
 describe("erasing", () => {
   const attacking = play(fight(play(newRun(1), ...HOLDING_MAZE)), CONTINUE);
-  const erase = (index: number): RunAction => ({ type: "erase-dude", index });
+  const erase = (index: number): RunAction => ({
+    type: "erase-dude",
+    index,
+    drag: 0,
+  });
 
   it("Erases a Dude painted this Round for its full price back", () => {
     const painted = play(attacking, ...paintInterns(6, 3));
