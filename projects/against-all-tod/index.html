@@ -43,7 +43,7 @@
         /* How long a screen fades; matches SCREEN_TRANSITION_MS in src/ui/title-screen.ts. */
         --screen-ms: 250ms;
         --font-display: "Fredoka", system-ui, sans-serif;
-        /* Chip row, button row and three text lines; see the media queries below. */
+        /* A first guess for the band's height; the Hud then sets it to the band's real height. */
         --hud-height: 144px;
       }
       @media (pointer: coarse) {
@@ -194,10 +194,8 @@
         align-content: start;
         justify-items: center;
         row-gap: 4px;
-        height: var(--hud-height);
         box-sizing: border-box;
-        padding: 6px 16px 0;
-        overflow: hidden;
+        padding: 6px 16px 4px;
         text-align: center;
       }
       #hud[data-side="attack"] {
@@ -262,6 +260,84 @@
         width: 32px;
         height: 32px;
       }
+      /* A Dude kind card with its ⓘ, a separate button so it never picks the brush. */
+      .shop-slot {
+        position: relative;
+        flex-shrink: 0;
+        display: flex;
+      }
+      .shop-slot .shop-item {
+        padding-right: 22px;
+      }
+      .shop-info {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        border: none;
+        background: none;
+        color: var(--fg);
+        font-size: 1rem;
+        line-height: 1;
+        cursor: pointer;
+      }
+      @media (pointer: coarse) {
+        .shop-info {
+          width: 32px;
+          height: 32px;
+        }
+      }
+      #dude-info {
+        position: fixed;
+        top: calc(var(--hud-height) + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(20rem, calc(100% - 32px));
+        max-height: calc(100% - var(--hud-height) - 20px);
+        overflow-y: auto;
+        text-align: center;
+        z-index: 10;
+      }
+      #dude-info[hidden] {
+        display: none;
+      }
+      .dude-info-close {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        padding: 0 10px;
+      }
+      .dude-info-portrait {
+        width: 64px;
+        height: 64px;
+      }
+      .dude-info-price {
+        margin: 0;
+        color: var(--gold);
+        font-weight: 600;
+      }
+      .dude-info-stats {
+        display: grid;
+        grid-template-columns: auto auto;
+        justify-content: center;
+        gap: 2px 12px;
+        margin: 8px 0;
+        font-size: 0.9rem;
+      }
+      .dude-info-stats dt {
+        text-align: right;
+        color: var(--muted);
+      }
+      .dude-info-stats dd {
+        margin: 0;
+        text-align: left;
+      }
+      #dude-info > p:last-child {
+        margin: 0;
+        font-size: 0.9rem;
+      }
       #hud .hud-fight {
         background: var(--attack);
         color: #fff;
@@ -273,9 +349,7 @@
         justify-self: stretch;
         margin: 0;
         font-size: 0.85rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        line-height: 1.3;
         color: var(--muted);
       }
       #hud .hud-round-hint {

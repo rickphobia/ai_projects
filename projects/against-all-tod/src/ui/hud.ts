@@ -16,6 +16,7 @@ import {
   type ShopItem,
   type ShopStock,
 } from "./shop";
+import { DudeInfo, dudeInfoContent } from "./dude-info";
 import { roundHint } from "./hints";
 
 /** How long a refusal stays on screen. */
@@ -216,6 +217,7 @@ export class Hud {
   /** What Take back would reverse now; the button is rebuilt with the shop, so this outlives it. */
   private nextTakeBack: TakeBackAction | null = null;
   private takeBackButton: HTMLButtonElement | null = null;
+  private readonly dudeInfo: DudeInfo;
 
   constructor(
     private readonly host: HTMLElement,
@@ -250,6 +252,8 @@ export class Hud {
       this.roundHint,
       this.message,
     );
+    this.dudeInfo = new DudeInfo(this.doc);
+    this.followHeight();
     this.doc.addEventListener("keydown", (event) => {
       if (!(event.ctrlKey || event.metaKey) || event.shiftKey) return;
       if (event.key.toLowerCase() !== "z") return;
@@ -313,15 +317,17 @@ export class Hud {
   ): void {
     this.heading.textContent = SIDE_NAMES.attack;
     const eraser = this.button("Eraser", erasing, this.handlers.onChooseEraser);
+    const items = attackItems(this.stock(), freeItems);
     this.showShop(
-      attackItems(this.stock(), freeItems),
+      items,
       erasing ? null : chosen,
       this.handlers.onChooseDudeKind,
       eraser,
     );
+    this.addDudeInfoButtons(items);
     this.hint.textContent = erasing
       ? "Eraser: drag over Dudes in the Spawn zone. This Round's Dudes are Erased for their price back; older ones, dimmed, are Dismissed for nothing."
-      : `Unit bar: pick a Dude kind, then drag in the Spawn zone, the 3 left columns, to paint ${DUDE_KINDS[chosen].name}s, each paid with Attack gold as it appears. Drag elsewhere to pan. The whole Army charges your own Maze at once.`;
+      : `Unit bar: drag in the Spawn zone, the 3 left columns, to paint ${DUDE_KINDS[chosen].name}s with Attack gold. ⓘ explains a Dude.`;
   }
 
   showBattle(side: Side, speed: WatchSpeed): void {
@@ -399,6 +405,47 @@ export class Hud {
     choices.className = "hud-choices";
     choices.append(...choiceButtons, ...tools);
     this.controls.replaceChildren(choices, takeBack, fight);
+  }
+
+  /** Puts an ⓘ on each Dude kind card's corner; a sibling of the card, so tapping it never picks the brush. */
+  private addDudeInfoButtons(items: readonly ShopItem<DudeKindId>[]): void {
+    const cards = this.controls.querySelectorAll(".hud-choices .shop-item");
+    items.forEach((item, index) => {
+      const card = cards[index];
+      if (card === undefined) return;
+      const slot = this.doc.createElement("span");
+      slot.className = "shop-slot";
+      card.replaceWith(slot);
+      const info = this.doc.createElement("button");
+      info.type = "button";
+      info.className = "shop-info";
+      info.textContent = "ⓘ";
+      info.setAttribute("aria-label", `About ${item.name}`);
+      info.addEventListener("click", () => {
+        this.dudeInfo.show(
+          dudeInfoContent(DUDE_KINDS[item.id], item.price),
+          this.portraits[item.id],
+        );
+      });
+      slot.append(card, info);
+    });
+  }
+
+  /**
+   * The band is as tall as its text needs, so nothing is clipped; the Board and the panels
+   * below it read that height from --hud-height.
+   */
+  private followHeight(): void {
+    const view = this.doc.defaultView;
+    if (view === null) return;
+    const root = this.doc.documentElement;
+    new view.ResizeObserver(() => {
+      const height = `${String(Math.ceil(this.host.getBoundingClientRect().height))}px`;
+      if (root.style.getPropertyValue("--hud-height") === height) return;
+      root.style.setProperty("--hud-height", height);
+      // PixiJS's resizeTo only listens for window resizes, and the Board's box just changed.
+      view.dispatchEvent(new Event("resize"));
+    }).observe(this.host);
   }
 
   private labelTakeBack(button: HTMLButtonElement): void {
