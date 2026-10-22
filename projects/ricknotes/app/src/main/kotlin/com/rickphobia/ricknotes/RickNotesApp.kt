@@ -19,8 +19,10 @@ import com.rickphobia.ricknotes.core.settings.SettingsStore
 import com.rickphobia.ricknotes.core.studyfolder.RecentDocuments
 import com.rickphobia.ricknotes.diagnostics.PenTestScreen
 import com.rickphobia.ricknotes.files.PdfEntry
+import com.rickphobia.ricknotes.home.HomeLibrary
 import com.rickphobia.ricknotes.home.HomeScreen
 import com.rickphobia.ricknotes.logging.AppLog
+import com.rickphobia.ricknotes.settings.CourseFoldersSetting
 import com.rickphobia.ricknotes.settings.FavouritePensEditor
 import com.rickphobia.ricknotes.settings.FavouritePensSetting
 import com.rickphobia.ricknotes.settings.FingerGesturesEditor
@@ -110,6 +112,7 @@ fun <S> RickNotesApp(
     val favouritePens = remember { FavouritePensSetting(storage.settings) }
     val fingerGestures = remember { FingerGesturesSetting(storage.settings) }
     val recentDocuments = remember { RecentDocuments(storage.settings) }
+    val courseFolders = remember { CourseFoldersSetting(storage.settings) }
 
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -133,7 +136,7 @@ fun <S> RickNotesApp(
                     HomeScreen(
                         versionName = versionName,
                         studyFolder = current.studyFolder,
-                        recentPaths = recentDocuments::paths,
+                        library = HomeLibrary(recentDocuments::paths, courseFolders),
                         onOpenSettings = { screen = Screen.Settings(current.studyFolder) },
                         onOpenPdf = { pdf -> screen = Screen.Document(current.studyFolder, pdf) },
                     )
