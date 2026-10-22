@@ -177,10 +177,19 @@ export interface ApiClient {
   markUnread(itemId: number): Promise<void>;
   // A page that can't be read gives the feed's preview with the `problem`.
   readerView(itemId: number): Promise<ReaderView>;
-  // The whole Item explained in plain words; each call asks the model again. Rejects with
-  // RefusedError, saying why, when the Item has no text, the model gave no summary or this
-  // month's spending limit is reached.
-  simpleSummary(itemId: number): Promise<SimpleSummary>;
+  // The whole Item explained in plain words; each call asks the model again and replaces the
+  // saved one. Rejects with RefusedError, saying why, when the Item has no text, the model gave
+  // no summary or this month's spending limit is reached. The server writes it in a job that
+  // runs on if the page closes; onStarted gets its id.
+  simpleSummary(
+    itemId: number,
+    onStarted?: (jobId: string) => void,
+  ): Promise<SimpleSummary>;
+  // The Item's last Simple summary, or null before Summarise was first pressed.
+  savedSimpleSummary(itemId: number): Promise<SimpleSummary | null>;
+  // Follows a Simple summary's job again, such as after coming back to the Item. Rejects with
+  // RefusedError when it failed or the server no longer knows it (a restart).
+  followSimpleSummary(jobId: string): Promise<SimpleSummary>;
   // The calls below reject with RefusedError when the server says no, such as deleting a
   // Folder that still has Sources.
   sources(): Promise<SourceInfo[]>;
@@ -367,12 +376,53 @@ export class HttpApiClient implements ApiClient {
     return (await response.json()) as ReaderView;
   }
 
-  async simpleSummary(itemId: number): Promise<SimpleSummary> {
+  async simpleSummary(
+    itemId: number,
+    onStarted?: (jobId: string) => void,
+  ): Promise<SimpleSummary> {
     const response = await this.sendWithSession(
       "POST",
-      `api/items/${String(itemId)}/simple-summary`,
+      simpleSummaryPath(itemId),
     );
-    return simpleSummaryFromJson((await response.json()) as SimpleSummaryJson);
+    return this.readSimpleSummary(response, onStarted);
+  }
+
+  async savedSimpleSummary(itemId: number): Promise<SimpleSummary | null> {
+    const response = await this.sendWithSession(
+      "GET",
+      simpleSummaryPath(itemId),
+    );
+    const body = (await response.json()) as {
+      summary: SimpleSummaryJson | null;
+    };
+    return body.summary === null ? null : simpleSummaryFromJson(body.summary);
+  }
+
+  async followSimpleSummary(jobId: string): Promise<SimpleSummary> {
+    const response = await this.sendWithSession("GET", jobPath(jobId));
+    return this.readSimpleSummary(response);
+  }
+
+  private async readSimpleSummary(
+    response: Response,
+    onStarted?: (jobId: string) => void,
+  ): Promise<SimpleSummary> {
+    if (response.body === null) {
+      throw new ApiError("The summary answered without a body");
+    }
+    for await (const message of readEvents(response.body)) {
+      const data: unknown = JSON.parse(message.data);
+      if (message.event === "job") {
+        onStarted?.((data as JobJson).id);
+      } else if (message.event === "summary") {
+        return simpleSummaryFromJson(data as SimpleSummaryJson);
+      } else if (message.event === "failed") {
+        throw new RefusedError(
+          detailIn(data) ?? "The summary couldn't be written.",
+        );
+      }
+    }
+    throw new ApiError("The summary stream ended before the summary arrived");
   }
 
   async sources(): Promise<SourceInfo[]> {
@@ -696,9 +746,13 @@ export class HttpApiClient implements ApiClient {
   }
 }
 
-// The `job` event a Briefing or Chat stream starts with.
+// The `job` event a Briefing, Chat or Simple summary stream starts with.
 interface JobJson {
   id: string;
+}
+
+function simpleSummaryPath(itemId: number): string {
+  return `api/items/${String(itemId)}/simple-summary`;
 }
 
 function jobPath(jobId: string): string {

@@ -1,5 +1,5 @@
-// The Briefing and Chat answers still being written on the server, remembered in this browser
-// so the app can follow them again after the page was closed. The server keeps writing either
+// The Briefing, Chat answers and Simple summaries still being written on the server, remembered
+// in this browser so the app can follow them again after the page was closed. The server keeps writing either
 // way; this only lets the page show it. Storage can be missing or refuse (a private window),
 // and then the page just doesn't know, as before.
 
@@ -14,11 +14,16 @@ export interface PendingJobs {
   setBriefing(jobId: string | null): void;
   answer(chatId: number): PendingAnswer | null;
   setAnswer(chatId: number, answer: PendingAnswer | null): void;
+  // The job writing this Item's Simple summary.
+  summary(itemId: number): string | null;
+  setSummary(itemId: number, jobId: string | null): void;
 }
 
 const briefingKey = "rss-news.pending-briefing";
 const answerKey = (chatId: number): string =>
   `rss-news.pending-answer.${String(chatId)}`;
+const summaryKey = (itemId: number): string =>
+  `rss-news.pending-summary.${String(itemId)}`;
 
 export function storedPendingJobs(
   storage: () => Storage = () => localStorage,
@@ -58,6 +63,10 @@ export function storedPendingJobs(
     },
     setAnswer: (chatId, answer) => {
       write(answerKey(chatId), answer === null ? null : JSON.stringify(answer));
+    },
+    summary: (itemId) => read(summaryKey(itemId)),
+    setSummary: (itemId, jobId) => {
+      write(summaryKey(itemId), jobId);
     },
   };
 }

@@ -224,9 +224,30 @@ export class FakeApiClient implements ApiClient {
     return Promise.resolve();
   }
 
-  simpleSummary(itemId: number): Promise<SimpleSummary> {
+  async simpleSummary(
+    itemId: number,
+    onStarted?: (jobId: string) => void,
+  ): Promise<SimpleSummary> {
     this.simpleSummariesAsked.push(itemId);
+    if (this.simpleSummaryJobId !== undefined)
+      onStarted?.(this.simpleSummaryJobId);
+    if (this.holdSimpleSummary) {
+      await new Promise<void>((resolve) => {
+        this.releaseSimpleSummary = resolve;
+      });
+    }
     return settle(this.simpleSummaryAnswer);
+  }
+
+  savedSimpleSummary(itemId: number): Promise<SimpleSummary | null> {
+    return Promise.resolve(this.savedSummaries.get(itemId) ?? null);
+  }
+
+  followSimpleSummary(jobId: string): Promise<SimpleSummary> {
+    this.followedJobs.push(jobId);
+    const job = this.summaryJobs.get(jobId);
+    if (!job) return Promise.reject(new RefusedError(LOST_JOB));
+    return job === "running" ? new Promise(() => undefined) : settle(job);
   }
 
   async readerView(itemId: number): Promise<ReaderView> {
@@ -362,6 +383,15 @@ export class FakeApiClient implements ApiClient {
     fromPreview: false,
     costUsd: "0.0006",
   };
+  // Given, the job id each Summarise press hands over first, as the server does.
+  simpleSummaryJobId: string | undefined;
+  // When set, a Summarise press waits for releaseSimpleSummary before answering.
+  holdSimpleSummary = false;
+  releaseSimpleSummary: (() => void) | undefined;
+  // The saved Simple summary of each Item; one that isn't here has none yet.
+  savedSummaries = new Map<number, SimpleSummary>();
+  // What following each Simple summary's job again gives; an id that isn't here is lost.
+  summaryJobs = new Map<string, SimpleSummary | Error | "running">();
   // Each look-up, as [term, context]; definitionAnswer answers them all.
   lookUps: [string, string][] = [];
   definitionAnswer: Definition | Error = {
