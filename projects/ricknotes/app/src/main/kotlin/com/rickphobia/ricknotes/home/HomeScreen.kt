@@ -62,18 +62,24 @@ private fun loadListing(
 
 private const val NANOS_PER_MS = 1_000_000
 
+/** What the home screen reads from settings: the Recent Documents and the Course folder marks. */
+class HomeLibrary(
+    val recentPaths: () -> List<String>,
+    val courses: CourseFolderActions,
+)
+
 @Composable
 fun HomeScreen(
     versionName: String,
     studyFolder: String,
-    recentPaths: () -> List<String>,
+    library: HomeLibrary,
     onOpenSettings: () -> Unit,
     onOpenPdf: (PdfEntry) -> Unit,
 ) {
     val folder = remember(studyFolder) { StudyFolder(Path.of(studyFolder)) }
     // A large Study folder takes a moment to walk, so it is listed off the main thread.
     val listing by produceState<Listing>(initialValue = Listing.Loading, studyFolder) {
-        value = withContext(Dispatchers.IO) { loadListing(folder, recentPaths()) }
+        value = withContext(Dispatchers.IO) { loadListing(folder, library.recentPaths()) }
     }
     val open = { document: TreeNode.Document ->
         onOpenPdf(PdfEntry(folder.resolve(document.path).toString(), document.folder, document.name))
@@ -111,6 +117,7 @@ fun HomeScreen(
                     StudyFolderTree(
                         tree = current.tree,
                         initiallyExpanded = current.initiallyExpanded,
+                        courses = library.courses,
                         onOpen = open,
                         modifier = Modifier.padding(top = 16.dp),
                     )
