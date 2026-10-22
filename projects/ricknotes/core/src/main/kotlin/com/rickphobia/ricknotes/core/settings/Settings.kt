@@ -10,7 +10,10 @@ fun interface SettingsSource {
     fun read(key: String): String?
 }
 
-/** Where settings are saved to. Only [SettingsLoader] writes, after validating the value. */
+/**
+ * Where settings are saved to. Only [SettingsLoader] writes, after validating the value, except
+ * for the Recent Documents list, which `RecentDocuments` keeps and reads leniently.
+ */
 fun interface SettingsStore {
     fun write(
         key: String,
