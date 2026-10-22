@@ -113,6 +113,67 @@ class TouchInterpreterTest {
     }
 
     @Test
+    fun `two fingers swiping in parallel only scroll, with Finger erase off and on`() {
+        for (fingerErase in listOf(false, true)) {
+            withGestures(FingerGestures(fingerErase = fingerErase))
+
+            val pinches = swipeTwoFingersUp().filterIsInstance<TouchAction.Pinch>()
+
+            assertEquals(2 * SWIPE_FRAMES, pinches.size)
+            assertTrue("zoomed: ${pinches.map { it.zoomChange }}", pinches.all { it.zoomChange == 1f })
+            assertEquals(-SWIPE_FRAMES * SWIPE_STEP_PX, pinches.sumOf { it.moveY.toDouble() }.toFloat(), 1f)
+        }
+    }
+
+    @Test
+    fun `a pinch zooms only once the fingers' distance has changed past the threshold, then smoothly`() {
+        finger(1, DOWN, 100f, 500f)
+        finger(2, DOWN, 300f, 500f)
+        val slopPx = TouchThresholds().pinchSlopMm * PX_PER_MM
+
+        // Spread the fingers 10 px a frame: nothing until they are a slop further apart.
+        val pinches = (1..20).map { finger(2, MOVE, 300f + 10f * it, 500f) as TouchAction.Pinch }
+
+        val zooming = pinches.withIndex().filter { (step, _) -> 10f * (step + 1) > slopPx }
+        val still = pinches.take(pinches.size - zooming.size)
+        assertTrue(still.isNotEmpty() && still.all { it.zoomChange == 1f })
+        for ((step, pinch) in zooming) {
+            // Each frame zooms by how much further apart the fingers are than a frame before.
+            val apart = 200f + 10f * (step + 1)
+            assertEquals(apart / (apart - 10f), pinch.zoomChange, TOLERANCE)
+        }
+    }
+
+    @Test
+    fun `a pinch after a two-finger scroll in the same touch still zooms`() {
+        swipeTwoFingersUp()
+        val top = 500f - SWIPE_FRAMES * SWIPE_STEP_PX
+        val slopPx = TouchThresholds().pinchSlopMm * PX_PER_MM
+
+        val pinch = finger(2, MOVE, 300f + 2 * slopPx, top) as TouchAction.Pinch
+
+        assertTrue(pinch.zoomChange > 1f)
+    }
+
+    /**
+     * Fingers 1 and 2 land 200 px apart and swipe up together, the way Android reports it: one
+     * pointer's move at a time, each with a few pixels of jitter, as real fingers never move exactly
+     * alike. Gives back every action from the moves.
+     */
+    private fun swipeTwoFingersUp(): List<TouchAction> {
+        finger(1, DOWN, 100f, 500f)
+        finger(2, DOWN, 300f, 500f)
+        return (1..SWIPE_FRAMES).flatMap { frame ->
+            val y = 500f - frame * SWIPE_STEP_PX
+            val jitter = SWIPE_JITTER_PX[frame % SWIPE_JITTER_PX.size]
+            listOf(
+                finger(1, MOVE, 100f + jitter, y - jitter),
+                finger(2, MOVE, 300f - jitter, y + jitter),
+            )
+        }
+    }
+
+    @Test
     fun `lifting one of two fingers carries on scrolling from where the other one is`() {
         finger(1, DOWN, 100f, 500f)
         finger(2, DOWN, 300f, 500f)
@@ -385,6 +446,11 @@ class TouchInterpreterTest {
         const val PX_PER_MM = 10f
         const val FINGERTIP_PX = 8 * PX_PER_MM
         const val PALM_PX = 25 * PX_PER_MM
+
+        // A quick two-finger swipe: 40 px a frame, with each finger a few pixels off the other.
+        const val SWIPE_FRAMES = 30
+        const val SWIPE_STEP_PX = 40f
+        val SWIPE_JITTER_PX = listOf(0f, 3f, -2f, 4f, -3f, 1f)
 
         // Well past the lockout after the pen.
         const val LONG_AFTER_MS = 1_000L
