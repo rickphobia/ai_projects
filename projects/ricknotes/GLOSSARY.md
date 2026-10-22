@@ -8,6 +8,10 @@ An Android tablet app for studying lecture and tutorial PDFs with a pen, with a 
 The one folder of courses, chapters and PDFs that the app shows. The app is a window onto it and keeps no library of its own.
 _Avoid_: vault, library, workspace
 
+**Course folder**:
+The folder for one course, such as `Y1/Sem1/EE2001`. Folders three levels inside the Study folder are Course folders, and any folder can be marked or unmarked as one by hand. Each Course folder has its own Revision log.
+_Avoid_: subject, module
+
 **Document**:
 A PDF in the Study folder, opened for reading and writing on. The PDF itself is never changed.
 _Avoid_: note, file (when the PDF is meant)
@@ -45,7 +49,7 @@ One continuous pen or highlighter line, from pen down to pen up.
 _Avoid_: line, path, mark
 
 **Red ink**:
-Strokes drawn with the red pen. Red ink means "I got this wrong" and is what the error log collects.
+Strokes drawn with the red pen. Red ink means "I got this wrong".
 _Avoid_: correction, annotation
 
 **Finger erase**:
@@ -60,32 +64,38 @@ _Avoid_: palm mode, touch rejection
 The short list of pen colours that tapping the current pen in the toolbar cycles through.
 
 **Lasso**:
-The tool that selects your own strokes to move or delete them.
-_Avoid_: select tool; never use it for cutting out a picture
+The tool that draws a loop around part of a page. The loop selects your own strokes to move or delete them, and can also be cut out as a Snip to add to a Revision log.
+_Avoid_: select tool
 
 **Snip**:
-A picture cut out of part of a rendered page, including the slide and any ink on it. A snip can be pasted, sent to the error log, or shared to another app.
+A picture cut out of part of a rendered page, including the slide and any ink on it, from a Lasso loop or the Snip tool. A snip can be pasted, added to a Revision log, or shared to another app.
 _Avoid_: clip, crop, screenshot, region, lasso
 
 **Preset**:
 A named prompt, such as "Answer only" or "Chapter overview", sent along with a Document or snip to the Gemini or Claude app.
 _Avoid_: template, mode
 
-## Error log
+## Revision log
 
-**Error log**:
-The running list of mistakes and confusions across all courses, kept in the `_error_log` folder.
-_Avoid_: mistake book, error_logs.pdf
+**Revision log**:
+One course's list of things to revise: Mistakes to redo and Key points to remember. It lives in its Course folder.
+_Avoid_: error log, correction book, mistake book, error_logs.pdf
 
 **Entry**:
-One item in the error log: a picture of where it happened (the whole page for a Wrong entry, the snip for a Confused entry), labelled with course, Document, page and date, plus a category, a "why" line and redo dates.
+One item in a Revision log: a Snip of where it came from, labelled with Document, page and date, with an optional category and "why" line. Every Entry is either a Mistake or a Key point.
 _Avoid_: error, record, card
 
-**Wrong entry**:
-An entry made from a group of red ink: something you got wrong.
+**Mistake**:
+An Entry for something you got wrong or didn't understand. It comes back for a Redo 3 and 7 days later.
+_Avoid_: Wrong entry, Confused entry
 
-**Confused entry**:
-An entry made from a snip sent to the error log: something you didn't understand.
+**Key point**:
+An Entry for something important the lecturer said. It is kept for reading before exams and never comes back for a Redo.
+_Avoid_: highlight, note
+
+**Redo**:
+One attempt at a Mistake again, written by hand on a blank area under its Snip, then marked "Got it" or "Still wrong".
+_Avoid_: retry, review
 
 ## Screen
 

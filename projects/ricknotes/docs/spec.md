@@ -40,6 +40,8 @@ One **Milestone** at a time. A milestone is several tickets (one PR each) and is
 | 7 | Snips | A slide diagram dragged onto a tutorial shows with a see-through background; a Snip sent to the error log appears as a Confused entry; the tutorial PDF itself is unchanged |
 | 8 | Office converter | A lecture pptx converted from the tablet at the dorm opens as a Document beside the original |
 
+**Before milestone 3:** the Revision log, Pictures and UI polish feature (`docs/specs/revision-log-and-polish.md`). It replaces the Error log below with one Revision log per Course folder, and brings Pictures forward from milestone 7. Milestone 5 now only adds automatic Red ink collection and a generated PDF of the log.
+
 Milestones 1–2 are specified in detail below and ticketed now. Milestone 2 is make-or-break: if handwriting feels laggy, fix that before anything else. Milestones 3–8 are settled at the level written here and get a short grilling session before they are ticketed. After milestone 8, use the app for one full week of real coursework and list every annoyance; that list is the v2 spec.
 
 ## User Stories
