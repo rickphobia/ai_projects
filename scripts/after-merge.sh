@@ -139,6 +139,9 @@ WantedBy=timers.target
 EOF
   ctl daemon-reload
   ctl enable --now "$timer.timer"
+  # OnUnitActiveSec counts from the service's last run, and OnBootSec has long passed on a server
+  # that's been up for days, so without a first run the timer would never fire.
+  ctl start --no-block "$timer.service"
   echo "Installed. Switch projects on with: scripts/after-merge.sh on <project>"
 }
 
