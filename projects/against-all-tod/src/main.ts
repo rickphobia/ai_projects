@@ -122,7 +122,7 @@ async function start(): Promise<void> {
   const endScreen = new EndScreen(requireElement("end-screen"), () => {
     run.newRun();
   });
-  const cratePanel = new CratePanel(requireElement("crate"), {
+  const cratePanel = new CratePanel(requireElement("crate"), view.portraits, {
     onTake: (index) => {
       run.takeFromCrate(index);
     },
