@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Starts a background Claude Code session (`/implement`) for each ticket of a project that can
 # start now: status `ready`, every ticket it is blocked by `done`, not already in progress, and
-# not touching an area that another running or starting ticket touches.
+# not touching an area that another running or starting ticket touches. It also keeps the machine
+# from being swamped: at most NEXT_TICKETS_MAX_SESSIONS ticket sessions run at once across all
+# projects, and at most the number in `docs/tickets/.max-parallel` per project, if that file exists
+# (RickNotes sets 1: each Android build takes 2-4 GB and most of the CPU).
 #
 # Usage: scripts/next-tickets.sh <project> [NN ...] [--dry-run] [--yes]
 #   <project>   folder name under projects/
@@ -17,12 +20,15 @@
 #   NEXT_TICKETS_PERMISSION_MODE  permission mode (default auto)
 #   NEXT_TICKETS_REF              git ref to read tickets from (default origin/main)
 #   NEXT_TICKETS_FETCH            1 to `git fetch` the ref's remote first, 0 to skip (default 1)
+#   NEXT_TICKETS_MAX_SESSIONS     ticket sessions running at once, all projects (default 3)
 set -euo pipefail
 
 model="${NEXT_TICKETS_MODEL:-claude-opus-5-5}"
 permission_mode="${NEXT_TICKETS_PERMISSION_MODE:-auto}"
 ref="${NEXT_TICKETS_REF:-origin/main}"
 fetch="${NEXT_TICKETS_FETCH:-1}"
+max_sessions="${NEXT_TICKETS_MAX_SESSIONS:-3}"
+[[ $max_sessions =~ ^[0-9]+$ ]] || { printf 'next-tickets: NEXT_TICKETS_MAX_SESSIONS must be a number\n' >&2; exit 1; }
 
 die() {
   printf 'next-tickets: %s\n' "$*" >&2
@@ -77,6 +83,15 @@ in_progress() {
   fi
 }
 
+# Prints the names of live background ticket sessions (`<project>-NN`, working or blocked) of every
+# project. Idle sessions are left out: they hold memory but no CPU, and stop-merged.sh stops them.
+live_ticket_sessions() {
+  command -v claude >/dev/null || return 0
+  claude agents --json 2>/dev/null |
+    jq -r '.[] | select(.kind == "background" and (.state == "working" or .state == "blocked")) | .name // empty' |
+    grep -E '^[a-z0-9-]+-[0-9]{2}$' || true
+}
+
 # --- planning ------------------------------------------------------------------------------------
 
 main() {
@@ -127,6 +142,20 @@ main() {
   done < <(git ls-tree --name-only "$ref" "$dir/" | sort)
   ((${#numbers[@]} > 0)) || die "no tickets in $dir on $ref"
 
+  # How many more sessions may start: the machine-wide limit, then the project's own.
+  local -a live=()
+  mapfile -t live < <(live_ticket_sessions)
+  local slots=$((max_sessions - ${#live[@]})) project_live=0 name
+  for name in "${live[@]}"; do [[ $name == "$project"-?? ]] && project_live=$((project_live + 1)); done
+  local project_max=""
+  project_max="$(git show "$ref:$dir/.max-parallel" 2>/dev/null | tr -dc '0-9' || true)"
+  if [[ -n $project_max ]] && ((project_max - project_live < slots)); then
+    slots=$((project_max - project_live))
+  fi
+  ((slots < 0)) && slots=0
+  local limit_note="${#live[@]} ticket session(s) running, limit $max_sessions"
+  [[ -n $project_max ]] && limit_note+="; $project_live of $project's, limit $project_max"
+
   local -A running=()
   local reason
   while IFS=$'\t' read -r nn reason; do
@@ -168,6 +197,8 @@ main() {
         note="waiting on ${waiting% }"
       elif [[ -n $clash ]]; then
         note="held back, touches ${clash%; }"
+      elif ((${#start[@]} >= slots)); then
+        note="held back, machine busy ($limit_note)"
       else
         note="START (effort ${effort[$nn]})"
         start+=("$nn")
