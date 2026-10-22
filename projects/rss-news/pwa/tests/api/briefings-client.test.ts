@@ -154,6 +154,60 @@ describe("HttpApiClient Briefings", () => {
     ]);
   });
 
+  it("hands over the job id, and follows that job again later", async () => {
+    const progress = { step: "reading", section: 1, sections: 2, folder: "AI" };
+    const stream = (): Response =>
+      eventStream(
+        event("job", { id: "abc123" }) +
+          event("progress", progress) +
+          event("briefing", { briefing: BRIEFING_JSON, reused: false }),
+        13,
+      );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(stream())
+      .mockResolvedValueOnce(stream());
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new HttpApiClient(BASE, () => undefined);
+    const started: string[] = [];
+    const followedSteps: BriefingProgress[] = [];
+
+    await client.writeBriefing(
+      { window: "24h" },
+      false,
+      () => undefined,
+      (jobId) => started.push(jobId),
+    );
+    const followed = await client.followBriefing("abc123", (step) =>
+      followedSteps.push(step),
+    );
+
+    expect(started).toEqual(["abc123"]);
+    expect(followedSteps).toEqual([progress]);
+    expect(followed.briefing.id).toBe(3);
+    const [url, init] = fetchMock.mock.calls[1] as [URL, RequestInit];
+    expect(url.href).toBe(`${BASE}api/jobs/abc123`);
+    expect(init.method).toBe("GET");
+  });
+
+  it("says a job the server no longer knows was lost", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ detail: "Lost in a restart." }), {
+          status: 404,
+        }),
+      ),
+    );
+
+    await expect(
+      new HttpApiClient(BASE, () => undefined).followBriefing(
+        "gone",
+        () => undefined,
+      ),
+    ).rejects.toEqual(new RefusedError("Lost in a restart."));
+  });
+
   it("sends picked Items to be briefed", async () => {
     const fetchMock = vi
       .fn()

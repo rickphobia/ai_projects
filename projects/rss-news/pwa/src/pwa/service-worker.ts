@@ -54,7 +54,13 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(alert.title, {
       body: alert.body,
       icon: "icons/icon-192.png",
-      data: { url: alertPageUrl(alert.itemId, self.registration.scope) },
+      data: {
+        url: alertPageUrl(
+          alert.itemId,
+          self.registration.scope,
+          alert.briefingId,
+        ),
+      },
     }),
   );
 });
