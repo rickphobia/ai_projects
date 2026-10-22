@@ -33,6 +33,7 @@ jobs:
       - run: scripts/tests/next-tickets.test.sh
       - run: scripts/tests/previews.test.sh
       - run: scripts/tests/stop-merged.test.sh
+      - run: scripts/tests/after-merge.test.sh
       # A session reads .claude/settings.json only from the folder it starts in, so each project
       # carries a copy of the root rules. A project may add rules but must keep the root ones.
       - name: Every project's settings keep the root guardrails
