@@ -24,6 +24,10 @@ _Avoid_: canvas, board, blank PDF
 The file beside a Document that holds everything drawn or pasted on it: strokes and placed snips.
 _Avoid_: annotations, overlay, notes file
 
+**Recent Documents**:
+The last 8 Documents opened, newest first, shown as a row at the top of the home screen.
+_Avoid_: history, recents list
+
 **Document session**:
 The app's hold on one Document's ink while it is open: it loads the Ink file, keeps the strokes, and saves them back. One per Document, even when it is open in two Tabs.
 _Avoid_: editor, controller
