@@ -81,7 +81,7 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 
 ### Briefings
 
-38. As the owner, I want my latest Briefing and Brief me at the top of the Inbox, folded until I open them, so that they are one tap away without crowding the list.
+38. As the owner, I want Brief me as one compact, always-visible bar at the top of the Inbox (Brief [scope] over [window] [Brief me (about $X)]) that links to the Briefing it writes on the Briefings screen, so that briefing is one tap away and the list stays near the top.
 39. As the owner, I want a "Brief me" button for all Sources over the last 24 hours, so that the usual case is one tap.
 40. As the owner, I want to choose a 24 hour, 7 day or 30 day window, so that I can catch up after a few days away.
 41. As the owner, I want to brief one Folder only, so that I can get just the Malaysia or AI picture.

@@ -310,9 +310,11 @@ describe("the Inbox", () => {
 
     expect(shownTitles()).toHaveLength(3);
     expect(folderFilter().disabled).toBe(true);
-    expect(screen.getByRole("alert").textContent).toBe(
-      "Couldn't load the Folders: GET /api/folders answered 500",
-    );
+    expect(
+      screen
+        .getByText("Couldn't load the Folders: GET /api/folders answered 500")
+        .getAttribute("role"),
+    ).toBe("alert");
   });
 
   it("says what went wrong when the Inbox can't load", async () => {
@@ -355,10 +357,9 @@ describe("the Inbox", () => {
     expect(briefThese.textContent).toBe("Brief these (2)");
     briefThese.click();
 
-    // Brief me opens at the top, offering a Briefing of exactly those two.
-    const card = screen.getByText("Brief me").closest("details");
-    expect(card?.open).toBe(true);
-    expect(scrollIntoView.mock.contexts).toEqual([card]);
+    // The Brief me bar at the top offers a Briefing of exactly those two.
+    const bar = screen.getByRole("group", { name: "Brief me" });
+    expect(scrollIntoView.mock.contexts).toEqual([bar.parentElement]);
     await waitFor(() => {
       expect(
         screen.getByRole("button", { name: /^Brief these: 2 picked Items/ }),
@@ -367,24 +368,35 @@ describe("the Inbox", () => {
     expect(api.estimateRequests.at(-1)).toEqual({ itemIds: [2, 1] });
   });
 
-  it("keeps Brief me folded until it is opened", async () => {
+  it("shows the Brief me bar with its estimate at once, and no Briefing above the list", async () => {
+    api.latestBriefingAnswer = {
+      id: 1,
+      scope: "all-24h",
+      title: "All Sources, last 24 hours",
+      createdAt: "2026-10-12T00:30:00+00:00",
+      itemCount: 1,
+      costUsd: "0.20",
+      sections: [
+        {
+          folder: { id: 1, name: "AI" },
+          points: [{ text: "A model came out.", items: [] }],
+        },
+      ],
+    };
     await renderInbox(root, api, onOpen);
-    const card = screen.getByText("Brief me").closest("details");
-    expect(card?.open).toBe(false);
-    expect(api.estimateRequests).toEqual([]);
-
-    if (card) card.open = true;
-    card?.dispatchEvent(new Event("toggle"));
 
     await waitFor(() => {
-      expect(api.estimateRequests).toEqual([{ window: "24h" }]);
+      expect(
+        screen.getByRole("button", { name: "Brief me (about $0.24)" }),
+      ).toBeTruthy();
     });
+    expect(api.estimateRequests).toEqual([{ window: "24h" }]);
+    expect(screen.queryByText("A model came out.")).toBeNull();
   });
 
   it("opens Brief me on the given Items or pressing itself", async () => {
     await renderInbox(root, api, onOpen, undefined, { pickedItemIds: [3] });
 
-    expect(screen.getByText("Brief me").closest("details")?.open).toBe(true);
     expect(api.estimateRequests).toEqual([{ itemIds: [3] }]);
   });
 
