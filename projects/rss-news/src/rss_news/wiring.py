@@ -32,6 +32,7 @@ from rss_news.config import Settings
 from rss_news.dictionary.lookup import Dictionary, DictionaryModel
 from rss_news.items.inbox import Inbox, OldItemCleanup
 from rss_news.items.reading import ArticleExtractor, ItemReading
+from rss_news.jobs.running import Jobs
 from rss_news.newsletters.collecting import Mailbox, Newsletters
 from rss_news.notes.notes import Notes
 from rss_news.scoring.item_scoring import ItemScoring, ScoringModel
@@ -62,6 +63,8 @@ class Wiring:
     tick: Tick
     ledger: SpendingLedger
     stocks: Stocks
+    # The running and recently finished Briefings and Chat answers.
+    jobs: Jobs
 
 
 def build_app(
@@ -156,6 +159,7 @@ def build_app(
         clock,
     )
     item_reading = ItemReading(items=items, extractor=article_extractor, clock=clock)
+    jobs = Jobs()
     app = create_app(
         settings,
         database=database,
@@ -193,7 +197,8 @@ def build_app(
         spending=limit,
         alert_push=alert_push,
         alert_limits=alert_rules.limits,
+        jobs=jobs,
         tick=tick,
         background=(TickLoop(tick, TICK_INTERVAL),) if run_tick_loop else (),
     )
-    return Wiring(app=app, tick=tick, ledger=ledger, stocks=stocks)
+    return Wiring(app=app, tick=tick, ledger=ledger, stocks=stocks, jobs=jobs)

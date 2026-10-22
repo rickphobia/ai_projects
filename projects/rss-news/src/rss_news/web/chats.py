@@ -1,7 +1,6 @@
-"""Chats over the JSON API: list, create, show, and asking a question with the answer streamed
-as server-sent events."""
+"""Chats over the JSON API: list, create, show, and asking a question, answered in a job with
+its progress streamed as server-sent events."""
 
-import json
 import logging
 from collections.abc import Iterator
 from decimal import Decimal
@@ -13,7 +12,9 @@ from pydantic import BaseModel, Field
 
 from rss_news.chat.chatting import LONGEST_QUOTE, Chats, ChatSearched, Quote
 from rss_news.chat.conversation import ChatFailed, ChatMessage, ChatSummary, NoSuchChat
+from rss_news.jobs.running import JobEvent, JobRunning
 from rss_news.spending.limit import SpendingStopped
+from rss_news.web.jobs import followed, jobs_of
 
 logger = logging.getLogger(__name__)
 
@@ -67,12 +68,18 @@ def show_chat(request: Request, chat_id: int) -> dict[str, Any]:
 
 @chats_router.post("/{chat_id}/messages")
 def ask(request: Request, chat_id: int, body: Question) -> StreamingResponse:
-    """A `text/event-stream`: a `searched` event (`window`, `count`) for each search the model
-    makes, then `message` with the saved answer, or `failed` with a `detail` for the owner.
-    404 for an unknown Chat, 429 when this month's spending limit is reached."""
+    """A `text/event-stream`: `job` with the id to follow it again by (web/jobs.py), a
+    `searched` event (`window`, `count`) for each search the model makes, then `message` with
+    the saved answer, or `failed` with a `detail` for the owner. The answer is written in a
+    job, so it is saved even if the page is closed. 404 for an unknown Chat, 409 while the
+    Chat is still answering, 429 when this month's spending limit is reached."""
     question = body.text.strip()
     if not question:
         raise HTTPException(status_code=422, detail="Ask a question first.")
+    jobs = jobs_of(request)
+    key = f"chat-{chat_id}"
+    if jobs.running(key) is not None:
+        raise HTTPException(status_code=409, detail=_STILL_ANSWERING)
     try:
         quote = None if body.quote is None else Quote(body.quote.text, body.quote.origin)
         steps = chats_of(request).ask(chat_id, question, quote)
@@ -80,38 +87,36 @@ def ask(request: Request, chat_id: int, body: Question) -> StreamingResponse:
         raise HTTPException(status_code=404, detail="That Chat doesn't exist.") from None
     except SpendingStopped as error:
         raise HTTPException(status_code=429, detail=str(error)) from None
-    # no-transform and X-Accel-Buffering keep proxies (the host nginx) from holding events back.
-    return StreamingResponse(
-        _answered(steps, chat_id),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
-    )
+    try:
+        job = jobs.start(key, _answered(steps, chat_id), crashed=_failed(_SERVER_TROUBLE))
+    except JobRunning:
+        # Asked twice at once: the other question won, and this one never runs.
+        raise HTTPException(status_code=409, detail=_STILL_ANSWERING) from None
+    return followed(job)
 
 
-def _answered(steps: Iterator[ChatSearched | ChatMessage], chat_id: int) -> Iterator[str]:
+_STILL_ANSWERING = "This Chat is still answering your last question."
+_SERVER_TROUBLE = "something went wrong on the server; see its logs"
+
+
+def _answered(steps: Iterator[ChatSearched | ChatMessage], chat_id: int) -> Iterator[JobEvent]:
     try:
         for step in steps:
             if isinstance(step, ChatSearched):
-                yield _event("searched", {"window": step.window, "count": step.count})
+                yield JobEvent("searched", {"window": step.window, "count": step.count})
             else:
-                yield _event("message", _message_json(step))
+                yield JobEvent("message", _message_json(step))
     except ChatFailed as error:
         # The stream has started, so the status is already 200: the failure is an event.
-        yield _event("failed", {"detail": f"The Chat couldn't answer: {error}."})
+        yield _failed(str(error))
     except Exception:
         # A bug or a database error: still tell the owner, instead of a stream that just stops.
         logger.exception("chat failed unexpectedly", extra={"chat_id": chat_id})
-        yield _event(
-            "failed",
-            {
-                "detail": "The Chat couldn't answer: something went wrong on the server; "
-                "see its logs."
-            },
-        )
+        yield _failed(_SERVER_TROUBLE)
 
 
-def _event(name: str, data: dict[str, Any]) -> str:
-    return f"event: {name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+def _failed(reason: str) -> JobEvent:
+    return JobEvent("failed", {"detail": f"The Chat couldn't answer: {reason}."})
 
 
 def _summary_json(chat: ChatSummary) -> dict[str, Any]:

@@ -22,6 +22,7 @@ from rss_news.config import load_settings
 from rss_news.dictionary.lookup import Dictionary
 from rss_news.items.inbox import Inbox
 from rss_news.items.reading import ItemReading
+from rss_news.jobs.running import Jobs
 from rss_news.notes.notes import Notes
 from rss_news.simple_summaries.summarising import SimpleSummaries
 from rss_news.sources.managing import SourceManagement
@@ -150,6 +151,7 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
                 daily_cap=settings.alert_daily_cap,
                 timezone=settings.timezone,
             ),
+            jobs=Jobs(),
             tick=NeverTicked(),
         )
     )

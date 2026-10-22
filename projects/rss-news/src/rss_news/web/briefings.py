@@ -1,7 +1,6 @@
-"""Briefings over the JSON API: the saved ones, the cost estimate, and writing one with its
-progress streamed as server-sent events."""
+"""Briefings over the JSON API: the saved ones, the cost estimate, and writing one in a job with
+its progress streamed as server-sent events."""
 
-import json
 import logging
 from collections.abc import Iterator
 from decimal import Decimal
@@ -11,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from rss_news.alerts.push import Alert, AlertPush
 from rss_news.briefings.briefing import (
     WINDOWS,
     Briefing,
@@ -21,7 +21,9 @@ from rss_news.briefings.briefing import (
     WindowScope,
 )
 from rss_news.briefings.writing import BriefingPlan, BriefingProgress, Briefings
+from rss_news.jobs.running import JobEvent, JobRunning
 from rss_news.spending.limit import SpendingStopped
+from rss_news.web.jobs import event_stream, followed, jobs_of, sse
 
 logger = logging.getLogger(__name__)
 
@@ -108,38 +110,56 @@ def show_briefing(request: Request, briefing_id: int) -> dict[str, Any]:
 
 @briefings_router.post("")
 def create_briefing(request: Request, body: NewBriefing) -> StreamingResponse:
-    """A `text/event-stream`: `progress` events, then `briefing` (with `reused` true when
-    today's saved one is given back) or `failed` with a `detail` for the owner. 422 when there
-    is nothing to brief, 429 when this month's spending limit is reached."""
+    """A `text/event-stream`: `job` with the id to follow it again by (web/jobs.py), `progress`
+    events, then `briefing` or `failed` with a `detail` for the owner. Today's saved Briefing
+    is given back as just `briefing`, with `reused` true. The Briefing is written in a job, so
+    it is saved even if the page is closed, and pressing again while its scope is being written
+    follows that job. 422 when there is nothing to brief, 429 when this month's spending limit
+    is reached."""
     briefings = briefings_of(request)
+    jobs = jobs_of(request)
     scope = body.scope()
     saved = None if body.regenerate else briefings.saved_today(scope)
     if saved is not None:
         logger.info("briefing reused", extra={"briefing_id": saved.id})
-        events: Iterator[str] = iter([_event("briefing", _done_json(saved, reused=True))])
-    else:
-        try:
-            plan = briefings.plan(scope)
-        except NothingToBrief as error:
-            raise HTTPException(status_code=422, detail=str(error)) from None
-        try:
-            steps = briefings.write(plan)
-        except SpendingStopped as error:
-            raise HTTPException(status_code=429, detail=str(error)) from None
-        events = _written(steps, plan)
-    # no-transform and X-Accel-Buffering keep proxies (the host nginx) from holding events back.
-    return StreamingResponse(
-        events,
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
-    )
+        return event_stream(iter([sse(JobEvent("briefing", _done_json(saved, reused=True)))]))
+    key = f"briefing-{scope.key}"
+    running = jobs.running(key)
+    if running is not None:
+        logger.info("briefing joined", extra={"job_id": running.id, "scope": scope.key})
+        return followed(running)
+    try:
+        plan = briefings.plan(scope)
+    except NothingToBrief as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    try:
+        steps = briefings.write(plan)
+    except SpendingStopped as error:
+        raise HTTPException(status_code=429, detail=str(error)) from None
+    alert_push: AlertPush = request.app.state.alert_push
+    try:
+        job = jobs.start(
+            key,
+            _written(steps, plan),
+            crashed=_failed(_SERVER_TROUBLE),
+            on_finished=lambda outcome: _tell_owner(alert_push, outcome),
+        )
+    except JobRunning as started_meanwhile:
+        # Another press started it since the check above; `steps` never runs.
+        job = started_meanwhile.job
+    return followed(job)
 
 
-def _written(steps: Iterator[BriefingProgress | Briefing], plan: BriefingPlan) -> Iterator[str]:
+_SERVER_TROUBLE = "something went wrong on the server; see its logs"
+
+
+def _written(
+    steps: Iterator[BriefingProgress | Briefing], plan: BriefingPlan
+) -> Iterator[JobEvent]:
     try:
         for step in steps:
             if isinstance(step, BriefingProgress):
-                yield _event(
+                yield JobEvent(
                     "progress",
                     {
                         "step": step.step,
@@ -149,27 +169,38 @@ def _written(steps: Iterator[BriefingProgress | Briefing], plan: BriefingPlan) -
                     },
                 )
             else:
-                yield _event("briefing", _done_json(step, reused=False))
+                yield JobEvent("briefing", _done_json(step, reused=False))
     except BriefingFailed as error:
         # The stream has started, so the status is already 200: the failure is an event.
-        yield _event(
-            "failed",
-            {"detail": f"The Briefing couldn't be written, and nothing was saved: {error}."},
-        )
+        yield _failed(str(error))
     except Exception:
         # A bug or a database error: still tell the owner, instead of a stream that just stops.
         logger.exception("briefing failed unexpectedly", extra={"scope": plan.scope.key})
-        yield _event(
-            "failed",
-            {
-                "detail": "The Briefing couldn't be written, and nothing was saved: "
-                "something went wrong on the server; see its logs."
-            },
+        yield _failed(_SERVER_TROUBLE)
+
+
+def _failed(reason: str) -> JobEvent:
+    return JobEvent(
+        "failed", {"detail": f"The Briefing couldn't be written, and nothing was saved: {reason}."}
+    )
+
+
+def _tell_owner(alert_push: AlertPush, outcome: JobEvent) -> None:
+    """An Alert that opens the finished Briefing, or says it failed: the page that asked may
+    be closed by now."""
+    if outcome.name == "briefing":
+        briefing = outcome.data["briefing"]
+        alert = Alert(
+            title="Your Briefing is ready",
+            body=f"{briefing['title']}. Tap to read it.",
+            item_id=None,
+            briefing_id=briefing["id"],
         )
-
-
-def _event(name: str, data: dict[str, Any]) -> str:
-    return f"event: {name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+    else:
+        alert = Alert(
+            title="Your Briefing couldn't be written", body=outcome.data["detail"], item_id=None
+        )
+    alert_push.send_if_on(alert)
 
 
 def _done_json(briefing: Briefing, *, reused: bool) -> dict[str, Any]:
