@@ -5,32 +5,32 @@ import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 
-/** A Version that couldn't be taken. The Ink file and the session carry on as before. */
+/** A Version that couldn't be taken. The file and its session carry on as before. */
 class VersionFailed(
     val fileName: String,
     cause: Exception,
 ) : Exception("couldn't take a Version of $fileName: ${cause.message}", cause)
 
 /**
- * A Document's Versions: copies of its Ink file in the hidden [FOLDER] beside it, named
- * `<ink file name>.<time in ms>.version`. Only the newest [KEEP] are kept.
+ * A file's Versions (an Ink file's, a Revision log's): copies of it in the hidden [FOLDER] beside
+ * it, named `<file name>.<time in ms>.version`. Only the newest [KEEP] are kept.
  */
 internal class VersionStore(
-    private val inkFile: Path,
+    private val file: Path,
 ) {
-    private val folder: Path = inkFile.resolveSibling(FOLDER)
-    private val prefix = "${inkFile.fileName}."
+    private val folder: Path = file.resolveSibling(FOLDER)
+    private val prefix = "${file.fileName}."
 
     /**
-     * Copies the Ink file as it is now into a Version taken at [nowMs], then drops the oldest beyond
-     * [KEEP]. Does nothing if there is no Ink file.
+     * Copies the file as it is now into a Version taken at [nowMs], then drops the oldest beyond
+     * [KEEP]. Does nothing if there is no file.
      *
      * @throws IOException if the copy or the clean-up fails.
      */
     fun take(nowMs: Long) {
         val bytes =
             try {
-                Files.readAllBytes(inkFile)
+                Files.readAllBytes(file)
             } catch (_: NoSuchFileException) {
                 return
             }
@@ -52,7 +52,7 @@ internal class VersionStore(
         ours.sortedByDescending { it.first }.drop(KEEP).forEach { Files.deleteIfExists(it.second) }
     }
 
-    // Null for anything that isn't one of this Document's Versions, such as another Document's.
+    // Null for anything that isn't one of this file's Versions, such as another Document's.
     private fun takenAtMs(name: String): Long? =
         name
             .takeIf { it.startsWith(prefix) && it.endsWith(SUFFIX) }
@@ -60,11 +60,11 @@ internal class VersionStore(
             ?.toLongOrNull()
 
     companion object {
-        /** The hidden folder beside the Documents that holds their Versions; the sync app skips it. */
+        /** The hidden folder beside the saved files that holds their Versions; the sync app skips it. */
         const val FOLDER = ".versions"
         const val SUFFIX = ".version"
 
-        /** Versions kept per Document: enough to go back hours without filling the tablet. */
+        /** Versions kept per file: enough to go back hours without filling the tablet. */
         const val KEEP = 10
     }
 }
