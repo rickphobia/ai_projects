@@ -4,16 +4,16 @@
 
 **Blocked by:** 34 (Draw the Pieces in code)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** renderer/effects, renderer/units, renderer/camera, renderer/art-kit, run-screen
 
 **Effort:** medium
 
-- [ ] Each tower kind has its own projectile; hits puff; wall hits bonk
-- [ ] Gold pops show for earned gold and for Take back refunds
-- [ ] Effects reuse pooled sprites; ordinary effects last about 0.2 s
-- [ ] Screen shake only for the Goal breaking and bosses, decaying in under half a second
-- [ ] The spec's "Look" effects rule is rewritten
-- [ ] The debug swarm screen (500 Interns) still runs at 60 fps on the Beelink's browser; the fps is in the PR
-- [ ] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`
+- [x] Each tower kind has its own projectile; hits puff; wall hits bonk
+- [x] Gold pops show for earned gold and for Take back refunds
+- [x] Effects reuse pooled sprites; ordinary effects last about 0.2 s
+- [x] Screen shake only for the Goal breaking and bosses, decaying in under half a second
+- [x] The spec's "Look" effects rule is rewritten
+- [x] The debug swarm screen (500 Interns) still runs at 60 fps on the Beelink's browser; the fps is in the PR
+- [x] The PR has before and after screenshots at desktop and phone size, and updates the matching file in `docs/screenshots/`

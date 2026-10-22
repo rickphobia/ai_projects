@@ -102,3 +102,21 @@ function clampAxis(
   if (content <= view - 2 * margin) return (view - content) / 2;
   return Math.min(margin, Math.max(view - margin - content, offset));
 }
+
+/** A screen shake is over in this long: big moments only, and never tiring. */
+export const SHAKE_MS = 400;
+
+/**
+ * How far a screen shake moves the camera `ageMs` after it began, in screen pixels: a quick
+ * wobble of up to `strength` that dies away to nothing by `SHAKE_MS`. It comes from the time
+ * alone, so it never drifts the camera.
+ */
+export function shakeOffset(ageMs: number, strength: number): Point {
+  if (ageMs < 0 || ageMs >= SHAKE_MS) return { x: 0, y: 0 };
+  const left = strength * (1 - ageMs / SHAKE_MS);
+  return {
+    // 0.8² + 0.6² = 1, so the wobble never reaches past `strength`.
+    x: left * Math.sin(ageMs * 0.09) * 0.8,
+    y: left * Math.cos(ageMs * 0.13) * 0.6,
+  };
+}

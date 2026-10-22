@@ -5,6 +5,8 @@ import {
   fittedCamera,
   panBy,
   screenToBoard,
+  shakeOffset,
+  SHAKE_MS,
   zoomAt,
   type Camera,
   type CameraBounds,
@@ -87,5 +89,31 @@ describe("clamping keeps the Board on screen", () => {
       x: 360,
       y: 0,
     });
+  });
+});
+
+describe("screen shake", () => {
+  it("wobbles no further than its strength and is over in under half a second", () => {
+    expect(SHAKE_MS).toBeLessThan(500);
+    for (let ageMs = 0; ageMs < SHAKE_MS; ageMs += 7) {
+      const { x, y } = shakeOffset(ageMs, 10);
+      expect(Math.hypot(x, y)).toBeLessThanOrEqual(10);
+    }
+    expect(shakeOffset(SHAKE_MS, 10)).toEqual({ x: 0, y: 0 });
+    expect(shakeOffset(SHAKE_MS + 1000, 10)).toEqual({ x: 0, y: 0 });
+  });
+
+  it("dies away as it ages", () => {
+    const biggest = (from: number, to: number) => {
+      let most = 0;
+      for (let ageMs = from; ageMs < to; ageMs++) {
+        const { x, y } = shakeOffset(ageMs, 10);
+        most = Math.max(most, Math.hypot(x, y));
+      }
+      return most;
+    };
+    expect(biggest(SHAKE_MS * 0.75, SHAKE_MS)).toBeLessThan(
+      biggest(0, SHAKE_MS * 0.25),
+    );
   });
 });

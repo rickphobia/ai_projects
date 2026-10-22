@@ -1,6 +1,6 @@
 import { Application, Container, Graphics, type Ticker } from "pixi.js";
 import type { BattleState } from "../../battle/battle";
-import type { ShotEvent } from "../../battle/events";
+import type { BoardPoint, ShotEvent } from "../../battle/events";
 import type { DudeState } from "../../battle/dudes";
 import type { PieceId } from "../../catalog/pieces";
 import type { Logger } from "../../logger";
@@ -28,11 +28,14 @@ import {
   fittedCamera,
   panBy,
   screenToBoard,
+  shakeOffset,
+  SHAKE_MS,
   zoomAt,
   type Camera,
   type CameraBounds,
 } from "./camera";
 import { groundDecorations, surroundPlants } from "./decoration";
+import { EffectsView } from "./effects-view";
 import { GoalHealthBar } from "./goal-health-view";
 import { moveParts } from "./piece-motion";
 import { drawPieces, pieceView, type MovingParts } from "./pieces-view";
@@ -46,6 +49,9 @@ const VIEW_MARGIN = 16;
 /** Closest zoom: a tile is at most this many times its 64 px art. */
 const MAX_SCALE = 2.5;
 const BACKGROUND_COLOUR = 0x16201a;
+/** How hard the screen shakes, in screen pixels: the Goal breaking is the biggest moment. */
+const GOAL_SHAKE_PX = 14;
+const BOSS_SHAKE_PX = 9;
 
 export class RendererStartError extends Error {
   override name = "RendererStartError";
@@ -71,9 +77,19 @@ export interface GameView {
   choosePiece(pieceId: PieceId): void;
   /** Marks the tile under the mouse as a place the Piece may or may not go; null hides it. */
   showPlacementCursor(tile: Tile | null, allowed: boolean): void;
-  /** Draws a battle's Dudes and shots and moves the Pieces' working parts; `newShots` are the shots since the last call. */
+  /**
+   * Draws a battle's Dudes, shots and hits and moves the Pieces' working parts; `newShots` are
+   * the shots since the last call.
+   */
   showBattle(state: BattleState, newShots: readonly ShotEvent[]): void;
+  /** Ends the battle's effects and puts the Goal back up. */
   clearBattle(): void;
+  /** A coin and "+Xg" pop up at `at`, where `amount` gold was earned or refunded. */
+  popGold(at: BoardPoint, amount: number): void;
+  /** The Goal collapses into rubble, with a screen shake. */
+  breakGoal(): void;
+  /** A boss arriving or dying: the screen shakes. Nothing else shakes it. */
+  shakeForBoss(): void;
   showGoalHealth(health: number, maxHealth: number): void;
   /** Shows where the Settings sliders stand on the Board: the dark, the light, the Game speed. */
   showTricks(sliders: SliderPositions): void;
@@ -135,6 +151,7 @@ export async function startRenderer(
   const pieces = new Container({ label: "pieces" });
   const route = new Graphics({ label: "route" });
   const units = new UnitsView(textures);
+  const effects = new EffectsView(textures);
   const goalHealth = new GoalHealthBar();
   const tricks = new TricksView();
   let sliders: SliderPositions | null = null;
@@ -151,6 +168,7 @@ export async function startRenderer(
     tricks.view,
     route,
     units.view,
+    effects.view,
     goalHealth.view,
     cursor.view,
   );
@@ -170,11 +188,28 @@ export async function startRenderer(
   });
   let bounds = boundsFor(app.screen.width, app.screen.height);
   let camera: Camera = fittedCamera(bounds);
+  // A shake moves the Board on screen without moving the camera, so panning mid-shake still works.
+  let shake = { ageMs: SHAKE_MS, strength: 0 };
+  const placeBoard = (): void => {
+    const offset = shakeOffset(shake.ageMs, shake.strength);
+    board.scale.set(camera.scale);
+    board.position.set(camera.x + offset.x, camera.y + offset.y);
+  };
   const aim = (next: Camera): void => {
     camera = next;
-    board.scale.set(camera.scale);
-    board.position.set(camera.x, camera.y);
+    placeBoard();
   };
+  const startShake = (strength: number): void => {
+    shake = { ageMs: 0, strength };
+  };
+  app.ticker.add((ticker: Ticker) => {
+    effects.tick(ticker.deltaMS);
+    if (shake.ageMs >= SHAKE_MS) return;
+    shake.ageMs += ticker.deltaMS;
+    placeBoard();
+  });
+  /** The Goal's office, hidden while its rubble shows. */
+  const goalOffice = () => ground.getChildByLabel("goal", true);
   app.renderer.on("resize", (width: number, height: number) => {
     bounds = boundsFor(width, height);
     aim(clampCamera(camera, bounds));
@@ -240,11 +275,27 @@ export async function startRenderer(
         drawnMaze = state.maze;
         drawTricks();
       }
-      units.show(state, newShots);
+      units.show(state);
+      effects.showBattle(state, newShots);
       moveParts(movingParts, state, sliders?.volume ?? 0);
     },
     clearBattle: () => {
       units.clear();
+      effects.clear();
+      const office = goalOffice();
+      if (office !== null) office.visible = true;
+    },
+    popGold: (at, amount) => {
+      effects.popGold(at, amount);
+    },
+    breakGoal: () => {
+      const office = goalOffice();
+      if (office !== null) office.visible = false;
+      effects.breakGoal();
+      startShake(GOAL_SHAKE_PX);
+    },
+    shakeForBoss: () => {
+      startShake(BOSS_SHAKE_PX);
     },
     showGoalHealth: (health, maxHealth) => {
       goalHealth.show(health, maxHealth);
