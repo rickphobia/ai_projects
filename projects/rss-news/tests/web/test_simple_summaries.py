@@ -320,3 +320,13 @@ def test_a_finished_summary_sends_no_alert(
     finish(wiring, model, leave_summary(wiring, client))
 
     assert sender.delivered == []
+
+
+def test_a_saved_summary_goes_with_its_item(client: TestClient) -> None:
+    summarise(client, "A story")
+    story = item_id(client, "A story")
+    source_id = client.get(f"{PREFIX}/api/sources").json()["sources"][0]["id"]
+
+    assert client.delete(f"{PREFIX}/api/sources/{source_id}").status_code == 204
+
+    assert client.get(summary_path(story)).status_code == 404
