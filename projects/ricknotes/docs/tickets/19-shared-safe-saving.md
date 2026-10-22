@@ -4,13 +4,13 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-session
 
 **Effort:** medium
 
-- [ ] The safe write, Versions and save scheduling live in one reusable piece that the Document session uses
-- [ ] All existing Document session tests pass unchanged (no test edited to make it pass)
-- [ ] The reusable piece has its own tests for a failed save leaving the old file whole and for Version timing
-- [ ] No user-visible change; the PR says so and lists what moved
+- [x] The safe write, Versions and save scheduling live in one reusable piece that the Document session uses
+- [x] All existing Document session tests pass unchanged (no test edited to make it pass)
+- [x] The reusable piece has its own tests for a failed save leaving the old file whole and for Version timing
+- [x] No user-visible change; the PR says so and lists what moved
