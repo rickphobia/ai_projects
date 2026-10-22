@@ -27,7 +27,8 @@ export async function renderBriefings(
       ),
     );
     if (briefings.length === 0) {
-      status.textContent = "No Briefings yet. Brief me on Home writes one.";
+      status.textContent =
+        "No Briefings yet. Brief me at the top of the Inbox writes one.";
     }
   } catch (error) {
     if (error instanceof SignedOutError) return;

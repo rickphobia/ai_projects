@@ -1,5 +1,5 @@
 import { screen, waitFor } from "@testing-library/dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import type { Briefing } from "../../src/api/briefings";
 import { ApiError, RefusedError } from "../../src/api/client";
@@ -47,31 +47,41 @@ describe("Brief me", () => {
     api = new FakeApiClient();
   });
 
-  it("shows the latest Briefing grouped by Folder, each point linking its Items", async () => {
-    api.latestBriefingAnswer = BRIEFING;
-    const onOpenItem = vi.fn();
+  it("links to the Briefing it writes on the Briefings screen, not showing it here", async () => {
+    api.writeAnswers = [
+      { progress: [], result: { briefing: BRIEFING, reused: false } },
+    ];
 
-    await renderBriefMe(root, api, onOpenItem);
+    await renderBriefMe(root, api);
+    expect(
+      screen.queryByRole("link", { name: "Open the Briefing" }),
+    ).toBeNull();
+    briefMe().click();
 
-    expect(screen.getByRole("heading", { name: "Malaysia" })).toBeTruthy();
-    expect(screen.getByText(/Bank Negara held the OPR/)).toBeTruthy();
-    expect(screen.getByText(/12 Items · cost \$0\.21/)).toBeTruthy();
-    screen.getByRole("link", { name: "Berita Harian: OPR kekal" }).click();
-    expect(onOpenItem).toHaveBeenCalledWith(8);
+    const link = await screen.findByRole("link", { name: "Open the Briefing" });
+    expect(link.getAttribute("href")).toBe("#briefings/3");
+    expect(screen.queryByText(/Bank Negara held the OPR/)).toBeNull();
   });
 
-  it("says when there is no Briefing yet", async () => {
-    await renderBriefMe(root, api, () => undefined);
+  it("shows no Briefing until Brief me is pressed", async () => {
+    api.latestBriefingAnswer = BRIEFING;
 
-    expect(
-      screen.getByRole("region", { name: "Briefing" }).textContent,
-    ).toContain("No Briefing yet");
+    await renderBriefMe(root, api);
+
+    expect(screen.queryByText(/Bank Negara held the OPR/)).toBeNull();
+  });
+
+  it("reads as one bar: Brief [scope] over [window] [Brief me]", async () => {
+    await renderBriefMe(root, api);
+
+    const bar = screen.getByRole("group", { name: "Brief me" });
+    expect(bar.textContent).toMatch(/^BriefAll Sources.*over.*Brief me/);
   });
 
   it("shows the estimated cost on the button before it is pressed", async () => {
-    await renderBriefMe(root, api, () => undefined);
+    await renderBriefMe(root, api);
 
-    expect(briefMe().textContent).toBe("Brief me: last 24 hours (about $0.24)");
+    expect(briefMe().textContent).toBe("Brief me (about $0.24)");
     expect(briefMe().disabled).toBe(false);
     expect(api.writeRequests).toEqual([]);
   });
@@ -83,7 +93,7 @@ describe("Brief me", () => {
       estimatedCostUsd: "0.00",
     };
 
-    await renderBriefMe(root, api, () => undefined);
+    await renderBriefMe(root, api);
 
     expect(briefMe().disabled).toBe(true);
     expect(progress()).toBe("Nothing to brief in the last 24 hours.");
@@ -94,7 +104,7 @@ describe("Brief me", () => {
       "GET /api/briefings/estimate answered 500",
     );
 
-    await renderBriefMe(root, api, () => undefined);
+    await renderBriefMe(root, api);
 
     expect(briefMe().disabled).toBe(true);
     expect(screen.getByRole("alert").textContent).toContain(
@@ -102,7 +112,7 @@ describe("Brief me", () => {
     );
   });
 
-  it("shows progress while writing, then the new Briefing", async () => {
+  it("shows progress while writing, then a link to the new Briefing", async () => {
     api.writeAnswers = [
       {
         progress: [
@@ -113,7 +123,7 @@ describe("Brief me", () => {
       },
     ];
     api.holdWrite = true;
-    await renderBriefMe(root, api, () => undefined);
+    await renderBriefMe(root, api);
 
     briefMe().click();
 
@@ -122,16 +132,14 @@ describe("Brief me", () => {
     });
     expect(briefMe().disabled).toBe(true);
     api.releaseWrite?.();
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Malaysia" })).toBeTruthy();
-    });
+    await screen.findByRole("link", { name: "Open the Briefing" });
     expect(api.writeRequests).toEqual([false]);
     expect(progress()).toBe("");
     expect(screen.queryByRole("button", { name: /Regenerate/ })).toBeNull();
     expect(briefMe().disabled).toBe(false);
   });
 
-  it("shows today's saved Briefing with a Regenerate button and its cost", async () => {
+  it("links today's saved Briefing with a Regenerate button and its cost", async () => {
     api.writeAnswers = [
       { progress: [], result: { briefing: BRIEFING, reused: true } },
       {
@@ -139,7 +147,7 @@ describe("Brief me", () => {
         result: { briefing: { ...BRIEFING, id: 4 }, reused: false },
       },
     ];
-    await renderBriefMe(root, api, () => undefined);
+    await renderBriefMe(root, api);
 
     briefMe().click();
     const regenerate = await waitFor(() => {
@@ -150,6 +158,11 @@ describe("Brief me", () => {
       return found;
     });
     expect(progress()).toContain("today's Briefing, already written");
+    expect(
+      screen
+        .getByRole("link", { name: "Open the Briefing" })
+        .getAttribute("href"),
+    ).toBe("#briefings/3");
 
     regenerate.click();
 
@@ -172,7 +185,7 @@ describe("Brief me", () => {
         ),
       },
     ];
-    await renderBriefMe(root, api, () => undefined);
+    await renderBriefMe(root, api);
 
     briefMe().click();
 
@@ -193,7 +206,7 @@ describe("Brief me", () => {
     api.writeAnswers = [
       { progress: [], result: { briefing: BRIEFING, reused: false } },
     ];
-    await renderBriefMe(root, api, () => undefined);
+    await renderBriefMe(root, api);
     api.estimateAnswer = {
       itemCount: 4,
       sectionCount: 1,
@@ -201,12 +214,10 @@ describe("Brief me", () => {
     };
 
     choose("Brief", "AI");
-    choose("Over", "Last 7 days");
+    choose("over", "Last 7 days");
 
     await waitFor(() => {
-      expect(briefMe().textContent).toBe(
-        "Brief me: AI, last 7 days (about $0.09)",
-      );
+      expect(briefMe().textContent).toBe("Brief me (about $0.09)");
     });
     expect(api.estimateRequests).toEqual([
       { window: "24h" },
@@ -221,14 +232,14 @@ describe("Brief me", () => {
 
   it("says when the chosen scope has nothing to brief", async () => {
     api.foldersAnswer = [{ id: 2, name: "AI" }];
-    await renderBriefMe(root, api, () => undefined);
+    await renderBriefMe(root, api);
     api.estimateAnswer = {
       itemCount: 0,
       sectionCount: 0,
       estimatedCostUsd: "0.00",
     };
 
-    choose("Over", "Last 30 days");
+    choose("over", "Last 30 days");
 
     await waitFor(() => {
       expect(progress()).toBe("Nothing to brief in the last 30 days.");
@@ -242,7 +253,7 @@ describe("Brief me", () => {
     ];
     api.latestBriefingAnswer = { ...BRIEFING, id: 1 };
 
-    await renderBriefMe(root, api, () => undefined, [7, 8]);
+    await renderBriefMe(root, api, [7, 8]);
 
     const briefThese = screen.getByRole("button", { name: /^Brief these/ });
     expect(briefThese.textContent).toBe(
@@ -251,9 +262,7 @@ describe("Brief me", () => {
     expect(screen.queryByRole("combobox", { name: "Brief" })).toBeNull();
     expect(api.estimateRequests).toEqual([{ itemIds: [7, 8] }]);
     briefThese.click();
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Malaysia" })).toBeTruthy();
-    });
+    await screen.findByRole("link", { name: "Open the Briefing" });
     expect(api.writeScopes).toEqual([{ itemIds: [7, 8] }]);
   });
 });

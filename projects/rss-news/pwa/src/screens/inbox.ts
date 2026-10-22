@@ -6,7 +6,7 @@ import {
   type InboxQuery,
   type InboxReadFilter,
 } from "../api/client";
-import { briefMeCard } from "./brief-me";
+import { briefMeBar } from "./brief-me";
 import { inboxContents } from "./inbox-contents";
 import { itemRow, rowId } from "./inbox-row";
 import { toggleGroup } from "./toggle-group";
@@ -24,8 +24,8 @@ const ANY_IMPORTANCE = "";
 // The Inbox: the unread Items (or the read ones, or all) latest first or most important first,
 // a keyword search, filters by Folder and Importance, and a button for the next page. Choosing
 // an Item calls onOpen with its id and the loaded Items' ids in order, so the Item view can move
-// on to the next one. Brief me and the latest Briefing sit folded at the top (brief-me.ts);
-// Items can be ticked, and "Brief these" opens it offering a Briefing of exactly those. A
+// on to the next one. The Brief me bar sits at the top (brief-me.ts), its estimate loaded at
+// once; Items can be ticked, and "Brief these" turns it into a Briefing of exactly those. A
 // Contents panel lists the loaded Items and jumps to the chosen one's row.
 // Given folderId (a Folder picked in the sidebar), it opens filtered to that Folder.
 export async function renderInbox(
@@ -35,7 +35,7 @@ export async function renderInbox(
   folderId?: number,
   briefing: InboxBriefing = {},
 ): Promise<void> {
-  const briefMe = briefMeCard(api, onOpen);
+  const briefMe = briefMeBar(api);
   const filter = document.createElement("select");
   filter.append(new Option("All folders", ALL_FOLDERS));
   const importanceFilter = document.createElement("select");
@@ -114,7 +114,7 @@ export async function renderInbox(
   showPicked();
   briefThese.addEventListener("click", () => {
     void briefMe.show([...picked]);
-    briefMe.card.scrollIntoView({ behavior: "smooth", block: "start" });
+    briefMe.bar.scrollIntoView({ behavior: "smooth", block: "start" });
   });
   const onPick = (itemId: number, ticked: boolean): void => {
     if (ticked) picked.add(itemId);
@@ -130,7 +130,7 @@ export async function renderInbox(
   const column = document.createElement("div");
   column.className = "inbox-column";
   column.append(
-    briefMe.card,
+    briefMe.bar,
     views,
     searchForm,
     filters,
@@ -220,9 +220,7 @@ export async function renderInbox(
       if (folderId !== undefined) filter.value = String(folderId);
     }),
     load(false),
-    briefing.pickedItemIds !== undefined || briefing.briefNow === true
-      ? briefMe.show(briefing.pickedItemIds, briefing.briefNow)
-      : Promise.resolve(),
+    briefMe.show(briefing.pickedItemIds, briefing.briefNow),
   ]);
 }
 

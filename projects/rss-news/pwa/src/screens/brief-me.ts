@@ -5,7 +5,6 @@ import type {
   BriefingWindow,
 } from "../api/briefings";
 import { SignedOutError, type ApiClient } from "../api/client";
-import { showBriefing } from "./briefing-view";
 
 const ALL_SOURCES = "";
 const WINDOW_TEXT: Record<BriefingWindow, string> = {
@@ -14,21 +13,22 @@ const WINDOW_TEXT: Record<BriefingWindow, string> = {
   "30d": "last 30 days",
 };
 
-// Brief me, in its card at the top of the Inbox: the latest Briefing, and Brief me with a scope
-// (all Sources or one Folder), a window and the estimated cost. Pressing it again the same day
-// shows the saved Briefing with a Regenerate button. Given `pickedItemIds` ("Brief these" in the
-// Inbox or under a Chat answer), it offers a Briefing of exactly those Items instead. Given
-// `briefNow` (the Brief me (24h) shortcut), it presses Brief me for the default scope as soon as
-// the estimate is in.
+// Brief me, as one compact bar at the top of the Inbox: Brief [All Sources or a Folder] over
+// [a window] [Brief me (about $X)], with its progress and errors under it. A finished Briefing
+// isn't shown here (the Briefings screen shows them); the bar links to it. Pressing it again the
+// same day links today's saved Briefing with a Regenerate button. Given `pickedItemIds` ("Brief
+// these" in the Inbox or under a Chat answer), it offers a Briefing of exactly those Items
+// instead. Given `briefNow` (the Brief me (24h) shortcut), it presses Brief me for the default
+// scope as soon as the estimate is in.
 export async function renderBriefMe(
   root: HTMLElement,
   api: ApiClient,
-  onOpenItem: (itemId: number) => void,
   pickedItemIds?: number[],
   briefNow = false,
 ): Promise<void> {
   const picked = pickedItemIds !== undefined && pickedItemIds.length > 0;
   const briefMe = button(picked ? "Brief these" : "Brief me");
+  briefMe.className = "primary";
   // Waits for the estimate, so the owner never presses without seeing the cost.
   briefMe.disabled = true;
   const scopeSelect = document.createElement("select");
@@ -37,32 +37,28 @@ export async function renderBriefMe(
   for (const [value, text] of Object.entries(WINDOW_TEXT)) {
     windowSelect.append(new Option(capitalised(text), value));
   }
-  const controls = document.createElement("div");
-  controls.className = "toolbar";
-  controls.hidden = picked;
-  controls.append(
-    labelled("Brief", scopeSelect),
-    labelled("Over", windowSelect),
-  );
-  briefMe.className = "primary";
-  const regenerate = button("Regenerate");
-  regenerate.hidden = true;
+  const bar = document.createElement("div");
+  bar.className = "brief-me-bar";
+  bar.setAttribute("role", "group");
+  bar.setAttribute("aria-label", "Brief me");
+  if (!picked) {
+    bar.append(labelled("Brief", scopeSelect), labelled("over", windowSelect));
+  }
+  bar.append(briefMe);
   const progress = document.createElement("p");
   progress.setAttribute("role", "status");
   progress.setAttribute("aria-label", "Briefing progress");
   const failure = document.createElement("p");
   failure.setAttribute("role", "alert");
-  const shown = document.createElement("section");
-  shown.setAttribute("aria-label", "Briefing");
-  shown.className = "briefing";
-  const actions = document.createElement("div");
-  actions.className = "toolbar";
-  actions.append(briefMe, regenerate);
-  // Brief me sits in its own card, apart from the Briefing it writes.
-  const briefMeCard = document.createElement("div");
-  briefMeCard.className = "brief-me";
-  briefMeCard.append(controls, actions, progress, failure);
-  root.replaceChildren(briefMeCard, shown);
+  const openBriefing = document.createElement("a");
+  openBriefing.textContent = "Open the Briefing";
+  const regenerate = button("Regenerate");
+  regenerate.hidden = true;
+  const written = document.createElement("p");
+  written.className = "toolbar";
+  written.hidden = true;
+  written.append(openBriefing, regenerate);
+  root.replaceChildren(bar, progress, failure, written);
 
   const request = (): BriefingRequest =>
     picked
@@ -92,7 +88,8 @@ export async function renderBriefMe(
     estimate = null;
     briefMe.disabled = true;
     regenerate.hidden = true;
-    briefMe.textContent = `${picked ? "Brief these" : "Brief me"}: ${scopeText()}`;
+    // The bar's selects already say the scope; only picked Items need it spelled out.
+    briefMe.textContent = picked ? `Brief these: ${scopeText()}` : "Brief me";
     try {
       const answer = await api.briefingEstimate(request());
       if (thisEstimate !== latestEstimate) return;
@@ -123,12 +120,13 @@ export async function renderBriefMe(
     failure.textContent = "";
     progress.textContent = "Starting the Briefing…";
     try {
-      const written = await api.writeBriefing(request(), again, (step) => {
+      const answer = await api.writeBriefing(request(), again, (step) => {
         progress.textContent = progressText(step);
       });
-      showBriefing(shown, written.briefing, onOpenItem);
-      regenerate.hidden = !written.reused;
-      progress.textContent = written.reused
+      openBriefing.href = `#briefings/${String(answer.briefing.id)}`;
+      written.hidden = false;
+      regenerate.hidden = !answer.reused;
+      progress.textContent = answer.reused
         ? "This is today's Briefing, already written. Regenerate writes a new one."
         : "";
     } catch (error) {
@@ -147,26 +145,12 @@ export async function renderBriefMe(
     select.addEventListener("change", () => void refreshEstimate());
   }
 
-  const [latest] = await Promise.allSettled([
-    api.latestBriefing(),
+  await Promise.allSettled([
     refreshEstimate().then(() => {
       if (briefNow && !briefMe.disabled) void write(false);
     }),
     picked ? Promise.resolve() : fillFolders(api, scopeSelect),
   ]);
-  if (isSignedOut(latest)) return;
-  // A picked Briefing isn't shown until it is written; the latest one would confuse.
-  if (picked) return;
-  if (latest.status === "fulfilled") {
-    if (latest.value === null) {
-      shown.textContent =
-        "No Briefing yet. Press Brief me to write the first one.";
-    } else {
-      showBriefing(shown, latest.value, onOpenItem);
-    }
-  } else {
-    shown.textContent = `Couldn't load the latest Briefing: ${messageOf(latest.reason)}`;
-  }
 }
 
 async function fillFolders(
@@ -211,42 +195,21 @@ function capitalised(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function isSignedOut(result: PromiseSettledResult<unknown>): boolean {
-  return (
-    result.status === "rejected" && result.reason instanceof SignedOutError
-  );
-}
-
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export interface BriefMeCard {
-  card: HTMLDetailsElement;
-  // Opens the card and shows Brief me, for picked Items or pressing itself when asked.
+export interface BriefMeBar {
+  bar: HTMLElement;
+  // Draws Brief me again, for picked Items or pressing itself when asked.
   show: (pickedItemIds?: number[], briefNow?: boolean) => Promise<void>;
 }
 
-// Brief me folded into a card at the top of the Inbox, so the list comes first. It only asks
-// for the latest Briefing and the estimate once opened.
-export function briefMeCard(
-  api: ApiClient,
-  onOpenItem: (itemId: number) => void,
-): BriefMeCard {
-  const card = document.createElement("details");
-  card.className = "brief-me-panel";
-  const summary = document.createElement("summary");
-  summary.textContent = "Brief me";
-  const content = document.createElement("div");
-  card.append(summary, content);
-  let shown = false;
-  const show = (pickedItemIds?: number[], briefNow = false): Promise<void> => {
-    shown = true;
-    card.open = true;
-    return renderBriefMe(content, api, onOpenItem, pickedItemIds, briefNow);
-  };
-  card.addEventListener("toggle", () => {
-    if (card.open && !shown) void show();
-  });
-  return { card, show };
+// The Brief me bar at the top of the Inbox, always showing once show() has drawn it.
+export function briefMeBar(api: ApiClient): BriefMeBar {
+  const bar = document.createElement("div");
+  bar.className = "brief-me";
+  const show = (pickedItemIds?: number[], briefNow = false): Promise<void> =>
+    renderBriefMe(bar, api, pickedItemIds, briefNow);
+  return { bar, show };
 }
