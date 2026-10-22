@@ -6,14 +6,14 @@ Likely cause, to confirm with a failing test first (`/diagnosing-bugs`): once tw
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-touch, app-input
 
 **Effort:** medium
 
-- [ ] A test in the touch interpreter reproduces it first: two fingers moving in parallel, with realistic jitter and one-pointer-at-a-time moves, produce zoom changes (fails before the fix)
-- [ ] After the fix the same sequence produces scrolling only (zoom change exactly 1), with Finger erase on and off
-- [ ] A real pinch still zooms smoothly once the spread changes past a threshold; the threshold is a named setting in `core` with the other touch thresholds
-- [ ] Existing touch interpreter tests stay green, none edited to make them pass
-- [ ] On-tablet check written in the PR: with Finger erase on, two-finger swipe through a 40-page lecture without the zoom changing, then pinch to zoom and back
+- [x] A test in the touch interpreter reproduces it first: two fingers moving in parallel, with realistic jitter and one-pointer-at-a-time moves, produce zoom changes (fails before the fix)
+- [x] After the fix the same sequence produces scrolling only (zoom change exactly 1), with Finger erase on and off
+- [x] A real pinch still zooms smoothly once the spread changes past a threshold; the threshold is a named setting in `core` with the other touch thresholds
+- [x] Existing touch interpreter tests stay green, none edited to make them pass
+- [x] On-tablet check written in the PR: with Finger erase on, two-finger swipe through a 40-page lecture without the zoom changing, then pinch to zoom and back
