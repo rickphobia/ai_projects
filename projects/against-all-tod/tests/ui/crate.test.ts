@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { DUDE_KINDS } from "../../src/catalog/dudes";
+import { MUTATIONS } from "../../src/catalog/mutations";
+import { PIECES } from "../../src/catalog/pieces";
 import { CRATE_RULES } from "../../src/catalog/pools";
+import { MUTATION_MARKS } from "../../src/ui/crate-marks";
 import {
+  crateCard,
   crateHeading,
   crateItemDescription,
   crateItemName,
@@ -55,6 +60,24 @@ describe("crate labels", () => {
         rerolls: 0,
       }),
     ).toBe("Draft Crate: take one for free");
+  });
+
+  it("builds a card's text and picture from the catalogue entry", () => {
+    expect(crateCard({ kind: "gift", id: "intern" })).toEqual({
+      name: "20 free Interns",
+      description: DUDE_KINDS.intern.description,
+      picture: { kind: "portrait", id: "intern", badge: "×20" },
+    });
+    expect(crateCard({ kind: "piece", id: "siren" })).toEqual({
+      name: "Siren",
+      description: PIECES.siren.description,
+      picture: { kind: "portrait", id: "siren", badge: null },
+    });
+    expect(crateCard({ kind: "mutation", id: "giant" })).toEqual({
+      name: "Giant Mutation",
+      description: MUTATIONS.giant.description,
+      picture: { kind: "mark", svg: MUTATION_MARKS.giant },
+    });
   });
 
   it("shows the side's reroll price", () => {
