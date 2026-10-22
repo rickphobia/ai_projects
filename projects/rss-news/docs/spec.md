@@ -176,6 +176,7 @@ rss-news is a private, single-user PWA on the Beelink at `rickphobia.com/ai-proj
 103. As the owner, I want coming back to the app to show a Briefing still being written with its progress ("Writing World (2 of 3)…") or a link to it once done, and a Chat question as "Answering…" and then its answer, so that I can pick up where I left off.
 104. As the owner, I want an Alert when a Briefing I started is finished or has failed, which opens the Briefing when tapped, so that I know without checking the app.
 105. As the owner, I want pressing Brief me again while that Briefing is being written to follow the one already running, and a Briefing or question lost to a server restart to show as failed rather than hang, so that I'm never charged twice or left waiting forever.
+106. As the owner, I want a Simple summary to keep being written and be saved for its Item when I leave the Item, and reopening the Item to show it straight away (or "Summarising…" while it is still written) with a Summarise again button, so that I don't pay twice for the same summary or wait on the screen for it.
 
 ## Implementation Decisions
 
@@ -278,10 +279,10 @@ The monthly limit defaults to 100 USD.
 | Folders, Sources | list, create, update, delete. Source health is included when listing |
 | Stocks | Watchlist (list, add, remove) |
 | Inbox | list with filters and paging, search, mark read |
-| Items | show one; Reader view (fetches and extracts when the Item is opened); Simple summary (written when asked, not kept) |
+| Items | show one; Reader view (fetches and extracts when the Item is opened); Simple summary (the saved one; writing a new one runs as a job, streamed, and replaces it; pressing again while it is written joins the running job) |
 | Briefings | latest, estimate, create (runs as a job and returns its progress as server-sent events; a `regenerate` flag writes a new one even when today's is saved; pressing again while that scope is written joins the running job), list, show |
 | Chats | list, create, send message (runs as a job, streamed; 409 while the Chat is still answering), show |
-| Jobs | follow a Briefing or Chat answer job again by its id, from the start (404 once the server no longer knows it, such as after a restart; decision 0007) |
+| Jobs | follow a Briefing, Chat answer or Simple summary job again by its id, from the start (404 once the server no longer knows it, such as after a restart; decision 0007) |
 | Dictionary | look up |
 | Notes | list, create, update, delete, export as Markdown |
 | Push | set-up (whether Alerts are available, and the public key), subscribe, unsubscribe, send test Alert |
@@ -303,7 +304,7 @@ The monthly limit defaults to 100 USD.
 - **Design:** one shared stylesheet of colour, spacing and type tokens with a light and a dark set picked by `prefers-color-scheme`; every screen uses it. No UI framework: the PWA stays plain TypeScript. oksskolten's screenshots are the visual reference. Thumbnails are the image link the feed itself gives (no page fetch); the picture loads from the original site and is never stored.
 - **Selection popup:** appears on selected text in Briefings, Items and Chat answers.
 - **Service worker:** caches the app shell, receives push messages and opens the Item (or, for a finished Briefing, the Briefing) when an Alert is tapped.
-- **Running jobs:** the PWA remembers in the browser's storage the job of a Briefing or Chat question it started, and follows it again when the owner comes back.
+- **Running jobs:** the PWA remembers in the browser's storage the job of a Briefing, Chat question or Simple summary it started, and follows it again when the owner comes back.
 - **Manifest:** installable, with app shortcuts for "Brief me (24h)", "Chat" and "Notes".
 - **Backend calls:** all go through one API client module. It is the PWA's seam for tests.
 
