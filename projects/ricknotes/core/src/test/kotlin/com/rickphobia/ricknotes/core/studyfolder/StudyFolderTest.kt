@@ -35,7 +35,11 @@ class StudyFolderTest {
             }
         }
 
-    private fun listed() = StudyFolder(temp.root.toPath()).listTree().children.flatMap { outline(it) }
+    private fun listed() =
+        StudyFolder(temp.root.toPath())
+            .listTree { folder, error -> throw AssertionError("unexpected unreadable $folder", error) }
+            .children
+            .flatMap { outline(it) }
 
     @Test
     fun `lists folders before PDFs, each sorted by name ignoring case`() {
@@ -79,7 +83,7 @@ class StudyFolderTest {
     fun `paths are relative to the Study folder with forward slashes`() {
         touch("Y1/Sem1/notes.pdf")
 
-        val tree = StudyFolder(temp.root.toPath()).listTree()
+        val tree = StudyFolder(temp.root.toPath()).listTree { _, _ -> }
         val sem1 = (tree.children.single() as TreeNode.Folder).children.single() as TreeNode.Folder
 
         assertEquals("", tree.path)
@@ -100,15 +104,37 @@ class StudyFolderTest {
     }
 
     @Test
-    fun `a folder that can't be read fails naming it`() {
+    fun `a subfolder that can't be read is left out and reported, the rest still lists`() {
+        touch("Y1/Sem1/notes.pdf")
         val locked = folder("Y1/Locked")
         assertTrue(locked.setReadable(false))
         try {
-            val error = assertThrows(StudyFolderListingException::class.java) { listed() }
+            val unreadable = mutableListOf<String>()
 
-            assertEquals("Y1/Locked", error.folder)
+            val tree = StudyFolder(temp.root.toPath()).listTree { folder, _ -> unreadable.add(folder) }
+
+            assertEquals(listOf("Y1/", "  Sem1/", "    notes.pdf"), tree.children.flatMap { outline(it) })
+            assertEquals(listOf("Y1/Locked"), unreadable)
         } finally {
             locked.setReadable(true)
         }
+    }
+
+    @Test
+    fun `a Study folder that can't be read fails`() {
+        assertTrue(temp.root.setReadable(false))
+        try {
+            val error = assertThrows(StudyFolderListingException::class.java) { listed() }
+
+            assertEquals("", error.folder)
+        } finally {
+            temp.root.setReadable(true)
+        }
+    }
+
+    @Test
+    fun `a Document knows its folder`() {
+        assertEquals("Y1/Sem1", TreeNode.Document("a.pdf", "Y1/Sem1/a.pdf").folder)
+        assertEquals("", TreeNode.Document("a.pdf", "a.pdf").folder)
     }
 }

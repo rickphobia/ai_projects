@@ -23,7 +23,7 @@ class RecentDocumentsTest {
 
     private val settings = MapSettings()
 
-    private fun recent() = RecentDocuments(settings, settings)
+    private fun recent() = RecentDocuments(settings)
 
     @Test
     fun `nothing opened yet means no Recent Documents`() {

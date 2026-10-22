@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.rickphobia.ricknotes.R
-import com.rickphobia.ricknotes.core.studyfolder.RecentDocuments
 import com.rickphobia.ricknotes.core.studyfolder.StudyFolder
 import com.rickphobia.ricknotes.core.studyfolder.StudyFolderListingException
 import com.rickphobia.ricknotes.core.studyfolder.TreeLayout
@@ -43,13 +42,13 @@ private sealed interface Listing {
     ) : Listing
 }
 
-private fun list(
+private fun loadListing(
     studyFolder: StudyFolder,
     recentPaths: List<String>,
 ): Listing =
     try {
         val started = System.nanoTime()
-        val tree = studyFolder.listTree()
+        val tree = studyFolder.listTree { _, error -> AppLog.w("left out of the tree: ${error.message}") }
         AppLog.i("listed the Study folder in ${(System.nanoTime() - started) / NANOS_PER_MS} ms")
         Listing.Ready(
             tree = tree,
@@ -67,24 +66,17 @@ private const val NANOS_PER_MS = 1_000_000
 fun HomeScreen(
     versionName: String,
     studyFolder: String,
-    recentDocuments: RecentDocuments,
+    recentPaths: () -> List<String>,
     onOpenSettings: () -> Unit,
     onOpenPdf: (PdfEntry) -> Unit,
 ) {
     val folder = remember(studyFolder) { StudyFolder(Path.of(studyFolder)) }
     // A large Study folder takes a moment to walk, so it is listed off the main thread.
     val listing by produceState<Listing>(initialValue = Listing.Loading, studyFolder) {
-        value = withContext(Dispatchers.IO) { list(folder, recentDocuments.paths()) }
+        value = withContext(Dispatchers.IO) { loadListing(folder, recentPaths()) }
     }
     val open = { document: TreeNode.Document ->
-        recentDocuments.opened(document.path)
-        onOpenPdf(
-            PdfEntry(
-                path = folder.resolve(document.path).toString(),
-                folder = document.path.substringBeforeLast('/', missingDelimiterValue = ""),
-                name = document.name,
-            ),
-        )
+        onOpenPdf(PdfEntry(folder.resolve(document.path).toString(), document.folder, document.name))
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {

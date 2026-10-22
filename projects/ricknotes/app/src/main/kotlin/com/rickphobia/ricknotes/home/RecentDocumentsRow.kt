@@ -40,7 +40,7 @@ fun RecentDocumentsRow(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = document.path.substringBeforeLast('/', missingDelimiterValue = ""),
+                            text = document.folder,
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,

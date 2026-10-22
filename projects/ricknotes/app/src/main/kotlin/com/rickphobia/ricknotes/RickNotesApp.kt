@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -108,7 +109,7 @@ fun <S> RickNotesApp(
     var screen by remember(hasAllFilesAccess) { mutableStateOf(startScreen(storage.settings)) }
     val favouritePens = remember { FavouritePensSetting(storage.settings) }
     val fingerGestures = remember { FingerGesturesSetting(storage.settings) }
-    val recentDocuments = remember { RecentDocuments(storage.settings, storage.settings) }
+    val recentDocuments = remember { RecentDocuments(storage.settings) }
 
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -132,7 +133,7 @@ fun <S> RickNotesApp(
                     HomeScreen(
                         versionName = versionName,
                         studyFolder = current.studyFolder,
-                        recentDocuments = recentDocuments,
+                        recentPaths = recentDocuments::paths,
                         onOpenSettings = { screen = Screen.Settings(current.studyFolder) },
                         onOpenPdf = { pdf -> screen = Screen.Document(current.studyFolder, pdf) },
                     )
@@ -158,6 +159,7 @@ fun <S> RickNotesApp(
                 }
 
                 is Screen.Document -> {
+                    LaunchedEffect(current.pdf.path) { recentDocuments.opened(current.pdf.treePath) }
                     DocumentScreen(current.pdf, storage.readingPositions, favouritePens.pens, fingerGestures.gestures) {
                         screen =
                             Screen.Home(current.studyFolder)

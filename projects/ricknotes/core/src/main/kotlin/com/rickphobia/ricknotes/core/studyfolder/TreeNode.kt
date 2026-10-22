@@ -1,0 +1,21 @@
+package com.rickphobia.ricknotes.core.studyfolder
+
+/** One entry in the Study folder tree. [path] is relative to the Study folder, with `/` between names. */
+sealed interface TreeNode {
+    val name: String
+    val path: String
+
+    data class Folder(
+        override val name: String,
+        override val path: String,
+        val children: List<TreeNode>,
+    ) : TreeNode
+
+    data class Document(
+        override val name: String,
+        override val path: String,
+    ) : TreeNode {
+        /** The tree path of the folder it is in ("" at the top of the Study folder). */
+        val folder: String get() = path.substringBeforeLast('/', missingDelimiterValue = "")
+    }
+}
