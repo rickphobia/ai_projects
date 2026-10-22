@@ -1,15 +1,12 @@
-import { Container, Graphics, Sprite, type Texture } from "pixi.js";
+import { Container, Sprite, type Texture } from "pixi.js";
 import type { BattleState } from "../../battle/battle";
 import type { DudeState } from "../../battle/dudes";
-import type { ShotEvent } from "../../battle/events";
 import { BOARD_COLUMNS } from "../../maze/board";
 import { TILE_SIZE, type BoardTextures } from "./board-textures";
-import { ATTACK_COLOUR, DEFENSE_COLOUR } from "./board-view";
+import { ATTACK_COLOUR } from "./board-view";
 import { dudeScale } from "./dude-scale";
 import { PANIC_STEPS, flop, waddle, type Waddle } from "./dude-motion";
 
-/** How long a shot's tracer stays, in battle steps. */
-const TRACER_STEPS = 10;
 /** How see-through a Ghost Mode ghost is. */
 const GHOST_ALPHA = 0.35;
 /** How see-through an older Dude is while the eraser is chosen: Erasing it refunds nothing. */
@@ -54,9 +51,8 @@ interface FallenDude {
 }
 
 /**
- * The battle as it stands: one drawn Dude per Dude, with a glow under it in the dark, shot
- * tracers in the defense colour. It reads
- * battle state only; waddling, panicking and flopping come from the Dude's id and the battle
+ * The battle's Dudes as they stand: one drawn Dude per Dude, with a glow under it in the dark.
+ * Shots and hits are the effects view's (`effects-view.ts`). It reads battle state only; waddling, panicking and flopping come from the Dude's id and the battle
  * step (`dude-motion.ts`), so they never change the battle.
  *
  * Every Dude is two sprites from the art kit's shared textures, so PixiJS draws the whole swarm
@@ -70,16 +66,14 @@ export class UnitsView {
     visible: false,
   });
   private readonly dudeLayer = new Container({ label: "dudes" });
-  private readonly tracers = new Graphics({ label: "tracers" });
   private readonly dudeSprites = new Map<number, DudeSprites>();
   private fallen: FallenDude[] = [];
-  private recentShots: ShotEvent[] = [];
   private frame = 0;
   /** Gold Teeth is on for the battle being shown. */
   private goldTeeth = false;
 
   constructor(private readonly textures: BoardTextures) {
-    this.view.addChild(this.haloLayer, this.dudeLayer, this.tracers);
+    this.view.addChild(this.haloLayer, this.dudeLayer);
   }
 
   /** Turns the Dudes' glow on in the dark and off again. */
@@ -87,13 +81,9 @@ export class UnitsView {
     this.haloLayer.visible = on;
   }
 
-  show(state: BattleState, newShots: readonly ShotEvent[]): void {
+  show(state: BattleState): void {
     this.goldTeeth = state.mutations.includes("gold-teeth");
     this.drawDudes(state.dudes, state.ghosts, state.step);
-    this.recentShots = [...this.recentShots, ...newShots].filter(
-      (shot) => state.step - shot.step < TRACER_STEPS,
-    );
-    this.drawTracers(state.step);
   }
 
   /**
@@ -119,8 +109,6 @@ export class UnitsView {
     this.dudeSprites.clear();
     for (const { sprites } of this.fallen) destroy(sprites);
     this.fallen = [];
-    this.recentShots = [];
-    this.tracers.clear();
   }
 
   /** `step` is the battle step, or null while building. */
@@ -261,25 +249,6 @@ export class UnitsView {
       }
       return true;
     });
-  }
-
-  private drawTracers(step: number): void {
-    this.tracers.clear();
-    for (const shot of this.recentShots) {
-      const fade = 1 - (step - shot.step) / TRACER_STEPS;
-      this.tracers
-        .moveTo(
-          (shot.pieceTile.column + 0.5) * TILE_SIZE,
-          (shot.pieceTile.row + 0.5) * TILE_SIZE,
-        )
-        .lineTo(shot.at.x * TILE_SIZE, shot.at.y * TILE_SIZE)
-        .stroke({
-          color: DEFENSE_COLOUR,
-          alpha: 0.9 * fade,
-          width: 4,
-          cap: "round",
-        });
-    }
   }
 }
 

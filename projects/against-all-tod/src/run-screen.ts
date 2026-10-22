@@ -21,6 +21,7 @@ import { PIECES, type PieceId } from "./catalog/pieces";
 import type { SliderId } from "./catalog/tricks";
 import { giveGold, jumpToRound } from "./debug/debug-options";
 import { goldEarned, type BattleEnd } from "./economy/economy";
+import { bossFell, goldPopsOf, refundSpot } from "./effect-cues";
 import type { Logger } from "./logger";
 import { tileKey, type Tile } from "./maze/board";
 import { pieceAt, type Maze } from "./maze/maze";
@@ -350,18 +351,22 @@ export class RunScreen {
   /** Reverses the newest action this Round, refunding what it cost. */
   takeBack(): void {
     const action = nextTakeBack(this.run);
-    const before = this.run.wallets;
+    const before = this.run;
     if (!this.act({ type: "take-back" }) || action === null) return;
     this.undoing = null;
-    const after = this.run.wallets;
+    const after = this.run;
+    const goldReturned =
+      after.wallets.defense -
+      before.wallets.defense +
+      (after.wallets.attack - before.wallets.attack);
     this.logger.info("took back", {
       round: roundOf(this.run),
       action: action.kind,
-      goldReturned:
-        after.defense - before.defense + (after.attack - before.attack),
+      goldReturned,
     });
     this.hud?.showTookBack(action);
     this.showBuilding();
+    this.view.popGold(refundSpot(before, after), goldReturned);
   }
 
   fight(): void {
@@ -428,6 +433,7 @@ export class RunScreen {
     this.hud?.showBattle(sideOf(this.run), this.watchSpeed);
     this.showTricks();
     this.showBattle(this.battle.state, []);
+    if (setup.boss !== null) this.view.shakeForBoss();
   }
 
   setWatchSpeed(speed: WatchSpeed): void {
@@ -688,8 +694,13 @@ export class RunScreen {
       ran.state,
       ran.events.filter((event): event is ShotEvent => event.type === "shot"),
     );
+    for (const pop of goldPopsOf(ran.events, battle.setup.mutations)) {
+      this.view.popGold(pop.at, pop.amount);
+    }
+    if (bossFell(ran.events)) this.view.shakeForBoss();
     const outcome = ran.state.outcome;
     if (outcome === null) return;
+    if (outcome.reason === "goal-destroyed") this.view.breakGoal();
 
     battle.stop();
     this.battle = null;
