@@ -57,7 +57,7 @@ Text the owner selected and saved, with an optional comment and a link back to w
 _Avoid_: Highlight, bookmark, clip
 
 **Alert**:
-A push notification about one Item, sent because the Item mentions a Watchlist stock or has Importance 5.
+A push notification about one Item, sent because the Item mentions a Watchlist stock or has Importance 5. A Briefing the owner started also sends one when it is finished (opening it) or has failed; those aren't held back by quiet hours or the daily cap.
 _Avoid_: Notification, ping, breaking news
 
 **Test Alert**:
