@@ -23,7 +23,7 @@ Milestones 1–2 gave me a pen on my PDFs, but three things still stop RickNotes
 
 1. As a student, I want the folders three levels inside my Study folder (`Y1/Sem1/EE2001`) treated as Course folders without any setup, so that every course gets its own Revision log.
 2. As a student, I want to mark any folder as a Course folder, or unmark one, from the home tree, so that an odd folder layout still works.
-3. As a student, I want a Document's Entries to go to the nearest Course folder above it, so that `EE2001/tuto/tuto3.pdf` and `EE2001/notes/lec3.pdf` share EE2001's log.
+3. As a student, I want a Document's Entries to go to the nearest Course folder above it, so that `EE2001/tutorial/tuto3.pdf`, `EE2001/notes/lec3.pdf` and a past year paper all share EE2001's log.
 4. As a student, I want unmarking a folder never to delete its Revision log, and its Entries still to appear in Review, so that I can't lose Entries by changing a setting.
 5. As a student, I want Add mistake and Add key point to explain why they're unavailable when a Document isn't inside any Course folder, and point me to marking one, so that I know what to do.
 
@@ -124,6 +124,8 @@ Three seams, all in `core` and tested on the JVM with a real temporary folder an
 
 ### Study folder seam
 
+- **The owner's layout:** `Y<year>/Sem<n>/<course>/`, and a course usually holds four folders: `notes` (textbook, lecture PDFs or slides), `tutorial`, `pnotes` (personal notes) and past year papers. Nothing in the app depends on these four names; only the Course folder's depth (or a mark) matters. Use them in examples, test fixtures and on-tablet checks.
+
 - **Course folder for a Document:** walk up from the Document's folder; the first folder that is marked, or is three levels inside the Study folder and not unmarked, is the Course folder. None found → no Course folder, and the Add actions explain why (story 5).
 - Course marks and unmarks are two lists of folder paths in app settings, loaded and validated with the other settings.
 - **Tree listing:** folders and PDFs, hiding `_revision_log`, `.assets`, `.versions`, Ink files and temporary files. Browse only; creating, renaming and moving stay in milestone 3.
@@ -175,4 +177,5 @@ Three seams, all in `core` and tested on the JVM with a real temporary folder an
 
 - **Check on the tablet:** whether ZUXOS lets you drag the screenshot preview into another app. If it doesn't, Share → RickNotes covers it; record the result in the README.
 - **Effect on the main spec:** this feature is done before milestone 3. Milestone 5 (Error log) shrinks to automatic Red ink collection into the Revision log and a generated PDF of the log. From milestone 7, Pictures already exist; a pasted Snip becomes a Picture.
+- **For milestone 3's grilling:** new Notebooks most likely belong in a course's `pnotes` folder; settle that default then.
 - A Snip includes Pictures because it's rendered from the page as shown, so a screenshot dropped onto a page can then be lassoed into the Revision log.
