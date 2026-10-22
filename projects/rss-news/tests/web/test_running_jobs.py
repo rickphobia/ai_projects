@@ -2,10 +2,8 @@
 can be followed again by their job id, a second Brief me joins the running one, and a finished
 or failed Briefing sends an Alert that opens it."""
 
-import json
 import threading
 from pathlib import Path
-from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,6 +22,7 @@ from tests.support import (
     FakeLanguageModel,
     FakePushSender,
     app_env,
+    events,
     make_wiring,
     post_and_leave,
 )
@@ -99,16 +98,6 @@ def finish(wiring: Wiring, model: FakeLanguageModel, job_id: str) -> None:
     job = wiring.jobs.get(job_id)
     assert job is not None
     assert job.wait_finished(GATE_WAIT.total_seconds())
-
-
-def events(text: str) -> list[tuple[str, dict[str, Any]]]:
-    parsed = []
-    for block in text.strip().split("\n\n"):
-        name_line, data_line = block.split("\n")
-        parsed.append(
-            (name_line.removeprefix("event: "), json.loads(data_line.removeprefix("data: ")))
-        )
-    return parsed
 
 
 def alerts(sender: FakePushSender) -> list[Alert]:

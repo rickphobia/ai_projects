@@ -18,6 +18,7 @@ from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.adapters.sqlite.items import SqliteItems
 from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
 from rss_news.adapters.sqlite.notes import SqliteNotes
+from rss_news.adapters.sqlite.simple_summaries import SqliteSimpleSummaries
 from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.adapters.sqlite.spending import SqliteSpending
 from rss_news.adapters.sqlite.stocks import SqliteStocks
@@ -63,7 +64,7 @@ class Wiring:
     tick: Tick
     ledger: SpendingLedger
     stocks: Stocks
-    # The running and recently finished Briefings and Chat answers.
+    # The running and recently finished Briefings, Chat answers and Simple summaries.
     jobs: Jobs
 
 
@@ -191,7 +192,12 @@ def build_app(
         ),
         dictionary=Dictionary(model=language_model, ledger=ledger, limit=limit),
         simple_summaries=SimpleSummaries(
-            items=item_reading, model=language_model, ledger=ledger, limit=limit
+            items=item_reading,
+            store=SqliteSimpleSummaries(database),
+            model=language_model,
+            ledger=ledger,
+            limit=limit,
+            clock=clock,
         ),
         notes=Notes(SqliteNotes(database), clock),
         spending=limit,
