@@ -36,6 +36,7 @@ import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
 import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.PagePlacement
+import com.rickphobia.ricknotes.core.revisionlog.EntryKind
 import com.rickphobia.ricknotes.core.touch.FingerGestures
 import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.InkLayer
@@ -44,6 +45,8 @@ import com.rickphobia.ricknotes.ink.LassoMenu
 import com.rickphobia.ricknotes.ink.PageInk
 import com.rickphobia.ricknotes.ink.PenMode
 import com.rickphobia.ricknotes.logging.AppLog
+import com.rickphobia.ricknotes.revisionlog.RevisionLogAdder
+import com.rickphobia.ricknotes.revisionlog.RevisionLogNoteBar
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -70,6 +73,7 @@ internal data class OpenDocument(
     val positions: ReadingPositions,
     val ink: DocumentInk,
     val fingerGestures: FingerGestures,
+    val revisionLog: RevisionLogAdder,
     val penMode: () -> PenMode,
 )
 
@@ -130,7 +134,8 @@ internal fun PageList(document: OpenDocument) {
         }
         val listView = PageListView(view, listState, screen, gapPx)
         TouchLayer(document, listView)
-        LassoMenu(ink, { listView.placements(document.pageSizes) }, lassoActions(ink))
+        LassoMenu(ink, { listView.placements(document.pageSizes) }, lassoActions(ink, document.revisionLog))
+        RevisionLogNoteBar(document.revisionLog, Modifier.align(Alignment.BottomCenter).padding(16.dp))
         PageNavigator(
             pageIndex = current,
             pageCount = pageCount,
@@ -176,10 +181,26 @@ private fun TouchLayer(
     )
 }
 
-/** What the Lasso menu offers for a selection. */
+/** What the Lasso menu offers for a selection: Delete only when it holds strokes. */
 @Composable
-private fun lassoActions(ink: DocumentInk): List<LassoAction> =
-    listOf(LassoAction(R.drawable.ic_delete, stringResource(R.string.delete_selection), ink.lasso::delete))
+private fun lassoActions(
+    ink: DocumentInk,
+    revisionLog: RevisionLogAdder,
+): List<LassoAction> =
+    listOfNotNull(
+        LassoAction(R.drawable.ic_delete, stringResource(R.string.delete_selection), ink.lasso::delete)
+            .takeIf {
+                ink.lasso.selection
+                    ?.ids
+                    ?.isNotEmpty() == true
+            },
+        LassoAction(R.drawable.ic_add_mistake, stringResource(R.string.add_mistake)) {
+            revisionLog.add(EntryKind.MISTAKE)
+        },
+        LassoAction(R.drawable.ic_add_key_point, stringResource(R.string.add_key_point)) {
+            revisionLog.add(EntryKind.KEY_POINT)
+        },
+    )
 
 private fun restoredPosition(document: OpenDocument): ReadingPosition {
     val position =

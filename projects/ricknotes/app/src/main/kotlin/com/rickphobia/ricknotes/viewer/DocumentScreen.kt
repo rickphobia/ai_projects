@@ -22,15 +22,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import com.rickphobia.ricknotes.R
-import com.rickphobia.ricknotes.core.ink.FavouritePens
 import com.rickphobia.ricknotes.core.ink.InkTool
 import com.rickphobia.ricknotes.core.session.SaveStatus
 import com.rickphobia.ricknotes.core.session.SessionWarning
-import com.rickphobia.ricknotes.core.touch.FingerGestures
 import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.PenMode
 import com.rickphobia.ricknotes.logging.AppLog
+import com.rickphobia.ricknotes.revisionlog.rememberRevisionLogAdder
 import com.rickphobia.ricknotes.toolbar.BackButton
 import com.rickphobia.ricknotes.toolbar.PenKind
 import com.rickphobia.ricknotes.toolbar.PenToolbar
@@ -54,18 +53,18 @@ private sealed interface Opening {
 
 /**
  * One Document, scrolling continuously from page to page, reopened where it was left in [positions].
- * Tapping the pen in use in the toolbar moves on through [favouritePens]; fingers do what
- * [fingerGestures] says.
+ * Tapping the pen in use in the toolbar moves on through the Favourite pens in [settings]; fingers
+ * do what it says, and Entries go to the Revision log of its Course folder.
  */
 @Composable
 fun DocumentScreen(
     pdf: PdfEntry,
     positions: ReadingPositions,
-    favouritePens: FavouritePens,
-    fingerGestures: FingerGestures,
+    settings: DocumentSettings,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
+    val favouritePens = settings.favouritePens
     // Each Document opens with the first Favourite pen.
     val tool = remember(pdf.path) { mutableStateOf<InkTool>(InkTool.Pen(favouritePens.colours.first())) }
     val kind = remember(pdf.path) { mutableStateOf(PenKind.INK) }
@@ -112,7 +111,8 @@ fun DocumentScreen(
                         pdf.path,
                         positions,
                         current.ink,
-                        fingerGestures,
+                        settings.fingerGestures,
+                        rememberRevisionLogAdder(pdf, settings.course, pages, current.pageSizes, current.ink),
                     ) {
                         when (kind.value) {
                             PenKind.INK -> PenMode.Draw(tool.value)
