@@ -3,13 +3,11 @@ package com.rickphobia.ricknotes.viewer
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import com.rickphobia.ricknotes.R
@@ -32,6 +31,8 @@ import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.PenMode
 import com.rickphobia.ricknotes.logging.AppLog
+import com.rickphobia.ricknotes.toolbar.BackButton
+import com.rickphobia.ricknotes.toolbar.DeleteSelectionButton
 import com.rickphobia.ricknotes.toolbar.PenKind
 import com.rickphobia.ricknotes.toolbar.PenToolbar
 import com.rickphobia.ricknotes.toolbar.UndoRedoButtons
@@ -83,10 +84,7 @@ fun DocumentScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
-            Text(text = pdf.name, style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.weight(1f))
+        DocumentTopBar(pdf.name, onBack) {
             PenToolbar(tool, kind, favouritePens)
             (opening as? Opening.Ready)?.let { InkControls(it.ink) }
         }
@@ -129,11 +127,31 @@ fun DocumentScreen(
     }
 }
 
+/** Back, the Document's name (cut short when it doesn't fit), then [tools]. */
+@Composable
+private fun DocumentTopBar(
+    name: String,
+    onBack: () -> Unit,
+    tools: @Composable () -> Unit,
+) {
+    Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        BackButton(onBack)
+        Text(
+            text = name,
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        tools()
+    }
+}
+
 /** Delete while there is a Lasso selection, undo and redo, and "Not saved" while the ink isn't. */
 @Composable
 private fun InkControls(ink: DocumentInk) {
     if (ink.lasso.selection != null) {
-        TextButton(onClick = ink.lasso::delete) { Text(stringResource(R.string.delete_selection)) }
+        DeleteSelectionButton(ink.lasso::delete)
     }
     UndoRedoButtons(ink.canUndo, ink.canRedo, ink::undo, ink::redo)
     if (ink.saveStatus == SaveStatus.FAILED) {

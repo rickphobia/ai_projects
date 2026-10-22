@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,6 +27,7 @@ import com.rickphobia.ricknotes.settings.SettingsActions
 import com.rickphobia.ricknotes.settings.SettingsScreen
 import com.rickphobia.ricknotes.studyfolder.AllFilesAccessScreen
 import com.rickphobia.ricknotes.studyfolder.PickFolderScreen
+import com.rickphobia.ricknotes.theme.RickNotesTheme
 import com.rickphobia.ricknotes.viewer.DocumentScreen
 import com.rickphobia.ricknotes.viewer.ReadingPositions
 
@@ -115,7 +115,7 @@ fun <S> RickNotesApp(
         }
     val pickFolder = { picker.launch(null) }
 
-    MaterialTheme {
+    RickNotesTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             if (!hasAllFilesAccess) {
                 AllFilesAccessScreen(onOpenSetting = system.openAllFilesAccessSetting)
