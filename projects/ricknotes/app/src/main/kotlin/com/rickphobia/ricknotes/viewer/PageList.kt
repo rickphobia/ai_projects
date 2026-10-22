@@ -29,14 +29,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
+import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.PagePlacement
 import com.rickphobia.ricknotes.core.touch.FingerGestures
 import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.InkLayer
+import com.rickphobia.ricknotes.ink.LassoAction
+import com.rickphobia.ricknotes.ink.LassoMenu
 import com.rickphobia.ricknotes.ink.PageInk
 import com.rickphobia.ricknotes.ink.PenMode
 import com.rickphobia.ricknotes.logging.AppLog
@@ -124,7 +128,9 @@ internal fun PageList(document: OpenDocument) {
                 ) { PageInk(ink, PageId.ofPdfPage(index), size.widthPt.toFloat(), strokeRenderer) }
             }
         }
-        TouchLayer(document, PageListView(view, listState, screen, gapPx))
+        val listView = PageListView(view, listState, screen, gapPx)
+        TouchLayer(document, listView)
+        LassoMenu(ink, { listView.placements(document.pageSizes) }, lassoActions(ink))
         PageNavigator(
             pageIndex = current,
             pageCount = pageCount,
@@ -169,6 +175,11 @@ private fun TouchLayer(
         gestures = document.fingerGestures,
     )
 }
+
+/** What the Lasso menu offers for a selection. */
+@Composable
+private fun lassoActions(ink: DocumentInk): List<LassoAction> =
+    listOf(LassoAction(R.drawable.ic_delete, stringResource(R.string.delete_selection), ink.lasso::delete))
 
 private fun restoredPosition(document: OpenDocument): ReadingPosition {
     val position =
