@@ -34,13 +34,14 @@ ${5:-}
 EOF
 }
 
-# Stubs: `claude agents --json` reports one running background session; `claude --bg` logs its
-# arguments; `gh` reports no open PRs.
+# Stubs: `claude agents --json` reports one running background session of this project and one
+# of another; `claude --bg` logs its arguments; `gh` reports no open PRs.
 mkdir -p "$work/bin" "$work/repo/projects/fixture/docs/tickets"
 cat >"$work/bin/claude" <<'EOF'
 #!/usr/bin/env bash
 if [[ $1 == agents ]]; then
   echo '[{"kind":"background","state":"blocked","name":"fixture-07"},
+         {"kind":"background","state":"working","name":"other-03"},
          {"kind":"background","state":"done","name":"fixture-04"},
          {"kind":"interactive","state":null,"name":"fixture-02"}]'
 else
@@ -50,7 +51,8 @@ EOF
 printf '#!/usr/bin/env bash\necho ""\n' >"$work/bin/gh"
 chmod +x "$work/bin/claude" "$work/bin/gh"
 export PATH="$work/bin:$PATH" CLAUDE_STUB_LOG="$work/claude.log"
-export NEXT_TICKETS_REF=main NEXT_TICKETS_FETCH=0
+# A limit high enough that only the ticket rules decide; the limits have their own checks below.
+export NEXT_TICKETS_REF=main NEXT_TICKETS_FETCH=0 NEXT_TICKETS_MAX_SESSIONS=10
 
 ticket 01-skeleton.md "done" "None (can start immediately)" "everything"
 ticket 02-alpha.md ready "01 (Skeleton)" "Alpha, Night"
@@ -102,6 +104,23 @@ check "exactly 3 sessions were launched" "3" "$count"
 
 declined="$(echo n | "$script" fixture)"
 check "answering no starts nothing" "Nothing started." "$declined"
+
+# Machine-wide limit: 2 sessions are live (fixture-07, other-03), so a limit of 3 leaves one slot.
+busy="$(NEXT_TICKETS_MAX_SESSIONS=3 "$script" fixture --dry-run)"
+check "the machine limit starts what fits" "02 alpha                                    START (effort low)" "$busy"
+check "the machine limit holds back the rest" "04 gamma                                    held back, machine busy (2 ticket session(s) running, limit 3)" "$busy"
+full="$(NEXT_TICKETS_MAX_SESSIONS=2 "$script" fixture --dry-run)"
+check "a full machine starts nothing" "Nothing to start." "$full"
+bad="$(NEXT_TICKETS_MAX_SESSIONS=many "$script" fixture --dry-run 2>&1 || true)"
+check "a non-number limit is refused" "NEXT_TICKETS_MAX_SESSIONS must be a number" "$bad"
+
+# Project limit: only this project's live session (fixture-07) counts against .max-parallel.
+echo 2 >projects/fixture/docs/tickets/.max-parallel
+git add projects/fixture/docs/tickets/.max-parallel
+git -c user.name=t -c user.email=t@t commit -q -m limit
+capped="$("$script" fixture --dry-run)"
+check "the project limit starts what fits" "02 alpha                                    START (effort low)" "$capped"
+check "the project limit holds back the rest" "04 gamma                                    held back, machine busy (2 ticket session(s) running, limit 10; 1 of fixture's, limit 2)" "$capped"
 
 if ((failures > 0)); then
   echo "$failures check(s) failed"
