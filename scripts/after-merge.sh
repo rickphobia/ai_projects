@@ -40,7 +40,9 @@ usage() {
 ctl() { systemctl --user "$@"; }
 
 switched_on() {
-  [[ -f $projects_file ]] && grep -v '^\s*$' "$projects_file" || true
+  if [[ -f $projects_file ]]; then
+    grep -v '^\s*$' "$projects_file" || true
+  fi
 }
 
 # The folder holding the stop-merged.sh and next-tickets.sh to run: main's latest versions, so
