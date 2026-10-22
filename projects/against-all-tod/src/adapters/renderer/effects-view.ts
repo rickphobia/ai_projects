@@ -7,8 +7,9 @@ import {
 } from "pixi.js";
 import type { BattleState } from "../../battle/battle";
 import type { BoardPoint, ShotEvent } from "../../battle/events";
+import { PIECES } from "../../catalog/pieces";
 import { goalTiles, type Tile } from "../../maze/board";
-import type { Maze } from "../../maze/maze";
+import type { Maze, PlacedPiece } from "../../maze/maze";
 import { TILE_SIZE } from "./board-textures";
 import { BLOOM_COLOUR, OUTLINE_COLOUR } from "./board-view";
 import { COIN_SIZE, type EffectTextures } from "./effect-art";
@@ -20,6 +21,8 @@ import {
 } from "./effect-motion";
 
 const GOLD_FONT = "gold-pop";
+/** A bullet leaves the Sniper Nest this far from its tile's centre, about where the barrel ends. In tiles. */
+const BARREL_TILES = 0.45;
 /** Big enough to read at fit-to-window zoom on a phone. */
 const GOLD_FONT_SIZE = 30;
 /** Where on each of its tiles the Goal throws up a puff as it falls, in tiles from the tile's corner. */
@@ -28,8 +31,8 @@ const RUBBLE_PUFFS: readonly BoardPoint[] = [
   { x: 0.7, y: 0.6 },
 ];
 
-/** A pooled sprite flying or bursting, and how old it is. */
-interface Flying {
+/** A pooled bullet sprite in flight, and how old it is. */
+interface Bullet {
   readonly sprite: Sprite;
   readonly from: BoardPoint;
   readonly to: BoardPoint;
@@ -63,7 +66,7 @@ export class EffectsView {
   private readonly rubble: Sprite;
   private readonly freeSprites: Sprite[] = [];
   private readonly freeLabels: BitmapText[] = [];
-  private flying: Flying[] = [];
+  private bullets: Bullet[] = [];
   private bursting: Burst[] = [];
   private goldPops: GoldPop[] = [];
   /** The Pieces' health and the Maze the last battle frame showed, to spot new Wall-breaker hits. */
@@ -93,9 +96,9 @@ export class EffectsView {
     newShots: readonly ShotEvent[],
   ): void {
     for (const shot of newShots) {
-      this.flying.push({
+      this.bullets.push({
         sprite: this.sprite(this.textures.bullet),
-        from: centreOf(shot.pieceTile),
+        from: barrelEnd(shot.pieceTile, shot.at),
         to: shot.at,
         ageMs: 0,
       });
@@ -103,12 +106,16 @@ export class EffectsView {
     for (const [key, health] of state.pieceHealth) {
       if (health < (this.pieceHealth.get(key) ?? Infinity)) {
         const piece = state.maze.pieces.get(key);
-        if (piece !== undefined) this.bonk(key, piece.tile);
+        if (piece !== undefined && wallBreakersHit(piece)) {
+          this.bonk(key, piece.tile);
+        }
       }
     }
     if (this.maze !== null && this.maze !== state.maze) {
       for (const [key, piece] of this.maze.pieces) {
-        if (!state.maze.pieces.has(key)) this.bonk(key, piece.tile, true);
+        if (!state.maze.pieces.has(key) && wallBreakersHit(piece)) {
+          this.bonk(key, piece.tile, true);
+        }
       }
     }
     this.pieceHealth = state.pieceHealth;
@@ -148,7 +155,7 @@ export class EffectsView {
   tick(elapsedMs: number): void {
     this.clockMs += elapsedMs;
     const landed: BoardPoint[] = [];
-    this.flying = this.flying.filter((bullet) => {
+    this.bullets = this.bullets.filter((bullet) => {
       bullet.ageMs += elapsedMs;
       const progress = bulletProgress(bullet.ageMs);
       if (progress === null) {
@@ -179,24 +186,18 @@ export class EffectsView {
     this.goldPops = this.goldPops.filter((pop) => {
       pop.ageMs += elapsedMs;
       if (this.placeGold(pop)) return true;
-      this.release(pop.coin);
-      pop.label.visible = false;
-      this.freeLabels.push(pop.label);
+      this.releaseGold(pop);
       return false;
     });
   }
 
   /** Ends every effect and clears the rubble, ready for the Board while building. */
   clear(): void {
-    for (const { sprite } of [...this.flying, ...this.bursting]) {
+    for (const { sprite } of [...this.bullets, ...this.bursting]) {
       this.release(sprite);
     }
-    for (const pop of this.goldPops) {
-      this.release(pop.coin);
-      pop.label.visible = false;
-      this.freeLabels.push(pop.label);
-    }
-    this.flying = [];
+    for (const pop of this.goldPops) this.releaseGold(pop);
+    this.bullets = [];
     this.bursting = [];
     this.goldPops = [];
     this.pieceHealth = new Map();
@@ -252,6 +253,12 @@ export class EffectsView {
     this.freeSprites.push(sprite);
   }
 
+  private releaseGold(pop: GoldPop): void {
+    this.release(pop.coin);
+    pop.label.visible = false;
+    this.freeLabels.push(pop.label);
+  }
+
   private newLabel(): BitmapText {
     return new BitmapText({
       text: "",
@@ -277,6 +284,27 @@ export class EffectsView {
     });
     this.fontReady = true;
   }
+}
+
+/**
+ * Walkers wear a Decoy Goal down just by reaching it, which is not a Wall-breaker's hit, so it
+ * never bonks.
+ */
+function wallBreakersHit(piece: PlacedPiece): boolean {
+  return PIECES[piece.pieceId].trap?.kind !== "decoy-goal";
+}
+
+/** Where a bullet leaves a tower aiming at `target`: the barrel's end, not the tile's centre. */
+function barrelEnd(tile: Tile, target: BoardPoint): BoardPoint {
+  const centre = centreOf(tile);
+  const dx = target.x - centre.x;
+  const dy = target.y - centre.y;
+  const length = Math.hypot(dx, dy);
+  if (length <= BARREL_TILES) return centre;
+  return {
+    x: centre.x + (dx / length) * BARREL_TILES,
+    y: centre.y + (dy / length) * BARREL_TILES,
+  };
 }
 
 function centreOf(tile: Tile): BoardPoint {

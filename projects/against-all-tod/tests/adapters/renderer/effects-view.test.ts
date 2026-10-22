@@ -68,6 +68,22 @@ describe("EffectsView", () => {
     expect(showing(effects.view, textures.bonk)).toBe(1);
   });
 
+  it("never bonks a Decoy Goal, which walkers wear down just by reaching it", () => {
+    const decoy = placePiece(emptyMaze(), wallTile, "decoy-goal");
+    if (!decoy.ok) throw new Error("the test Decoy Goal can't be placed");
+    const effects = new EffectsView(textures);
+    effects.showBattle({ maze: decoy.maze, pieceHealth: new Map() }, []);
+    effects.showBattle(
+      { maze: decoy.maze, pieceHealth: new Map([[key, 1]]) },
+      [],
+    );
+    effects.showBattle(
+      { maze: removePiece(decoy.maze, wallTile), pieceHealth: new Map() },
+      [],
+    );
+    expect(showing(effects.view, textures.bonk)).toBe(0);
+  });
+
   it("always bonks the Piece that falls", () => {
     const effects = new EffectsView(textures);
     effects.showBattle(hitTo(10), []);
