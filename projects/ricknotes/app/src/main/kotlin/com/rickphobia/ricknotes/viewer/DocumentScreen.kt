@@ -32,7 +32,6 @@ import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.PenMode
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.toolbar.BackButton
-import com.rickphobia.ricknotes.toolbar.DeleteSelectionButton
 import com.rickphobia.ricknotes.toolbar.PenKind
 import com.rickphobia.ricknotes.toolbar.PenToolbar
 import com.rickphobia.ricknotes.toolbar.UndoRedoButtons
@@ -147,12 +146,9 @@ private fun DocumentTopBar(
     }
 }
 
-/** Delete while there is a Lasso selection, undo and redo, and "Not saved" while the ink isn't. */
+/** Undo and redo, and "Not saved" while the ink isn't. */
 @Composable
 private fun InkControls(ink: DocumentInk) {
-    if (ink.lasso.selection != null) {
-        DeleteSelectionButton(ink.lasso::delete)
-    }
     UndoRedoButtons(ink.canUndo, ink.canRedo, ink::undo, ink::redo)
     if (ink.saveStatus == SaveStatus.FAILED) {
         Text(

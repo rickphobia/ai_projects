@@ -17,7 +17,7 @@ Experienced engineers all land on the same loop: **spec → plan → build in sm
 | 7 | Build in parallel | `scripts/next-tickets.sh <name>`: one background session per ticket that can start now | One PR per ticket |
 | 8 | Review and merge | Try the PR: its `▶ Try this version` link, or on the Beelink `pr-list` (every green PR is built and served automatically at `https://beelink-mini-s.taildfbd18.ts.net:<9000 + PR number>/` on your Tailscale devices; see "Previews on the Beelink"), skim the diff, check its `Review:` line, then merge. GitHub only allows it once `ci-gate` is green | Tickets marked `done` on `main` |
 | 9 | Deploy | On the Beelink: `projects/<name>/deploy/update-site.sh`, or ask a local session to run it | Live at `rickphobia.com/ai-projects/<name>/` |
-| 10 | Repeat 7–9 | Tell your main session "merged": it runs `scripts/stop-merged.sh <name>` (stops the finished sessions) and `scripts/next-tickets.sh <name>` again | — |
+| 10 | Repeat 7–9 | Tell your main session "merged": it **first** runs `scripts/stop-merged.sh <name>` (stops the finished sessions), then `scripts/next-tickets.sh <name>` again | — |
 
 New feature on an existing project: start again at step 2 — `/to-spec` writes `docs/specs/<feature>.md` and `/to-tickets` continues the numbering.
 
@@ -45,7 +45,7 @@ It reads the tickets from `origin/main` and starts a ticket when its status is `
 
 **Answering them.** Run `claude agents` (agent view). A session that needs you is under **Needs input** with the question or permission prompt on its row: press `Space` to reply in place, or `Enter` to open the full session. While agent view is open, Claude Code sends a terminal notification when a session needs input, finishes or fails; in any other session the footer shows `← N agents` waiting. Sessions stop and wait for the guardrail prompts (force-push, `rm -rf` …) and for questions `/implement` asks.
 
-**Stopping them after merge.** A finished session stays idle until it exits, holding 200–400 MB of RAM. `scripts/stop-merged.sh [<name>] [--dry-run]` stops every background ticket session whose PR is merged (it leaves a session that is still working, or whose ticket has another open PR). Its conversation is kept: `claude attach <id>` reopens it. When you tell a local session a PR is merged, it runs this for you. Anything you miss is caught by `claude-reaper` after 2 h idle.
+**Stopping them after merge.** A finished session stays idle until it exits, holding 200–400 MB of RAM. `scripts/stop-merged.sh [<name>] [--dry-run]` stops every background ticket session whose PR is merged (it leaves a session that is still working, or whose ticket has another open PR). Its conversation is kept: `claude attach <id>` reopens it. When you tell a local session a PR is merged, it runs this for you, before anything else. If `scripts/stop-merged.sh` is missing, the repo root is behind `origin/main` (it doesn't pull by itself): fast-forward it with `git fetch origin main && git merge --ff-only origin/main`, then run the script. A stale root also means new sessions read an old `CLAUDE.md`. Anything you miss is caught by `claude-reaper` after 2 h idle.
 
 **Cost.** A background session costs the same as opening a new session by hand: same model, same prompt caching, same start-up read of `CLAUDE.md` and the ticket. Running three at once spends the same tokens sooner; it doesn't add any. Two things do add cost: a session left waiting for more than an hour loses its cache, so answer within the hour; and auto mode's safety check on risky actions uses a little extra.
 
