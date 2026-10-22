@@ -101,12 +101,6 @@ fun BackButton(onBack: () -> Unit) {
     ToolIcon(R.drawable.ic_arrow_back, stringResource(R.string.back), onBack)
 }
 
-/** Deletes the Lasso selection. */
-@Composable
-fun DeleteSelectionButton(onDelete: () -> Unit) {
-    ToolIcon(R.drawable.ic_delete, stringResource(R.string.delete_selection), onDelete)
-}
-
 /** A round swatch of a pen's colour, as the Favourite pens editor shows it. */
 @Composable
 fun PenSwatch(
