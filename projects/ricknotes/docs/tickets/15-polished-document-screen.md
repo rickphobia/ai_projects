@@ -4,15 +4,17 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** app-toolbar, app-viewer, app-theme
 
 **Effort:** low
 
-- [ ] Icon toolbar with the active tool clearly marked; every icon has a long-press label and a content description
-- [ ] Only the icons used are bundled; the PR states the APK size before and after
-- [ ] Tapping the "12 / 40" indicator opens page jump
-- [ ] Saved state is quiet; "Not saved" stays until a save succeeds (same behaviour as today)
-- [ ] Material 3 light and dark themes follow the system setting; page renders are never tinted
-- [ ] On-tablet check written in the PR: switch tools, undo/redo, jump to a page, toggle the tablet's dark mode
+**Owner steps:** the on-tablet check in the PR.
+
+- [x] Icon toolbar with the active tool clearly marked; every icon has a long-press label and a content description
+- [x] Only the icons used are bundled; the PR states the APK size before and after
+- [x] Tapping the "12 / 40" indicator opens page jump
+- [x] Saved state is quiet; "Not saved" stays until a save succeeds (same behaviour as today)
+- [x] Material 3 light and dark themes follow the system setting; page renders are never tinted
+- [x] On-tablet check written in the PR: switch tools, undo/redo, jump to a page, toggle the tablet's dark mode
