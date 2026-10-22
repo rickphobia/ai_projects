@@ -36,6 +36,11 @@ import type {
   SourceInfo,
   SpendingSummary,
 } from "../src/api/client";
+import { RefusedError } from "../src/api/client";
+
+// What the server answers for a job it doesn't know, such as after a restart.
+export const LOST_JOB =
+  "That job isn't running any more; the server restarted or forgot it. Nothing of it was saved.";
 
 // A stand-in ApiClient: each answer is set per test, and calls are recorded.
 export class FakeApiClient implements ApiClient {
@@ -74,6 +79,8 @@ export class FakeApiClient implements ApiClient {
   writeAnswers: {
     progress: BriefingProgress[];
     result: WrittenBriefing | Error;
+    // Given, the Briefing's job id, as the server sends it first.
+    jobId?: string;
   }[] = [];
   // The `regenerate` of each writeBriefing call, and its scope.
   writeRequests: boolean[] = [];
@@ -287,11 +294,13 @@ export class FakeApiClient implements ApiClient {
     request: BriefingRequest,
     regenerate: boolean,
     onProgress: (progress: BriefingProgress) => void,
+    onStarted?: (jobId: string) => void,
   ): Promise<WrittenBriefing> {
     this.writeScopes.push(request);
     this.writeRequests.push(regenerate);
     const answer = this.writeAnswers.shift();
     if (!answer) throw new Error("the test set no writeBriefing answer");
+    if (answer.jobId !== undefined) onStarted?.(answer.jobId);
     answer.progress.forEach(onProgress);
     if (this.holdWrite) {
       await new Promise<void>((resolve) => {
@@ -301,12 +310,46 @@ export class FakeApiClient implements ApiClient {
     return settle(answer.result);
   }
 
+  // What following each job id again gives: its progress so far, then its result, or
+  // "running" to never finish. An id that isn't here is refused as after a server restart.
+  briefingJobs = new Map<
+    string,
+    {
+      progress: BriefingProgress[];
+      result: WrittenBriefing | Error | "running";
+    }
+  >();
+  followedJobs: string[] = [];
+
+  followBriefing(
+    jobId: string,
+    onProgress: (progress: BriefingProgress) => void,
+  ): Promise<WrittenBriefing> {
+    this.followedJobs.push(jobId);
+    const job = this.briefingJobs.get(jobId);
+    if (!job) return Promise.reject(new RefusedError(LOST_JOB));
+    job.progress.forEach(onProgress);
+    return job.result === "running"
+      ? new Promise(() => undefined)
+      : settle(job.result);
+  }
+
   // Every saved Chat, newest used first, as chats() gives it.
   chatsAnswer: ChatSummary[] | Error = [];
   // Saved Chats by id; one that isn't here is refused as the server would.
   savedChats = new Map<number, Chat>();
   // The answer to each askChat call in turn: its searches, then its result.
-  chatAnswers: { searches: ChatSearch[]; result: ChatMessage | Error }[] = [];
+  chatAnswers: {
+    searches: ChatSearch[];
+    result: ChatMessage | Error;
+    // Given, the answer's job id, as the server sends it first.
+    jobId?: string;
+  }[] = [];
+  // What following each answer's job again gives; an id that isn't here is lost.
+  answerJobs = new Map<
+    string,
+    { searches: ChatSearch[]; result: ChatMessage | Error | "running" }
+  >();
   // Each question asked, as [chatId, question].
   questions: [number, string][] = [];
   // The quote sent with each question, or null.
@@ -357,11 +400,13 @@ export class FakeApiClient implements ApiClient {
     question: string,
     onSearched: (search: ChatSearch) => void,
     quote?: ChatQuote,
+    onStarted?: (jobId: string) => void,
   ): Promise<ChatMessage> {
     this.questions.push([chatId, question]);
     this.quotes.push(quote ?? null);
     const answer = this.chatAnswers.shift();
     if (!answer) throw new Error("the test set no askChat answer");
+    if (answer.jobId !== undefined) onStarted?.(answer.jobId);
     answer.searches.forEach(onSearched);
     // Like the backend, an answered turn is saved with its question; a failed one isn't.
     const saved = this.savedChats.get(chatId);
@@ -378,6 +423,19 @@ export class FakeApiClient implements ApiClient {
       );
     }
     return settle(answer.result);
+  }
+
+  followChatAnswer(
+    jobId: string,
+    onSearched: (search: ChatSearch) => void,
+  ): Promise<ChatMessage> {
+    this.followedJobs.push(jobId);
+    const job = this.answerJobs.get(jobId);
+    if (!job) return Promise.reject(new RefusedError(LOST_JOB));
+    job.searches.forEach(onSearched);
+    return job.result === "running"
+      ? new Promise(() => undefined)
+      : settle(job.result);
   }
 
   // The saved Notes, newest first; the calls below change it like the backend.

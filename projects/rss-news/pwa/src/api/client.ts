@@ -199,9 +199,17 @@ export interface ApiClient {
   briefingEstimate(request: BriefingRequest): Promise<BriefingEstimate>;
   // Writes a Briefing of this scope. Gives back today's saved one of the same scope unless
   // `regenerate`. Rejects with RefusedError when there is nothing to brief or it failed.
+  // The server writes it in a job that runs on if the page closes; onStarted gets its id.
   writeBriefing(
     request: BriefingRequest,
     regenerate: boolean,
+    onProgress: (progress: BriefingProgress) => void,
+    onStarted?: (jobId: string) => void,
+  ): Promise<WrittenBriefing>;
+  // Follows a Briefing job again from its start, such as after coming back to the app.
+  // Rejects with RefusedError when it failed or the server no longer knows it (a restart).
+  followBriefing(
+    jobId: string,
     onProgress: (progress: BriefingProgress) => void,
   ): Promise<WrittenBriefing>;
   // This month's AI cost so far, by feature, against the monthly limit.
@@ -219,12 +227,20 @@ export interface ApiClient {
   chat(chatId: number): Promise<Chat>;
   // Asks a question in a Chat and resolves with the saved answer; onSearched sees each search
   // the model makes on the way. Rejects with RefusedError, saying why, when the answer failed
-  // or this month's spending limit is reached.
+  // or this month's spending limit is reached. The server answers in a job that runs on if the
+  // page closes; onStarted gets its id.
   askChat(
     chatId: number,
     question: string,
     onSearched: (search: ChatSearch) => void,
     quote?: ChatQuote,
+    onStarted?: (jobId: string) => void,
+  ): Promise<ChatMessage>;
+  // Follows an answer's job again from its start, such as after coming back to the app.
+  // Rejects with RefusedError when it failed or the server no longer knows it (a restart).
+  followChatAnswer(
+    jobId: string,
+    onSearched: (search: ChatSearch) => void,
   ): Promise<ChatMessage>;
   // A short definition of `term` as `context` uses it. Rejects with RefusedError, saying why,
   // when the model gave none or this month's spending limit is reached.
@@ -442,17 +458,36 @@ export class HttpApiClient implements ApiClient {
     request: BriefingRequest,
     regenerate: boolean,
     onProgress: (progress: BriefingProgress) => void,
+    onStarted?: (jobId: string) => void,
   ): Promise<WrittenBriefing> {
     const response = await this.sendWithSession("POST", "api/briefings", {
       ...scopeBody(request),
       regenerate,
     });
+    return this.readBriefing(response, onProgress, onStarted);
+  }
+
+  async followBriefing(
+    jobId: string,
+    onProgress: (progress: BriefingProgress) => void,
+  ): Promise<WrittenBriefing> {
+    const response = await this.sendWithSession("GET", jobPath(jobId));
+    return this.readBriefing(response, onProgress);
+  }
+
+  private async readBriefing(
+    response: Response,
+    onProgress: (progress: BriefingProgress) => void,
+    onStarted?: (jobId: string) => void,
+  ): Promise<WrittenBriefing> {
     if (response.body === null) {
-      throw new ApiError("POST api/briefings answered without a body");
+      throw new ApiError("The Briefing answered without a body");
     }
     for await (const message of readEvents(response.body)) {
       const data: unknown = JSON.parse(message.data);
-      if (message.event === "progress") {
+      if (message.event === "job") {
+        onStarted?.((data as JobJson).id);
+      } else if (message.event === "progress") {
         onProgress(data as BriefingProgress);
       } else if (message.event === "briefing") {
         const done = data as { briefing: BriefingJson; reused: boolean };
@@ -525,17 +560,35 @@ export class HttpApiClient implements ApiClient {
     question: string,
     onSearched: (search: ChatSearch) => void,
     quote?: ChatQuote,
+    onStarted?: (jobId: string) => void,
   ): Promise<ChatMessage> {
     const path = `api/chats/${String(chatId)}/messages`;
     const response = await this.sendWithSession("POST", path, {
       text: question,
       ...(quote ? { quote } : {}),
     });
+    return this.readAnswer(response, onSearched, onStarted);
+  }
+
+  async followChatAnswer(
+    jobId: string,
+    onSearched: (search: ChatSearch) => void,
+  ): Promise<ChatMessage> {
+    const response = await this.sendWithSession("GET", jobPath(jobId));
+    return this.readAnswer(response, onSearched);
+  }
+
+  private async readAnswer(
+    response: Response,
+    onSearched: (search: ChatSearch) => void,
+    onStarted?: (jobId: string) => void,
+  ): Promise<ChatMessage> {
     if (response.body === null) {
-      throw new ApiError(`POST ${path} answered without a body`);
+      throw new ApiError("The Chat answered without a body");
     }
     for await (const message of readEvents(response.body)) {
       const answer = chatAnswerEvent(message.event, JSON.parse(message.data));
+      if (answer?.kind === "started") onStarted?.(answer.jobId);
       if (answer?.kind === "searched") onSearched(answer.search);
       if (answer?.kind === "message") return answer.message;
       if (answer?.kind === "failed") {
@@ -641,6 +694,15 @@ export class HttpApiClient implements ApiClient {
       body: body === undefined ? null : JSON.stringify(body),
     });
   }
+}
+
+// The `job` event a Briefing or Chat stream starts with.
+interface JobJson {
+  id: string;
+}
+
+function jobPath(jobId: string): string {
+  return `api/jobs/${encodeURIComponent(jobId)}`;
 }
 
 interface SpendingJson {

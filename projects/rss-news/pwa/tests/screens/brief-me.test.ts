@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import type { Briefing } from "../../src/api/briefings";
 import { ApiError, RefusedError } from "../../src/api/client";
+import { storedPendingJobs } from "../../src/pwa/pending-jobs";
 import { renderBriefMe } from "../../src/screens/brief-me";
-import { FakeApiClient } from "../fake-api";
+import { FakeApiClient, LOST_JOB } from "../fake-api";
 
 const BRIEFING: Briefing = {
   id: 3,
@@ -45,6 +46,72 @@ describe("Brief me", () => {
     root = document.createElement("section");
     document.body.replaceChildren(root);
     api = new FakeApiClient();
+    localStorage.clear();
+  });
+
+  it("remembers the Briefing's job while it is written, and forgets it once done", async () => {
+    api.writeAnswers = [
+      {
+        jobId: "job-a",
+        progress: [],
+        result: { briefing: BRIEFING, reused: false },
+      },
+    ];
+    api.holdWrite = true;
+
+    await renderBriefMe(root, api);
+    briefMe().click();
+    await waitFor(() => {
+      expect(storedPendingJobs().briefing()).toBe("job-a");
+    });
+    api.releaseWrite?.();
+
+    await screen.findByRole("link", { name: "Open the Briefing" });
+    expect(storedPendingJobs().briefing()).toBeNull();
+  });
+
+  it("shows a Briefing still being written after coming back", async () => {
+    storedPendingJobs().setBriefing("job-a");
+    api.briefingJobs.set("job-a", {
+      progress: [{ step: "writing", section: 2, sections: 3, folder: "World" }],
+      result: "running",
+    });
+
+    await renderBriefMe(root, api);
+
+    await waitFor(() => {
+      expect(progress()).toBe("Writing World (2 of 3)…");
+    });
+    expect(api.followedJobs).toEqual(["job-a"]);
+    expect(briefMe().disabled).toBe(true);
+  });
+
+  it("links the Briefing finished while the app was closed", async () => {
+    storedPendingJobs().setBriefing("job-a");
+    api.briefingJobs.set("job-a", {
+      progress: [],
+      result: { briefing: BRIEFING, reused: false },
+    });
+
+    await renderBriefMe(root, api);
+
+    const link = await screen.findByRole("link", { name: "Open the Briefing" });
+    expect(link.getAttribute("href")).toBe("#briefings/3");
+    expect(storedPendingJobs().briefing()).toBeNull();
+  });
+
+  it("says so when the server lost the Briefing being written", async () => {
+    storedPendingJobs().setBriefing("job-gone");
+
+    await renderBriefMe(root, api);
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toBe(LOST_JOB);
+    });
+    expect(storedPendingJobs().briefing()).toBeNull();
+    await waitFor(() => {
+      expect(briefMe().disabled).toBe(false);
+    });
   });
 
   it("links to the Briefing it writes on the Briefings screen, not showing it here", async () => {

@@ -3,8 +3,10 @@ import type {
   BriefingProgress,
   BriefingRequest,
   BriefingWindow,
+  WrittenBriefing,
 } from "../api/briefings";
-import { SignedOutError, type ApiClient } from "../api/client";
+import { RefusedError, SignedOutError, type ApiClient } from "../api/client";
+import { storedPendingJobs, type PendingJobs } from "../pwa/pending-jobs";
 
 const ALL_SOURCES = "";
 const WINDOW_TEXT: Record<BriefingWindow, string> = {
@@ -19,12 +21,14 @@ const WINDOW_TEXT: Record<BriefingWindow, string> = {
 // same day links today's saved Briefing with a Regenerate button. Given `pickedItemIds` ("Brief
 // these" in the Inbox or under a Chat answer), it offers a Briefing of exactly those Items
 // instead. Given `briefNow` (the Brief me (24h) shortcut), it presses Brief me for the default
-// scope as soon as the estimate is in.
+// scope as soon as the estimate is in. A Briefing still being written when the page was left
+// (pending-jobs.ts) shows its progress again, then its link.
 export async function renderBriefMe(
   root: HTMLElement,
   api: ApiClient,
   pickedItemIds?: number[],
   briefNow = false,
+  pending: PendingJobs = storedPendingJobs(),
 ): Promise<void> {
   const picked = pickedItemIds !== undefined && pickedItemIds.length > 0;
   const briefMe = button(picked ? "Brief these" : "Brief me");
@@ -113,16 +117,33 @@ export async function renderBriefMe(
     }
   };
 
-  const write = async (again: boolean): Promise<void> => {
+  const showProgress = (step: BriefingProgress): void => {
+    progress.textContent = progressText(step);
+  };
+  const write = (again: boolean): Promise<void> =>
+    finish("Starting the Briefing…", () =>
+      api.writeBriefing(request(), again, showProgress, (jobId) => {
+        pending.setBriefing(jobId);
+      }),
+    );
+  // The server writes on when the page closes; coming back follows the job it remembered.
+  const followPending = (jobId: string): Promise<void> =>
+    finish("Still writing your Briefing…", () =>
+      api.followBriefing(jobId, showProgress),
+    );
+
+  const finish = async (
+    starting: string,
+    briefing: () => Promise<WrittenBriefing>,
+  ): Promise<void> => {
     writing = true;
     briefMe.disabled = true;
     regenerate.disabled = true;
     failure.textContent = "";
-    progress.textContent = "Starting the Briefing…";
+    progress.textContent = starting;
     try {
-      const answer = await api.writeBriefing(request(), again, (step) => {
-        progress.textContent = progressText(step);
-      });
+      const answer = await briefing();
+      pending.setBriefing(null);
       openBriefing.href = `#briefings/${String(answer.briefing.id)}`;
       written.hidden = false;
       regenerate.hidden = !answer.reused;
@@ -131,6 +152,9 @@ export async function renderBriefMe(
         : "";
     } catch (error) {
       if (error instanceof SignedOutError) return;
+      // Failed, or lost to a server restart: either way it isn't running any more. A dropped
+      // connection leaves the job running, so it stays remembered for coming back.
+      if (error instanceof RefusedError) pending.setBriefing(null);
       progress.textContent = "";
       failure.textContent = messageOf(error);
     } finally {
@@ -146,8 +170,11 @@ export async function renderBriefMe(
   }
 
   await Promise.allSettled([
+    // After the estimate, which would otherwise clear what following shows.
     refreshEstimate().then(() => {
-      if (briefNow && !briefMe.disabled) void write(false);
+      const pendingJob = pending.briefing();
+      if (pendingJob !== null) void followPending(pendingJob);
+      else if (briefNow && !briefMe.disabled) void write(false);
     }),
     picked ? Promise.resolve() : fillFolders(api, scopeSelect),
   ]);
