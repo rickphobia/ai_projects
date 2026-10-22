@@ -1,8 +1,14 @@
 """Shared test helpers: a stand-in PWA build and the environment the app needs."""
 
-from collections.abc import Callable, Sequence
+import asyncio
+import json
+import threading
+from collections.abc import Callable, MutableMapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
+
+from fastapi import FastAPI
 
 from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.alerts.push import Alert, Delivery, PushFailed, PushSubscription
@@ -53,6 +59,8 @@ OWNER_PASSWORD = "correct horse battery staple"
 OWNER_PASSWORD_HASH = str(hash_password(OWNER_PASSWORD, cost=2**10))
 SESSION_SECRET = "s" * 32
 PWA_INDEX = "<!doctype html><title>rss-news test build</title>"
+# Long enough for any test step; a test still fails rather than hangs when something is stuck.
+GATE_WAIT = timedelta(seconds=10)
 
 
 def fake_pwa_build(folder: Path) -> Path:
@@ -188,6 +196,12 @@ class FakeLanguageModel:
         self.simple_summaries: list[SimpleSummaryRequest] = []
         # When set, summarise_simply raises it instead of answering.
         self.simple_summary_failure: SimpleSummaryFailed | None = None
+        # When set, Briefing sections and Chat calls wait for it, as a slow model would.
+        self.gate: threading.Event | None = None
+
+    def _wait_for_gate(self) -> None:
+        if self.gate is not None and not self.gate.wait(GATE_WAIT.total_seconds()):
+            raise AssertionError("the test never opened the model's gate")
 
     def define_word(self, request: DefinitionRequest) -> DefinitionResult:
         self.definitions.append(request)
@@ -221,6 +235,7 @@ class FakeLanguageModel:
     )
 
     def continue_chat(self, context: str, given: ChatInput) -> ChatStep:
+        self._wait_for_gate()
         self.chat_calls.append((context, given))
         if not self.chat_script:
             raise AssertionError("the test scripted no more Chat steps")
@@ -252,6 +267,7 @@ class FakeLanguageModel:
         return self.answer(items)
 
     def write_briefing_section(self, section: SectionRequest) -> SectionResult:
+        self._wait_for_gate()
         self.sections.append(section)
         if section.folder_name in self.failing_folders:
             raise BriefingFailed("scripted refusal", self.SECTION_USAGE)
@@ -321,3 +337,61 @@ def make_wiring(
         starter_folders=starter_folders,
         run_tick_loop=False,
     )
+
+
+def post_and_leave(app: FastAPI, path: str, body: dict[str, Any], cookie: str) -> dict[str, Any]:
+    """POST to an event-stream route, read up to its `job` event, then hang up as a closed
+    browser tab does. Gives back the `job` event's data. TestClient can't do this: it waits for
+    the whole response."""
+
+    async def run() -> dict[str, Any]:
+        received: list[bytes] = []
+        got_job = asyncio.Event()
+        asked = False
+
+        async def receive() -> dict[str, Any]:
+            nonlocal asked
+            if not asked:
+                asked = True
+                return {"type": "http.request", "body": json.dumps(body).encode()}
+            await got_job.wait()
+            return {"type": "http.disconnect"}
+
+        async def send(message: MutableMapping[str, Any]) -> None:
+            if message["type"] == "http.response.start":
+                assert message["status"] == 200, message
+            if message["type"] == "http.response.body":
+                received.append(message.get("body", b""))
+                if b"event: job" in b"".join(received):
+                    got_job.set()
+
+        scope = {
+            "type": "http",
+            # Before 2.4, Starlette listens for the disconnect while it streams.
+            "asgi": {"version": "3.0", "spec_version": "2.3"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": path,
+            "raw_path": path.encode(),
+            "root_path": "",
+            "query_string": b"",
+            "headers": [(b"content-type", b"application/json"), (b"cookie", cookie.encode())],
+            "client": ("127.0.0.1", 50000),
+            "server": ("testserver", 80),
+        }
+        async with asyncio.timeout(GATE_WAIT.total_seconds()):
+            await app(scope, receive, send)
+        for block in b"".join(received).decode().split("\n\n"):
+            if block.startswith("event: job\n"):
+                data: dict[str, Any] = json.loads(block.split("\ndata: ", 1)[1])
+                return data
+        raise AssertionError(f"no job event in {received!r}")
+
+    # Not asyncio.run: it would wait for the hung-up stream's worker thread, which only stops
+    # waiting for the job's next event when the job moves on. The server's loop never waits so.
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(run())
+    finally:
+        loop.close()

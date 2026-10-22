@@ -21,6 +21,7 @@ from rss_news.config import Settings
 from rss_news.dictionary.lookup import Dictionary
 from rss_news.items.inbox import Inbox
 from rss_news.items.reading import ItemReading
+from rss_news.jobs.running import Jobs
 from rss_news.notes.notes import Notes
 from rss_news.simple_summaries.summarising import SimpleSummaries
 from rss_news.sources.managing import SourceManagement
@@ -33,6 +34,7 @@ from rss_news.web.chats import chats_router
 from rss_news.web.dictionary import dictionary_router
 from rss_news.web.inbox import inbox_router
 from rss_news.web.items import items_router
+from rss_news.web.jobs import jobs_router
 from rss_news.web.notes import notes_router
 from rss_news.web.simple_summaries import simple_summaries_router
 from rss_news.web.sources import sources_router
@@ -74,6 +76,7 @@ def create_app(
     spending: SpendingLimit,
     alert_push: AlertPush,
     alert_limits: AlertLimits,
+    jobs: Jobs,
     tick: TickHealth,
     background: tuple[BackgroundJob, ...] = (),
 ) -> FastAPI:
@@ -124,6 +127,7 @@ def create_app(
     app.state.spending = spending
     app.state.alert_push = alert_push
     app.state.alert_limits = alert_limits
+    app.state.jobs = jobs
 
     @app.get("/healthz")
     def healthz() -> Response:
@@ -153,6 +157,7 @@ def create_app(
         stocks_router,
         briefings_router,
         chats_router,
+        jobs_router,
         dictionary_router,
         notes_router,
         spending_router,

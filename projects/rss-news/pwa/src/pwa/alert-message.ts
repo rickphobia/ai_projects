@@ -6,6 +6,8 @@ export interface AlertMessage {
   body: string;
   // The Item tapping the Alert opens; null opens the app.
   itemId: number | null;
+  // The Briefing it opens instead, for a Briefing written while the app was closed.
+  briefingId: number | null;
 }
 
 // opened-item.ts reads the same parameter.
@@ -18,7 +20,12 @@ export function alertFromPushData(text: string | null): AlertMessage {
     data = text === null ? null : JSON.parse(text);
   } catch {
     // Not JSON: show the text itself rather than nothing.
-    return { title: "rss-news", body: text ?? "", itemId: null };
+    return {
+      title: "rss-news",
+      body: text ?? "",
+      itemId: null,
+      briefingId: null,
+    };
   }
   const fields =
     typeof data === "object" && data !== null
@@ -27,17 +34,24 @@ export function alertFromPushData(text: string | null): AlertMessage {
   return {
     title: typeof fields.title === "string" ? fields.title : "rss-news",
     body: typeof fields.body === "string" ? fields.body : "",
-    itemId: isItemId(fields.item_id) ? fields.item_id : null,
+    itemId: isId(fields.item_id) ? fields.item_id : null,
+    briefingId: isId(fields.briefing_id) ? fields.briefing_id : null,
   };
 }
 
-// The app at `scope` (the path prefix), opened on the Alert's Item when it has one.
-export function alertPageUrl(itemId: number | null, scope: string): string {
+// The app at `scope` (the path prefix), opened on the Alert's Item when it has one, or on its
+// Briefing (the app's own #briefings/<id> address).
+export function alertPageUrl(
+  itemId: number | null,
+  scope: string,
+  briefingId: number | null = null,
+): string {
   const url = new URL("./", scope);
   if (itemId !== null) url.searchParams.set(itemParam, String(itemId));
+  if (briefingId !== null) url.hash = `briefings/${String(briefingId)}`;
   return url.href;
 }
 
-function isItemId(value: unknown): value is number {
+function isId(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
 }

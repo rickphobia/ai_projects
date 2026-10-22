@@ -1,5 +1,6 @@
-import type { Chat, ChatMessage, ChatQuote } from "../api/chats";
+import type { Chat, ChatMessage, ChatQuote, ChatSearch } from "../api/chats";
 import { RefusedError, SignedOutError, type ApiClient } from "../api/client";
+import { storedPendingJobs, type PendingJobs } from "../pwa/pending-jobs";
 import { answerRow, questionRow } from "./chat-answer";
 import { historyRow } from "./chat-history";
 import { suggestionChips } from "./chat-suggestions";
@@ -24,13 +25,17 @@ export interface ChatPanelOptions {
   // it while the Chat is empty, and no sheet to open. "panel" (the default) is a side panel, a
   // bottom sheet on a phone.
   layout?: "panel" | "home";
+  // Questions still being answered when the page was left; the browser's storage by default.
+  pending?: PendingJobs;
 }
 
 // The Chat docked in the Inbox: a side panel on a wide screen, a bottom sheet opened from its
 // Chat button on a phone (the stylesheet decides). The owner asks a question, sees each search
 // as it runs, and gets the intro line and the matching Items, each with its one-line summary and
 // a Source button, then "Brief these". Earlier Chats are listed, newest used first; choosing one
-// shows its messages and continues it. A new Chat is only saved once something is asked.
+// shows its messages and continues it. A new Chat is only saved once something is asked. The
+// server answers on when the page is left; coming back to the Chat shows the question as
+// Answering… and then its answer.
 // Given a quote (Ask AI), it opens with the quote shown above the question box, sent with the
 // next question unless the owner removes it.
 export async function renderChatPanel(
@@ -47,6 +52,7 @@ export async function renderChatPanel(
     quote = null,
     open = false,
     layout = "panel",
+    pending = storedPendingJobs(),
   } = options;
   const body = document.createElement("div");
   body.id = "chat-panel-body";
@@ -205,13 +211,59 @@ export async function renderChatPanel(
     progress.textContent = "Loading the Chat…";
     // A question asked now would go to a new Chat instead of continuing this one.
     ask.disabled = true;
+    let opened: Chat | null = null;
     try {
-      const opened = await api.chat(chatId);
+      opened = await api.chat(chatId);
       if (thisShow === latestShown) show(opened);
     } catch (error) {
       if (thisShow !== latestShown || error instanceof SignedOutError) return;
       progress.textContent = "";
       showFailure(`Couldn't open the Chat: ${messageOf(error)}`);
+    } finally {
+      if (thisShow === latestShown) ask.disabled = false;
+    }
+    if (opened !== null && thisShow === latestShown) {
+      void resumeAnswer(opened, thisShow);
+    }
+  }
+
+  // A question the page was left on: the server answers on, so show it and follow its job.
+  async function resumeAnswer(shown: Chat, thisShow: number): Promise<void> {
+    const waiting = pending.answer(shown.id);
+    if (waiting === null) return;
+    const lastQuestion = shown.messages
+      .filter((message) => message.role === "owner")
+      .at(-1);
+    // Answered and saved, and the server has since forgotten the job.
+    if (lastQuestion?.text.startsWith(waiting.question)) {
+      pending.setAnswer(shown.id, null);
+      return;
+    }
+    const asked = questionRow(waiting.question);
+    messages.append(asked);
+    showSuggestions();
+    ask.disabled = true;
+    progress.textContent = "Answering…";
+    try {
+      const answer = await api.followChatAnswer(waiting.jobId, (search) => {
+        if (thisShow === latestShown)
+          progress.textContent = searchedText(search);
+      });
+      pending.setAnswer(shown.id, null);
+      if (thisShow !== latestShown) return;
+      progress.textContent = "";
+      messages.append(messageRow(answer));
+      void listChats();
+    } catch (error) {
+      if (error instanceof SignedOutError) return;
+      // Failed, or lost to a server restart: either way it isn't running any more.
+      if (error instanceof RefusedError) pending.setAnswer(shown.id, null);
+      if (thisShow !== latestShown) return;
+      asked.remove();
+      showSuggestions();
+      question.value = waiting.question;
+      progress.textContent = "";
+      showFailure(failureText(error));
     } finally {
       if (thisShow === latestShown) ask.disabled = false;
     }
@@ -241,6 +293,7 @@ export async function renderChatPanel(
     ask.disabled = true;
     showFailure("");
     progress.textContent = "Searching your Items…";
+    let asking: number | null = null;
     try {
       // A new Chat is created on its first question, so New Chat alone saves nothing.
       const current = chat ?? (await api.createChat());
@@ -248,15 +301,21 @@ export async function renderChatPanel(
       chat = current;
       onChatOpened?.(current.id);
       const sent = attached ?? undefined;
+      asking = current.id;
       const answer = await api.askChat(
         current.id,
         text,
         (search) => {
           if (thisShow !== latestShown) return;
-          progress.textContent = `Searched ${search.window}: ${itemCount(search.count)}.`;
+          progress.textContent = searchedText(search);
         },
         sent,
+        // Remembered so coming back to this Chat shows it still being answered.
+        (jobId) => {
+          pending.setAnswer(current.id, { jobId, question: text });
+        },
       );
+      pending.setAnswer(current.id, null);
       if (thisShow !== latestShown) return;
       progress.textContent = "";
       // The quote went with this question; the next one is asked without it.
@@ -267,18 +326,18 @@ export async function renderChatPanel(
       messages.append(messageRow(answer));
       void listChats();
     } catch (error) {
+      // Refused or failed on the server. A dropped connection leaves the job running, so it
+      // stays remembered for coming back.
+      if (asking !== null && error instanceof RefusedError) {
+        pending.setAnswer(asking, null);
+      }
       if (thisShow !== latestShown || error instanceof SignedOutError) return;
       // Nothing of a failed turn is saved, so the question goes back in the box to try again.
       asked.remove();
       showSuggestions();
       question.value = text;
       progress.textContent = "";
-      // A refusal is already worded for the owner; anything else needs saying what failed.
-      showFailure(
-        error instanceof RefusedError
-          ? error.message
-          : `The Chat couldn't answer: ${messageOf(error)}`,
-      );
+      showFailure(failureText(error));
     } finally {
       if (thisShow === latestShown) ask.disabled = false;
     }
@@ -308,6 +367,17 @@ function quoteBox(quote: ChatQuote | null, onRemove: () => void): HTMLElement {
   origin.append(" ", remove);
   box.append(text, origin);
   return box;
+}
+
+function searchedText(search: ChatSearch): string {
+  return `Searched ${search.window}: ${itemCount(search.count)}.`;
+}
+
+// A refusal is already worded for the owner; anything else needs saying what failed.
+function failureText(error: unknown): string {
+  return error instanceof RefusedError
+    ? error.message
+    : `The Chat couldn't answer: ${messageOf(error)}`;
 }
 
 function itemCount(count: number): string {

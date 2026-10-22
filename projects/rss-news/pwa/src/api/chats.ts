@@ -118,10 +118,12 @@ export function chatMessageFromJson(message: ChatMessageJson): ChatMessage {
   };
 }
 
-// One event of the answer's `text/event-stream` (POST api/chats/{id}/messages): `searched`
-// for each search the model makes, then `message` with the saved answer, or `failed` with a
-// detail for the owner. Null for an event the PWA doesn't know.
+// One event of the answer's `text/event-stream` (POST api/chats/{id}/messages, or following
+// its job again): `job` with the id to follow it by, `searched` for each search the model
+// makes, then `message` with the saved answer, or `failed` with a detail for the owner. Null
+// for an event the PWA doesn't know.
 export type ChatAnswerEvent =
+  | { kind: "started"; jobId: string }
   | { kind: "searched"; search: ChatSearch }
   | { kind: "message"; message: ChatMessage }
   // `data` is FastAPI's {"detail": "..."}, read like any other refusal.
@@ -131,6 +133,9 @@ export function chatAnswerEvent(
   event: string,
   data: unknown,
 ): ChatAnswerEvent | null {
+  if (event === "job") {
+    return { kind: "started", jobId: (data as { id: string }).id };
+  }
   if (event === "searched") {
     return { kind: "searched", search: data as ChatSearch };
   }

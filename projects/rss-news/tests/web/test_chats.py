@@ -107,7 +107,9 @@ def ask(client: TestClient, chat_id: int, text: str) -> list[tuple[str, dict[str
         parsed.append(
             (name_line.removeprefix("event: "), json.loads(data_line.removeprefix("data: ")))
         )
-    return parsed
+    # First the id the answer can be followed again by; test_running_jobs.py covers it.
+    assert parsed[0][0] == "job", parsed
+    return parsed[1:]
 
 
 def searched_with(model: FakeLanguageModel, call: int = 1) -> SearchResults:

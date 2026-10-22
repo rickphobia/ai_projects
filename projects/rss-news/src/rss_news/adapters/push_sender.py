@@ -72,7 +72,12 @@ class WebPushSender:
         self._session.close()
 
     def _send(self, subscription: PushSubscription, alert: Alert) -> Delivery:
-        payload = {"title": alert.title, "body": alert.body, "item_id": alert.item_id}
+        payload = {
+            "title": alert.title,
+            "body": alert.body,
+            "item_id": alert.item_id,
+            "briefing_id": alert.briefing_id,
+        }
         try:
             webpush(
                 subscription_info={

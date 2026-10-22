@@ -63,6 +63,9 @@ class Alert:
     body: str
     # The Item that tapping the Alert opens; None opens the app.
     item_id: int | None
+    # The Briefing that tapping it opens instead, for a Briefing written while the page was
+    # closed.
+    briefing_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -161,6 +164,24 @@ class AlertPush:
             else:
                 delivered += 1
         return SendReport(delivered=delivered, removed=removed, failed=failed)
+
+    def send_if_on(self, alert: Alert) -> SendReport | None:
+        """Send the Alert if the server can and some phone has Alerts on; None if not. Not held
+        back by quiet hours or the daily cap: the owner asked for what it reports."""
+        if self._sender is None or not self._store.all():
+            logger.info("alert not sent: alerts are off", extra={"title": alert.title})
+            return None
+        report = self.send(alert)
+        logger.info(
+            "alert sent",
+            extra={
+                "title": alert.title,
+                "delivered": report.delivered,
+                "removed": report.removed,
+                "failed": report.failed,
+            },
+        )
+        return report
 
     def send_test(self) -> SendReport:
         """A test Alert to every phone. It opens the newest Item, so tapping it shows that

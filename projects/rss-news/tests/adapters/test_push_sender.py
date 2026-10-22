@@ -134,4 +134,9 @@ def test_the_phone_can_read_the_alert_and_the_item_it_opens() -> None:
     payload = http_ece.decrypt(
         request["data"], private_key=BROWSER_KEY, auth_secret=AUTH_SECRET, version="aes128gcm"
     )
-    assert json.loads(payload) == {"title": "Fed holds rates", "body": "Summary", "item_id": 42}
+    assert json.loads(payload) == {
+        "title": "Fed holds rates",
+        "body": "Summary",
+        "item_id": 42,
+        "briefing_id": None,
+    }

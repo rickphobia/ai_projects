@@ -121,6 +121,10 @@ def events(client: TestClient, *, regenerate: bool = False) -> list[tuple[str, d
         parsed.append(
             (name_line.removeprefix("event: "), json.loads(data_line.removeprefix("data: ")))
         )
+    # A Briefing being written first gives the id it can be followed again by;
+    # test_running_jobs.py covers that.
+    if parsed[0][0] == "job":
+        return parsed[1:]
     return parsed
 
 

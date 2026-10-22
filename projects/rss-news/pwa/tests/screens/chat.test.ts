@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Chat, ChatMessage } from "../../src/api/chats";
 import { ApiError, RefusedError } from "../../src/api/client";
+import { storedPendingJobs } from "../../src/pwa/pending-jobs";
 import { renderChatPanel } from "../../src/screens/chat";
-import { FakeApiClient } from "../fake-api";
+import { FakeApiClient, LOST_JOB } from "../fake-api";
 
 const ANSWER: ChatMessage = {
   id: 2,
@@ -66,6 +67,87 @@ describe("the Chat panel", () => {
     onOpenItem = vi.fn();
     onBriefThese = vi.fn();
     onChatOpened = vi.fn();
+    localStorage.clear();
+  });
+
+  it("remembers the question being answered, and forgets it once answered", async () => {
+    api.chatAnswers = [{ jobId: "job-c", searches: [], result: ANSWER }];
+
+    await render();
+    askQuestion("What about Malaysia?");
+
+    await screen.findByText(ANSWER.text);
+    expect(api.questions).toEqual([[101, "What about Malaysia?"]]);
+    expect(storedPendingJobs().answer(101)).toBeNull();
+  });
+
+  it("shows a question still being answered after coming back", async () => {
+    api.savedChats.set(5, savedChat(5, "Malaysia", []));
+    storedPendingJobs().setAnswer(5, {
+      jobId: "job-c",
+      question: "What about Malaysia?",
+    });
+    api.answerJobs.set("job-c", { searches: [], result: "running" });
+
+    await render(5);
+
+    expect(screen.getByText("What about Malaysia?")).toBeTruthy();
+    expect(
+      screen.getByRole("status", { name: "Chat progress" }).textContent,
+    ).toBe("Answering…");
+    expect(api.followedJobs).toEqual(["job-c"]);
+  });
+
+  it("shows the answer that finished while the app was closed", async () => {
+    api.savedChats.set(5, savedChat(5, "Malaysia", []));
+    storedPendingJobs().setAnswer(5, {
+      jobId: "job-c",
+      question: "What about Malaysia?",
+    });
+    api.answerJobs.set("job-c", { searches: [], result: ANSWER });
+
+    await render(5);
+
+    await screen.findByText(ANSWER.text);
+    expect(screen.getByText("What about Malaysia?")).toBeTruthy();
+    expect(storedPendingJobs().answer(5)).toBeNull();
+  });
+
+  it("doesn't follow a question again once its answer is saved", async () => {
+    const question: ChatMessage = {
+      ...ANSWER,
+      id: 1,
+      role: "owner",
+      text: "What about Malaysia?",
+      items: [],
+    };
+    api.savedChats.set(5, savedChat(5, "Malaysia", [question, ANSWER]));
+    storedPendingJobs().setAnswer(5, {
+      jobId: "job-forgotten",
+      question: "What about Malaysia?",
+    });
+
+    await render(5);
+
+    expect(api.followedJobs).toEqual([]);
+    expect(storedPendingJobs().answer(5)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("says so when the server lost the question, and puts it back", async () => {
+    api.savedChats.set(5, savedChat(5, "Malaysia", []));
+    storedPendingJobs().setAnswer(5, {
+      jobId: "job-gone",
+      question: "What about Malaysia?",
+    });
+
+    await render(5);
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toBe(LOST_JOB);
+    });
+    expect(questionBox().value).toBe("What about Malaysia?");
+    expect(storedPendingJobs().answer(5)).toBeNull();
   });
 
   async function render(openChatId: number | null = null): Promise<void> {
