@@ -17,6 +17,9 @@
   <string name="share_log_chooser">Send the RickNotes log</string>
   <string name="listing_pdfs">Looking for PDFs…</string>
   <string name="no_pdfs">No PDFs in this folder yet.</string>
+  <string name="recent_documents">Recent</string>
+  <string name="folder_open">Open</string>
+  <string name="folder_closed">Closed</string>
   <string name="opening_document">Opening…</string>
   <string name="not_saved">Not saved</string>
   <string name="ink_file_unreadable">Your ink file %1$s can\'t be read (%2$s), so this Document is open read-only. RickNotes won\'t write to that file.</string>
