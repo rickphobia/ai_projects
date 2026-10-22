@@ -213,6 +213,17 @@ MIGRATIONS: tuple[str, ...] = (
     ALTER TABLE items ADD COLUMN body_complete INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE items ADD COLUMN linked_url TEXT;
     """,
+    """
+    -- The latest Simple summary of each Item, shown again when the Item is reopened.
+    CREATE TABLE simple_summaries (
+        item_id INTEGER PRIMARY KEY REFERENCES items (id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL,
+        gist TEXT NOT NULL,
+        points TEXT NOT NULL,  -- JSON list of strings
+        from_preview INTEGER NOT NULL,  -- 1 when only the Source's preview was summarised
+        cost_micro_usd INTEGER NOT NULL
+    );
+    """,
 )
 
 

@@ -1,7 +1,10 @@
-"""Simple summaries: one whole Item explained in plain words from its Reader view, the ledger
-row, the spending limit, and what is refused."""
+"""Simple summaries: one whole Item explained in plain words from its Reader view, written in a
+job that runs on if the page is closed and saved for its Item; the ledger row, the spending
+limit, and what is refused."""
 
+import threading
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,14 +21,18 @@ from rss_news.sources.fetching import Fetched
 from rss_news.spending.ledger import AiUsage, Feature
 from rss_news.wiring import Wiring
 from tests.support import (
+    GATE_WAIT,
     OWNER_PASSWORD,
     PREFIX,
     FakeArticleExtractor,
     FakeClock,
     FakeFeedFetcher,
     FakeLanguageModel,
+    FakePushSender,
     app_env,
+    events,
     make_wiring,
+    post_and_leave,
 )
 
 FEED = "https://world.example/rss"
@@ -40,6 +47,7 @@ FEED_BODY = (
     f"<item><title>A photo</title><link>{PHOTO}</link></item>"
     "</channel></rss>"
 )
+PHONE = "https://fcm.googleapis.com/fcm/send/phone-token"
 
 
 @pytest.fixture
@@ -53,7 +61,17 @@ def extractor() -> FakeArticleExtractor:
 
 
 @pytest.fixture
-def wiring(tmp_path: Path, model: FakeLanguageModel, extractor: FakeArticleExtractor) -> Wiring:
+def sender() -> FakePushSender:
+    return FakePushSender()
+
+
+@pytest.fixture
+def wiring(
+    tmp_path: Path,
+    model: FakeLanguageModel,
+    extractor: FakeArticleExtractor,
+    sender: FakePushSender,
+) -> Wiring:
     fetcher = FakeFeedFetcher()
     fetcher.answers[FEED] = Fetched(
         FEED_BODY.encode(), "application/rss+xml", etag=None, last_modified=None
@@ -64,6 +82,7 @@ def wiring(tmp_path: Path, model: FakeLanguageModel, extractor: FakeArticleExtra
         feed_fetcher=fetcher,
         language_model=model,
         article_extractor=extractor,
+        push_sender=sender,
         starter_folders=STARTER,
     )
     wiring.tick.run()
@@ -87,6 +106,47 @@ def item_id(client: TestClient, title: str) -> int:
     return int(next(item["id"] for item in items if item["title"] == title))
 
 
+def summary_path(item: int) -> str:
+    return f"{PREFIX}/api/items/{item}/simple-summary"
+
+
+def summarise(client: TestClient, title: str) -> tuple[str, dict[str, Any]]:
+    """Press Summarise and wait for the stream to end; its last event, after the `job` one."""
+    response = client.post(summary_path(item_id(client, title)))
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    streamed = events(response.text)
+    assert [name for name, _ in streamed[:-1]] == ["job"]
+    return streamed[-1]
+
+
+def saved(client: TestClient, title: str) -> dict[str, Any] | None:
+    response = client.get(summary_path(item_id(client, title)))
+    assert response.status_code == 200
+    summary: dict[str, Any] | None = response.json()["summary"]
+    return summary
+
+
+def cookie(client: TestClient) -> str:
+    return "; ".join(f"{name}={value}" for name, value in client.cookies.items())
+
+
+def leave_summary(wiring: Wiring, client: TestClient) -> str:
+    """Press Summarise and close the page while the model is still writing; the job's id."""
+    started = post_and_leave(
+        wiring.app, summary_path(item_id(client, "A story")), {}, cookie(client)
+    )
+    return str(started["id"])
+
+
+def finish(wiring: Wiring, model: FakeLanguageModel, job_id: str) -> None:
+    assert model.gate is not None
+    model.gate.set()
+    job = wiring.jobs.get(job_id)
+    assert job is not None
+    assert job.wait_finished(GATE_WAIT.total_seconds())
+
+
 def test_a_summary_explains_the_whole_article_and_records_the_call(
     client: TestClient,
     model: FakeLanguageModel,
@@ -95,16 +155,16 @@ def test_a_summary_explains_the_whole_article_and_records_the_call(
 ) -> None:
     extractor.pages[STORY] = ReaderView(title="A story", text="First paragraph.\nSecond one.")
 
-    response = client.post(f"{PREFIX}/api/items/{item_id(client, 'A story')}/simple-summary")
-
-    assert response.status_code == 200
     # 4,000 input and 400 output tokens of Haiku at $0.10 and $0.50 per million.
-    assert response.json() == {
-        "gist": "A story, simply.",
-        "points": ["First point of A story.", "Why it matters."],
-        "from_preview": False,
-        "cost_usd": "0.0006",
-    }
+    assert summarise(client, "A story") == (
+        "summary",
+        {
+            "gist": "A story, simply.",
+            "points": ["First point of A story.", "Why it matters."],
+            "from_preview": False,
+            "cost_usd": "0.0006",
+        },
+    )
     assert model.simple_summaries == [
         SimpleSummaryRequest("A story", "World News", "First paragraph.\nSecond one.")
     ]
@@ -116,10 +176,7 @@ def test_a_very_long_article_is_cut_to_the_longest_text_sent(
 ) -> None:
     extractor.pages[STORY] = ReaderView(title=None, text="word " * LONGEST_TEXT)
 
-    assert (
-        client.post(f"{PREFIX}/api/items/{item_id(client, 'A story')}/simple-summary").status_code
-        == 200
-    )
+    assert summarise(client, "A story")[0] == "summary"
 
     assert len(model.simple_summaries[0].text) == LONGEST_TEXT
 
@@ -127,25 +184,27 @@ def test_a_very_long_article_is_cut_to_the_longest_text_sent(
 def test_an_unreadable_page_is_summarised_from_the_feeds_preview_and_says_so(
     client: TestClient, model: FakeLanguageModel
 ) -> None:
-    response = client.post(f"{PREFIX}/api/items/{item_id(client, 'A story')}/simple-summary")
+    name, summary = summarise(client, "A story")
 
-    assert response.status_code == 200
-    assert response.json()["from_preview"] is True
+    assert name == "summary"
+    assert summary["from_preview"] is True
     assert model.simple_summaries[0].text == "What the feed says."
 
 
 def test_an_item_with_no_text_at_all_is_refused_without_calling_the_model(
     client: TestClient, model: FakeLanguageModel
 ) -> None:
-    response = client.post(f"{PREFIX}/api/items/{item_id(client, 'A photo')}/simple-summary")
+    name, failure = summarise(client, "A photo")
 
-    assert response.status_code == 422
-    assert response.json()["detail"].startswith("Nothing to summarise")
+    assert name == "failed"
+    assert failure["detail"].startswith("Nothing to summarise: there is no text to summarise")
     assert model.simple_summaries == []
+    assert saved(client, "A photo") is None
 
 
 def test_an_unknown_item_is_not_found(client: TestClient, model: FakeLanguageModel) -> None:
-    assert client.post(f"{PREFIX}/api/items/9999/simple-summary").status_code == 404
+    assert client.post(summary_path(9999)).status_code == 404
+    assert client.get(summary_path(9999)).status_code == 404
     assert model.simple_summaries == []
 
 
@@ -158,7 +217,7 @@ def test_a_summary_is_refused_at_the_spending_limit_without_calling_the_model(
             AiUsage("claude-opus-5-5", 250_000, 0, 0, model.SIMPLE_SUMMARY_USAGE.duration),
         )
 
-    response = client.post(f"{PREFIX}/api/items/{item_id(client, 'A story')}/simple-summary")
+    response = client.post(summary_path(item_id(client, "A story")))
 
     assert response.status_code == 429
     assert "Simple summaries" in response.json()["detail"]
@@ -172,14 +231,102 @@ def test_a_failed_summary_says_why_and_still_records_what_the_model_used(
         "stop reason refusal", model.SIMPLE_SUMMARY_USAGE
     )
 
-    response = client.post(f"{PREFIX}/api/items/{item_id(client, 'A story')}/simple-summary")
+    name, failure = summarise(client, "A story")
 
-    assert response.status_code == 502
-    assert "stop reason refusal" in response.json()["detail"]
+    assert name == "failed"
+    assert failure["detail"] == "The summary couldn't be written: stop reason refusal."
     assert summary_calls(wiring) == 1
+    assert saved(client, "A story") is None
 
 
 def test_summarising_needs_a_session(wiring: Wiring) -> None:
-    response = TestClient(wiring.app).post(f"{PREFIX}/api/items/1/simple-summary")
+    assert TestClient(wiring.app).post(summary_path(1)).status_code == 401
+    assert TestClient(wiring.app).get(summary_path(1)).status_code == 401
 
-    assert response.status_code == 401
+
+def test_an_item_has_no_saved_summary_until_summarise_is_pressed(client: TestClient) -> None:
+    assert saved(client, "A story") is None
+
+
+def test_a_summary_is_saved_for_its_item(client: TestClient, wiring: Wiring) -> None:
+    _, written = summarise(client, "A story")
+
+    assert saved(client, "A story") == written
+    assert saved(client, "A photo") is None
+    # Showing the saved one calls no model.
+    assert summary_calls(wiring) == 1
+
+
+def test_summarising_again_replaces_the_saved_summary_and_pays_again(
+    client: TestClient, extractor: FakeArticleExtractor, wiring: Wiring
+) -> None:
+    summarise(client, "A story")
+    extractor.pages[STORY] = ReaderView(title="A story", text="The whole article now.")
+
+    _, again = summarise(client, "A story")
+
+    assert again["from_preview"] is False
+    assert saved(client, "A story") == again
+    assert summary_calls(wiring) == 2
+
+
+def test_a_summary_is_written_and_saved_after_the_page_is_closed(
+    wiring: Wiring, client: TestClient, model: FakeLanguageModel
+) -> None:
+    model.gate = threading.Event()
+    job_id = leave_summary(wiring, client)
+    assert saved(client, "A story") is None
+
+    finish(wiring, model, job_id)
+
+    summary = saved(client, "A story")
+    assert summary is not None
+    assert summary["gist"] == "A story, simply."
+    assert summary_calls(wiring) == 1
+
+
+def test_a_finished_summary_can_be_followed_again_by_its_job(
+    wiring: Wiring, client: TestClient, model: FakeLanguageModel
+) -> None:
+    model.gate = threading.Event()
+    job_id = leave_summary(wiring, client)
+    finish(wiring, model, job_id)
+
+    streamed = events(client.get(f"{PREFIX}/api/jobs/{job_id}").text)
+
+    assert streamed == [("job", {"id": job_id}), ("summary", saved(client, "A story"))]
+
+
+def test_pressing_summarise_again_joins_the_summary_being_written(
+    wiring: Wiring, client: TestClient, model: FakeLanguageModel
+) -> None:
+    model.gate = threading.Event()
+    first = leave_summary(wiring, client)
+    second = leave_summary(wiring, client)
+
+    finish(wiring, model, first)
+
+    assert second == first
+    assert len(model.simple_summaries) == 1
+
+
+def test_a_finished_summary_sends_no_alert(
+    wiring: Wiring, client: TestClient, model: FakeLanguageModel, sender: FakePushSender
+) -> None:
+    subscription = {"endpoint": PHONE, "keys": {"p256dh": "BPhoneKey", "auth": "a"}}
+    assert client.post(f"{PREFIX}/api/push/subscriptions", json=subscription).status_code == 204
+    model.gate = threading.Event()
+
+    finish(wiring, model, leave_summary(wiring, client))
+
+    assert sender.delivered == []
+
+
+def test_a_saved_summary_goes_with_its_item(client: TestClient) -> None:
+    summarise(client, "A story")
+    story = item_id(client, "A story")
+    source_id = client.get(f"{PREFIX}/api/sources").json()["sources"][0]["id"]
+
+    assert client.delete(f"{PREFIX}/api/sources/{source_id}").status_code == 204
+
+    assert client.get(summary_path(story)).status_code == 404

@@ -196,7 +196,8 @@ class FakeLanguageModel:
         self.simple_summaries: list[SimpleSummaryRequest] = []
         # When set, summarise_simply raises it instead of answering.
         self.simple_summary_failure: SimpleSummaryFailed | None = None
-        # When set, Briefing sections and Chat calls wait for it, as a slow model would.
+        # When set, Briefing sections, Chat calls and Simple summaries wait for it, as a slow
+        # model would.
         self.gate: threading.Event | None = None
 
     def _wait_for_gate(self) -> None:
@@ -210,6 +211,7 @@ class FakeLanguageModel:
         return DefinitionResult(f"Meaning of {request.term}.", self.DEFINITION_USAGE)
 
     def summarise_simply(self, request: SimpleSummaryRequest) -> SimpleSummaryResult:
+        self._wait_for_gate()
         self.simple_summaries.append(request)
         if self.simple_summary_failure is not None:
             raise self.simple_summary_failure
@@ -395,3 +397,14 @@ def post_and_leave(app: FastAPI, path: str, body: dict[str, Any], cookie: str) -
         return loop.run_until_complete(run())
     finally:
         loop.close()
+
+
+def events(text: str) -> list[tuple[str, dict[str, Any]]]:
+    """The events of a whole `text/event-stream` body, as (name, data)."""
+    parsed = []
+    for block in text.strip().split("\n\n"):
+        name_line, data_line = block.split("\n")
+        parsed.append(
+            (name_line.removeprefix("event: "), json.loads(data_line.removeprefix("data: ")))
+        )
+    return parsed

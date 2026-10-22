@@ -1,10 +1,13 @@
-"""Simple summary: one whole Item explained in plain words, written when the owner asks."""
+"""Simple summary: one whole Item explained in plain words, written when the owner asks and
+saved for its Item, so reopening the Item shows it again."""
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from typing import Protocol
 
+from rss_news.clock import Clock
 from rss_news.items.inbox import InboxItem
 from rss_news.items.reading import ReaderView
 from rss_news.spending.ledger import AiUsage, Feature, SpendingLedger
@@ -73,24 +76,50 @@ class SummarisedItems(Protocol):
     def reader_view(self, item_id: int) -> ReaderView: ...
 
 
+class SavedSimpleSummaries(Protocol):
+    """The latest Simple summary of each Item; it goes when its Item does."""
+
+    def get(self, item_id: int) -> SimpleSummary | None: ...
+
+    def save(self, item_id: int, summary: SimpleSummary, at: datetime) -> None:
+        """Replaces the Item's saved summary, if any."""
+        ...
+
+
 class SimpleSummaries:
     def __init__(
         self,
         *,
         items: SummarisedItems,
+        store: SavedSimpleSummaries,
         model: SimpleSummaryModel,
         ledger: SpendingLedger,
         limit: SpendingLimit,
+        clock: Clock,
     ) -> None:
         self._items = items
+        self._store = store
         self._model = model
         self._ledger = ledger
         self._limit = limit
+        self._clock = clock
+
+    def saved(self, item_id: int) -> SimpleSummary | None:
+        """The Item's last summary, or None before the first. Raises ItemNotFound."""
+        self._items.show(item_id)
+        return self._store.get(item_id)
+
+    def check_can_summarise(self, item_id: int) -> None:
+        """The quick refusals, made before the slow work starts: raises SpendingStopped once
+        the monthly limit is reached and ItemNotFound for an unknown Item."""
+        self._limit.check_not_stopped()
+        self._items.show(item_id)
 
     def summarise(self, item_id: int) -> SimpleSummary:
-        """Raises SpendingStopped before any call once the monthly limit is reached,
-        ItemNotFound for an unknown Item, NothingToSummarise when it has no text, and
-        SimpleSummaryFailed when the model gives no summary; every model call is recorded."""
+        """Write and save a new summary of the Item, replacing the saved one. Raises what
+        check_can_summarise does before any call, then NothingToSummarise when the Item has no
+        text and SimpleSummaryFailed when the model gives no summary; every model call is
+        recorded."""
         self._limit.check_not_stopped()
         item = self._items.show(item_id)
         view = self._items.reader_view(item_id)
@@ -108,9 +137,11 @@ class SimpleSummaries:
             logger.error("simple summary failed", extra={"item_id": item_id, "detail": str(error)})
             raise
         call = self._ledger.record(Feature.SIMPLE_SUMMARIES, result.usage)
-        return SimpleSummary(
+        summary = SimpleSummary(
             result.summary.gist,
             result.summary.points,
             from_preview=view.problem is not None,
             cost_usd=call.cost_usd,
         )
+        self._store.save(item_id, summary, self._clock.now())
+        return summary

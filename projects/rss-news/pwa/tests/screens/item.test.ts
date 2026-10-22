@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, RefusedError, type InboxItem } from "../../src/api/client";
 import { renderItem } from "../../src/screens/item";
-import { FakeApiClient } from "../fake-api";
+import { storedPendingJobs } from "../../src/pwa/pending-jobs";
+import { FakeApiClient, LOST_JOB } from "../fake-api";
 
 const STORY: InboxItem = {
   id: 7,
@@ -41,6 +42,7 @@ describe("the Item view", () => {
     document.body.replaceChildren(root);
     api = new FakeApiClient();
     api.items = [{ ...STORY }];
+    localStorage.clear();
   });
 
   it("shows the owner's stocks the Item mentions", async () => {
@@ -205,8 +207,113 @@ describe("the Item view", () => {
     expect(
       [...simpleSummary().querySelectorAll("li")].map((li) => li.textContent),
     ).toEqual(["It left the rate at 2.75%.", "Loan rates should stay steady."]);
-    // Pressing again would pay for the same summary twice.
     expect(screen.queryByRole("button", { name: "Summarise" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Summarise again" }),
+    ).toBeDefined();
+  });
+
+  it("shows the saved Simple summary on opening, without asking the model", async () => {
+    api.savedSummaries.set(7, {
+      gist: "Saved gist.",
+      points: ["Saved point."],
+      fromPreview: false,
+      costUsd: "0.0006",
+    });
+    await renderItem(root, api, 7, { onBack: () => undefined });
+
+    await waitFor(() => {
+      expect(simpleSummary().querySelector("p")?.textContent).toBe(
+        "Saved gist.",
+      );
+    });
+    expect(simpleSummary().hidden).toBe(false);
+    expect(api.simpleSummariesAsked).toEqual([]);
+    expect(
+      screen.getByRole("button", { name: "Summarise again" }),
+    ).toBeDefined();
+  });
+
+  it("writes a new Simple summary when Summarise again is pressed", async () => {
+    api.savedSummaries.set(7, {
+      gist: "Saved gist.",
+      points: ["Saved point."],
+      fromPreview: false,
+      costUsd: "0.0006",
+    });
+    await renderItem(root, api, 7, { onBack: () => undefined });
+
+    (await screen.findByRole("button", { name: "Summarise again" })).click();
+
+    await waitFor(() => {
+      expect(simpleSummary().querySelector("p")?.textContent).toBe(
+        "Malaysia's central bank kept its main interest rate the same.",
+      );
+    });
+    expect(api.simpleSummariesAsked).toEqual([7]);
+  });
+
+  it("remembers a Simple summary being written until it is done", async () => {
+    api.simpleSummaryJobId = "job-s";
+    api.holdSimpleSummary = true;
+    await renderItem(root, api, 7, { onBack: () => undefined });
+
+    screen.getByRole("button", { name: "Summarise" }).click();
+    await waitFor(() => {
+      expect(storedPendingJobs().summary(7)).toBe("job-s");
+    });
+    api.releaseSimpleSummary?.();
+
+    await screen.findByRole("button", { name: "Summarise again" });
+    expect(storedPendingJobs().summary(7)).toBeNull();
+  });
+
+  it("shows a Simple summary still being written after coming back", async () => {
+    storedPendingJobs().setSummary(7, "job-s");
+    api.summaryJobs.set("job-s", "running");
+    await renderItem(root, api, 7, { onBack: () => undefined });
+
+    await waitFor(() => {
+      expect(simpleSummary().textContent).toBe("Summarising…");
+    });
+    expect(api.followedJobs).toEqual(["job-s"]);
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Summarise" })
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("shows a Simple summary finished while the owner was away", async () => {
+    storedPendingJobs().setSummary(7, "job-s");
+    api.summaryJobs.set("job-s", {
+      gist: "Finished gist.",
+      points: ["A point."],
+      fromPreview: false,
+      costUsd: "0.0006",
+    });
+    await renderItem(root, api, 7, { onBack: () => undefined });
+
+    await waitFor(() => {
+      expect(simpleSummary().querySelector("p")?.textContent).toBe(
+        "Finished gist.",
+      );
+    });
+    expect(storedPendingJobs().summary(7)).toBeNull();
+    expect(api.simpleSummariesAsked).toEqual([]);
+  });
+
+  it("says so when the server lost the Simple summary being written", async () => {
+    storedPendingJobs().setSummary(7, "job-gone");
+    await renderItem(root, api, 7, { onBack: () => undefined });
+
+    await waitFor(() => {
+      expect(simpleSummary().querySelector('[role="alert"]')?.textContent).toBe(
+        `Couldn't summarise it: ${LOST_JOB}`,
+      );
+    });
+    expect(storedPendingJobs().summary(7)).toBeNull();
+    const button = screen.getByRole("button", { name: "Summarise" });
+    expect((button as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("says when the Simple summary only covers the feed's preview", async () => {

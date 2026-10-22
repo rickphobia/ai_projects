@@ -11,6 +11,7 @@ from rss_news.adapters.sqlite.database import SqliteDatabase
 from rss_news.adapters.sqlite.items import SqliteItems
 from rss_news.adapters.sqlite.login_failures import SqliteLoginFailures
 from rss_news.adapters.sqlite.notes import SqliteNotes
+from rss_news.adapters.sqlite.simple_summaries import SqliteSimpleSummaries
 from rss_news.adapters.sqlite.sources import SqliteSources
 from rss_news.adapters.sqlite.spending import SqliteSpending
 from rss_news.adapters.sqlite.stocks import SqliteStocks
@@ -136,7 +137,12 @@ def test_healthz_fails_when_the_database_is_unreachable(tmp_path: Path) -> None:
             ),
             dictionary=Dictionary(model=FakeLanguageModel(), ledger=ledger, limit=limit),
             simple_summaries=SimpleSummaries(
-                items=reading, model=FakeLanguageModel(), ledger=ledger, limit=limit
+                items=reading,
+                store=SqliteSimpleSummaries(database),
+                model=FakeLanguageModel(),
+                ledger=ledger,
+                limit=limit,
+                clock=clock,
             ),
             notes=Notes(SqliteNotes(database), clock),
             spending=limit,

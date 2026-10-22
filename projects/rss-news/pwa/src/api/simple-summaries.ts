@@ -1,4 +1,5 @@
-// Simple summaries as the PWA sees them (POST api/items/{id}/simple-summary).
+// Simple summaries as the PWA sees them (api/items/{id}/simple-summary: GET gives the saved
+// one, POST writes a new one).
 
 export interface SimpleSummary {
   // One sentence: what the Item is about.

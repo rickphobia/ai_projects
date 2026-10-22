@@ -41,7 +41,7 @@ A short written overview the owner asks for, covering all Sources or one Folder 
 _Avoid_: Digest, summary, recap, newsletter
 
 **Simple summary**:
-One whole Item explained in plain words, as if to someone new to the subject: a one-sentence gist and three to six short points. Written when the owner presses Summarise in the Item view, and not kept. Not the Item's one-line summary, which scoring writes for every Item.
+One whole Item explained in plain words, as if to someone new to the subject: a one-sentence gist and three to six short points. Written when the owner presses Summarise in the Item view and saved for the Item; Summarise again replaces it. Not the Item's one-line summary, which scoring writes for every Item.
 _Avoid_: ELI5, TL;DR, explainer
 
 **Dictionary**:
