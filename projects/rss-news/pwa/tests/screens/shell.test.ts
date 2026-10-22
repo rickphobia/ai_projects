@@ -202,8 +202,8 @@ describe("the app shell", () => {
     );
   });
 
-  it("starts on the home screen's Chat; the latest Briefing is in the Inbox", async () => {
-    api.latestBriefingAnswer = {
+  it("starts on the home screen's Chat; Brief me is in the Inbox", async () => {
+    const briefing = {
       id: 1,
       scope: "all-24h",
       title: "All Sources, last 24 hours",
@@ -222,6 +222,7 @@ describe("the app shell", () => {
         },
       ],
     };
+    api.writeAnswers = [{ progress: [], result: { briefing, reused: false } }];
     api.items = [
       {
         id: 1,
@@ -246,15 +247,18 @@ describe("the app shell", () => {
     expect(screen.queryByText("A model came out.")).toBeNull();
 
     screen.getByRole("button", { name: "Inbox" }).click();
-    const card = (await screen.findByText("Brief me")).closest("details");
-    if (card) card.open = true;
-    card?.dispatchEvent(new Event("toggle"));
+    const briefMe = await screen.findByRole("button", {
+      name: "Brief me (about $0.24)",
+    });
+    api.savedBriefings.set(1, briefing);
+    briefMe.click();
+    (await screen.findByRole("link", { name: "Open the Briefing" })).click();
     await screen.findByText("A model came out.");
     screen.getByRole("link", { name: "Example: A story" }).click();
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "A story" })).toBeTruthy();
     });
-    expect(screen.getByRole("button", { name: "Back to Inbox" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Back to/ })).toBeTruthy();
   });
 
   it("shows the Inbox", async () => {
@@ -433,7 +437,9 @@ describe("the app shell", () => {
           .getByRole("button", { name: "Inbox" })
           .getAttribute("aria-current"),
       ).toBe("page");
-      expect(screen.getByText("Brief me").closest("details")?.open).toBe(true);
+      expect(
+        screen.getByRole("button", { name: /^Brief these: 1 picked Items/ }),
+      ).toBeTruthy();
     });
   });
 
