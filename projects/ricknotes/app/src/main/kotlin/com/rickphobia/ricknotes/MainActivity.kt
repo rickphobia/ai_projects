@@ -14,6 +14,7 @@ import androidx.core.net.toUri
 import com.rickphobia.ricknotes.adapters.settings.SharedPreferencesReadingPositions
 import com.rickphobia.ricknotes.adapters.settings.SharedPreferencesSettingsSource
 import com.rickphobia.ricknotes.files.TreeDocumentPaths
+import com.rickphobia.ricknotes.imports.IncomingShare
 import com.rickphobia.ricknotes.logging.AppLog
 import java.io.File
 import java.io.IOException
@@ -23,6 +24,9 @@ class MainActivity : ComponentActivity() {
     // Re-read on every resume: the user grants "All files access" in the system's settings
     // screen and comes back with Back, which only resumes this activity.
     private val hasAllFilesAccess = mutableStateOf(false)
+
+    // A file shared with Share → RickNotes; a share while the app is open arrives in onNewIntent.
+    private val share = mutableStateOf<IncomingShare?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +38,8 @@ class MainActivity : ComponentActivity() {
                 readingPositions = SharedPreferencesReadingPositions.open(this),
             )
 
+        // After a rotation the share was already taken.
+        if (savedInstanceState == null) share.value = IncomingShare.from(intent)
         enableEdgeToEdge()
         setContent {
             RickNotesApp(
@@ -46,8 +52,15 @@ class MainActivity : ComponentActivity() {
                         pickedFolderPath = ::pickedFolderPath,
                         shareLog = ::shareLog,
                     ),
+                share = share.value,
             )
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        IncomingShare.from(intent)?.let { share.value = it }
     }
 
     override fun onResume() {

@@ -27,17 +27,15 @@ private const val PDF_TYPE = "application/pdf"
 // Every PDF starts with this; checked instead of trusting the type the other app gave.
 private val PDF_HEADER = "%PDF-".toByteArray()
 
-// Dropped content is read into here first, then copied into the Study folder and deleted.
+// Received content is read into here first, then copied into the Study folder and deleted.
 private const val DROPS_FOLDER = "drops"
 
 /** Whether a drag says it carries a PDF, so the page view can hand it here instead of placing a Picture. */
 fun DragEvent.carriesPdf(): Boolean = clipDescription?.hasMimeType(PDF_TYPE) == true
 
 /**
- * Takes a PDF dragged in from another app in split screen, copies it into [folder] (never
- * overwriting: see [copyPdfInto]) and passes the copy to [opened]. The original is only read.
- * Anything else dropped shows a message. Logs the type, size and whether the name clashed, never
- * the content or where it came from.
+ * Takes a PDF dragged in from another app in split screen and copies it into [folder] with
+ * [PdfCopyIn], passing the copy to [opened]. Anything else dropped shows a message.
  */
 class PdfDrop(
     private val activity: Activity,
@@ -56,29 +54,49 @@ class PdfDrop(
                 ?.uri
         if (uri == null) {
             AppLog.w("PDF drop refused: no content, types ${drag.clipDescription?.mimeTypesText()}")
-            tell(R.string.pdf_drop_not_pdf)
+            Toast.makeText(activity, R.string.pdf_drop_not_pdf, Toast.LENGTH_LONG).show()
             return false
         }
         // Lets this app read content from another app; it ends when released or the activity goes.
         val permissions = activity.requestDragAndDropPermissions(drag)
-        val target = folder()
+        PdfCopyIn(activity, scope).start(uri, folder(), opened) { permissions?.release() }
+        return true
+    }
+}
+
+/**
+ * Copies a PDF from another app, dropped or shared, into a folder (never overwriting: see
+ * [copyPdfInto]) and passes the copy on. The original is only read. Content that isn't a readable
+ * PDF shows a message. Logs the type, size and whether the name clashed, never the content or
+ * where it came from.
+ */
+class PdfCopyIn(
+    private val activity: Activity,
+    private val scope: CoroutineScope,
+) {
+    /** Copies the PDF at [uri] into [folder] off the main thread, then calls [opened]; [done] runs either way. */
+    fun start(
+        uri: Uri,
+        folder: File,
+        opened: (File) -> Unit,
+        done: () -> Unit = {},
+    ) {
         scope.launch {
             val received = File(File(activity.cacheDir, DROPS_FOLDER), UUID.randomUUID().toString())
             try {
-                val copied = withContext(Dispatchers.IO) { receive(uri, received, target) }
+                val copied = withContext(Dispatchers.IO) { receive(uri, received, folder) }
                 opened(copied)
             } catch (e: PdfNotReceived) {
-                AppLog.w("PDF drop not added: ${e.message}", e)
+                AppLog.w("PDF not added: ${e.message}", e)
                 tell(e.reason)
             } catch (e: PdfNotCopied) {
-                AppLog.e("PDF drop not added", e)
+                AppLog.e("PDF not added", e)
                 tell(R.string.pdf_drop_not_saved)
             } finally {
-                permissions?.release()
+                done()
                 received.delete()
             }
         }
-        return true
     }
 
     private fun receive(
@@ -89,10 +107,10 @@ class PdfDrop(
         val bytes = read(uri, received)
         val header = received.inputStream().use { it.readNBytes(PDF_HEADER.size) }
         if (!header.contentEquals(PDF_HEADER)) {
-            throw PdfNotReceived(R.string.pdf_drop_not_pdf, "dropped content ($bytes bytes) is not a PDF")
+            throw PdfNotReceived(R.string.pdf_drop_not_pdf, "received content ($bytes bytes) is not a PDF")
         }
         val copied = copyPdfInto(folder.toPath(), received.toPath(), displayName(uri))
-        AppLog.i("copied a dropped PDF in: $bytes bytes, name clashed ${copied.nameClashed}")
+        AppLog.i("copied a PDF in: $bytes bytes, name clashed ${copied.nameClashed}")
         return copied.path.toFile()
     }
 
@@ -107,9 +125,9 @@ class PdfDrop(
                 activity.contentResolver.openInputStream(uri) ?: throw IOException("the provider gave no stream")
             input.use { source -> received.outputStream().use { source.copyTo(it) } }
         } catch (e: IOException) {
-            throw PdfNotReceived(R.string.pdf_drop_unreadable, "couldn't read the dropped content", e)
+            throw PdfNotReceived(R.string.pdf_drop_unreadable, "couldn't read the received content", e)
         } catch (e: SecurityException) {
-            throw PdfNotReceived(R.string.pdf_drop_unreadable, "no permission to read the dropped content", e)
+            throw PdfNotReceived(R.string.pdf_drop_unreadable, "no permission to read the received content", e)
         }
 
     // The name the other app shows; blank if it gives none, and copyPdfInto picks one then.
@@ -120,7 +138,7 @@ class PdfDrop(
                 ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
                 .orEmpty()
         } catch (e: SecurityException) {
-            AppLog.w("the dropped PDF's name couldn't be read, so it gets a plain one", e)
+            AppLog.w("the received PDF's name couldn't be read, so it gets a plain one", e)
             ""
         }
 
@@ -131,7 +149,7 @@ class PdfDrop(
     }
 }
 
-/** A dropped file that isn't a readable PDF; [reason] is the message the student sees. */
+/** Received content that isn't a readable PDF; [reason] is the message the student sees. */
 private class PdfNotReceived(
     @StringRes val reason: Int,
     message: String,

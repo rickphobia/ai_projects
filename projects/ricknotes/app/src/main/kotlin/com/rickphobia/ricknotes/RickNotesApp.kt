@@ -1,8 +1,6 @@
 package com.rickphobia.ricknotes
 
 import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -14,8 +12,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.rickphobia.ricknotes.core.ink.FavouritePens
 import com.rickphobia.ricknotes.core.revisionlog.Entry
-import com.rickphobia.ricknotes.core.settings.InvalidSettingException
-import com.rickphobia.ricknotes.core.settings.SettingsLoader
 import com.rickphobia.ricknotes.core.settings.SettingsSource
 import com.rickphobia.ricknotes.core.settings.SettingsStore
 import com.rickphobia.ricknotes.core.studyfolder.CourseFolders
@@ -27,6 +23,7 @@ import com.rickphobia.ricknotes.home.CourseFolderActions
 import com.rickphobia.ricknotes.home.HomeLibrary
 import com.rickphobia.ricknotes.home.HomeNavigation
 import com.rickphobia.ricknotes.home.HomeScreen
+import com.rickphobia.ricknotes.imports.IncomingShare
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.revisionlog.CourseFolder
 import com.rickphobia.ricknotes.revisionlog.ReviewScreen
@@ -42,21 +39,25 @@ import com.rickphobia.ricknotes.settings.SettingsScreen
 import com.rickphobia.ricknotes.studyfolder.AllFilesAccessScreen
 import com.rickphobia.ricknotes.studyfolder.PickFolderScreen
 import com.rickphobia.ricknotes.theme.RickNotesTheme
+import com.rickphobia.ricknotes.viewer.DocumentNavigation
 import com.rickphobia.ricknotes.viewer.DocumentScreen
 import com.rickphobia.ricknotes.viewer.DocumentSettings
 import com.rickphobia.ricknotes.viewer.ReadingPosition
 import com.rickphobia.ricknotes.viewer.ReadingPositions
+import com.rickphobia.ricknotes.viewer.SharedImage
 import com.rickphobia.ricknotes.viewer.ZoomLimits
 import java.io.File
 
 /** Which screen is showing. Without a usable Study folder the app only offers the picker. */
-private sealed interface Screen {
+internal sealed interface Screen {
     data class PickFolder(
         val problem: String?,
     ) : Screen
 
+    /** Home; with a [sharedImage], tapping a Document places it there. */
     data class Home(
         val studyFolder: String,
+        val sharedImage: Uri? = null,
     ) : Screen
 
     data class Settings(
@@ -77,11 +78,19 @@ private sealed interface Screen {
         val studyFolder: String,
     ) : Screen
 
-    /** An open Document; Back goes to [backTo], or home when it is null. */
+    /** Picking the folder a shared PDF at [uri] is copied into, starting at the tree path [startFolder]. */
+    data class ShareFolder(
+        val studyFolder: String,
+        val uri: Uri,
+        val startFolder: String,
+    ) : Screen
+
+    /** An open Document, placing a [sharedImage] if there is one; Back goes to [backTo], or home when it is null. */
     data class Document(
         val studyFolder: String,
         val pdf: PdfEntry,
         val backTo: Screen? = null,
+        val sharedImage: Uri? = null,
     ) : Screen {
         val back: Screen get() = backTo ?: Home(studyFolder)
 
@@ -103,44 +112,15 @@ class AppStorage<S>(
     val readingPositions: ReadingPositions,
 ) where S : SettingsSource, S : SettingsStore
 
-private fun problemText(error: InvalidSettingException) = "The Study folder ${error.value} ${error.reason}."
-
-private fun startScreen(source: SettingsSource): Screen =
-    try {
-        SettingsLoader.load(source).studyFolder?.let { Screen.Home(it) } ?: Screen.PickFolder(problem = null)
-    } catch (e: InvalidSettingException) {
-        AppLog.w("stored settings unusable: ${e.message}")
-        Screen.PickFolder(problemText(e))
-    }
-
-/** Saves the picked Study folder at [path] and goes home, or says why it can't be used. */
-private fun afterPickingFolder(
-    path: String?,
-    store: SettingsStore,
-): Screen =
-    if (path == null) {
-        AppLog.w("picked folder is not on the tablet's own storage")
-        Screen.PickFolder("Pick a folder on the tablet's own storage, not an SD card or USB drive.")
-    } else {
-        try {
-            SettingsLoader.saveStudyFolder(store, path)
-            AppLog.i("study folder chosen")
-            Screen.Home(path)
-        } catch (e: InvalidSettingException) {
-            AppLog.w("picked folder unusable: ${e.message}")
-            Screen.PickFolder(problemText(e))
-        }
-    }
-
-/** Where the home screen of [studyFolder] leads, going there with [go]. */
+/** Where the home screen [route] leads, going there with [go]. */
 private fun homeNavigation(
-    studyFolder: String,
+    route: Screen.Home,
     go: (Screen) -> Unit,
 ) = HomeNavigation(
-    openSettings = { go(Screen.Settings(studyFolder)) },
-    openPdf = { pdf -> go(Screen.Document(studyFolder, pdf)) },
-    openRevisionLog = { course -> go(Screen.RevisionLog(studyFolder, course)) },
-    openReview = { go(Screen.Review(studyFolder)) },
+    openSettings = { go(Screen.Settings(route.studyFolder)) },
+    openPdf = { pdf -> go(Screen.Document(route.studyFolder, pdf, sharedImage = route.sharedImage)) },
+    openRevisionLog = { course -> go(Screen.RevisionLog(route.studyFolder, course)) },
+    openReview = { go(Screen.Review(route.studyFolder)) },
 )
 
 /** The home screen of [route], going to the screen it asks for with [go]. */
@@ -155,7 +135,7 @@ private fun HomeRoute(
     // Walks the Study folder; the home screen calls it off the main thread.
     val dueCount = { RevisionLogSessions.dueCourses(File(route.studyFolder)).sumOf { it.entries.size } }
     val library = HomeLibrary(recentPaths, courseFolders, dueCount)
-    HomeScreen(versionName, route.studyFolder, library, homeNavigation(route.studyFolder, go))
+    HomeScreen(versionName, route.studyFolder, library, homeNavigation(route, go))
 }
 
 /** The Revision log screen of [route], going to the screen it asks for with [go]. */
@@ -212,7 +192,12 @@ private fun DocumentRoute(
     settings: DocumentSettings,
     go: (Screen) -> Unit,
 ) {
-    DocumentScreen(route.pdf, positions, settings, { go(route.instead(it)) }) { go(route.back) }
+    val sharedImage =
+        route.sharedImage?.let { uri ->
+            SharedImage(uri) { go(Screen.Home(route.studyFolder, sharedImage = uri)) }
+        }
+    val navigation = DocumentNavigation(openPdf = { go(route.instead(it)) }, onBack = { go(route.back) })
+    DocumentScreen(route.pdf, positions, settings, sharedImage, navigation)
 }
 
 /** What the screens ask Android to do, provided by `MainActivity`. */
@@ -228,6 +213,7 @@ fun <S> RickNotesApp(
     hasAllFilesAccess: Boolean,
     storage: AppStorage<S>,
     system: SystemActions,
+    share: IncomingShare?,
 ) where S : SettingsSource, S : SettingsStore {
     var screen by remember(hasAllFilesAccess) { mutableStateOf(startScreen(storage.settings)) }
     val favouritePens = remember { FavouritePensSetting(storage.settings) }
@@ -235,12 +221,8 @@ fun <S> RickNotesApp(
     val recentDocuments = remember { RecentDocuments(storage.settings) }
     val courseFolders = remember { CourseFoldersSetting(storage.settings) }
 
-    val picker =
-        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-            if (uri == null) return@rememberLauncherForActivityResult
-            screen = afterPickingFolder(system.pickedFolderPath(uri), storage.settings)
-        }
-    val pickFolder = { picker.launch(null) }
+    val pickFolder = rememberFolderPicker(system, storage.settings) { screen = it }
+    if (hasAllFilesAccess) TakeShare(share, { screen }, recentDocuments::paths) { screen = it }
 
     RickNotesTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -254,7 +236,13 @@ fun <S> RickNotesApp(
                 }
 
                 is Screen.Home -> {
-                    HomeRoute(current, versionName, recentDocuments::paths, courseFolders) { screen = it }
+                    ChoosingForShare(current, { screen = it }) {
+                        HomeRoute(current, versionName, recentDocuments::paths, courseFolders) { screen = it }
+                    }
+                }
+
+                is Screen.ShareFolder -> {
+                    ShareFolderRoute(current) { screen = it }
                 }
 
                 is Screen.RevisionLog -> {

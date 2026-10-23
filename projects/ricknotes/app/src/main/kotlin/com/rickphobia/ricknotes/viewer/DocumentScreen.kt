@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -51,37 +52,38 @@ private sealed interface Opening {
     ) : Opening
 }
 
+/** Where a Document screen leads: a PDF dropped onto a page opens with [openPdf]. */
+class DocumentNavigation(
+    val openPdf: (PdfEntry) -> Unit,
+    val onBack: () -> Unit,
+)
+
 /**
  * One Document, scrolling continuously from page to page, reopened where it was left in [positions].
- * A PDF dropped onto a page is copied into its folder and opened with [openPdf].
+ * A PDF dropped onto a page is copied into its folder and opened.
  * Tapping the pen in use in the toolbar moves on through the Favourite pens in [settings]; fingers
- * do what it says, and Entries go to the Revision log of its Course folder.
+ * do what it says, and Entries go to the Revision log of its Course folder. A [sharedImage] is
+ * placed in the middle of the screen, selected with the Lasso so the pen can move it.
  */
 @Composable
 fun DocumentScreen(
     pdf: PdfEntry,
     positions: ReadingPositions,
     settings: DocumentSettings,
-    openPdf: (PdfEntry) -> Unit,
-    onBack: () -> Unit,
+    sharedImage: SharedImage?,
+    navigation: DocumentNavigation,
 ) {
+    val onBack = navigation.onBack
     BackHandler(onBack = onBack)
     val favouritePens = settings.favouritePens
     // Each Document opens with the first Favourite pen.
     val tool = remember(pdf.path) { mutableStateOf<InkTool>(InkTool.Pen(favouritePens.colours.first())) }
     val kind = remember(pdf.path) { mutableStateOf(PenKind.INK) }
     val pages = remember(pdf.path) { PdfPages(File(pdf.path)) }
+    val shared =
+        remember(pdf.path, sharedImage) { sharedImage?.let { SharedPicture(it) { kind.value = PenKind.LASSO } } }
     DisposableEffect(pages) { onDispose { pages.close() } }
-    val opening by produceState<Opening>(Opening.InProgress, pages) {
-        value =
-            try {
-                val sizes = pages.open()
-                Opening.Ready(sizes, withContext(Dispatchers.IO) { DocumentInk.open(File(pdf.path), sizes.size) })
-            } catch (e: DocumentOpenException) {
-                AppLog.w("opening a Document failed: ${e.message}", e)
-                Opening.Failed(e)
-            }
-    }
+    val opening by rememberOpening(pdf, pages)
 
     Column(modifier = Modifier.fillMaxSize()) {
         DocumentTopBar(pdf.name, onBack) {
@@ -106,6 +108,7 @@ fun DocumentScreen(
                 // A Lasso selection only lasts while the Lasso is picked.
                 LaunchedEffect(current.ink, kind.value) { if (kind.value != PenKind.LASSO) current.ink.lasso.clear() }
                 current.ink.warnings.forEach { InkWarning(it) }
+                shared?.Bar(current.ink)
                 PageList(
                     OpenDocument(
                         pages,
@@ -115,7 +118,8 @@ fun DocumentScreen(
                         current.ink,
                         settings.fingerGestures,
                         rememberRevisionLogAdder(pdf, settings.course, pages, current.pageSizes, current.ink),
-                        openDropped = { copy -> openPdf(PdfEntry(copy.path, pdf.folder, copy.name)) },
+                        openDropped = { copy -> navigation.openPdf(PdfEntry(copy.path, pdf.folder, copy.name)) },
+                        sharedImage = shared?.placement,
                     ) {
                         when (kind.value) {
                             PenKind.INK -> PenMode.Draw(tool.value)
@@ -128,6 +132,23 @@ fun DocumentScreen(
         }
     }
 }
+
+/** Opens [pages] and the ink of [pdf], off the main thread. */
+@Composable
+private fun rememberOpening(
+    pdf: PdfEntry,
+    pages: PdfPages,
+): State<Opening> =
+    produceState<Opening>(Opening.InProgress, pages) {
+        value =
+            try {
+                val sizes = pages.open()
+                Opening.Ready(sizes, withContext(Dispatchers.IO) { DocumentInk.open(File(pdf.path), sizes.size) })
+            } catch (e: DocumentOpenException) {
+                AppLog.w("opening a Document failed: ${e.message}", e)
+                Opening.Failed(e)
+            }
+    }
 
 /** Back, the Document's name (cut short when it doesn't fit), then [tools]. */
 @Composable
