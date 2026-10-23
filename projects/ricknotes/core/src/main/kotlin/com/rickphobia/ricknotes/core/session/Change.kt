@@ -1,23 +1,37 @@
 package com.rickphobia.ricknotes.core.session
 
+import com.rickphobia.ricknotes.core.ink.Picture
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 
-/** One undo step: a change to a Document's strokes that can be made and taken back. */
+/** One undo step: a change to a Document's strokes or Pictures that can be made and taken back. */
 internal sealed interface Change {
-    fun apply(strokes: MutableList<Stroke>)
+    fun apply(content: InkContent)
 
-    fun undo(strokes: MutableList<Stroke>)
+    fun undo(content: InkContent)
 
     data class Added(
         val stroke: Stroke,
     ) : Change {
-        override fun apply(strokes: MutableList<Stroke>) {
-            strokes.add(stroke)
+        override fun apply(content: InkContent) {
+            content.strokes.add(stroke)
         }
 
-        override fun undo(strokes: MutableList<Stroke>) {
-            strokes.removeAll { it.id == stroke.id }
+        override fun undo(content: InkContent) {
+            content.strokes.removeAll { it.id == stroke.id }
+        }
+    }
+
+    /** Undo takes the Picture off the page but leaves its image in `.assets`, so redo can put it back. */
+    data class Placed(
+        val picture: Picture,
+    ) : Change {
+        override fun apply(content: InkContent) {
+            content.pictures.add(picture)
+        }
+
+        override fun undo(content: InkContent) {
+            content.pictures.removeAll { it.id == picture.id }
         }
     }
 
@@ -25,12 +39,13 @@ internal sealed interface Change {
     data class Erased(
         val erased: List<IndexedValue<Stroke>>,
     ) : Change {
-        override fun apply(strokes: MutableList<Stroke>) {
+        override fun apply(content: InkContent) {
             val ids = erased.map { it.value.id }.toSet()
-            strokes.removeAll { it.id in ids }
+            content.strokes.removeAll { it.id in ids }
         }
 
-        override fun undo(strokes: MutableList<Stroke>) {
+        override fun undo(content: InkContent) {
+            val strokes = content.strokes
             // In ascending order, each index is right once the ones before it are back.
             erased.sortedBy { it.index }.forEach { strokes.add(it.index.coerceAtMost(strokes.size), it.value) }
         }
@@ -41,10 +56,10 @@ internal sealed interface Change {
         val before: List<Stroke>,
         val offset: PageOffset,
     ) : Change {
-        override fun apply(strokes: MutableList<Stroke>) =
-            replace(strokes, before.associate { it.id to it.movedBy(offset) })
+        override fun apply(content: InkContent) =
+            replace(content.strokes, before.associate { it.id to it.movedBy(offset) })
 
-        override fun undo(strokes: MutableList<Stroke>) = replace(strokes, before.associateBy { it.id })
+        override fun undo(content: InkContent) = replace(content.strokes, before.associateBy { it.id })
 
         // In place, so a moved stroke keeps its place in the drawing order.
         private fun replace(

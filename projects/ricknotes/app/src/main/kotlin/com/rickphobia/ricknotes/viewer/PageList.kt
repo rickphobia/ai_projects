@@ -129,10 +129,11 @@ internal fun PageList(document: OpenDocument) {
                     document.pages,
                     pageLayout(index, size),
                     part?.let { SettledPart(it.pageWidth, it.visibleParts[index]) },
-                ) { PageInk(ink, PageId.ofPdfPage(index), size.widthPt.toFloat(), strokeRenderer) }
+                ) { PageOverlay(ink, PageId.ofPdfPage(index), size.widthPt.toFloat(), strokeRenderer) }
             }
         }
         val listView = PageListView(view, listState, screen, gapPx)
+        PictureDropArea(ink) { listView.placements(document.pageSizes) }
         TouchLayer(document, listView)
         LassoMenu(ink, { listView.placements(document.pageSizes) }, lassoActions(ink, document.revisionLog))
         RevisionLogNoteBar(document.revisionLog, Modifier.align(Alignment.BottomCenter).padding(16.dp))
