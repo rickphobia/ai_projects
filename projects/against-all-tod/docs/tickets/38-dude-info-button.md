@@ -13,5 +13,5 @@
 - [x] Every Dude kind card in the Unit bar shows an ⓘ button in its top-right corner, big enough to tap on a phone
 - [x] ⓘ opens a panel in the existing card style with portrait, name, price, stats and description, all read from the Dude catalogue (tested: the panel's content comes from the catalogue entry, nothing hard-coded per Dude kind)
 - [x] Tapping ⓘ doesn't change the chosen Dude kind; ✕, a tap outside and Escape close the panel
-- [ ] Help text under the Unit bar and the Hint line are fully readable, never clipped or overlapping, at 1910×873, 1280×720 and a 390×844 phone viewport (screenshots of each in the PR)
+- [x] Help text under the Unit bar and the Hint line are fully readable, never clipped or overlapping, at 1910×873, 1280×720 and a 390×844 phone viewport (screenshots of each in the PR). A 390×844 portrait phone only shows "Turn your device", so the phone check ran at 844×390 landscape too.
 - [x] Lint, type checks and tests pass
