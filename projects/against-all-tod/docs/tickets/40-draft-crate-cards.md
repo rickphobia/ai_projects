@@ -4,15 +4,15 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** ui/crate
 
 **Effort:** low
 
-- [ ] The crate shows three picture cards with name, picture, description and Choose, in the game's existing chunky card style
-- [ ] Free Dudes show the portrait with a "×N" badge; Mutations and Pieces show their own art; descriptions come from the catalogues (tested: a card's text comes from the catalogue entry)
-- [ ] Reroll and its price sit in the panel's corner and still work; taking one item still closes the crate as before
-- [ ] The panel no longer covers the Spawn zone or Maze while open in a way that hides what you're choosing for; it fits a 390×844 phone viewport without scrolling
-- [ ] Screenshots in the PR of an attack crate and a defense crate, at 1910×873 and on a phone
-- [ ] Lint, type checks and tests pass
+- [x] The crate shows three picture cards with name, picture, description and Choose, in the game's existing chunky card style
+- [x] Free Dudes show the portrait with a "×N" badge; Mutations and Pieces show their own art; descriptions come from the catalogues (tested: a card's text comes from the catalogue entry)
+- [x] Reroll and its price sit in the panel's corner and still work; taking one item still closes the crate as before
+- [x] The panel no longer covers the Spawn zone or Maze while open in a way that hides what you're choosing for; it fits a 390×844 phone viewport without scrolling
+- [x] Screenshots in the PR of an attack crate and a defense crate, at 1910×873 and on a phone
+- [x] Lint, type checks and tests pass

@@ -502,14 +502,15 @@
       #debug-panel input {
         width: 4rem;
       }
-      /* The Draft Crate, along the bottom so it never hides the HUD. */
+      /* The Draft Crate: three picture cards along the bottom, so the HUD and most of the Board
+         stay in view while you choose. */
       #crate {
         position: fixed;
         left: 50%;
         bottom: 12px;
         transform: translateX(-50%);
-        max-width: calc(100% - 32px);
-        padding-bottom: 14px;
+        width: min(620px, calc(100% - 32px));
+        padding: 22px 10px 12px;
         text-align: center;
       }
       #crate p {
@@ -518,13 +519,118 @@
         color: var(--muted);
       }
       .crate-items {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 6px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+        gap: 8px;
       }
+      .crate-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+        padding: 8px 6px;
+        border: 3px solid var(--outline);
+        border-radius: 12px;
+        background: var(--bg);
+      }
+      .crate-card h3 {
+        margin: 0;
+        font-size: 0.95rem;
+        line-height: 1.15;
+      }
+      #crate .crate-card p {
+        flex: 1;
+        font-size: 0.75rem;
+        line-height: 1.25;
+      }
+      .crate-picture {
+        position: relative;
+        width: 72px;
+        height: 72px;
+      }
+      .crate-picture img,
+      .crate-picture svg {
+        width: 100%;
+        height: 100%;
+      }
+      .crate-badge {
+        position: absolute;
+        right: -10px;
+        bottom: -4px;
+        padding: 0 6px;
+        border: 2px solid var(--outline);
+        border-radius: 8px;
+        background: var(--gold);
+        color: var(--outline);
+        font-weight: 700;
+        font-size: 1.05rem;
+      }
+      .crate-fold {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      #crate.crate-folded .crate-items {
+        display: none;
+      }
+      /* In the panel's top-right corner, level with the ribbon. */
       #crate .crate-reroll {
+        position: absolute;
+        top: -18px;
+        right: 8px;
+        padding: 2px 10px;
         color: var(--gold);
+        font-size: 0.85rem;
+      }
+      /* A landscape phone: picture beside the name, so the panel leaves most of the Board in view. */
+      @media (max-height: 500px) {
+        #crate {
+          bottom: 4px;
+          padding: 16px 6px 6px;
+        }
+        .crate-card {
+          display: grid;
+          grid-template-columns: 40px minmax(0, 1fr);
+          grid-template-areas:
+            "picture name"
+            "picture text"
+            "choose choose";
+          column-gap: 6px;
+          row-gap: 2px;
+          padding: 4px 6px;
+          text-align: left;
+        }
+        .crate-card h3 {
+          grid-area: name;
+          font-size: 0.8rem;
+        }
+        #crate .crate-card p {
+          grid-area: text;
+          font-size: 0.65rem;
+          line-height: 1.15;
+        }
+        .crate-picture {
+          grid-area: picture;
+          align-self: center;
+          width: 40px;
+          height: 40px;
+        }
+        .crate-badge {
+          right: -6px;
+          bottom: -6px;
+          padding: 0 3px;
+          font-size: 0.75rem;
+        }
+        .crate-card .btn {
+          grid-area: choose;
+          min-height: 0;
+          padding: 2px 8px;
+          font-size: 0.8rem;
+        }
       }
       #crate[hidden],
       #fps[hidden],
