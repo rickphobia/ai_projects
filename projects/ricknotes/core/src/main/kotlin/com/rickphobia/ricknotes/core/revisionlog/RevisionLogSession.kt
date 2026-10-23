@@ -1,5 +1,6 @@
 package com.rickphobia.ricknotes.core.revisionlog
 
+import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.session.AutoSave
 import com.rickphobia.ricknotes.core.session.Clock
 import com.rickphobia.ricknotes.core.session.SaveListener
@@ -139,6 +140,26 @@ class RevisionLogSession private constructor(
                     schedule = ReviewSchedule.after(entry.schedule, grade, dayIn(zone, now)),
                     ratings = entry.ratings + Rating(now, grade),
                 )
+            saving.changed()
+            return all[index]
+        }
+    }
+
+    /**
+     * Keeps a Redo of Mistake [id]: its [strokes], written now. Saved like any change.
+     *
+     * @throws IllegalArgumentException if there is no such Entry, it is a Key point, or [strokes] is empty.
+     */
+    fun addRedo(
+        id: EntryId,
+        strokes: List<Stroke>,
+    ): Entry {
+        check(!readOnly) { "$LOG_FILE in ${folder.parent.fileName} is open read-only" }
+        val redo = Redo(clock.nowMs(), strokes)
+        synchronized(lock) {
+            val index = all.indexOfFirst { it.id == id }
+            require(index >= 0) { "no Entry ${id.value}" }
+            all[index] = all[index].copy(redos = all[index].redos + redo)
             saving.changed()
             return all[index]
         }

@@ -1,6 +1,10 @@
 package com.rickphobia.ricknotes.core.revisionlog
 
 import com.rickphobia.ricknotes.core.ink.PageId
+import com.rickphobia.ricknotes.core.ink.Stroke
+import com.rickphobia.ricknotes.core.ink.StrokeId
+import com.rickphobia.ricknotes.core.ink.Tool
+import com.rickphobia.ricknotes.core.inkfile.PointPacking
 import com.rickphobia.ricknotes.core.session.PageRect
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -60,7 +64,32 @@ internal object RevisionLogCodec {
             category = category?.name?.lowercase(),
             why = why,
             ratings = ratings.map { RatingJson(it.atMs, it.grade.name.lowercase()) },
+            redos = redos.map { redo -> RedoJson(redo.atMs, redo.strokes.map { it.toJson() }) },
         )
+
+    // No page: every Redo stroke is on Redo.PAGE.
+    private fun Stroke.toJson() =
+        RedoStrokeJson(
+            id = id.value,
+            tool = tool.name.lowercase(),
+            colour = "#%08X".format(colourArgb),
+            widthPt = widthPt,
+            drawnAtMs = drawnAtMs,
+            points = PointPacking.pack(points),
+        )
+
+    private fun RedoStrokeJson.toStroke(): Stroke {
+        require(colour.matches(COLOUR)) { "colour \"$colour\" is not #AARRGGBB" }
+        return Stroke(
+            id = StrokeId(id),
+            pageId = Redo.PAGE,
+            tool = named(Tool.entries, tool, "tool"),
+            colourArgb = colour.substring(1).toLong(HEX).toInt(),
+            widthPt = widthPt,
+            drawnAtMs = drawnAtMs,
+            points = PointPacking.unpack(points),
+        )
+    }
 
     private fun EntryJson.toEntry(): Entry =
         Entry(
@@ -78,6 +107,7 @@ internal object RevisionLogCodec {
             category = category?.let { named(MistakeCategory.entries, it, "category") },
             why = why,
             ratings = ratings.map { Rating(it.atMs, named(Grade.entries, it.grade, "grade")) },
+            redos = redos.map { redo -> Redo(redo.atMs, redo.strokes.map { it.toStroke() }) },
         )
 
     private fun <E : Enum<E>> named(
@@ -92,6 +122,9 @@ internal object RevisionLogCodec {
         } catch (e: DateTimeParseException) {
             throw IllegalArgumentException("due date \"$text\" is not YYYY-MM-DD", e)
         }
+
+    private val COLOUR = Regex("#[0-9A-Fa-f]{8}")
+    private const val HEX = 16
 }
 
 @Serializable
@@ -115,6 +148,25 @@ private data class EntryJson(
     val why: String? = null,
     // Logs from before Review have no ratings.
     val ratings: List<RatingJson> = emptyList(),
+    // Logs from before Redos have none.
+    val redos: List<RedoJson> = emptyList(),
+)
+
+@Serializable
+private data class RedoJson(
+    val atMs: Long,
+    val strokes: List<RedoStrokeJson>,
+)
+
+/** A Redo stroke: an Ink file's stroke without a page, its points packed the same way. */
+@Serializable
+private data class RedoStrokeJson(
+    val id: String,
+    val tool: String,
+    val colour: String,
+    val widthPt: Float,
+    val drawnAtMs: Long,
+    val points: String,
 )
 
 @Serializable

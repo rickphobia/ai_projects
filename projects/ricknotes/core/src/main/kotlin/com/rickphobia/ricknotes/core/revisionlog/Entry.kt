@@ -1,6 +1,7 @@
 package com.rickphobia.ricknotes.core.revisionlog
 
 import com.rickphobia.ricknotes.core.ink.PageId
+import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.session.PageRect
 import java.time.LocalDate
 
@@ -41,6 +42,25 @@ data class Rating(
     val grade: Grade,
 )
 
+/**
+ * One Redo of a Mistake in Review, written at [atMs] wall-clock epoch time: its [strokes], all on
+ * [PAGE], in points from the writing area's top-left corner.
+ */
+data class Redo(
+    val atMs: Long,
+    val strokes: List<Stroke>,
+) {
+    init {
+        require(strokes.isNotEmpty()) { "a Redo has strokes" }
+        require(strokes.all { it.pageId == PAGE }) { "a Redo's strokes are on its own page" }
+    }
+
+    companion object {
+        /** The page every Redo stroke is on: a Redo's writing area isn't a page of any Document. */
+        val PAGE = PageId("redo")
+    }
+}
+
 /** The two Snips of an Entry, as PNG: the area without ink (front) and with it (back). */
 class Snips(
     val front: ByteArray,
@@ -49,7 +69,7 @@ class Snips(
 
 /**
  * One item in a Revision log. [addedAtMs] is wall-clock epoch time; [category] is for Mistakes
- * only; [ratings] are every rating it got in Review, oldest first.
+ * only; [ratings] are every rating it got in Review and [redos] every Redo written, oldest first.
  */
 data class Entry(
     val id: EntryId,
@@ -60,9 +80,11 @@ data class Entry(
     val category: MistakeCategory? = null,
     val why: String? = null,
     val ratings: List<Rating> = emptyList(),
+    val redos: List<Redo> = emptyList(),
 ) {
     init {
         require(kind == EntryKind.MISTAKE || category == null) { "a Key point has no category" }
+        require(kind == EntryKind.MISTAKE || redos.isEmpty()) { "a Key point has no Redo" }
     }
 }
 
