@@ -1,24 +1,38 @@
 package com.rickphobia.ricknotes.core.session
 
+import com.rickphobia.ricknotes.core.ink.Picture
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 
-/**
- * A Document's strokes and the changes made to them, to step back and forward through. The history
- * lives only in memory, so it ends with the session. Not thread-safe: the session guards it.
- */
-internal class StrokeHistory(
-    loaded: List<Stroke>,
+/** What the changes in an [InkHistory] change: a Document's strokes and Pictures, in drawing order. */
+internal class InkContent(
+    strokes: List<Stroke>,
+    pictures: List<Picture>,
 ) {
-    private val strokeList = loaded.toMutableList()
+    val strokes = strokes.toMutableList()
+    val pictures = pictures.toMutableList()
+}
+
+/**
+ * A Document's strokes and Pictures and the changes made to them, to step back and forward through
+ * in one history. It lives only in memory, so it ends with the session. Not thread-safe: the
+ * session guards it.
+ */
+internal class InkHistory(
+    private val content: InkContent,
+) {
+    private val strokeList = content.strokes
     private val undoSteps = ArrayDeque<Change>()
     private val redoSteps = ArrayDeque<Change>()
 
     val strokes: List<Stroke> get() = strokeList.toList()
+    val pictures: List<Picture> get() = content.pictures.toList()
     val canUndo: Boolean get() = undoSteps.isNotEmpty()
     val canRedo: Boolean get() = redoSteps.isNotEmpty()
 
     fun add(stroke: Stroke): Boolean = make(Change.Added(stroke))
+
+    fun place(picture: Picture): Boolean = make(Change.Placed(picture))
 
     /** False, and no undo step, if none of [ids] is here. */
     fun erase(ids: Set<StrokeId>): Boolean {
@@ -37,20 +51,20 @@ internal class StrokeHistory(
 
     fun undo(): Boolean {
         val change = undoSteps.removeLastOrNull() ?: return false
-        change.undo(strokeList)
+        change.undo(content)
         redoSteps.add(change)
         return true
     }
 
     fun redo(): Boolean {
         val change = redoSteps.removeLastOrNull() ?: return false
-        change.apply(strokeList)
+        change.apply(content)
         undoSteps.add(change)
         return true
     }
 
     private fun make(change: Change): Boolean {
-        change.apply(strokeList)
+        change.apply(content)
         undoSteps.add(change)
         redoSteps.clear()
         return true

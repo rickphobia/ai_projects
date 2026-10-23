@@ -10,7 +10,7 @@ import java.nio.file.Path
  * `.<pdf name>.ink.json.tmp`, so a crash mid-save leaves the old Ink file whole.
  */
 internal class InkFileStore(
-    pdf: Path,
+    val pdf: Path,
 ) {
     val inkFile: Path = pdf.resolveSibling("${pdf.fileName}$INK_SUFFIX")
     val fileName: String = inkFile.fileName.toString()
