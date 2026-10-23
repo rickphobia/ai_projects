@@ -1,5 +1,7 @@
 package com.rickphobia.ricknotes.revisionlog
 
+import com.rickphobia.ricknotes.core.revisionlog.DueCourse
+import com.rickphobia.ricknotes.core.revisionlog.ReviewQueue
 import com.rickphobia.ricknotes.core.revisionlog.RevisionLogSession
 import com.rickphobia.ricknotes.core.session.InkSaveFailed
 import com.rickphobia.ricknotes.core.session.SaveListener
@@ -34,12 +36,31 @@ internal object RevisionLogSessions {
                 }
         }
 
+    /**
+     * Every course with Entries due today, from every Revision log in [studyFolder], through these
+     * sessions. Walks the Study folder: call it off the main thread.
+     */
+    fun dueCourses(studyFolder: File): List<DueCourse> {
+        val started = System.nanoTime()
+        val due =
+            ReviewQueue.due(studyFolder.toPath(), { open(it.toFile()) }) { folder, error ->
+                AppLog.w("Review left out ${folder.fileName}: ${error.message}")
+            }
+        AppLog.i(
+            "Review: ${due.sumOf { it.entries.size }} due in ${due.size} courses, " +
+                "found in ${(System.nanoTime() - started) / NANOS_PER_MS} ms",
+        )
+        return due
+    }
+
     /** Saves every log's changes on the save thread without waiting: for when the app goes to the background. */
     fun saveAllInBackground() {
         val open = synchronized(this) { sessions.values.toList() }
         SaveThread.run { open.forEach { it.saveNow() } }
     }
 }
+
+private const val NANOS_PER_MS = 1_000_000
 
 // Names the course, never what is in its Entries.
 private class SaveLog(

@@ -42,8 +42,9 @@ internal fun SnipPair(
     }
 }
 
+/** The Snip in [file] with its [label], on white, or a note when it can't be read. */
 @Composable
-private fun Snip(
+internal fun Snip(
     file: Path,
     label: Int,
     modifier: Modifier,

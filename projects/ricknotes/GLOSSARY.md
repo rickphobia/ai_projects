@@ -94,16 +94,24 @@ One item in a Revision log: a Snip of where it came from, labelled with Document
 _Avoid_: error, record, card
 
 **Mistake**:
-An Entry for something you got wrong or didn't understand. It comes back for a Redo 3 and 7 days later.
+An Entry for something you got wrong or didn't understand. It comes back in Review, where you write a Redo.
 _Avoid_: Wrong entry, Confused entry
 
 **Key point**:
-An Entry for something important the lecturer said. It is kept for reading before exams and never comes back for a Redo.
+An Entry for something important the lecturer said. It comes back in Review like a Mistake, with no Redo.
 _Avoid_: highlight, note
 
 **Redo**:
-One attempt at a Mistake again, written by hand on a blank area under its Snip, then marked "Got it" or "Still wrong".
+One attempt at a Mistake again, written by hand on a blank area under its front in Review. Optional.
 _Avoid_: retry, review
+
+**Review**:
+Going through every Entry due today, from every Revision log, one card at a time: its front (the Snip without ink), then Show answer for its back (with ink and the "why" line), then Again or Good.
+_Avoid_: quiz, study session, flashcards
+
+**Due**:
+An Entry is due when its due date is today or earlier. It is first due 3 days after it was added; Good stretches the gap 2.3 times (3, 7, 16, 37 days); Again makes it due tomorrow and starts the stretching over.
+_Avoid_: overdue, scheduled
 
 ## Screen
 

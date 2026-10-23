@@ -4,15 +4,15 @@
 
 **Blocked by:** 20 (Add mistake and Add key point)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-revisionlog, app-revisionlog, app-home
 
 **Effort:** medium
 
-- [ ] Schedule tested with a fake clock: first due after 3 days, Good gaps 3 → 7 → 16 → 37, Again → tomorrow and then 3 again; constants are named in `core`
-- [ ] Review queue tested across two Course folders: grouped by course, oldest due first, due means on or before today
-- [ ] Home shows "Review · N due"; the course picker reviews one course only
-- [ ] Front, Show answer, back with why, Again / Good; Key points included
-- [ ] Each rating is saved straight away (tested: reopening keeps ratings given before leaving)
-- [ ] On-tablet check written in the PR: with the tablet's date moved forward 3 days, review a Mistake and a Key point
+- [x] Schedule tested with a fake clock: first due after 3 days, Good gaps 3 → 7 → 16 → 37, Again → tomorrow and then 3 again; constants are named in `core`
+- [x] Review queue tested across two Course folders: grouped by course, oldest due first, due means on or before today
+- [x] Home shows "Review · N due"; the course picker reviews one course only
+- [x] Front, Show answer, back with why, Again / Good; Key points included
+- [x] Each rating is saved straight away (tested: reopening keeps ratings given before leaving)
+- [x] On-tablet check written in the PR: with the tablet's date moved forward 3 days, review a Mistake and a Key point

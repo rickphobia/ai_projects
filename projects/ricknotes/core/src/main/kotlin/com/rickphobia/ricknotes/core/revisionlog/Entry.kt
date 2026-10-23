@@ -32,13 +32,25 @@ data class Schedule(
     val gapDays: Int,
 )
 
+/** How a card went in Review. */
+enum class Grade { AGAIN, GOOD }
+
+/** One rating of an Entry in Review, at [atMs] wall-clock epoch time. */
+data class Rating(
+    val atMs: Long,
+    val grade: Grade,
+)
+
 /** The two Snips of an Entry, as PNG: the area without ink (front) and with it (back). */
 class Snips(
     val front: ByteArray,
     val back: ByteArray,
 )
 
-/** One item in a Revision log. [addedAtMs] is wall-clock epoch time; [category] is for Mistakes only. */
+/**
+ * One item in a Revision log. [addedAtMs] is wall-clock epoch time; [category] is for Mistakes
+ * only; [ratings] are every rating it got in Review, oldest first.
+ */
 data class Entry(
     val id: EntryId,
     val kind: EntryKind,
@@ -47,6 +59,7 @@ data class Entry(
     val schedule: Schedule,
     val category: MistakeCategory? = null,
     val why: String? = null,
+    val ratings: List<Rating> = emptyList(),
 ) {
     init {
         require(kind == EntryKind.MISTAKE || category == null) { "a Key point has no category" }

@@ -10,6 +10,7 @@ import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
 
@@ -53,7 +54,7 @@ class RevisionLogSession private constructor(
     val status: SaveStatus get() = saving.status
 
     /**
-     * Adds an Entry of [kind] from [source], first due [FIRST_GAP_DAYS] days from today. Its
+     * Adds an Entry of [kind] from [source], first due [ReviewSchedule.FIRST_GAP_DAYS] days from today. Its
      * [snips] are written before the Entry is, so the log never names a Snip that isn't there.
      * Writes files: call it off the main thread.
      *
@@ -66,14 +67,13 @@ class RevisionLogSession private constructor(
     ): Entry {
         check(!readOnly) { "$LOG_FILE in ${folder.parent.fileName} is open read-only" }
         val now = clock.nowMs()
-        val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val entry =
             Entry(
                 id = EntryId(UUID.randomUUID().toString()),
                 kind = kind,
                 source = source,
                 addedAtMs = now,
-                schedule = Schedule(today.plusDays(FIRST_GAP_DAYS.toLong()), FIRST_GAP_DAYS),
+                schedule = ReviewSchedule.first(dayIn(zone, now)),
             )
         writeSnip(frontSnip(entry), snips.front)
         writeSnip(backSnip(entry), snips.back)
@@ -118,6 +118,40 @@ class RevisionLogSession private constructor(
         }
     }
 
+    /**
+     * Rates Entry [id] with [grade] in Review: keeps the rating and moves its due date as
+     * [ReviewSchedule] says. Saved like any change.
+     *
+     * @throws IllegalArgumentException if there is no such Entry.
+     */
+    fun rate(
+        id: EntryId,
+        grade: Grade,
+    ): Entry {
+        check(!readOnly) { "$LOG_FILE in ${folder.parent.fileName} is open read-only" }
+        val now = clock.nowMs()
+        synchronized(lock) {
+            val index = all.indexOfFirst { it.id == id }
+            require(index >= 0) { "no Entry ${id.value}" }
+            val entry = all[index]
+            all[index] =
+                entry.copy(
+                    schedule = ReviewSchedule.after(entry.schedule, grade, dayIn(zone, now)),
+                    ratings = entry.ratings + Rating(now, grade),
+                )
+            saving.changed()
+            return all[index]
+        }
+    }
+
+    /** The Entries due today or earlier in the tablet's time zone: oldest due first, then oldest added. */
+    fun due(): List<Entry> {
+        val today = dayIn(zone, clock.nowMs())
+        return entries
+            .filter { !it.schedule.dueDate.isAfter(today) }
+            .sortedWith(compareBy({ it.schedule.dueDate }, { it.addedAtMs }))
+    }
+
     /** The Entries newest first, only those of [kind] when it is given. */
     fun newestFirst(kind: EntryKind?): List<Entry> =
         entries.filter { kind == null || it.kind == kind }.sortedByDescending { it.addedAtMs }
@@ -158,9 +192,6 @@ class RevisionLogSession private constructor(
         const val LOG_FILE = "revision_log.json"
         private const val FRONT_SUFFIX = ".front.png"
         private const val BACK_SUFFIX = ".back.png"
-
-        /** A new Entry is first due this many days after it is added. */
-        const val FIRST_GAP_DAYS = 3
 
         const val SAVE_DELAY_MS = AutoSave.SAVE_DELAY_MS
         const val RETRY_DELAY_MS = AutoSave.RETRY_DELAY_MS
@@ -222,3 +253,9 @@ class RevisionLogSession private constructor(
         }
     }
 }
+
+/** The date at [epochMs] in [zone]. */
+private fun dayIn(
+    zone: ZoneId,
+    epochMs: Long,
+): LocalDate = Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()

@@ -59,6 +59,7 @@ internal object RevisionLogCodec {
             gapDays = schedule.gapDays,
             category = category?.name?.lowercase(),
             why = why,
+            ratings = ratings.map { RatingJson(it.atMs, it.grade.name.lowercase()) },
         )
 
     private fun EntryJson.toEntry(): Entry =
@@ -76,6 +77,7 @@ internal object RevisionLogCodec {
             schedule = Schedule(date(dueDate), gapDays),
             category = category?.let { named(MistakeCategory.entries, it, "category") },
             why = why,
+            ratings = ratings.map { Rating(it.atMs, named(Grade.entries, it.grade, "grade")) },
         )
 
     private fun <E : Enum<E>> named(
@@ -111,6 +113,14 @@ private data class EntryJson(
     val gapDays: Int,
     val category: String? = null,
     val why: String? = null,
+    // Logs from before Review have no ratings.
+    val ratings: List<RatingJson> = emptyList(),
+)
+
+@Serializable
+private data class RatingJson(
+    val atMs: Long,
+    val grade: String,
 )
 
 @Serializable

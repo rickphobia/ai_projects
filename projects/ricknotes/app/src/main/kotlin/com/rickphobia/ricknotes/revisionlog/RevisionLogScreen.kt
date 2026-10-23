@@ -185,7 +185,7 @@ private fun EntryDetail(
 }
 
 @Composable
-private fun entryTitle(entry: Entry): String {
+internal fun entryTitle(entry: Entry): String {
     val kind = stringResource(if (entry.kind == EntryKind.MISTAKE) R.string.edit_mistake else R.string.edit_key_point)
     val date = remember(entry.addedAtMs) { DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(entry.addedAtMs)) }
     val name = entry.source.documentPath.substringAfterLast('/')
