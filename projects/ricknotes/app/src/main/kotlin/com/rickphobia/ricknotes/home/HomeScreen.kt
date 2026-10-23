@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -14,6 +15,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.rickphobia.ricknotes.R
@@ -62,10 +64,14 @@ private fun loadListing(
 
 private const val NANOS_PER_MS = 1_000_000
 
-/** What the home screen reads from settings: the Recent Documents and the Course folder marks. */
+/**
+ * What the home screen reads: the Recent Documents and the Course folder marks from settings, and
+ * [dueCount], how many Entries Review has today (slow: it is called off the main thread).
+ */
 class HomeLibrary(
     val recentPaths: () -> List<String>,
     val courses: CourseFolderActions,
+    val dueCount: () -> Int,
 )
 
 /** Where the home screen leads. [openRevisionLog] takes a Course folder relative to the Study folder. */
@@ -73,6 +79,7 @@ class HomeNavigation(
     val openSettings: () -> Unit,
     val openPdf: (PdfEntry) -> Unit,
     val openRevisionLog: (String) -> Unit,
+    val openReview: () -> Unit,
 )
 
 @Composable
@@ -87,6 +94,10 @@ fun HomeScreen(
     val listing by produceState<Listing>(initialValue = Listing.Loading, studyFolder) {
         value = withContext(Dispatchers.IO) { loadListing(folder, library.recentPaths()) }
     }
+    // Null until counted; counted again each time the home screen shows, so after Review too.
+    val dueCount by produceState<Int?>(initialValue = null, studyFolder) {
+        value = withContext(Dispatchers.IO) { library.dueCount() }
+    }
     val open = { document: TreeNode.Document ->
         navigation.openPdf(PdfEntry(folder.resolve(document.path).toString(), document.folder, document.name))
     }
@@ -99,6 +110,11 @@ fun HomeScreen(
             }
             Text(text = stringResource(R.string.version, versionName), style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = navigation.openSettings) { Text(stringResource(R.string.settings)) }
+        }
+        Button(onClick = navigation.openReview, modifier = Modifier.padding(top = 16.dp)) {
+            Text(
+                dueCount?.let { pluralStringResource(R.plurals.review_due, it, it) } ?: stringResource(R.string.review),
+            )
         }
         when (val current = listing) {
             Listing.Loading -> {

@@ -82,6 +82,25 @@
   <string name="snip_without_ink">Without ink</string>
   <string name="snip_with_ink">With ink</string>
   <string name="snip_missing">Snip not found</string>
+  <string name="review">Review</string>
+  <plurals name="review_due">
+    <item quantity="one">Review · %1$d due</item>
+    <item quantity="other">Review · %1$d due</item>
+  </plurals>
+  <string name="review_loading">Finding the cards due today…</string>
+  <string name="review_done">Nothing more due today.</string>
+  <string name="review_course_done">Nothing more due in this course. Other courses still have cards: pick All courses.</string>
+  <string name="all_courses">All courses (%1$d)</string>
+  <string name="course_due">%1$s (%2$d)</string>
+  <plurals name="review_card_of">
+    <item quantity="one">%1$s · %2$d left</item>
+    <item quantity="other">%1$s · %2$d left</item>
+  </plurals>
+  <string name="review_front">Front</string>
+  <string name="review_back">Back</string>
+  <string name="show_answer">Show answer</string>
+  <string name="again">Again</string>
+  <string name="good">Good</string>
   <string name="undo">Undo</string>
   <string name="redo">Redo</string>
   <string name="favourite_pens">Favourite pens</string>

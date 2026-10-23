@@ -23,12 +23,15 @@ import com.rickphobia.ricknotes.core.studyfolder.RecentDocuments
 import com.rickphobia.ricknotes.core.touch.FingerGestures
 import com.rickphobia.ricknotes.diagnostics.PenTestScreen
 import com.rickphobia.ricknotes.files.PdfEntry
+import com.rickphobia.ricknotes.home.CourseFolderActions
 import com.rickphobia.ricknotes.home.HomeLibrary
 import com.rickphobia.ricknotes.home.HomeNavigation
 import com.rickphobia.ricknotes.home.HomeScreen
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.revisionlog.CourseFolder
+import com.rickphobia.ricknotes.revisionlog.ReviewScreen
 import com.rickphobia.ricknotes.revisionlog.RevisionLogScreen
+import com.rickphobia.ricknotes.revisionlog.RevisionLogSessions
 import com.rickphobia.ricknotes.settings.CourseFoldersSetting
 import com.rickphobia.ricknotes.settings.FavouritePensEditor
 import com.rickphobia.ricknotes.settings.FavouritePensSetting
@@ -68,6 +71,10 @@ private sealed interface Screen {
     data class RevisionLog(
         val studyFolder: String,
         val courseFolder: String,
+    ) : Screen
+
+    data class Review(
+        val studyFolder: String,
     ) : Screen
 
     /** An open Document; Back goes to [backTo], or home when it is null. */
@@ -130,7 +137,23 @@ private fun homeNavigation(
     openSettings = { go(Screen.Settings(studyFolder)) },
     openPdf = { pdf -> go(Screen.Document(studyFolder, pdf)) },
     openRevisionLog = { course -> go(Screen.RevisionLog(studyFolder, course)) },
+    openReview = { go(Screen.Review(studyFolder)) },
 )
+
+/** The home screen of [route], going to the screen it asks for with [go]. */
+@Composable
+private fun HomeRoute(
+    route: Screen.Home,
+    versionName: String,
+    recentPaths: () -> List<String>,
+    courseFolders: CourseFolderActions,
+    go: (Screen) -> Unit,
+) {
+    // Walks the Study folder; the home screen calls it off the main thread.
+    val dueCount = { RevisionLogSessions.dueCourses(File(route.studyFolder)).sumOf { it.entries.size } }
+    val library = HomeLibrary(recentPaths, courseFolders, dueCount)
+    HomeScreen(versionName, route.studyFolder, library, homeNavigation(route.studyFolder, go))
+}
 
 /** The Revision log screen of [route], going to the screen it asks for with [go]. */
 @Composable
@@ -217,16 +240,15 @@ fun <S> RickNotesApp(
                 }
 
                 is Screen.Home -> {
-                    HomeScreen(
-                        versionName = versionName,
-                        studyFolder = current.studyFolder,
-                        library = HomeLibrary(recentDocuments::paths, courseFolders),
-                        navigation = homeNavigation(current.studyFolder) { screen = it },
-                    )
+                    HomeRoute(current, versionName, recentDocuments::paths, courseFolders) { screen = it }
                 }
 
                 is Screen.RevisionLog -> {
                     RevisionLogRoute(current, storage.readingPositions) { screen = it }
+                }
+
+                is Screen.Review -> {
+                    ReviewScreen(File(current.studyFolder)) { screen = Screen.Home(current.studyFolder) }
                 }
 
                 is Screen.Settings -> {
