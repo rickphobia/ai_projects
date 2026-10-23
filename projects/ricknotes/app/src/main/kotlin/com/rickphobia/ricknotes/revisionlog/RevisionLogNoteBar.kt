@@ -122,7 +122,7 @@ private fun noteText(note: RevisionLogNote): String =
 /** Picks a Mistake's category (Key points have none) and writes its one-line "why". */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun EntryEditDialog(
+internal fun EntryEditDialog(
     entry: Entry,
     onSave: (MistakeCategory?, String?) -> Unit,
     onDismiss: () -> Unit,
@@ -172,7 +172,7 @@ private fun EntryEditDialog(
 }
 
 @get:StringRes
-private val MistakeCategory.label: Int
+internal val MistakeCategory.label: Int
     get() =
         when (this) {
             MistakeCategory.CONCEPT -> R.string.category_concept
