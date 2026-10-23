@@ -89,6 +89,7 @@
   </plurals>
   <string name="review_loading">Finding the cards due today…</string>
   <string name="review_done">Nothing more due today.</string>
+  <string name="review_course_done">Nothing more due in this course. Other courses still have cards: pick All courses.</string>
   <string name="all_courses">All courses (%1$d)</string>
   <string name="course_due">%1$s (%2$d)</string>
   <plurals name="review_card_of">

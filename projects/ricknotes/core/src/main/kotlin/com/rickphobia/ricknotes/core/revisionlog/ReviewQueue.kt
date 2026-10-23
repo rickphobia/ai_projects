@@ -40,7 +40,7 @@ object ReviewQueue {
      * The folders under [studyFolder] holding a Revision log folder, at any depth: a folder that
      * is no longer a Course folder still has its Entries reviewed (spec, story 4).
      */
-    fun courseFoldersWithLogs(
+    internal fun courseFoldersWithLogs(
         studyFolder: Path,
         onUnsearchable: UnsearchableFolderListener,
     ): List<Path> {

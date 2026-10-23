@@ -16,7 +16,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.revisionlog.DueCourse
 import com.rickphobia.ricknotes.core.revisionlog.Entry
@@ -61,8 +61,9 @@ fun ReviewScreen(
     var picked by remember(studyFolder) { mutableStateOf<String?>(null) }
     // Rated cards leave today's Review; Again brings one back tomorrow, not now.
     val rated = remember(studyFolder) { mutableStateListOf<EntryId>() }
-    // The log saves a moment after each rating anyway; this writes it at once on leaving.
-    DisposableEffect(Unit) { onDispose { RevisionLogSessions.saveAllInBackground() } }
+    // The log saves a moment after each rating anyway; this writes it at once on leaving or going
+    // to the background, where the app may be killed before that moment.
+    LifecycleStartEffect(Unit) { onStopOrDispose { RevisionLogSessions.saveAllInBackground() } }
     BackHandler(onBack = onBack)
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -74,18 +75,22 @@ fun ReviewScreen(
             Text(stringResource(R.string.review_loading), modifier = Modifier.padding(top = 16.dp))
             return@Column
         }
-        val left = { course: DueCourse -> course.entries.filter { it.id !in rated } }
-        CoursePicker(courses, picked, left, onPick = { picked = it })
+        val unrated = { course: DueCourse -> course.entries.filter { it.id !in rated } }
+        CoursePicker(courses, picked, unrated, onPick = { picked = it })
         val card =
             courses
                 .filter { picked == null || it.courseFolder == picked }
-                .firstNotNullOfOrNull { course -> left(course).firstOrNull()?.let { Card(course, it) } }
+                .firstNotNullOfOrNull { course -> unrated(course).firstOrNull()?.let { Card(course, it) } }
         if (card == null) {
-            Text(stringResource(R.string.review_done), modifier = Modifier.padding(top = 16.dp))
+            val othersLeft = courses.any { unrated(it).isNotEmpty() }
+            Text(
+                stringResource(if (othersLeft) R.string.review_course_done else R.string.review_done),
+                modifier = Modifier.padding(top = 16.dp),
+            )
         } else {
-            ReviewCard(card, left = left(card.course).size) { grade ->
+            ReviewCard(card, remaining = unrated(card.course).size) { grade ->
                 card.course.session.rate(card.entry.id, grade)
-                AppLog.i("rated ${card.entry.kind} Entry ${card.entry.id.value} $grade")
+                AppLog.i("rated ${card.entry.kind} Entry ${card.entry.id.value} in ${courseName(card.course)}: $grade")
                 rated.add(card.entry.id)
             }
         }
@@ -96,7 +101,7 @@ fun ReviewScreen(
 private fun CoursePicker(
     courses: List<DueCourse>,
     picked: String?,
-    left: (DueCourse) -> List<Entry>,
+    unrated: (DueCourse) -> List<Entry>,
     onPick: (String?) -> Unit,
 ) {
     Row(
@@ -106,13 +111,13 @@ private fun CoursePicker(
         FilterChip(
             selected = picked == null,
             onClick = { onPick(null) },
-            label = { Text(stringResource(R.string.all_courses, courses.sumOf { left(it).size })) },
+            label = { Text(stringResource(R.string.all_courses, courses.sumOf { unrated(it).size })) },
         )
         courses.forEach { course ->
             FilterChip(
                 selected = picked == course.courseFolder,
                 onClick = { onPick(course.courseFolder) },
-                label = { Text(stringResource(R.string.course_due, courseName(course), left(course).size)) },
+                label = { Text(stringResource(R.string.course_due, courseName(course), unrated(course).size)) },
             )
         }
     }
@@ -122,14 +127,14 @@ private fun CoursePicker(
 @Composable
 private fun ReviewCard(
     card: Card,
-    left: Int,
+    remaining: Int,
     onRate: (Grade) -> Unit,
 ) {
     var answered by remember(card.entry.id) { mutableStateOf(false) }
     val session = card.course.session
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
         Text(
-            pluralStringResource(R.plurals.review_card_of, left, courseName(card.course), left),
+            pluralStringResource(R.plurals.review_card_of, remaining, courseName(card.course), remaining),
             style = MaterialTheme.typography.labelLarge,
         )
         Text(entryTitle(card.entry), style = MaterialTheme.typography.titleMedium)
