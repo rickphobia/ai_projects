@@ -1,6 +1,8 @@
 package com.rickphobia.ricknotes.core.inkfile
 
 import com.rickphobia.ricknotes.core.ink.PageId
+import com.rickphobia.ricknotes.core.ink.Picture
+import com.rickphobia.ricknotes.core.ink.PictureId
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.ink.Tool
@@ -10,8 +12,11 @@ import kotlinx.serialization.json.Json
 
 /** Turns an [InkFile] into the JSON text saved beside the PDF, and back. */
 object InkFileCodec {
-    /** Raised whenever the layout below changes in a way an older app couldn't read. */
-    const val FORMAT_VERSION = 1
+    /**
+     * Raised whenever the layout below changes in a way an older app couldn't read. 2 added
+     * Pictures; a version 1 file reads as one with none.
+     */
+    const val FORMAT_VERSION = 2
 
     private val json =
         Json {
@@ -28,6 +33,7 @@ object InkFileCodec {
                 pdfPageCount = file.pdfPageCount,
                 pages = file.pages.map { PageJson(it.id.value) },
                 strokes = file.strokes.map { it.toJson() },
+                pictures = file.pictures.map { it.toJson() },
             ),
         )
 
@@ -58,8 +64,22 @@ object InkFileCodec {
                     throw IllegalArgumentException("stroke ${stroke.id}: ${e.message}", e)
                 }
             }
-        return InkFile(pdfPageCount, inkPages, inkStrokes)
+        val inkPictures =
+            pictures.map { picture ->
+                try {
+                    picture.toPicture().also {
+                        require(it.pageId in pageIds) { "page ${picture.page} is not in the page list" }
+                    }
+                } catch (e: IllegalArgumentException) {
+                    throw IllegalArgumentException("picture ${picture.id}: ${e.message}", e)
+                }
+            }
+        return InkFile(pdfPageCount, inkPages, inkStrokes, inkPictures)
     }
+
+    private fun Picture.toJson() = PictureJson(id.value, pageId.value, imageFile, left, top, widthPt, heightPt)
+
+    private fun PictureJson.toPicture() = Picture(PictureId(id), PageId(page), image, left, top, widthPt, heightPt)
 
     private fun Stroke.toJson() =
         StrokeJson(
@@ -97,6 +117,8 @@ private data class InkFileJson(
     val pdfPageCount: Int,
     val pages: List<PageJson>,
     val strokes: List<StrokeJson>,
+    // Absent from format version 1, written before Pictures.
+    val pictures: List<PictureJson> = emptyList(),
 )
 
 @Serializable
@@ -113,4 +135,15 @@ private data class StrokeJson(
     val widthPt: Float,
     val drawnAtMs: Long,
     val points: String,
+)
+
+@Serializable
+private data class PictureJson(
+    val id: String,
+    val page: String,
+    val image: String,
+    val left: Float,
+    val top: Float,
+    val widthPt: Float,
+    val heightPt: Float,
 )

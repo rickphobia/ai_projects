@@ -1,6 +1,8 @@
 package com.rickphobia.ricknotes.core.inkfile
 
 import com.rickphobia.ricknotes.core.ink.PageId
+import com.rickphobia.ricknotes.core.ink.Picture
+import com.rickphobia.ricknotes.core.ink.PictureId
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.ink.StrokePoint
@@ -27,10 +29,11 @@ class InkFileCodecTest {
                     Stroke(StrokeId("a"), PageId("pdf-1"), Tool.PEN, 0xFF000000.toInt(), 1.5f, DRAWN_AT, points),
                     Stroke(StrokeId("b"), PageId("pdf-2"), Tool.HIGHLIGHTER, 0x80FFEB3B.toInt(), 12f, DRAWN_AT, points),
                 ),
+            pictures = listOf(Picture(PictureId("p"), PageId("pdf-2"), "p.png", 10.5f, 20f, 300f, 150.25f)),
         )
 
     @Test
-    fun `an Ink file round-trips exactly, packed points included`() {
+    fun `an Ink file round-trips exactly, packed points and Pictures included`() {
         val text = InkFileCodec.encode(file)
 
         assertEquals(file, InkFileCodec.decode(text, "a.pdf.ink.json"))
@@ -38,16 +41,34 @@ class InkFileCodecTest {
     }
 
     @Test
-    fun `the file is readable JSON with the format version, page count, pages and stroke details`() {
+    fun `the file is readable JSON with the format version, page count, pages, stroke and Picture details`() {
         val text = InkFileCodec.encode(file)
 
         listOf(
-            "\"formatVersion\": 1",
+            "\"formatVersion\": 2",
             "\"pdfPageCount\": 2",
             "\"id\": \"pdf-1\"",
             "\"tool\": \"highlighter\"",
             "\"colour\": \"#80FFEB3B\"",
+            "\"image\": \"p.png\"",
+            "\"widthPt\": 300.0",
         ).forEach { assertTrue("missing $it in\n$text", text.contains(it)) }
+    }
+
+    @Test
+    fun `an Ink file written before Pictures opens with none`() {
+        val version1 =
+            """
+            {"formatVersion": 1, "pdfPageCount": 1, "pages": [{"id": "pdf-1"}], "strokes": [
+              {"id": "a", "page": "pdf-1", "tool": "pen", "colour": "#FF000000", "widthPt": 1.5,
+               "drawnAtMs": 1760000000000, "points": "7250,10025,400,0"}
+            ]}
+            """.trimIndent()
+
+        val read = InkFileCodec.decode(version1, "a.pdf.ink.json")
+
+        assertEquals(emptyList<Picture>(), read.pictures)
+        assertEquals(StrokeId("a"), read.strokes.single().id)
     }
 
     @Test
@@ -79,13 +100,16 @@ class InkFileCodecTest {
     }
 
     @Test
-    fun `bad points, an unknown page or a newer format version are reported as damaged`() {
+    fun `bad points, an unknown page, a bad Picture or a newer format version are reported as damaged`() {
         val good = InkFileCodec.encode(file)
         listOf(
             good.replace("7250,10025,400,0,51", "7250,10025,400,0,x"),
             good.replace("7250,10025,400,0,51,-26,112,8,", "7250,10025,400,0,51,-26,"),
             good.replace("\"page\": \"pdf-2\"", "\"page\": \"pdf-9\""),
-            good.replace("\"formatVersion\": 1", "\"formatVersion\": 2"),
+            good.replace("\"formatVersion\": 2", "\"formatVersion\": 3"),
+            good.replace("\"page\": \"pdf-2\",\n            \"image\"", "\"page\": \"pdf-9\",\n            \"image\""),
+            good.replace("\"image\": \"p.png\"", "\"image\": \"../p.png\""),
+            good.replace("\"heightPt\": 150.25", "\"heightPt\": 0.0"),
         ).forEach { text ->
             assertThrows(text, InkFileDamaged::class.java) { InkFileCodec.decode(text, "a.pdf.ink.json") }
         }
