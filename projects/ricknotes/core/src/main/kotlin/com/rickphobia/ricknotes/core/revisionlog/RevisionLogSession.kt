@@ -1,5 +1,6 @@
 package com.rickphobia.ricknotes.core.revisionlog
 
+import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.session.AutoSave
 import com.rickphobia.ricknotes.core.session.Clock
 import com.rickphobia.ricknotes.core.session.SaveListener
@@ -144,6 +145,26 @@ class RevisionLogSession private constructor(
         }
     }
 
+    /**
+     * Keeps a Redo of Mistake [id]: its [strokes], written now. Saved like any change.
+     *
+     * @throws IllegalArgumentException if there is no such Entry, it is a Key point, or [strokes] is empty.
+     */
+    fun addRedo(
+        id: EntryId,
+        strokes: List<Stroke>,
+    ): Entry {
+        check(!readOnly) { "$LOG_FILE in ${folder.parent.fileName} is open read-only" }
+        val redo = Redo(clock.nowMs(), strokes)
+        synchronized(lock) {
+            val index = all.indexOfFirst { it.id == id }
+            require(index >= 0) { "no Entry ${id.value}" }
+            all[index] = all[index].copy(redos = all[index].redos + redo)
+            saving.changed()
+            return all[index]
+        }
+    }
+
     /** The Entries due today or earlier in the tablet's time zone: oldest due first, then oldest added. */
     fun due(): List<Entry> {
         val today = dayIn(zone, clock.nowMs())
@@ -164,20 +185,6 @@ class RevisionLogSession private constructor(
 
     /** Saves any changes now, for when the app goes to the background. */
     fun saveNow() = saving.saveNow()
-
-    private fun writeSnip(
-        file: Path,
-        png: ByteArray,
-    ) {
-        try {
-            Files.createDirectories(folder)
-            writeSafely(file, png)
-        } catch (e: IOException) {
-            throw SnipSaveFailed(file.fileName.toString(), e)
-        } catch (e: SecurityException) {
-            throw SnipSaveFailed(file.fileName.toString(), e)
-        }
-    }
 
     // What open found on disk.
     private class Loaded(
@@ -259,3 +266,18 @@ private fun dayIn(
     zone: ZoneId,
     epochMs: Long,
 ): LocalDate = Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()
+
+/** Writes the Snip [file], making its folder if needed. */
+private fun writeSnip(
+    file: Path,
+    png: ByteArray,
+) {
+    try {
+        Files.createDirectories(file.parent)
+        writeSafely(file, png)
+    } catch (e: IOException) {
+        throw SnipSaveFailed(file.fileName.toString(), e)
+    } catch (e: SecurityException) {
+        throw SnipSaveFailed(file.fileName.toString(), e)
+    }
+}

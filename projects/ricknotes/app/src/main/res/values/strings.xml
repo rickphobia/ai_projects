@@ -97,6 +97,8 @@
     <item quantity="other">%1$s · %2$d left</item>
   </plurals>
   <string name="review_front">Front</string>
+  <string name="redo_area">Redo (optional): write it with the pen</string>
+  <string name="earlier_redos">Redos (%1$d)</string>
   <string name="review_back">Back</string>
   <string name="show_answer">Show answer</string>
   <string name="again">Again</string>
