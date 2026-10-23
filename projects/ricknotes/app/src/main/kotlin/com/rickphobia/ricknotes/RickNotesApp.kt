@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.rickphobia.ricknotes.core.ink.FavouritePens
+import com.rickphobia.ricknotes.core.revisionlog.Entry
 import com.rickphobia.ricknotes.core.settings.InvalidSettingException
 import com.rickphobia.ricknotes.core.settings.SettingsLoader
 import com.rickphobia.ricknotes.core.settings.SettingsSource
@@ -23,9 +24,11 @@ import com.rickphobia.ricknotes.core.touch.FingerGestures
 import com.rickphobia.ricknotes.diagnostics.PenTestScreen
 import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.home.HomeLibrary
+import com.rickphobia.ricknotes.home.HomeNavigation
 import com.rickphobia.ricknotes.home.HomeScreen
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.revisionlog.CourseFolder
+import com.rickphobia.ricknotes.revisionlog.RevisionLogScreen
 import com.rickphobia.ricknotes.settings.CourseFoldersSetting
 import com.rickphobia.ricknotes.settings.FavouritePensEditor
 import com.rickphobia.ricknotes.settings.FavouritePensSetting
@@ -38,7 +41,10 @@ import com.rickphobia.ricknotes.studyfolder.PickFolderScreen
 import com.rickphobia.ricknotes.theme.RickNotesTheme
 import com.rickphobia.ricknotes.viewer.DocumentScreen
 import com.rickphobia.ricknotes.viewer.DocumentSettings
+import com.rickphobia.ricknotes.viewer.ReadingPosition
 import com.rickphobia.ricknotes.viewer.ReadingPositions
+import com.rickphobia.ricknotes.viewer.ZoomLimits
+import java.io.File
 
 /** Which screen is showing. Without a usable Study folder the app only offers the picker. */
 private sealed interface Screen {
@@ -58,10 +64,20 @@ private sealed interface Screen {
         val studyFolder: String,
     ) : Screen
 
+    /** The Revision log of [courseFolder], a path relative to the Study folder. */
+    data class RevisionLog(
+        val studyFolder: String,
+        val courseFolder: String,
+    ) : Screen
+
+    /** An open Document; Back goes to [backTo], or home when it is null. */
     data class Document(
         val studyFolder: String,
         val pdf: PdfEntry,
+        val backTo: Screen? = null,
     ) : Screen {
+        val back: Screen get() = backTo ?: Home(studyFolder)
+
         /** What this Document's screen takes from the settings, with its Course folder found in [courses]. */
         fun settings(
             pens: FavouritePens,
@@ -106,6 +122,62 @@ private fun afterPickingFolder(
         }
     }
 
+/** Where the home screen of [studyFolder] leads, going there with [go]. */
+private fun homeNavigation(
+    studyFolder: String,
+    go: (Screen) -> Unit,
+) = HomeNavigation(
+    openSettings = { go(Screen.Settings(studyFolder)) },
+    openPdf = { pdf -> go(Screen.Document(studyFolder, pdf)) },
+    openRevisionLog = { course -> go(Screen.RevisionLog(studyFolder, course)) },
+)
+
+/** The Revision log screen of [route], going to the screen it asks for with [go]. */
+@Composable
+private fun RevisionLogRoute(
+    route: Screen.RevisionLog,
+    positions: ReadingPositions,
+    go: (Screen) -> Unit,
+) {
+    RevisionLogScreen(
+        courseFolder = File(route.studyFolder, route.courseFolder),
+        onOpenDocument = { entry ->
+            val pdf = entryDocument(entry, route.studyFolder)
+            if (pdf != null) {
+                openAtPage(positions, pdf, entry.source.pageNumber)
+                go(Screen.Document(route.studyFolder, pdf, backTo = route))
+            }
+            pdf != null
+        },
+        onBack = { go(Screen.Home(route.studyFolder)) },
+    )
+}
+
+/** [entry]'s Document, or null when it has been renamed or moved. */
+private fun entryDocument(
+    entry: Entry,
+    studyFolder: String,
+): PdfEntry? {
+    val path = entry.source.documentPath
+    val file = File(studyFolder, path)
+    if (!file.isFile) {
+        AppLog.w("Open in Document: ${file.name} not found")
+        return null
+    }
+    return PdfEntry(file.path, path.substringBeforeLast('/', ""), file.name)
+}
+
+// The Document screen opens where its reading position says, so the Entry's page goes there first,
+// keeping the zoom the Document was last read at.
+private fun openAtPage(
+    positions: ReadingPositions,
+    pdf: PdfEntry,
+    pageNumber: Int,
+) {
+    val zoom = positions.load(pdf.path)?.zoom ?: ZoomLimits.MIN
+    positions.save(pdf.path, ReadingPosition(pageNumber - 1, zoom))
+}
+
 /** What the screens ask Android to do, provided by `MainActivity`. */
 class SystemActions(
     val openAllFilesAccessSetting: () -> Unit,
@@ -149,9 +221,12 @@ fun <S> RickNotesApp(
                         versionName = versionName,
                         studyFolder = current.studyFolder,
                         library = HomeLibrary(recentDocuments::paths, courseFolders),
-                        onOpenSettings = { screen = Screen.Settings(current.studyFolder) },
-                        onOpenPdf = { pdf -> screen = Screen.Document(current.studyFolder, pdf) },
+                        navigation = homeNavigation(current.studyFolder) { screen = it },
                     )
+                }
+
+                is Screen.RevisionLog -> {
+                    RevisionLogRoute(current, storage.readingPositions) { screen = it }
                 }
 
                 is Screen.Settings -> {
@@ -176,9 +251,7 @@ fun <S> RickNotesApp(
                 is Screen.Document -> {
                     LaunchedEffect(current.pdf.path) { recentDocuments.opened(current.pdf.treePath) }
                     val settings = current.settings(favouritePens.pens, fingerGestures.gestures, courseFolders.folders)
-                    DocumentScreen(current.pdf, storage.readingPositions, settings) {
-                        screen = Screen.Home(current.studyFolder)
-                    }
+                    DocumentScreen(current.pdf, storage.readingPositions, settings) { screen = current.back }
                 }
             }
         }

@@ -293,4 +293,80 @@ class RevisionLogSessionTest {
             session.edit(EntryId("missing"), null, "why")
         }
     }
+
+    @Test
+    fun `a deleted Entry is gone after reopening, and the others stay`() {
+        val session = open()
+        val kept = session.addEntry(EntryKind.MISTAKE, source, Snips(FRONT, BACK))
+        val deleted = session.addEntry(EntryKind.KEY_POINT, source, Snips(FRONT, BACK))
+
+        session.delete(deleted.id)
+        val reopened = reopen(session)
+
+        assertEquals(listOf(kept), reopened.entries)
+    }
+
+    @Test
+    fun `deleting keeps the Snips, so a restored Version still finds them`() {
+        val session = open()
+        val entry = session.addEntry(EntryKind.MISTAKE, source, Snips(FRONT, BACK))
+
+        session.delete(entry.id)
+
+        assertTrue(Files.exists(session.frontSnip(entry)))
+        assertTrue(Files.exists(session.backSnip(entry)))
+    }
+
+    @Test
+    fun `deleting an Entry that isn't there is refused`() {
+        val session = open()
+
+        assertThrows(IllegalArgumentException::class.java) { session.delete(EntryId("missing")) }
+    }
+
+    @Test
+    fun `a damaged log refuses to delete`() {
+        Files.createDirectories(logFolder)
+        Files.write(logFile, "not json".toByteArray())
+        val session = open()
+
+        assertThrows(IllegalStateException::class.java) { session.delete(EntryId("any")) }
+    }
+
+    @Test
+    fun `the list is newest first and filters by kind`() {
+        val session = open()
+        val first = session.addEntry(EntryKind.MISTAKE, source, Snips(FRONT, BACK))
+        clock.advance(1_000)
+        val second = session.addEntry(EntryKind.KEY_POINT, source, Snips(FRONT, BACK))
+        clock.advance(1_000)
+        val third = session.addEntry(EntryKind.MISTAKE, source, Snips(FRONT, BACK))
+
+        assertEquals(listOf(third, second, first), session.newestFirst(kind = null))
+        assertEquals(listOf(third, first), session.newestFirst(EntryKind.MISTAKE))
+        assertEquals(listOf(second), session.newestFirst(EntryKind.KEY_POINT))
+    }
+
+    @Test
+    fun `a Conflict copy beside the log is reported and nothing is merged from it`() {
+        val session = open()
+        session.addEntry(EntryKind.MISTAKE, source, Snips(FRONT, BACK))
+        session.saveNow()
+        Files.write(logFolder.resolve("revision_log (conflict 2026-10-23).json"), "{}".toByteArray())
+
+        val reopened = open()
+
+        assertEquals(listOf("revision_log (conflict 2026-10-23).json"), reopened.conflictCopies)
+        assertEquals(1, reopened.entries.size)
+    }
+
+    @Test
+    fun `the log itself, its temporary file and Snips are not Conflict copies`() {
+        val session = open()
+        session.addEntry(EntryKind.MISTAKE, source, Snips(FRONT, BACK))
+        session.saveNow()
+        Files.write(logFolder.resolve(".revision_log.json.tmp"), byteArrayOf())
+
+        assertEquals(emptyList<String>(), open().conflictCopies)
+    }
 }

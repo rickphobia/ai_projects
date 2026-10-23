@@ -26,13 +26,17 @@ class RevisionLogSession private constructor(
     private val clock: Clock,
     private val zone: ZoneId,
     listener: SaveListener,
-    loaded: List<Entry>,
-    /** Why the log couldn't be read, when it couldn't: it is then open read-only and never written. */
-    val damaged: RevisionLogDamaged?,
+    loaded: Loaded,
 ) {
+    /** Why the log couldn't be read, when it couldn't: it is then open read-only and never written. */
+    val damaged: RevisionLogDamaged? = loaded.damaged
+
+    /** The sync app's Conflict copies of the log, by file name. Only warned about, never merged. */
+    val conflictCopies: List<String> = loaded.conflictCopies
+
     val readOnly: Boolean = damaged != null
 
-    private val all = loaded.toMutableList()
+    private val all = loaded.entries.toMutableList()
     private val saving =
         AutoSave(
             folder.resolve(LOG_FILE),
@@ -100,6 +104,24 @@ class RevisionLogSession private constructor(
         }
     }
 
+    /**
+     * Deletes Entry [id] from the log. Its Snips stay on disk: a Version of the log restored later
+     * still names them.
+     *
+     * @throws IllegalArgumentException if there is no such Entry.
+     */
+    fun delete(id: EntryId) {
+        check(!readOnly) { "$LOG_FILE in ${folder.parent.fileName} is open read-only" }
+        synchronized(lock) {
+            require(all.removeAll { it.id == id }) { "no Entry ${id.value}" }
+            saving.changed()
+        }
+    }
+
+    /** The Entries newest first, only those of [kind] when it is given. */
+    fun newestFirst(kind: EntryKind?): List<Entry> =
+        entries.filter { kind == null || it.kind == kind }.sortedByDescending { it.addedAtMs }
+
     /** The PNG of [entry]'s area without ink. */
     fun frontSnip(entry: Entry): Path = folder.resolve("${entry.id.value}$FRONT_SUFFIX")
 
@@ -122,6 +144,13 @@ class RevisionLogSession private constructor(
             throw SnipSaveFailed(file.fileName.toString(), e)
         }
     }
+
+    // What open found on disk.
+    private class Loaded(
+        val entries: List<Entry>,
+        val damaged: RevisionLogDamaged?,
+        val conflictCopies: List<String>,
+    )
 
     companion object {
         /** The hidden-from-the-tree folder inside a Course folder that holds its Revision log. */
@@ -148,15 +177,33 @@ class RevisionLogSession private constructor(
             listener: SaveListener = object : SaveListener {},
         ): RevisionLogSession {
             val folder = courseFolder.resolve(FOLDER)
+            val conflicts = conflictCopiesIn(folder)
             val loaded =
                 try {
                     load(folder.resolve(LOG_FILE))
                 } catch (e: RevisionLogDamaged) {
                     // No Version of a damaged file: it would push a good Version out of the newest 10.
-                    return RevisionLogSession(folder, clock, zone, listener, emptyList(), e)
+                    return RevisionLogSession(folder, clock, zone, listener, Loaded(emptyList(), e, conflicts))
                 }
-            return RevisionLogSession(folder, clock, zone, listener, loaded.orEmpty(), damaged = null).also {
+            return RevisionLogSession(folder, clock, zone, listener, Loaded(loaded.orEmpty(), null, conflicts)).also {
                 if (loaded != null) it.saving.takeVersion()
+            }
+        }
+
+        /*
+         * FolderSync's exact Conflict copy naming isn't documented, so any visible file other than
+         * the log whose name starts with the log's own name counts: "revision_log (1).json",
+         * "revision_log.json.conflict" and the like. Hidden files are the app's own temporary files.
+         */
+        private fun conflictCopiesIn(folder: Path): List<String> {
+            if (!Files.isDirectory(folder)) return emptyList()
+            val stem = LOG_FILE.substringBeforeLast('.')
+            return Files.list(folder).use { files ->
+                files
+                    .map { it.fileName.toString() }
+                    .filter { it != LOG_FILE && it.startsWith(stem) }
+                    .sorted()
+                    .toList()
             }
         }
 
