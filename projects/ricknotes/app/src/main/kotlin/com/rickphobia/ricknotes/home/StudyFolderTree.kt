@@ -3,6 +3,7 @@ package com.rickphobia.ricknotes.home
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -45,16 +47,20 @@ interface CourseFolderActions {
     fun unmark(folder: String)
 }
 
-/** What tapping opens: a Document, or a Course folder's Revision log by the folder's path. */
+/**
+ * What tapping opens: a Document, or a Course folder's Revision log by the folder's path.
+ * [pdfDrop] makes the target that takes a PDF dropped onto a folder, by the folder's path.
+ */
 class TreeOpens(
     val document: (TreeNode.Document) -> Unit,
     val revisionLog: (String) -> Unit,
+    val pdfDrop: (String) -> DragAndDropTarget,
 )
 
 /**
  * The browse-only Study folder tree: tap a folder to open or close it, tap a PDF to open it,
- * long-press a folder to mark or unmark it as a Course folder. An open Course folder starts with
- * its Revision log row.
+ * long-press a folder to mark or unmark it as a Course folder, drop a PDF onto a folder to copy it
+ * in. An open Course folder starts with its Revision log row.
  */
 @Composable
 fun StudyFolderTree(
@@ -72,7 +78,8 @@ fun StudyFolderTree(
         items(rows, key = { it.node.path }) { row ->
             val node = row.node
             val isCourse = node is TreeNode.Folder && courses.folders.isCourse(node.path)
-            Box {
+            val dropTarget = (node as? TreeNode.Folder)?.let { remember(it.path) { opens.pdfDrop(it.path) } }
+            Box(modifier = Modifier.takingPdfs(dropTarget)) {
                 TreeRowContent(
                     row = row,
                     isOpen = node.path in expanded,
@@ -118,6 +125,10 @@ fun StudyFolderTree(
         }
     }
 }
+
+// Folder rows take dropped PDFs; Documents take nothing.
+private fun Modifier.takingPdfs(target: DragAndDropTarget?): Modifier =
+    if (target == null) this else dragAndDropTarget(shouldStartDragAndDrop = { true }, target = target)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

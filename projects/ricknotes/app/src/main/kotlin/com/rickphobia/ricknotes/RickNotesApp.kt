@@ -85,6 +85,9 @@ private sealed interface Screen {
     ) : Screen {
         val back: Screen get() = backTo ?: Home(studyFolder)
 
+        /** [pdf] opened in this one's place (a PDF dropped onto a page), Back going where this one's did. */
+        fun instead(pdf: PdfEntry) = Document(studyFolder, pdf, backTo)
+
         /** What this Document's screen takes from the settings, with its Course folder found in [courses]. */
         fun settings(
             pens: FavouritePens,
@@ -201,6 +204,17 @@ private fun openAtPage(
     positions.save(pdf.path, ReadingPosition(pageNumber - 1, zoom))
 }
 
+/** The Document of [route]: a PDF dropped onto a page opens in its place, Back going where this one's did. */
+@Composable
+private fun DocumentRoute(
+    route: Screen.Document,
+    positions: ReadingPositions,
+    settings: DocumentSettings,
+    go: (Screen) -> Unit,
+) {
+    DocumentScreen(route.pdf, positions, settings, { go(route.instead(it)) }) { go(route.back) }
+}
+
 /** What the screens ask Android to do, provided by `MainActivity`. */
 class SystemActions(
     val openAllFilesAccessSetting: () -> Unit,
@@ -273,7 +287,7 @@ fun <S> RickNotesApp(
                 is Screen.Document -> {
                     LaunchedEffect(current.pdf.path) { recentDocuments.opened(current.pdf.treePath) }
                     val settings = current.settings(favouritePens.pens, fingerGestures.gestures, courseFolders.folders)
-                    DocumentScreen(current.pdf, storage.readingPositions, settings) { screen = current.back }
+                    DocumentRoute(current, storage.readingPositions, settings) { screen = it }
                 }
             }
         }

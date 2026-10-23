@@ -53,6 +53,7 @@ private sealed interface Opening {
 
 /**
  * One Document, scrolling continuously from page to page, reopened where it was left in [positions].
+ * A PDF dropped onto a page is copied into its folder and opened with [openPdf].
  * Tapping the pen in use in the toolbar moves on through the Favourite pens in [settings]; fingers
  * do what it says, and Entries go to the Revision log of its Course folder.
  */
@@ -61,6 +62,7 @@ fun DocumentScreen(
     pdf: PdfEntry,
     positions: ReadingPositions,
     settings: DocumentSettings,
+    openPdf: (PdfEntry) -> Unit,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -113,6 +115,7 @@ fun DocumentScreen(
                         current.ink,
                         settings.fingerGestures,
                         rememberRevisionLogAdder(pdf, settings.course, pages, current.pageSizes, current.ink),
+                        openDropped = { copy -> openPdf(PdfEntry(copy.path, pdf.folder, copy.name)) },
                     ) {
                         when (kind.value) {
                             PenKind.INK -> PenMode.Draw(tool.value)

@@ -4,14 +4,14 @@
 
 **Blocked by:** 17 (Home screen tree), 24 (Drop a screenshot onto a page)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-studyfolder, app-home, app-import
 
 **Effort:** low
 
-- [ ] Study folder seam copies a file in with the safe write and picks `(2)`, `(3)` names (tested with one and two clashes; source unchanged)
-- [ ] Folder rows in the tree accept a dropped PDF; the page view accepts a PDF into the open Document's folder
-- [ ] The copied PDF opens afterwards
-- [ ] Logs file type, size and whether the name clashed
-- [ ] On-tablet check written in the PR: drop the same PDF twice onto a folder from the Files app in split screen
+- [x] Study folder seam copies a file in with the safe write and picks `(2)`, `(3)` names (tested with one and two clashes; source unchanged)
+- [x] Folder rows in the tree accept a dropped PDF; the page view accepts a PDF into the open Document's folder
+- [x] The copied PDF opens afterwards
+- [x] Logs file type, size and whether the name clashed
+- [x] On-tablet check written in the PR: drop the same PDF twice onto a folder from the Files app in split screen

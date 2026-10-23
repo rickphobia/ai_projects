@@ -74,8 +74,13 @@ internal data class OpenDocument(
     val ink: DocumentInk,
     val fingerGestures: FingerGestures,
     val revisionLog: RevisionLogAdder,
+    val openDropped: (File) -> Unit,
     val penMode: () -> PenMode,
-)
+) {
+    /** A PDF dropped onto a page is copied into this Document's folder. */
+    val pdfDropTarget: PdfDropTarget
+        get() = PdfDropTarget(checkNotNull(File(path).parentFile), openDropped)
+}
 
 /**
  * The pages of a Document in one zoomable column, with the ink layer over them: the pen writes, one
@@ -133,7 +138,7 @@ internal fun PageList(document: OpenDocument) {
             }
         }
         val listView = PageListView(view, listState, screen, gapPx)
-        PictureDropArea(ink) { listView.placements(document.pageSizes) }
+        PictureDropArea(document) { listView.placements(document.pageSizes) }
         TouchLayer(document, listView)
         LassoMenu(ink, { listView.placements(document.pageSizes) }, lassoActions(ink, document.revisionLog))
         RevisionLogNoteBar(document.revisionLog, Modifier.align(Alignment.BottomCenter).padding(16.dp))

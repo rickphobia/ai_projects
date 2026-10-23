@@ -30,3 +30,26 @@ internal fun writeSafely(
     }
     Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
 }
+
+/**
+ * Copies [source] to [target] the same way as [writeSafely], streaming so a big PDF isn't held in
+ * memory. [source] is only read. If a step fails, the temporary file is removed.
+ *
+ * @throws IOException if any step fails; [target] is then as it was before.
+ */
+internal fun copySafely(
+    source: Path,
+    target: Path,
+) {
+    val temporary = temporaryFileFor(target)
+    try {
+        FileOutputStream(temporary.toFile()).use { out ->
+            Files.copy(source, out)
+            out.fd.sync()
+        }
+        Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+    } catch (e: IOException) {
+        Files.deleteIfExists(temporary)
+        throw e
+    }
+}
