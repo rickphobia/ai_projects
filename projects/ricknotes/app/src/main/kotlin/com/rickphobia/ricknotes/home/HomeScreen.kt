@@ -1,5 +1,6 @@
 package com.rickphobia.ricknotes.home
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,8 +14,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -24,6 +27,7 @@ import com.rickphobia.ricknotes.core.studyfolder.StudyFolderListingException
 import com.rickphobia.ricknotes.core.studyfolder.TreeLayout
 import com.rickphobia.ricknotes.core.studyfolder.TreeNode
 import com.rickphobia.ricknotes.files.PdfEntry
+import com.rickphobia.ricknotes.imports.PdfDrop
 import com.rickphobia.ricknotes.logging.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -82,6 +86,21 @@ class HomeNavigation(
     val openReview: () -> Unit,
 )
 
+/** Makes, by a folder's tree path, the target that copies a PDF dropped onto it in, then opens it. */
+@Composable
+private fun rememberPdfDrops(
+    folder: StudyFolder,
+    openPdf: (PdfEntry) -> Unit,
+): (String) -> DragAndDropTarget {
+    val activity = checkNotNull(LocalActivity.current) { "the home screen is shown outside an activity" }
+    val scope = rememberCoroutineScope()
+    return { path ->
+        PdfDrop(activity, scope, { folder.resolve(path).toFile() }) { copy ->
+            openPdf(PdfEntry(copy.path, path, copy.name))
+        }
+    }
+}
+
 @Composable
 fun HomeScreen(
     versionName: String,
@@ -101,6 +120,7 @@ fun HomeScreen(
     val open = { document: TreeNode.Document ->
         navigation.openPdf(PdfEntry(folder.resolve(document.path).toString(), document.folder, document.name))
     }
+    val pdfDrop = rememberPdfDrops(folder, navigation.openPdf)
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -140,7 +160,7 @@ fun HomeScreen(
                         tree = current.tree,
                         initiallyExpanded = current.initiallyExpanded,
                         courses = library.courses,
-                        opens = TreeOpens(document = open, revisionLog = navigation.openRevisionLog),
+                        opens = TreeOpens(document = open, revisionLog = navigation.openRevisionLog, pdfDrop = pdfDrop),
                         modifier = Modifier.padding(top = 16.dp),
                     )
                 }

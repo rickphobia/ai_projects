@@ -122,4 +122,7 @@
   <string name="picture_drop_not_saved">Couldn\'t save the image beside the Document, so it wasn\'t added.</string>
   <string name="picture_drop_read_only">This Document is read-only, so nothing can be added to it.</string>
   <string name="picture_drop_no_page">Drop it onto a page.</string>
+  <string name="pdf_drop_not_pdf">Only PDFs can be dropped onto a folder.</string>
+  <string name="pdf_drop_unreadable">Couldn\'t read the dropped PDF, so nothing was added.</string>
+  <string name="pdf_drop_not_saved">Couldn\'t copy the PDF into the folder, so nothing was added.</string>
 </resources>

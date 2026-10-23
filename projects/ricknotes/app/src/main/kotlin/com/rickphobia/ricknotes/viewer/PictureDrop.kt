@@ -2,6 +2,7 @@ package com.rickphobia.ricknotes.viewer
 
 import android.app.Activity
 import android.content.Context
+import android.view.DragEvent
 import android.widget.Toast
 import androidx.activity.compose.LocalActivity
 import androidx.annotation.StringRes
@@ -30,6 +31,8 @@ import com.rickphobia.ricknotes.core.ink.pageAt
 import com.rickphobia.ricknotes.core.session.PictureNotPlaced
 import com.rickphobia.ricknotes.imports.ImageNotReceived
 import com.rickphobia.ricknotes.imports.ImageProblem
+import com.rickphobia.ricknotes.imports.PdfDrop
+import com.rickphobia.ricknotes.imports.carriesPdf
 import com.rickphobia.ricknotes.imports.receiveImage
 import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.logging.AppLog
@@ -45,21 +48,24 @@ import kotlin.math.abs
 private const val DROPS_FOLDER = "drops"
 
 /**
- * Fills the page view and takes drops onto it: see [PictureDrop]. [placements] gives where each
- * page is, in the page view's own pixels.
+ * Fills the page view of [document] and takes drops onto it: see [PictureDrop]. [placements] gives
+ * where each page is, in the page view's own pixels.
  */
 @Composable
 internal fun PictureDropArea(
-    ink: DocumentInk,
+    document: OpenDocument,
     placements: () -> List<PagePlacement>,
 ) {
     val activity = checkNotNull(LocalActivity.current) { "the page view is shown outside an activity" }
     val scope = rememberCoroutineScope()
     val currentPlacements by rememberUpdatedState(placements)
     var viewOffset by remember { mutableStateOf(Offset.Zero) }
+    val ink = document.ink
+    val currentPdfTarget by rememberUpdatedState(document.pdfDropTarget)
     val drop =
         remember(activity, ink, scope) {
-            PictureDrop(activity, ink, scope, { currentPlacements() }, { viewOffset })
+            val pdfDrop = PdfDrop(activity, scope, { currentPdfTarget.folder }) { currentPdfTarget.opened(it) }
+            PictureDrop(activity, ink, scope, pdfDrop, { currentPlacements() }, { viewOffset })
         }
     Box(
         modifier =
@@ -71,9 +77,16 @@ internal fun PictureDropArea(
     )
 }
 
+/** Where a PDF dropped onto the page view is copied, and what opens the copy. */
+internal class PdfDropTarget(
+    val folder: File,
+    val opened: (File) -> Unit,
+)
+
 /**
  * Takes an image dragged onto the page view, from the screenshot preview or another app in split
- * screen, and places it as a Picture where it was let go. Anything else dropped shows a message.
+ * screen, and places it as a Picture where it was let go. A PDF goes to [pdfDrop] instead.
+ * Anything else dropped shows a message.
  * [placements] gives where each page is on the page view, and [viewOffset] where the page view is
  * in the window, since a drop's position is given in the window's terms.
  */
@@ -81,11 +94,16 @@ internal class PictureDrop(
     private val activity: Activity,
     private val ink: DocumentInk,
     private val scope: CoroutineScope,
+    private val pdfDrop: PdfDrop,
     private val placements: () -> List<PagePlacement>,
     private val viewOffset: () -> Offset,
 ) : DragAndDropTarget {
     override fun onDrop(event: DragAndDropEvent): Boolean {
         val drag = event.toAndroidDragEvent()
+        return if (drag.carriesPdf()) pdfDrop.drop(drag) else dropImage(drag)
+    }
+
+    private fun dropImage(drag: DragEvent): Boolean {
         val uri =
             drag.clipData
                 ?.takeIf { it.itemCount > 0 }
