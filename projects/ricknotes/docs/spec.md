@@ -33,14 +33,16 @@ One **Milestone** at a time. A milestone is several tickets (one PR each) and is
 |---|-----------|-----------|
 | 1 | Open a Document from the Study folder; scroll and zoom | A 100-page lecture scrolls and zooms smoothly with no stutter, in the **Preview app** installed from a PR |
 | 2 | Pen on a Document, saved to its Ink file | Write, force-close, reopen: the ink is all there. A page of tutorial working feels as good as Nebo. Palm resting on the screen never marks or erases |
-| 3 | Folder tree, Notebooks, inserted pages, Send to app, sync set up | Ink written on the tablet shows up in the Drive copy within 15 minutes; a new Notebook opens in another PDF reader; a Document sent to Claude arrives with the preset prompt on the clipboard |
-| 4 | Split view | The split button or Ctrl+\ opens a second Pane; each Pane holds Tabs; dragging a Tab across moves it; the layout comes back after restarting the app |
+| 3 | Folder tree editing, Notebooks, inserted pages, Send to app, sync set up | Ink written on the tablet shows up in the Drive copy within 15 minutes; a new Notebook opens in another PDF reader; a Document sent to Claude arrives with the preset prompt on the clipboard |
+| 4 | Split view | The split button or Ctrl+\ opens a second Pane (at most two); each Pane holds Tabs; dragging a Tab across moves it; the layout comes back after restarting the app |
 | 5 | Error log | 3 red marks on 2 pages make 3 labelled Entries; collecting again adds none; Review shows Entries due today |
 | 6 | Export with ink and Version restore | An exported PDF opens with ink in another reader; an old Version restores correctly |
 | 7 | Snips | A slide diagram dragged onto a tutorial shows with a see-through background; a Snip sent to the error log appears as a Confused entry; the tutorial PDF itself is unchanged |
 | 8 | Office converter | A lecture pptx converted from the tablet at the dorm opens as a Document beside the original |
 
 **Before milestone 3:** the Revision log, Pictures and UI polish feature (`docs/specs/revision-log-and-polish.md`). It replaces the Error log below with one Revision log per Course folder, and brings Pictures forward from milestone 7. Milestone 5 now only adds automatic Red ink collection and a generated PDF of the log.
+
+**Milestones 3 and 4:** grilled on 2026-10-24 and settled in `docs/specs/milestones-3-4.md`, which wins where it differs from stories 53–73 below. Milestone 4 (split view, at most two Panes) is built before the rest of milestone 3, and Office files move from milestone 3 to milestone 8.
 
 Milestones 1–2 are specified in detail below and ticketed now. Milestone 2 is make-or-break: if handwriting feels laggy, fix that before anything else. Milestones 3–8 are settled at the level written here and get a short grilling session before they are ticketed. After milestone 8, use the app for one full week of real coursework and list every annoyance; that list is the v2 spec.
 

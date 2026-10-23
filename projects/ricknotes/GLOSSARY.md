@@ -40,6 +40,10 @@ _Avoid_: backup, snapshot
 A second copy of a file made by the sync app when both sides changed it. RickNotes warns about it and never merges it.
 _Avoid_: duplicate
 
+**Inserted page**:
+A blank A4 page added between a Document's pages, with a blank, lined, grid or dotted background. It lives only in the Ink file; the PDF is never changed. Only inserted pages can be removed.
+_Avoid_: extra page, blank page
+
 **Office file**:
 A pptx or docx in the Study folder. It can't be opened, only converted into a Document.
 
@@ -116,11 +120,15 @@ _Avoid_: overdue, scheduled
 ## Screen
 
 **Pane**:
-One side of the split view, holding one or more tabs.
+One side of the split view, holding one or more Tabs. There are at most two.
 _Avoid_: window, split, editor
 
+**Focused Pane**:
+The Pane last touched. A Document opened from the tree drawer goes there.
+_Avoid_: active pane, current pane
+
 **Tab**:
-One open Document inside a pane.
+One open Document inside a Pane.
 
 ## Building it
 
