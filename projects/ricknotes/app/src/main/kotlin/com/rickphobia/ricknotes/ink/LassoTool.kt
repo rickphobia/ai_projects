@@ -88,6 +88,8 @@ private fun PageRect.union(other: PageRect) =
 
 private fun Picture.rect() = PageRect(left, top, left + widthPt, top + heightPt)
 
+private fun Picture.selection() = LassoSelection(pageId, emptySet(), rect(), rect(), picture = id)
+
 private fun PictureFrame.rect() = PageRect(left, top, left + widthPt, top + heightPt)
 
 private fun PageRect.frame() = PictureFrame(left, top, right - left, bottom - top)
@@ -190,11 +192,15 @@ internal class LassoTool(
         }
     }
 
-    /** Lets go of the selection and any loop, for when the strokes change under it or the tool changes. */
-    fun clear() {
+    /**
+     * Lets go of the selection and any loop, for when the strokes change under it or the tool changes.
+     * With [selecting], selects that Picture instead, as a tap on it would: a shared image is placed
+     * this way, ready to move.
+     */
+    fun clear(selecting: Picture? = null) {
         loop = null
         grabbedAt = null
-        selection = null
+        selection = selecting?.selection()
     }
 
     private fun select(drawn: LassoLoop) {
@@ -205,7 +211,7 @@ internal class LassoTool(
             selection =
                 ink.picturesOn(drawn.pageId).lastOrNull { points.first() in it.rect() }?.let {
                     AppLog.d("Lasso selected Picture ${it.id.value} on page ${drawn.pageId.value}")
-                    LassoSelection(drawn.pageId, emptySet(), it.rect(), it.rect(), picture = it.id)
+                    it.selection()
                 }
             if (selection != null) return
         }

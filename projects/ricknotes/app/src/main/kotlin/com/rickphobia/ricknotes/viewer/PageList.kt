@@ -75,6 +75,7 @@ internal data class OpenDocument(
     val fingerGestures: FingerGestures,
     val revisionLog: RevisionLogAdder,
     val openDropped: (File) -> Unit,
+    val sharedImage: SharedImagePlacement?,
     val penMode: () -> PenMode,
 ) {
     /** A PDF dropped onto a page is copied into this Document's folder. */

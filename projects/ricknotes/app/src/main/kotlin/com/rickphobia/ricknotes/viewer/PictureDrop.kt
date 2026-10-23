@@ -2,6 +2,7 @@ package com.rickphobia.ricknotes.viewer
 
 import android.app.Activity
 import android.content.Context
+import android.net.Uri
 import android.view.DragEvent
 import android.widget.Toast
 import androidx.activity.compose.LocalActivity
@@ -10,12 +11,14 @@ import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
@@ -23,8 +26,10 @@ import androidx.compose.ui.draganddrop.toAndroidDragEvent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.unit.IntSize
 import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.ink.PagePlacement
+import com.rickphobia.ricknotes.core.ink.Picture
 import com.rickphobia.ricknotes.core.ink.ScreenPoint
 import com.rickphobia.ricknotes.core.ink.fitPicture
 import com.rickphobia.ricknotes.core.ink.pageAt
@@ -38,6 +43,7 @@ import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.logging.AppLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -47,9 +53,15 @@ import kotlin.math.abs
 // Dropped content is read into here, then copied into the Document's `.assets` and deleted.
 private const val DROPS_FOLDER = "drops"
 
+/** An image shared to RickNotes, for the middle of the page view; [placed] gets the Picture, or null if it wasn't. */
+internal class SharedImagePlacement(
+    val uri: Uri,
+    val placed: (Picture?) -> Unit,
+)
+
 /**
  * Fills the page view of [document] and takes drops onto it: see [PictureDrop]. [placements] gives
- * where each page is, in the page view's own pixels.
+ * where each page is, in the page view's own pixels. A shared image is placed once the pages are laid out.
  */
 @Composable
 internal fun PictureDropArea(
@@ -60,6 +72,7 @@ internal fun PictureDropArea(
     val scope = rememberCoroutineScope()
     val currentPlacements by rememberUpdatedState(placements)
     var viewOffset by remember { mutableStateOf(Offset.Zero) }
+    var viewSize by remember { mutableStateOf(IntSize.Zero) }
     val ink = document.ink
     val currentPdfTarget by rememberUpdatedState(document.pdfDropTarget)
     val drop =
@@ -67,11 +80,20 @@ internal fun PictureDropArea(
             val pdfDrop = PdfDrop(activity, scope, { currentPdfTarget.folder }) { currentPdfTarget.opened(it) }
             PictureDrop(activity, ink, scope, pdfDrop, { currentPlacements() }, { viewOffset })
         }
+    document.sharedImage?.let { shared ->
+        LaunchedEffect(shared) {
+            snapshotFlow { viewSize != IntSize.Zero && currentPlacements().isNotEmpty() }.first { it }
+            drop.placeShared(shared, ScreenPoint(viewSize.width / 2f, viewSize.height / 2f))
+        }
+    }
     Box(
         modifier =
             Modifier
                 .fillMaxSize()
-                .onGloballyPositioned { viewOffset = it.positionInRoot() }
+                .onGloballyPositioned {
+                    viewOffset = it.positionInRoot()
+                    viewSize = it.size
+                }
                 // Every drag is taken, so one that isn't an image gets a message instead of nothing.
                 .dragAndDropTarget(shouldStartDragAndDrop = { true }, target = drop),
     )
@@ -129,26 +151,58 @@ internal class PictureDrop(
         // Lets this app read content from another app; it ends when released or the activity goes.
         val permissions = activity.requestDragAndDropPermissions(drag)
         scope.launch {
-            val target = File(File(activity.cacheDir, DROPS_FOLDER), UUID.randomUUID().toString())
             try {
-                val image = withContext(Dispatchers.IO) { receiveImage(activity.contentResolver, uri, target) }
-                val frame = fitPicture(image.widthPx, image.heightPx, page.toPage(point), page.widthPt, page.heightPt)
-                val picture = ink.place(image.file, image.extension, page.pageId, frame)
-                AppLog.i("placed Picture ${picture.id.value} on ${page.pageId.value}")
-            } catch (e: ImageNotReceived) {
-                AppLog.w("drop not placed: ${e.message}", e)
-                tell(activity, e.problem.message)
-            } catch (e: PictureNotPlaced) {
-                AppLog.e("drop not placed", e)
-                tell(activity, R.string.picture_drop_not_saved)
+                receiveAndPlace(uri, page, point)
             } finally {
                 permissions?.release()
-                // Not on the IO dispatcher: this also runs when the Document closes mid-drop, and
-                // deleting one small file is quick.
-                target.delete()
             }
         }
         return true
+    }
+
+    /** Places [shared] at [point] on the page view, selected so the pen can move it straight away. */
+    suspend fun placeShared(
+        shared: SharedImagePlacement,
+        point: ScreenPoint,
+    ) {
+        val page = pageAt(placements(), point) ?: nearestPage(placements(), point)
+        if (ink.readOnly || page == null) {
+            AppLog.w("shared image not placed: read-only ${ink.readOnly}, page ${page != null}")
+            tell(activity, if (ink.readOnly) R.string.picture_drop_read_only else R.string.picture_drop_no_page)
+            shared.placed(null)
+            return
+        }
+        val picture = receiveAndPlace(shared.uri, page, point)
+        picture?.let { ink.lasso.clear(selecting = it) }
+        shared.placed(picture)
+    }
+
+    // The Picture placed, or null after telling the student why not.
+    private suspend fun receiveAndPlace(
+        uri: Uri,
+        page: PagePlacement,
+        point: ScreenPoint,
+    ): Picture? {
+        val target = File(File(activity.cacheDir, DROPS_FOLDER), UUID.randomUUID().toString())
+        return try {
+            val image = withContext(Dispatchers.IO) { receiveImage(activity.contentResolver, uri, target) }
+            val frame = fitPicture(image.widthPx, image.heightPx, page.toPage(point), page.widthPt, page.heightPt)
+            ink.place(image.file, image.extension, page.pageId, frame).also { picture ->
+                AppLog.i("placed Picture ${picture.id.value} on ${page.pageId.value}")
+            }
+        } catch (e: ImageNotReceived) {
+            AppLog.w("image not placed: ${e.message}", e)
+            tell(activity, e.problem.message)
+            null
+        } catch (e: PictureNotPlaced) {
+            AppLog.e("image not placed", e)
+            tell(activity, R.string.picture_drop_not_saved)
+            null
+        } finally {
+            // Not on the IO dispatcher: this also runs when the Document closes mid-drop, and
+            // deleting one small file is quick.
+            target.delete()
+        }
     }
 }
 
