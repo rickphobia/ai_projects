@@ -68,13 +68,19 @@ class HomeLibrary(
     val courses: CourseFolderActions,
 )
 
+/** Where the home screen leads. [openRevisionLog] takes a Course folder relative to the Study folder. */
+class HomeNavigation(
+    val openSettings: () -> Unit,
+    val openPdf: (PdfEntry) -> Unit,
+    val openRevisionLog: (String) -> Unit,
+)
+
 @Composable
 fun HomeScreen(
     versionName: String,
     studyFolder: String,
     library: HomeLibrary,
-    onOpenSettings: () -> Unit,
-    onOpenPdf: (PdfEntry) -> Unit,
+    navigation: HomeNavigation,
 ) {
     val folder = remember(studyFolder) { StudyFolder(Path.of(studyFolder)) }
     // A large Study folder takes a moment to walk, so it is listed off the main thread.
@@ -82,7 +88,7 @@ fun HomeScreen(
         value = withContext(Dispatchers.IO) { loadListing(folder, library.recentPaths()) }
     }
     val open = { document: TreeNode.Document ->
-        onOpenPdf(PdfEntry(folder.resolve(document.path).toString(), document.folder, document.name))
+        navigation.openPdf(PdfEntry(folder.resolve(document.path).toString(), document.folder, document.name))
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
@@ -92,7 +98,7 @@ fun HomeScreen(
                 Text(text = studyFolder, style = MaterialTheme.typography.bodyMedium)
             }
             Text(text = stringResource(R.string.version, versionName), style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.settings)) }
+            TextButton(onClick = navigation.openSettings) { Text(stringResource(R.string.settings)) }
         }
         when (val current = listing) {
             Listing.Loading -> {
@@ -118,7 +124,7 @@ fun HomeScreen(
                         tree = current.tree,
                         initiallyExpanded = current.initiallyExpanded,
                         courses = library.courses,
-                        onOpen = open,
+                        opens = TreeOpens(document = open, revisionLog = navigation.openRevisionLog),
                         modifier = Modifier.padding(top = 16.dp),
                     )
                 }

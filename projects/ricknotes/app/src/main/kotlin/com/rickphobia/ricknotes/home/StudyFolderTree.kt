@@ -1,6 +1,7 @@
 package com.rickphobia.ricknotes.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -44,16 +45,23 @@ interface CourseFolderActions {
     fun unmark(folder: String)
 }
 
+/** What tapping opens: a Document, or a Course folder's Revision log by the folder's path. */
+class TreeOpens(
+    val document: (TreeNode.Document) -> Unit,
+    val revisionLog: (String) -> Unit,
+)
+
 /**
  * The browse-only Study folder tree: tap a folder to open or close it, tap a PDF to open it,
- * long-press a folder to mark or unmark it as a Course folder.
+ * long-press a folder to mark or unmark it as a Course folder. An open Course folder starts with
+ * its Revision log row.
  */
 @Composable
 fun StudyFolderTree(
     tree: TreeNode.Folder,
     initiallyExpanded: Set<String>,
     courses: CourseFolderActions,
-    onOpen: (TreeNode.Document) -> Unit,
+    opens: TreeOpens,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember(tree) { mutableStateOf(initiallyExpanded) }
@@ -72,7 +80,7 @@ fun StudyFolderTree(
                     onClick = {
                         when (node) {
                             is TreeNode.Folder -> expanded = TreeLayout.toggle(expanded, node.path)
-                            is TreeNode.Document -> onOpen(node)
+                            is TreeNode.Document -> opens.document(node)
                         }
                     },
                     onLongClick = { if (node is TreeNode.Folder) menuFor = node.path },
@@ -89,6 +97,24 @@ fun StudyFolderTree(
                 }
             }
             HorizontalDivider()
+            // An open Course folder's first row is its Revision log, above its own files.
+            if (isCourse && node.path in expanded) {
+                Text(
+                    text = stringResource(R.string.revision_log),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { opens.revisionLog(node.path) }
+                            .padding(
+                                start = INDENT_PER_LEVEL * (row.depth + 1) + MARKER_WIDTH,
+                                top = 10.dp,
+                                bottom = 10.dp,
+                            ),
+                )
+                HorizontalDivider()
+            }
         }
     }
 }

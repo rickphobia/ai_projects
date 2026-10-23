@@ -4,15 +4,15 @@
 
 **Blocked by:** 20 (Add mistake and Add key point)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-revisionlog, app-revisionlog, app-home
 
 **Effort:** low
 
-- [ ] Revision log row inside each Course folder in the tree; the list filters by Mistakes and Key points
-- [ ] Entry screen shows front and back, labels, category and why (editable)
-- [ ] Open in Document opens at the Entry's page; a missing Document shows "Document not found" and the Entry still works
-- [ ] Delete asks for confirmation and is tested in `core`; erasing ink never deletes Entries
-- [ ] A Conflict copy of `revision_log.json` shows a warning, and nothing is merged
-- [ ] On-tablet check written in the PR: browse a course's log, filter, open in Document, delete one
+- [x] Revision log row inside each Course folder in the tree; the list filters by Mistakes and Key points
+- [x] Entry screen shows front and back, labels, category and why (editable)
+- [x] Open in Document opens at the Entry's page; a missing Document shows "Document not found" and the Entry still works
+- [x] Delete asks for confirmation and is tested in `core`; erasing ink never deletes Entries
+- [x] A Conflict copy of `revision_log.json` shows a warning, and nothing is merged
+- [x] On-tablet check written in the PR: browse a course's log, filter, open in Document, delete one
