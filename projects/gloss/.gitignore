@@ -1,0 +1,10 @@
+# Gradle and Kotlin build state
+.gradle/
+.kotlin/
+build/
+
+# Written by scripts/setup-android-sdk.sh; points at this machine's SDK
+local.properties
+
+# Secrets
+.env

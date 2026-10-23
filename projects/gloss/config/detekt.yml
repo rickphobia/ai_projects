@@ -1,0 +1,20 @@
+# Overrides on top of detekt's default rules (buildUponDefaultConfig = true).
+naming:
+  FunctionNaming:
+    # Compose functions are named like types (DailyScreen).
+    ignoreAnnotated: ['Composable']
+
+complexity:
+  LongParameterList:
+    # Compose screens are stateless: they take their state and one callback per action.
+    ignoreAnnotated: ['Composable']
+
+style:
+  UnusedPrivateMember:
+    # @Preview functions are used by the IDE, not by code.
+    ignoreAnnotated: ['Preview']
+  MagicNumber:
+    # Colours are hex numbers given a name where they are declared (val Green = Color(0xFF1B7F5A)).
+    ignorePropertyDeclaration: true
+    # @Preview functions hold sample data (amounts, dates), not rules.
+    ignoreAnnotated: ['Preview']
