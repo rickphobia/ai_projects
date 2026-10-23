@@ -41,7 +41,6 @@ sealed interface SessionWarning {
 @Suppress("TooManyFunctions")
 class DocumentSession private constructor(
     private val store: InkFileStore,
-    private val assets: PictureAssets,
     clock: Clock,
     listener: SaveListener,
     loaded: InkFile,
@@ -51,6 +50,7 @@ class DocumentSession private constructor(
     /** True when the Ink file couldn't be read: nothing may be drawn and nothing is ever saved. */
     val readOnly: Boolean = warnings.any { it is SessionWarning.InkFileUnreadable }
 
+    private val assets = PictureAssets(store.pdf)
     private val pageCount = pdfPageCount
     private val pages: List<InkPage> = loaded.pages + InkFile.pdfPages(pdfPageCount).filter { it !in loaded.pages }
     private val history = InkHistory(InkContent(loaded.strokes, loaded.pictures))
@@ -156,13 +156,12 @@ class DocumentSession private constructor(
             listener: SaveListener = object : SaveListener {},
         ): DocumentSession {
             val store = InkFileStore(pdf)
-            val assets = PictureAssets(pdf)
             val loaded =
                 try {
                     load(store)
                 } catch (e: InkFileDamaged) {
                     // No Version of a damaged file: it would push a good Version out of the newest 10.
-                    return readOnly(store, assets, clock, listener, pdfPageCount, e)
+                    return readOnly(store, clock, listener, pdfPageCount, e)
                 }
             val warnings =
                 listOfNotNull(
@@ -171,7 +170,7 @@ class DocumentSession private constructor(
                     },
                 )
             val start = loaded ?: InkFile.empty(pdfPageCount)
-            return DocumentSession(store, assets, clock, listener, start, pdfPageCount, warnings).also {
+            return DocumentSession(store, clock, listener, start, pdfPageCount, warnings).also {
                 if (loaded != null) it.saving.takeVersion()
             }
         }
@@ -190,14 +189,12 @@ class DocumentSession private constructor(
 
         private fun readOnly(
             store: InkFileStore,
-            assets: PictureAssets,
             clock: Clock,
             listener: SaveListener,
             pdfPageCount: Int,
             error: InkFileDamaged,
         ) = DocumentSession(
             store,
-            assets,
             clock,
             listener,
             InkFile.empty(pdfPageCount),

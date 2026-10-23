@@ -3,7 +3,7 @@ package com.rickphobia.ricknotes.core.ink
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class PictureSizeTest {
+class PictureFrameTest {
     @Test
     fun `a wide screenshot fits half the page's width, keeps its shape and is centred where it was dropped`() {
         val frame = fitPicture(2000, 1000, PagePoint(300f, 400f), pageWidthPt = 600f, pageHeightPt = 800f)

@@ -21,7 +21,7 @@ A Document the app created itself: a new PDF of blank A4 portrait pages with a b
 _Avoid_: canvas, board, blank PDF
 
 **Ink file**:
-The file beside a Document that holds everything drawn or pasted on it: strokes and placed snips.
+The file beside a Document that holds everything drawn or pasted on it: strokes and Pictures.
 _Avoid_: annotations, overlay, notes file
 
 **Recent Documents**:
@@ -70,6 +70,10 @@ The short list of pen colours that tapping the current pen in the toolbar cycles
 **Lasso**:
 The tool that draws a loop around part of a page. The loop selects your own strokes to move or delete them, and can also be cut out as a Snip to add to a Revision log.
 _Avoid_: select tool
+
+**Picture**:
+An image placed on a page, such as a dropped screenshot, drawn over the page and under the ink. Its image is kept in the Document's `.assets` folder and it is recorded in the Ink file; the PDF is never changed.
+_Avoid_: image, attachment, sticker
 
 **Snip**:
 A picture cut out of part of a rendered page, including the slide and any ink on it, from a Lasso loop or the Snip tool. A snip can be pasted, added to a Revision log, or shared to another app.

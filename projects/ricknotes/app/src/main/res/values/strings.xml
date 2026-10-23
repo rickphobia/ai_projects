@@ -58,4 +58,10 @@
   <string name="finger_erase_help">One finger erases whole strokes instead of scrolling.</string>
   <string name="two_finger_tap_undo">Two-finger tap to undo</string>
   <string name="three_finger_tap_redo">Three-finger tap to redo</string>
+  <string name="picture_drop_unreadable">Couldn\'t read what was dropped, so nothing was added.</string>
+  <string name="picture_drop_not_image">Only PNG, JPEG and WebP images can be dropped onto a page.</string>
+  <string name="picture_drop_too_big">That image is over 50 MB, so it wasn\'t added.</string>
+  <string name="picture_drop_not_saved">Couldn\'t save the image beside the Document, so it wasn\'t added.</string>
+  <string name="picture_drop_read_only">This Document is read-only, so nothing can be added to it.</string>
+  <string name="picture_drop_no_page">Drop it onto a page.</string>
 </resources>

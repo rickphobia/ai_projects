@@ -35,15 +35,18 @@ class DocumentSessionPicturesTest {
 
     // A screenshot somewhere outside the Study folder, as the app's drop adapter leaves it.
     private val screenshot: Path by lazy {
-        folder.newFolder("cache").toPath().resolve("drop.png").also { Files.write(it, IMAGE_BYTES) }
+        folder
+            .newFolder("cache")
+            .toPath()
+            .resolve("drop.png")
+            .also { Files.write(it, IMAGE_BYTES) }
     }
 
     private val frame = PictureFrame(left = 50f, top = 100f, widthPt = 300f, heightPt = 150f)
 
     private fun open() = DocumentSession.open(pdf, 3, clock)
 
-    private fun DocumentSession.place(page: Int = 0) =
-        placePicture(screenshot, "png", PageId.ofPdfPage(page), frame)
+    private fun DocumentSession.place(page: Int = 0) = placePicture(screenshot, "png", PageId.ofPdfPage(page), frame)
 
     private fun stroke(id: String) =
         Stroke(
