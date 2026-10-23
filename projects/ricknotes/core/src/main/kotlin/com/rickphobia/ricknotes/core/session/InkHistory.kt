@@ -1,6 +1,8 @@
 package com.rickphobia.ricknotes.core.session
 
 import com.rickphobia.ricknotes.core.ink.Picture
+import com.rickphobia.ricknotes.core.ink.PictureFrame
+import com.rickphobia.ricknotes.core.ink.PictureId
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 
@@ -33,6 +35,22 @@ internal class InkHistory(
     fun add(stroke: Stroke): Boolean = make(Change.Added(stroke))
 
     fun place(picture: Picture): Boolean = make(Change.Placed(picture))
+
+    /** False, and no undo step, if the Picture isn't here or is at [frame] already. */
+    fun reframe(
+        id: PictureId,
+        frame: PictureFrame,
+    ): Boolean {
+        val before = content.pictures.firstOrNull { it.id == id } ?: return false
+        val after = before.copy(left = frame.left, top = frame.top, widthPt = frame.widthPt, heightPt = frame.heightPt)
+        return after != before && make(Change.Reframed(before, after))
+    }
+
+    /** False, and no undo step, if the Picture isn't here. */
+    fun delete(id: PictureId): Boolean {
+        val deleted = content.pictures.withIndex().firstOrNull { it.value.id == id } ?: return false
+        return make(Change.Deleted(deleted))
+    }
 
     /** False, and no undo step, if none of [ids] is here. */
     fun erase(ids: Set<StrokeId>): Boolean {

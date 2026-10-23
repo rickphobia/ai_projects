@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.Picture
+import com.rickphobia.ricknotes.core.session.PageRect
 import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.PageInk
 import com.rickphobia.ricknotes.logging.AppLog
@@ -48,21 +49,22 @@ internal fun PageOverlay(
     pageWidthPt: Float,
     strokeRenderer: CanvasStrokeRenderer,
 ) {
-    PagePictures(ink.picturesOn(pageId), ink.assetsFolder, pageWidthPt)
+    PagePictures(ink, ink.picturesOn(pageId), pageWidthPt)
     PageInk(ink, pageId, pageWidthPt, strokeRenderer)
 }
 
 /**
- * Draws [pictures] on a page [pageWidthPt] points wide, over the page and under its ink. Their
- * images are in [assetsFolder]; one that can't be read is left out and logged, and stays in the Ink
- * file.
+ * Draws [pictures] of [ink] on a page [pageWidthPt] points wide, over the page and under its ink,
+ * with one the Lasso is dragging or resizing where the pen has it. Their images are in the `.assets`
+ * folder; one that can't be read is left out and logged, and stays in the Ink file.
  */
 @Composable
 private fun PagePictures(
+    ink: DocumentInk,
     pictures: List<Picture>,
-    assetsFolder: File,
     pageWidthPt: Float,
 ) {
+    val assetsFolder = ink.assetsFolder
     pictures.forEach { picture ->
         val image by produceState(loadedImages.get(picture.imageFile), picture.imageFile) {
             if (value == null) value = withContext(Dispatchers.IO) { load(File(assetsFolder, picture.imageFile)) }
@@ -70,10 +72,25 @@ private fun PagePictures(
         image?.let { bitmap ->
             Canvas(modifier = Modifier.fillMaxSize().clipToBounds()) {
                 val scale = size.width / pageWidthPt
+                // Read while drawing, not composing, so a drag redraws the page without recomposing it.
+                val at =
+                    ink.lasso.selection
+                        ?.takeIf { it.picture == picture.id }
+                        ?.shown
+                        ?: PageRect(
+                            picture.left,
+                            picture.top,
+                            picture.left + picture.widthPt,
+                            picture.top + picture.heightPt,
+                        )
                 drawImage(
                     image = bitmap,
-                    dstOffset = IntOffset((picture.left * scale).roundToInt(), (picture.top * scale).roundToInt()),
-                    dstSize = IntSize((picture.widthPt * scale).roundToInt(), (picture.heightPt * scale).roundToInt()),
+                    dstOffset = IntOffset((at.left * scale).roundToInt(), (at.top * scale).roundToInt()),
+                    dstSize =
+                        IntSize(
+                            ((at.right - at.left) * scale).roundToInt(),
+                            ((at.bottom - at.top) * scale).roundToInt(),
+                        ),
                 )
             }
         }

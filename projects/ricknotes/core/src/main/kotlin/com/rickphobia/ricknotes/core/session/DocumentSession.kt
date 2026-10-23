@@ -125,6 +125,28 @@ class DocumentSession private constructor(
         return picture
     }
 
+    /**
+     * Moves or resizes the Picture [id] to [frame], as one undo step. The caller keeps it on its page
+     * and its shape (see `resizedPicture`). Returns false, with no undo step, if it isn't here or is
+     * there already.
+     */
+    fun reframePicture(
+        id: PictureId,
+        frame: PictureFrame,
+    ): Boolean {
+        check(!readOnly) { "${store.fileName} is open read-only" }
+        return edit { history.reframe(id, frame) }
+    }
+
+    /**
+     * Takes the Picture [id] off its page, as one undo step; false if it isn't here. Its image stays
+     * in `.assets`, so undo works and Versions still point at a real file.
+     */
+    fun deletePicture(id: PictureId): Boolean {
+        check(!readOnly) { "${store.fileName} is open read-only" }
+        return edit { history.delete(id) }
+    }
+
     /** Takes back the last change, or returns false if there is none. Saved like any change. */
     fun undo(): Boolean = edit { history.undo() }
 
