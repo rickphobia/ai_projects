@@ -4,19 +4,15 @@ import android.net.Uri
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.rickphobia.ricknotes.core.ink.FavouritePens
 import com.rickphobia.ricknotes.core.revisionlog.Entry
 import com.rickphobia.ricknotes.core.settings.SettingsSource
 import com.rickphobia.ricknotes.core.settings.SettingsStore
-import com.rickphobia.ricknotes.core.studyfolder.CourseFolders
 import com.rickphobia.ricknotes.core.studyfolder.RecentDocuments
-import com.rickphobia.ricknotes.core.touch.FingerGestures
 import com.rickphobia.ricknotes.diagnostics.PenTestScreen
 import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.home.CourseFolderActions
@@ -25,7 +21,8 @@ import com.rickphobia.ricknotes.home.HomeNavigation
 import com.rickphobia.ricknotes.home.HomeScreen
 import com.rickphobia.ricknotes.imports.IncomingShare
 import com.rickphobia.ricknotes.logging.AppLog
-import com.rickphobia.ricknotes.revisionlog.CourseFolder
+import com.rickphobia.ricknotes.panes.KeyShortcuts
+import com.rickphobia.ricknotes.panes.startPosition
 import com.rickphobia.ricknotes.revisionlog.ReviewScreen
 import com.rickphobia.ricknotes.revisionlog.RevisionLogScreen
 import com.rickphobia.ricknotes.revisionlog.RevisionLogSessions
@@ -34,115 +31,72 @@ import com.rickphobia.ricknotes.settings.FavouritePensEditor
 import com.rickphobia.ricknotes.settings.FavouritePensSetting
 import com.rickphobia.ricknotes.settings.FingerGesturesEditor
 import com.rickphobia.ricknotes.settings.FingerGesturesSetting
+import com.rickphobia.ricknotes.settings.LayoutSetting
 import com.rickphobia.ricknotes.settings.SettingsActions
 import com.rickphobia.ricknotes.settings.SettingsScreen
 import com.rickphobia.ricknotes.studyfolder.AllFilesAccessScreen
 import com.rickphobia.ricknotes.studyfolder.PickFolderScreen
 import com.rickphobia.ricknotes.theme.RickNotesTheme
-import com.rickphobia.ricknotes.viewer.DocumentNavigation
-import com.rickphobia.ricknotes.viewer.DocumentScreen
-import com.rickphobia.ricknotes.viewer.DocumentSettings
-import com.rickphobia.ricknotes.viewer.ReadingPosition
 import com.rickphobia.ricknotes.viewer.ReadingPositions
-import com.rickphobia.ricknotes.viewer.SharedImage
-import com.rickphobia.ricknotes.viewer.ZoomLimits
 import java.io.File
-
-/** Which screen is showing. Without a usable Study folder the app only offers the picker. */
-internal sealed interface Screen {
-    data class PickFolder(
-        val problem: String?,
-    ) : Screen
-
-    /** Home; with a [sharedImage], tapping a Document places it there. */
-    data class Home(
-        val studyFolder: String,
-        val sharedImage: Uri? = null,
-    ) : Screen
-
-    data class Settings(
-        val studyFolder: String,
-    ) : Screen
-
-    data class PenTest(
-        val studyFolder: String,
-    ) : Screen
-
-    /** The Revision log of [courseFolder], a path relative to the Study folder. */
-    data class RevisionLog(
-        val studyFolder: String,
-        val courseFolder: String,
-    ) : Screen
-
-    data class Review(
-        val studyFolder: String,
-    ) : Screen
-
-    /** Picking the folder a shared PDF at [uri] is copied into, starting at the tree path [startFolder]. */
-    data class ShareFolder(
-        val studyFolder: String,
-        val uri: Uri,
-        val startFolder: String,
-    ) : Screen
-
-    /** An open Document, placing a [sharedImage] if there is one; Back goes to [backTo], or home when it is null. */
-    data class Document(
-        val studyFolder: String,
-        val pdf: PdfEntry,
-        val backTo: Screen? = null,
-        val sharedImage: Uri? = null,
-    ) : Screen {
-        val back: Screen get() = backTo ?: Home(studyFolder)
-
-        /** [pdf] opened in this one's place (a PDF dropped onto a page), Back going where this one's did. */
-        fun instead(pdf: PdfEntry) = Document(studyFolder, pdf, backTo)
-
-        /** What this Document's screen takes from the settings, with its Course folder found in [courses]. */
-        fun settings(
-            pens: FavouritePens,
-            gestures: FingerGestures,
-            courses: CourseFolders,
-        ) = DocumentSettings(pens, gestures, CourseFolder.of(pdf, studyFolder, courses))
-    }
-}
 
 /** Where the app keeps what it remembers: its settings, and where each Document was left. */
 class AppStorage<S>(
     val settings: S,
     val readingPositions: ReadingPositions,
-) where S : SettingsSource, S : SettingsStore
+) where S : SettingsSource, S : SettingsStore {
+    val layout = LayoutSetting(settings)
+    val recentDocuments = RecentDocuments(settings)
 
-/** Where the home screen [route] leads, going there with [go]. */
+    /** Opens [pdf] in a Tab, or selects its Tab, where it was last left. */
+    fun open(pdf: PdfEntry) = layout.change { open(pdf.treePath, startPosition(readingPositions, pdf)) }
+}
+
+/** Where the home screen [route] leads, going there with [go]; a Document opens with [open]. */
 private fun homeNavigation(
     route: Screen.Home,
+    open: (PdfEntry) -> Unit,
     go: (Screen) -> Unit,
 ) = HomeNavigation(
     openSettings = { go(Screen.Settings(route.studyFolder)) },
-    openPdf = { pdf -> go(Screen.Document(route.studyFolder, pdf, sharedImage = route.sharedImage)) },
+    openPdf = { pdf ->
+        open(pdf)
+        go(Screen.Document(route.studyFolder, sharedImage = route.sharedImage))
+    },
     openRevisionLog = { course -> go(Screen.RevisionLog(route.studyFolder, course)) },
     openReview = { go(Screen.Review(route.studyFolder)) },
 )
 
-/** The home screen of [route], going to the screen it asks for with [go]. */
+/** What the home screen of [studyFolder] lists. */
+private fun homeLibrary(
+    studyFolder: String,
+    recentPaths: () -> List<String>,
+    courseFolders: CourseFolderActions,
+): HomeLibrary {
+    // Walks the Study folder; the home screen calls it off the main thread.
+    val dueCount = { RevisionLogSessions.dueCourses(File(studyFolder)).sumOf { it.entries.size } }
+    return HomeLibrary(recentPaths, courseFolders, dueCount)
+}
+
+/** The home screen of [route], or the Document a shared image goes on; [open] opens a Document in a Tab. */
 @Composable
 private fun HomeRoute(
     route: Screen.Home,
     versionName: String,
-    recentPaths: () -> List<String>,
-    courseFolders: CourseFolderActions,
+    library: HomeLibrary,
+    open: (PdfEntry) -> Unit,
     go: (Screen) -> Unit,
 ) {
-    // Walks the Study folder; the home screen calls it off the main thread.
-    val dueCount = { RevisionLogSessions.dueCourses(File(route.studyFolder)).sumOf { it.entries.size } }
-    val library = HomeLibrary(recentPaths, courseFolders, dueCount)
-    HomeScreen(versionName, route.studyFolder, library, homeNavigation(route, go))
+    ChoosingForShare(route, go) {
+        HomeScreen(versionName, route.studyFolder, library, homeNavigation(route, open, go))
+    }
 }
 
 /** The Revision log screen of [route], going to the screen it asks for with [go]. */
 @Composable
 private fun RevisionLogRoute(
     route: Screen.RevisionLog,
-    positions: ReadingPositions,
+    storage: AppStorage<*>,
     go: (Screen) -> Unit,
 ) {
     RevisionLogScreen(
@@ -150,8 +104,8 @@ private fun RevisionLogRoute(
         onOpenDocument = { entry ->
             val pdf = entryDocument(entry, route.studyFolder)
             if (pdf != null) {
-                openAtPage(positions, pdf, entry.source.pageNumber)
-                go(Screen.Document(route.studyFolder, pdf, backTo = route))
+                openAtPage(storage, pdf, entry.source.pageNumber)
+                go(Screen.Document(route.studyFolder, backTo = route))
             }
             pdf != null
         },
@@ -173,38 +127,28 @@ private fun entryDocument(
     return PdfEntry(file.path, path.substringBeforeLast('/', ""), file.name)
 }
 
-// The Document screen opens where its reading position says, so the Entry's page goes there first,
-// keeping the zoom the Document was last read at.
-private fun openAtPage(
-    positions: ReadingPositions,
-    pdf: PdfEntry,
-    pageNumber: Int,
-) {
-    val zoom = positions.load(pdf.path)?.zoom ?: ZoomLimits.MIN
-    positions.save(pdf.path, ReadingPosition(pageNumber - 1, zoom))
-}
-
-/** The Document of [route]: a PDF dropped onto a page opens in its place, Back going where this one's did. */
+/** The Settings screen of [route], editing [favouritePens] and [fingerGestures] in place. */
 @Composable
-private fun DocumentRoute(
-    route: Screen.Document,
-    positions: ReadingPositions,
-    settings: DocumentSettings,
-    go: (Screen) -> Unit,
+private fun SettingsRoute(
+    route: Screen.Settings,
+    favouritePens: FavouritePensSetting<*>,
+    fingerGestures: FingerGesturesSetting<*>,
+    actions: SettingsActions,
 ) {
-    val sharedImage =
-        route.sharedImage?.let { uri ->
-            SharedImage(uri) { go(Screen.Home(route.studyFolder, sharedImage = uri)) }
-        }
-    val navigation = DocumentNavigation(openPdf = { go(route.instead(it)) }, onBack = { go(route.back) })
-    DocumentScreen(route.pdf, positions, settings, sharedImage, navigation)
+    SettingsScreen(
+        studyFolder = route.studyFolder,
+        favouritePens = { FavouritePensEditor(favouritePens.pens, favouritePens::change) },
+        fingerGestures = { FingerGesturesEditor(fingerGestures.gestures, fingerGestures::change) },
+        actions = actions,
+    )
 }
 
-/** What the screens ask Android to do, provided by `MainActivity`. */
+/** What the screens ask Android to do, and the keyboard shortcuts it hands them, provided by `MainActivity`. */
 class SystemActions(
     val openAllFilesAccessSetting: () -> Unit,
     val pickedFolderPath: (Uri) -> String?,
     val shareLog: () -> Unit,
+    val shortcuts: KeyShortcuts,
 )
 
 @Composable
@@ -215,14 +159,14 @@ fun <S> RickNotesApp(
     system: SystemActions,
     share: IncomingShare?,
 ) where S : SettingsSource, S : SettingsStore {
-    var screen by remember(hasAllFilesAccess) { mutableStateOf(startScreen(storage.settings)) }
+    var screen by remember(hasAllFilesAccess) { mutableStateOf(resumeTabs(startScreen(storage.settings), storage)) }
     val favouritePens = remember { FavouritePensSetting(storage.settings) }
     val fingerGestures = remember { FingerGesturesSetting(storage.settings) }
-    val recentDocuments = remember { RecentDocuments(storage.settings) }
+    val recentDocuments = storage.recentDocuments
     val courseFolders = remember { CourseFoldersSetting(storage.settings) }
 
     val pickFolder = rememberFolderPicker(system, storage.settings) { screen = it }
-    if (hasAllFilesAccess) TakeShare(share, { screen }, recentDocuments::paths) { screen = it }
+    if (hasAllFilesAccess) TakeShare(share, { screen }, recentDocuments::paths, storage::open) { screen = it }
 
     RickNotesTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -236,17 +180,16 @@ fun <S> RickNotesApp(
                 }
 
                 is Screen.Home -> {
-                    ChoosingForShare(current, { screen = it }) {
-                        HomeRoute(current, versionName, recentDocuments::paths, courseFolders) { screen = it }
-                    }
+                    val library = homeLibrary(current.studyFolder, recentDocuments::paths, courseFolders)
+                    HomeRoute(current, versionName, library, storage::open) { screen = it }
                 }
 
                 is Screen.ShareFolder -> {
-                    ShareFolderRoute(current) { screen = it }
+                    ShareFolderRoute(current, storage::open) { screen = it }
                 }
 
                 is Screen.RevisionLog -> {
-                    RevisionLogRoute(current, storage.readingPositions) { screen = it }
+                    RevisionLogRoute(current, storage) { screen = it }
                 }
 
                 is Screen.Review -> {
@@ -254,18 +197,14 @@ fun <S> RickNotesApp(
                 }
 
                 is Screen.Settings -> {
-                    SettingsScreen(
-                        studyFolder = current.studyFolder,
-                        favouritePens = { FavouritePensEditor(favouritePens.pens, favouritePens::change) },
-                        fingerGestures = { FingerGesturesEditor(fingerGestures.gestures, fingerGestures::change) },
-                        actions =
-                            SettingsActions(
-                                changeFolder = pickFolder,
-                                openPenTest = { screen = Screen.PenTest(current.studyFolder) },
-                                shareLog = system.shareLog,
-                                back = { screen = Screen.Home(current.studyFolder) },
-                            ),
-                    )
+                    val actions =
+                        SettingsActions(
+                            changeFolder = pickFolder,
+                            openPenTest = { screen = Screen.PenTest(current.studyFolder) },
+                            shareLog = system.shareLog,
+                            back = { screen = Screen.Home(current.studyFolder) },
+                        )
+                    SettingsRoute(current, favouritePens, fingerGestures, actions)
                 }
 
                 is Screen.PenTest -> {
@@ -273,9 +212,13 @@ fun <S> RickNotesApp(
                 }
 
                 is Screen.Document -> {
-                    LaunchedEffect(current.pdf.path) { recentDocuments.opened(current.pdf.treePath) }
-                    val settings = current.settings(favouritePens.pens, fingerGestures.gestures, courseFolders.folders)
-                    DocumentRoute(current, storage.readingPositions, settings) { screen = it }
+                    val pens = favouritePens.pens
+                    val gestures = fingerGestures.gestures
+                    val courses = courseFolders.folders
+                    val settings = { pdf: PdfEntry ->
+                        documentSettings(pdf, current.studyFolder, pens, gestures, courses)
+                    }
+                    DocumentRoute(current, storage, system.shortcuts, settings) { screen = it }
                 }
             }
         }

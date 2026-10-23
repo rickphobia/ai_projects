@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -16,6 +17,7 @@ import com.rickphobia.ricknotes.adapters.settings.SharedPreferencesSettingsSourc
 import com.rickphobia.ricknotes.files.TreeDocumentPaths
 import com.rickphobia.ricknotes.imports.IncomingShare
 import com.rickphobia.ricknotes.logging.AppLog
+import com.rickphobia.ricknotes.panes.KeyShortcuts
 import java.io.File
 import java.io.IOException
 
@@ -27,6 +29,8 @@ class MainActivity : ComponentActivity() {
 
     // A file shared with Share → RickNotes; a share while the app is open arrives in onNewIntent.
     private val share = mutableStateOf<IncomingShare?>(null)
+
+    private val shortcuts = KeyShortcuts()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,11 +55,17 @@ class MainActivity : ComponentActivity() {
                         openAllFilesAccessSetting = ::openAllFilesAccessSetting,
                         pickedFolderPath = ::pickedFolderPath,
                         shareLog = ::shareLog,
+                        shortcuts = shortcuts,
                     ),
                 share = share.value,
             )
         }
     }
+
+    override fun onKeyShortcut(
+        keyCode: Int,
+        event: KeyEvent,
+    ): Boolean = shortcuts.handle(event) || super.onKeyShortcut(keyCode, event)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

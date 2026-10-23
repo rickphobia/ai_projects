@@ -3,6 +3,7 @@ package com.rickphobia.ricknotes.viewer
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,7 +20,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import com.rickphobia.ricknotes.R
@@ -52,14 +52,22 @@ private sealed interface Opening {
     ) : Opening
 }
 
-/** Where a Document screen leads: a PDF dropped onto a page opens with [openPdf]. */
+/** The Document a Tab shows, and where the Tab keeps its reading position. */
+class DocumentTab(
+    val pdf: PdfEntry,
+    val positions: ReadingPositions,
+)
+
+/** Where a Document's Tab leads: a PDF dropped onto a page opens with [openPdf]. */
 class DocumentNavigation(
     val openPdf: (PdfEntry) -> Unit,
     val onBack: () -> Unit,
 )
 
 /**
- * One Document, scrolling continuously from page to page, reopened where it was left in [positions].
+ * One Document's [tab], scrolling continuously from page to page, reopened where the Tab was left.
+ * Only a [shown] Tab draws anything; a hidden one keeps its ink open, with its undo history and
+ * pen, so switching back finds it as it was.
  * A PDF dropped onto a page is copied into its folder and opened.
  * Tapping the pen in use in the toolbar moves on through the Favourite pens in [settings]; fingers
  * do what it says, and Entries go to the Revision log of its Course folder. A [sharedImage] is
@@ -67,14 +75,16 @@ class DocumentNavigation(
  */
 @Composable
 fun DocumentScreen(
-    pdf: PdfEntry,
-    positions: ReadingPositions,
+    tab: DocumentTab,
     settings: DocumentSettings,
     sharedImage: SharedImage?,
     navigation: DocumentNavigation,
+    shown: Boolean,
 ) {
+    val pdf = tab.pdf
+    val positions = tab.positions
     val onBack = navigation.onBack
-    BackHandler(onBack = onBack)
+    BackHandler(enabled = shown, onBack = onBack)
     val favouritePens = settings.favouritePens
     // Each Document opens with the first Favourite pen.
     val tool = remember(pdf.path) { mutableStateOf<InkTool>(InkTool.Pen(favouritePens.colours.first())) }
@@ -84,9 +94,11 @@ fun DocumentScreen(
         remember(pdf.path, sharedImage) { sharedImage?.let { SharedPicture(it) { kind.value = PenKind.LASSO } } }
     DisposableEffect(pages) { onDispose { pages.close() } }
     val opening by rememberOpening(pdf, pages)
+    (opening as? Opening.Ready)?.let { SaveWhenLeaving(it.ink) }
+    if (!shown) return
 
     Column(modifier = Modifier.fillMaxSize()) {
-        DocumentTopBar(pdf.name, onBack) {
+        DocumentTopBar(onBack) {
             PenToolbar(tool, kind, favouritePens)
             (opening as? Opening.Ready)?.let { InkControls(it.ink) }
         }
@@ -104,7 +116,6 @@ fun DocumentScreen(
             }
 
             is Opening.Ready -> {
-                SaveWhenLeaving(current.ink)
                 // A Lasso selection only lasts while the Lasso is picked.
                 LaunchedEffect(current.ink, kind.value) { if (kind.value != PenKind.LASSO) current.ink.lasso.clear() }
                 current.ink.warnings.forEach { InkWarning(it) }
@@ -150,22 +161,15 @@ private fun rememberOpening(
             }
     }
 
-/** Back, the Document's name (cut short when it doesn't fit), then [tools]. */
+/** Back, then [tools] at the end; the tab bar above names the Document. */
 @Composable
 private fun DocumentTopBar(
-    name: String,
     onBack: () -> Unit,
     tools: @Composable () -> Unit,
 ) {
     Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
         BackButton(onBack)
-        Text(
-            text = name,
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+        Spacer(modifier = Modifier.weight(1f))
         tools()
     }
 }

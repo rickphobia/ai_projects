@@ -130,6 +130,10 @@ _Avoid_: active pane, current pane
 **Tab**:
 One open Document inside a Pane.
 
+**Layout**:
+The Panes, their Tabs with each Tab's page and zoom, and which Tab each Pane shows. Saved so it comes back after a restart.
+_Avoid_: workspace, session
+
 ## Building it
 
 **Milestone**:
