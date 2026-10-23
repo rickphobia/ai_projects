@@ -43,3 +43,25 @@ fun fitPicture(
         heightPt = height,
     )
 }
+
+// A Picture is never shrunk below this on its short side, in points, so it can still be tapped.
+private const val MIN_PICTURE_PT = 20f
+
+/**
+ * [frame] resized by dragging its bottom-right corner to [corner] on a [pageWidthPt] x [pageHeightPt]
+ * page: its top-left corner stays put, it keeps its shape, it stays on the page and it is never
+ * smaller than [MIN_PICTURE_PT] on its short side.
+ */
+fun resizedPicture(
+    frame: PictureFrame,
+    corner: PagePoint,
+    pageWidthPt: Float,
+    pageHeightPt: Float,
+): PictureFrame {
+    // Follows whichever side the pen pulls further, so the corner never lags behind the pen.
+    val wanted = maxOf((corner.x - frame.left) / frame.widthPt, (corner.y - frame.top) / frame.heightPt)
+    val smallest = MIN_PICTURE_PT / minOf(frame.widthPt, frame.heightPt)
+    val largest = minOf((pageWidthPt - frame.left) / frame.widthPt, (pageHeightPt - frame.top) / frame.heightPt)
+    val scale = wanted.coerceAtMost(largest).coerceAtLeast(smallest)
+    return frame.copy(widthPt = frame.widthPt * scale, heightPt = frame.heightPt * scale)
+}

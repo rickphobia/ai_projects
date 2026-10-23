@@ -5,6 +5,7 @@ import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.PenColour
 import com.rickphobia.ricknotes.core.ink.Picture
 import com.rickphobia.ricknotes.core.ink.PictureFrame
+import com.rickphobia.ricknotes.core.ink.PictureId
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.ink.StrokePoint
@@ -145,6 +146,71 @@ class DocumentSessionPicturesTest {
 
         assertThrows(IllegalStateException::class.java) { session.place() }
         assertFalse(Files.exists(assets))
+    }
+
+    @Test
+    fun `moving or resizing a Picture is one undo step, saved, and keeps its drawing order`() {
+        val session = open()
+        val first = session.place()
+        val second = session.place()
+        val moved = PictureFrame(left = 70f, top = 120f, widthPt = 300f, heightPt = 150f)
+        val resized = PictureFrame(left = 70f, top = 120f, widthPt = 400f, heightPt = 200f)
+
+        assertTrue(session.reframePicture(first.id, moved))
+        assertTrue(session.reframePicture(first.id, resized))
+        clock.advance(DocumentSession.SAVE_DELAY_MS)
+
+        val expected = first.copy(left = 70f, top = 120f, widthPt = 400f, heightPt = 200f)
+        assertEquals(listOf(expected, second), session.pictures)
+        assertEquals(listOf(expected, second), open().pictures)
+        assertTrue(session.undo())
+        assertEquals(listOf(first.copy(left = 70f, top = 120f), second), session.pictures)
+        assertTrue(session.undo())
+        assertEquals(listOf(first, second), session.pictures)
+        assertTrue(session.redo())
+        assertEquals(listOf(first.copy(left = 70f, top = 120f), second), session.pictures)
+    }
+
+    @Test
+    fun `reframing a Picture that isn't here, or to where it is, is no undo step`() {
+        val session = open()
+        val picture = session.place()
+        session.undo()
+
+        assertFalse(session.reframePicture(picture.id, frame.copy(left = 0f)))
+        session.redo()
+        assertFalse(session.reframePicture(picture.id, frame))
+        assertTrue(session.undo())
+        assertFalse(session.canUndo)
+    }
+
+    @Test
+    fun `deleting a Picture is one undo step, saved, and keeps its image`() {
+        val session = open()
+        val first = session.place()
+        val second = session.place()
+        session.addStroke(stroke("a"))
+
+        assertTrue(session.deletePicture(first.id))
+        session.saveNow()
+
+        assertEquals(listOf(second), open().pictures)
+        assertTrue("the image stays for undo and Versions", Files.exists(assets.resolve(first.imageFile)))
+        assertTrue(session.undo())
+        assertEquals("undo puts it back under the other", listOf(first, second), session.pictures)
+        assertEquals(listOf(stroke("a")), session.strokes)
+        assertTrue(session.redo())
+        assertEquals(listOf(second), session.pictures)
+        assertFalse("already gone", session.deletePicture(first.id))
+    }
+
+    @Test
+    fun `a read-only Document can't move or delete a Picture`() {
+        Files.writeString(inkFile, "{ damaged")
+        val session = open()
+
+        assertThrows(IllegalStateException::class.java) { session.reframePicture(PictureId("p"), frame) }
+        assertThrows(IllegalStateException::class.java) { session.deletePicture(PictureId("p")) }
     }
 
     private companion object {

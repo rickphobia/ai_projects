@@ -182,7 +182,7 @@ private fun TouchLayer(
     )
 }
 
-/** What the Lasso menu offers for a selection: Delete only when it holds strokes. */
+/** What the Lasso menu offers for a selection: Delete only when it holds strokes or a Picture. */
 @Composable
 private fun lassoActions(
     ink: DocumentInk,
@@ -190,11 +190,7 @@ private fun lassoActions(
 ): List<LassoAction> =
     listOfNotNull(
         LassoAction(R.drawable.ic_delete, stringResource(R.string.delete_selection), ink.lasso::delete)
-            .takeIf {
-                ink.lasso.selection
-                    ?.ids
-                    ?.isNotEmpty() == true
-            },
+            .takeIf { ink.lasso.selection?.holdsSomething == true },
         LassoAction(R.drawable.ic_add_mistake, stringResource(R.string.add_mistake)) {
             revisionLog.add(EntryKind.MISTAKE)
         },

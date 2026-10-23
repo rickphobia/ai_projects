@@ -4,14 +4,14 @@
 
 **Blocked by:** 16 (Floating Lasso menu), 24 (Drop a screenshot onto a page)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-session, app-ink, app-viewer
 
 **Effort:** low
 
-- [ ] Move, resize and delete are each one undo step and are saved (tested in `core`)
-- [ ] Resize keeps the aspect ratio and the Picture stays on its page (tested)
-- [ ] Lasso-tool tap on a Picture selects it; a loop still selects only strokes; the pen never moves a Picture
-- [ ] Delete keeps the image file in `.assets`
-- [ ] On-tablet check written in the PR: select, move, resize, delete, undo each
+- [x] Move, resize and delete are each one undo step and are saved (tested in `core`)
+- [x] Resize keeps the aspect ratio and the Picture stays on its page (tested)
+- [x] Lasso-tool tap on a Picture selects it; a loop still selects only strokes; the pen never moves a Picture
+- [x] Delete keeps the image file in `.assets`
+- [x] On-tablet check written in the PR: select, move, resize, delete, undo each

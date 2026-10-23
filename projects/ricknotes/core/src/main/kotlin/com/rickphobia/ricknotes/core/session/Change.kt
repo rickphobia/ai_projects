@@ -35,6 +35,33 @@ internal sealed interface Change {
         }
     }
 
+    /** [before] and [after] are the same Picture before and after a move or resize. */
+    data class Reframed(
+        val before: Picture,
+        val after: Picture,
+    ) : Change {
+        override fun apply(content: InkContent) = content.pictures.replaceAll { if (it.id == before.id) after else it }
+
+        override fun undo(content: InkContent) = content.pictures.replaceAll { if (it.id == after.id) before else it }
+    }
+
+    /**
+     * [deleted] holds the Picture with its place in the list, so undo puts it back in the same
+     * drawing order. Its image stays in `.assets`.
+     */
+    data class Deleted(
+        val deleted: IndexedValue<Picture>,
+    ) : Change {
+        override fun apply(content: InkContent) {
+            content.pictures.removeAll { it.id == deleted.value.id }
+        }
+
+        override fun undo(content: InkContent) {
+            val pictures = content.pictures
+            pictures.add(deleted.index.coerceAtMost(pictures.size), deleted.value)
+        }
+    }
+
     /** [erased] holds each stroke with its place in the list, so undo puts it back where it was. */
     data class Erased(
         val erased: List<IndexedValue<Stroke>>,

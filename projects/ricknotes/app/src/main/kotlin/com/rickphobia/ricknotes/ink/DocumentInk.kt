@@ -9,6 +9,7 @@ import androidx.ink.strokes.MutableStrokeInputBatch
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.Picture
 import com.rickphobia.ricknotes.core.ink.PictureFrame
+import com.rickphobia.ricknotes.core.ink.PictureId
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.ink.Tool
@@ -105,6 +106,17 @@ internal class DocumentInk private constructor(
         offset: PageOffset,
     ): Boolean = session.moveStrokes(ids, offset).also { moved -> if (moved) followSession() }
 
+    /** Moves or resizes the Picture [id] to [frame], as one undo step; false if nothing changed. */
+    fun reframe(
+        id: PictureId,
+        frame: PictureFrame,
+    ): Boolean = session.reframePicture(id, frame).also { changed -> if (changed) followSession() }
+
+    /** Takes the Picture [id] off its page, as one undo step. Its image stays in `.assets`. */
+    fun deletePicture(id: PictureId) {
+        if (session.deletePicture(id)) followSession() else AppLog.w("delete of Picture ${id.value}, which isn't here")
+    }
+
     /**
      * Copies [image] into the Document's `.assets` folder and places it on [pageId] at [frame], as
      * one undo step. The copy runs off the main thread.
@@ -142,7 +154,7 @@ internal class DocumentInk private constructor(
             .filter { it.stroke.pageId == pageId && !eraser.hides(it.stroke.id) }
             .sortedBy { it.stroke.tool != Tool.HIGHLIGHTER }
 
-    // Matches the drawn strokes and Pictures to the session's after an undo, redo, move or placing,
+    // Matches the drawn strokes and Pictures to the session's after an undo, redo, move, placing or delete,
     // keeping the meshes already built of strokes that haven't moved.
     private fun followSession() {
         val built = strokes.associateBy { it.stroke.id }
