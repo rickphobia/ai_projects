@@ -12,16 +12,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.rickphobia.ricknotes.core.ink.FavouritePens
 import com.rickphobia.ricknotes.core.settings.InvalidSettingException
 import com.rickphobia.ricknotes.core.settings.SettingsLoader
 import com.rickphobia.ricknotes.core.settings.SettingsSource
 import com.rickphobia.ricknotes.core.settings.SettingsStore
+import com.rickphobia.ricknotes.core.studyfolder.CourseFolders
 import com.rickphobia.ricknotes.core.studyfolder.RecentDocuments
+import com.rickphobia.ricknotes.core.touch.FingerGestures
 import com.rickphobia.ricknotes.diagnostics.PenTestScreen
 import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.home.HomeLibrary
 import com.rickphobia.ricknotes.home.HomeScreen
 import com.rickphobia.ricknotes.logging.AppLog
+import com.rickphobia.ricknotes.revisionlog.CourseFolder
 import com.rickphobia.ricknotes.settings.CourseFoldersSetting
 import com.rickphobia.ricknotes.settings.FavouritePensEditor
 import com.rickphobia.ricknotes.settings.FavouritePensSetting
@@ -33,6 +37,7 @@ import com.rickphobia.ricknotes.studyfolder.AllFilesAccessScreen
 import com.rickphobia.ricknotes.studyfolder.PickFolderScreen
 import com.rickphobia.ricknotes.theme.RickNotesTheme
 import com.rickphobia.ricknotes.viewer.DocumentScreen
+import com.rickphobia.ricknotes.viewer.DocumentSettings
 import com.rickphobia.ricknotes.viewer.ReadingPositions
 
 /** Which screen is showing. Without a usable Study folder the app only offers the picker. */
@@ -56,7 +61,14 @@ private sealed interface Screen {
     data class Document(
         val studyFolder: String,
         val pdf: PdfEntry,
-    ) : Screen
+    ) : Screen {
+        /** What this Document's screen takes from the settings, with its Course folder found in [courses]. */
+        fun settings(
+            pens: FavouritePens,
+            gestures: FingerGestures,
+            courses: CourseFolders,
+        ) = DocumentSettings(pens, gestures, CourseFolder.of(pdf, studyFolder, courses))
+    }
 }
 
 /** Where the app keeps what it remembers: its settings, and where each Document was left. */
@@ -163,9 +175,9 @@ fun <S> RickNotesApp(
 
                 is Screen.Document -> {
                     LaunchedEffect(current.pdf.path) { recentDocuments.opened(current.pdf.treePath) }
-                    DocumentScreen(current.pdf, storage.readingPositions, favouritePens.pens, fingerGestures.gestures) {
-                        screen =
-                            Screen.Home(current.studyFolder)
+                    val settings = current.settings(favouritePens.pens, fingerGestures.gestures, courseFolders.folders)
+                    DocumentScreen(current.pdf, storage.readingPositions, settings) {
+                        screen = Screen.Home(current.studyFolder)
                     }
                 }
             }

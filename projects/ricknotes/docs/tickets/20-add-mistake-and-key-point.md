@@ -4,17 +4,19 @@
 
 **Blocked by:** 16 (Floating Lasso menu), 18 (Course folders), 19 (Prefactor: shared safe saving)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-revisionlog, app-revisionlog, app-snip, app-ink
 
 **Effort:** medium
 
-- [ ] Revision log seam: add an Entry, edit category and why, reopen with everything there (tested with a real temporary folder and a fake clock)
-- [ ] Saves use the shared safe saving from 19; a failed save leaves the old file whole; Versions are taken (tested)
-- [ ] A damaged `revision_log.json` opens read-only and is never overwritten (tested)
-- [ ] Add mistake and Add key point work with an empty loop (a printed question only)
-- [ ] Front and back Snips are rendered off the main thread at a fixed resolution with a capped long edge; the note appears once both are written
-- [ ] Adding an Entry never changes the Document's ink or the PDF
-- [ ] Logs Entry added (course folder name, Entry ID, kind); never Snips, strokes or the why text
-- [ ] On-tablet check written in the PR: lasso a question with red working, Add mistake, edit category and why, find both PNGs and the JSON in the Course folder
+**Owner steps:** the on-tablet check in the PR, in the Preview app.
+
+- [x] Revision log seam: add an Entry, edit category and why, reopen with everything there (tested with a real temporary folder and a fake clock)
+- [x] Saves use the shared safe saving from 19; a failed save leaves the old file whole; Versions are taken (tested)
+- [x] A damaged `revision_log.json` opens read-only and is never overwritten (tested)
+- [x] Add mistake and Add key point work with an empty loop (a printed question only)
+- [x] Front and back Snips are rendered off the main thread at a fixed resolution with a capped long edge; the note appears once both are written
+- [x] Adding an Entry never changes the Document's ink or the PDF
+- [x] Logs Entry added (course folder name, Entry ID, kind); never Snips, strokes or the why text
+- [x] On-tablet check written in the PR: lasso a question with red working, Add mistake, edit category and why, find both PNGs and the JSON in the Course folder
