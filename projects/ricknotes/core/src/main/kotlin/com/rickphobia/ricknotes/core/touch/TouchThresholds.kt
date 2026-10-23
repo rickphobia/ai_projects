@@ -14,4 +14,10 @@ data class TouchThresholds(
     val tapMaxMs: Long = 300,
     /** A tap's fingers each move at most this far. */
     val tapSlopMm: Float = 3f,
+    /**
+     * Two or more fingers only scroll until the distance between them has changed by this much
+     * since they landed; from then on they zoom too. Fingers swiping together never stay exactly
+     * the same distance apart, so without it a scroll keeps zooming in and out.
+     */
+    val pinchSlopMm: Float = 8f,
 )

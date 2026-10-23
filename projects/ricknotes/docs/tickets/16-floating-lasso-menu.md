@@ -4,14 +4,14 @@
 
 **Blocked by:** 15 (Polished document screen)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** app-ink, app-viewer
 
 **Effort:** low
 
-- [ ] A Lasso selection shows a floating menu beside it with Delete; the old toolbar Delete button is gone
-- [ ] The menu stays fully on screen near page and screen edges, and follows the selection while dragging
-- [ ] The menu is built so later tickets can add actions without restructuring it
-- [ ] Delete is still one undo step (existing tests stay green)
-- [ ] On-tablet check written in the PR: lasso near each screen edge, drag, delete, undo
+- [x] A Lasso selection shows a floating menu beside it with Delete; the old toolbar Delete button is gone
+- [x] The menu stays fully on screen near page and screen edges, and follows the selection while dragging
+- [x] The menu is built so later tickets can add actions without restructuring it
+- [x] Delete is still one undo step (existing tests stay green)
+- [x] On-tablet check written in the PR: lasso near each screen edge, drag, delete, undo

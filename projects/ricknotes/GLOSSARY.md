@@ -21,8 +21,12 @@ A Document the app created itself: a new PDF of blank A4 portrait pages with a b
 _Avoid_: canvas, board, blank PDF
 
 **Ink file**:
-The file beside a Document that holds everything drawn or pasted on it: strokes and placed snips.
+The file beside a Document that holds everything drawn or pasted on it: strokes and Pictures.
 _Avoid_: annotations, overlay, notes file
+
+**Recent Documents**:
+The last 8 Documents opened, newest first, shown as a row at the top of the home screen.
+_Avoid_: history, recents list
 
 **Document session**:
 The app's hold on one Document's ink while it is open: it loads the Ink file, keeps the strokes, and saves them back. One per Document, even when it is open in two Tabs.
@@ -35,6 +39,10 @@ _Avoid_: backup, snapshot
 **Conflict copy**:
 A second copy of a file made by the sync app when both sides changed it. RickNotes warns about it and never merges it.
 _Avoid_: duplicate
+
+**Inserted page**:
+A blank A4 page added between a Document's pages, with a blank, lined, grid or dotted background. It lives only in the Ink file; the PDF is never changed. Only inserted pages can be removed.
+_Avoid_: extra page, blank page
 
 **Office file**:
 A pptx or docx in the Study folder. It can't be opened, only converted into a Document.
@@ -67,6 +75,10 @@ The short list of pen colours that tapping the current pen in the toolbar cycles
 The tool that draws a loop around part of a page. The loop selects your own strokes to move or delete them, and can also be cut out as a Snip to add to a Revision log.
 _Avoid_: select tool
 
+**Picture**:
+An image placed on a page, such as a dropped screenshot, drawn over the page and under the ink. Its image is kept in the Document's `.assets` folder and it is recorded in the Ink file; the PDF is never changed.
+_Avoid_: image, attachment, sticker
+
 **Snip**:
 A picture cut out of part of a rendered page, including the slide and any ink on it, from a Lasso loop or the Snip tool. A snip can be pasted, added to a Revision log, or shared to another app.
 _Avoid_: clip, crop, screenshot, region, lasso
@@ -86,25 +98,37 @@ One item in a Revision log: a Snip of where it came from, labelled with Document
 _Avoid_: error, record, card
 
 **Mistake**:
-An Entry for something you got wrong or didn't understand. It comes back for a Redo 3 and 7 days later.
+An Entry for something you got wrong or didn't understand. It comes back in Review, where you write a Redo.
 _Avoid_: Wrong entry, Confused entry
 
 **Key point**:
-An Entry for something important the lecturer said. It is kept for reading before exams and never comes back for a Redo.
+An Entry for something important the lecturer said. It comes back in Review like a Mistake, with no Redo.
 _Avoid_: highlight, note
 
 **Redo**:
-One attempt at a Mistake again, written by hand on a blank area under its Snip, then marked "Got it" or "Still wrong".
+One attempt at a Mistake again, written by hand on a blank area under its front in Review. Optional.
 _Avoid_: retry, review
+
+**Review**:
+Going through every Entry due today, from every Revision log, one card at a time: its front (the Snip without ink), then Show answer for its back (with ink and the "why" line), then Again or Good.
+_Avoid_: quiz, study session, flashcards
+
+**Due**:
+An Entry is due when its due date is today or earlier. It is first due 3 days after it was added; Good stretches the gap 2.3 times (3, 7, 16, 37 days); Again makes it due tomorrow and starts the stretching over.
+_Avoid_: overdue, scheduled
 
 ## Screen
 
 **Pane**:
-One side of the split view, holding one or more tabs.
+One side of the split view, holding one or more Tabs. There are at most two.
 _Avoid_: window, split, editor
 
+**Focused Pane**:
+The Pane last touched. A Document opened from the tree drawer goes there.
+_Avoid_: active pane, current pane
+
 **Tab**:
-One open Document inside a pane.
+One open Document inside a Pane.
 
 ## Building it
 

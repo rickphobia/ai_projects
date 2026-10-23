@@ -5,6 +5,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
@@ -27,6 +30,9 @@ private val LASSO_LINE = 2.dp
 private const val DASH_PX = 12f
 private const val SELECTION_FILL_ALPHA = 0.08f
 
+// The square drawn on a selected Picture's corner, to show it can be dragged to resize.
+private val RESIZE_HANDLE = 12.dp
+
 /**
  * Draws the finished strokes of [ink] on page [pageId] over it, with the Lasso's loop or selection
  * if they are on this page. Strokes are in PDF points, so scaling them by the page's drawn width
@@ -42,7 +48,9 @@ internal fun PageInk(
 ) {
     val strokes = ink.on(pageId)
     val loop = ink.lasso.loop?.takeIf { it.pageId == pageId }
-    if (strokes.isEmpty() && loop == null) return
+    // Derived, so a drag doesn't recompose the page: a selected Picture needs its box on a page with no strokes.
+    val selectedHere by remember(pageId) { derivedStateOf { ink.lasso.selection?.pageId == pageId } }
+    if (strokes.isEmpty() && loop == null && !selectedHere) return
     val accent = MaterialTheme.colorScheme.primary
     Canvas(modifier = Modifier.fillMaxSize().clipToBounds()) {
         // Read while drawing, not composing, so a drag redraws the page without recomposing it.
@@ -68,6 +76,11 @@ internal fun PageInk(
             val boxSize = Size((box.right - box.left) * pixelsPerPoint, (box.bottom - box.top) * pixelsPerPoint)
             drawRect(accent.copy(alpha = SELECTION_FILL_ALPHA), topLeft, boxSize)
             drawRect(accent, topLeft, boxSize, style = line)
+            if (selection.picture != null) {
+                val handle = RESIZE_HANDLE.toPx()
+                val corner = Offset(box.right * pixelsPerPoint, box.bottom * pixelsPerPoint)
+                drawRect(accent, corner - Offset(handle / 2, handle / 2), Size(handle, handle))
+            }
         }
         loop?.let { drawLoop(it.points.toList(), pixelsPerPoint, accent, line) }
     }

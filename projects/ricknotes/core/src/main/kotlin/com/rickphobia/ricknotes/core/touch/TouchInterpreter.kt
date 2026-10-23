@@ -1,7 +1,5 @@
 package com.rickphobia.ricknotes.core.touch
 
-import kotlin.math.hypot
-
 private const val UNDO_TAP_FINGERS = 2
 private const val REDO_TAP_FINGERS = 3
 
@@ -25,6 +23,7 @@ class TouchInterpreter(
     private var penPointer: Int? = null
     private val hand = HandRejection(thresholds, pixelsPerMm)
     private val tap = TapTracker(thresholds.tapMaxMs, thresholds.tapSlopMm * pixelsPerMm)
+    private val pinch = PinchGesture(thresholds.pinchSlopMm * pixelsPerMm)
 
     // Every counted finger that is down, with where it last was. Kept up to date even while the pen
     // is near, so a finger that carries on after the pen has gone moves the view from where it is.
@@ -100,6 +99,7 @@ class TouchInterpreter(
         reason: String,
     ): TouchAction {
         fingers.remove(id)
+        pinch.restart()
         tap.spoil()
         if (eraser == id) eraser = null
         return TouchAction.Reject(id, reason)
@@ -111,6 +111,7 @@ class TouchInterpreter(
         when (event.phase) {
             TouchPhase.DOWN -> {
                 fingers[event.pointerId] = Position(event.x, event.y)
+                pinch.restart()
                 tap.down(event, fingers.size)
             }
 
@@ -123,6 +124,7 @@ class TouchInterpreter(
                 // A finger can lift far from its last move.
                 if (event.phase == TouchPhase.UP) tap.move(event)
                 fingers.remove(event.pointerId)
+                pinch.restart()
             }
         }
         if (hand.penNear(event.timeMs)) {
@@ -166,7 +168,7 @@ class TouchInterpreter(
             eraser == event.pointerId -> TouchAction.ExtendErase(event.pointerId, event.x, event.y)
             last == null -> TouchAction.Ignore
             fingers.size == 1 -> TouchAction.Scroll(event.x - last.x, event.y - last.y, event.timeMs)
-            else -> pinch(before.values, fingers.values)
+            else -> pinch.move(before.values, fingers.values)
         }
     }
 
@@ -202,35 +204,3 @@ class TouchInterpreter(
         return erased ?: TouchAction.Ignore
     }
 }
-
-private data class Position(
-    val x: Float,
-    val y: Float,
-)
-
-/** The fingers moved from [before] to [after]: how far apart they spread and where their centre went. */
-private fun pinch(
-    before: Collection<Position>,
-    after: Collection<Position>,
-): TouchAction.Pinch {
-    val oldCentre = centre(before)
-    val newCentre = centre(after)
-    val oldSpread = spread(before, oldCentre)
-    val newSpread = spread(after, newCentre)
-    return TouchAction.Pinch(
-        focusX = newCentre.x,
-        focusY = newCentre.y,
-        zoomChange = if (oldSpread > 0f && newSpread > 0f) newSpread / oldSpread else 1f,
-        moveX = newCentre.x - oldCentre.x,
-        moveY = newCentre.y - oldCentre.y,
-    )
-}
-
-private fun centre(positions: Collection<Position>): Position =
-    Position(positions.map { it.x }.average().toFloat(), positions.map { it.y }.average().toFloat())
-
-/** The fingers' average distance from their centre: how far apart they are. */
-private fun spread(
-    positions: Collection<Position>,
-    centre: Position,
-): Float = positions.map { hypot(it.x - centre.x, it.y - centre.y) }.average().toFloat()

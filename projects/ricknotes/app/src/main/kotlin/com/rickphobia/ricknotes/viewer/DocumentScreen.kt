@@ -3,16 +3,15 @@ package com.rickphobia.ricknotes.viewer
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -20,18 +19,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import com.rickphobia.ricknotes.R
-import com.rickphobia.ricknotes.core.ink.FavouritePens
 import com.rickphobia.ricknotes.core.ink.InkTool
 import com.rickphobia.ricknotes.core.session.SaveStatus
 import com.rickphobia.ricknotes.core.session.SessionWarning
-import com.rickphobia.ricknotes.core.touch.FingerGestures
 import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.PenMode
 import com.rickphobia.ricknotes.logging.AppLog
+import com.rickphobia.ricknotes.revisionlog.rememberRevisionLogAdder
+import com.rickphobia.ricknotes.toolbar.BackButton
 import com.rickphobia.ricknotes.toolbar.PenKind
 import com.rickphobia.ricknotes.toolbar.PenToolbar
 import com.rickphobia.ricknotes.toolbar.UndoRedoButtons
@@ -52,41 +52,41 @@ private sealed interface Opening {
     ) : Opening
 }
 
+/** Where a Document screen leads: a PDF dropped onto a page opens with [openPdf]. */
+class DocumentNavigation(
+    val openPdf: (PdfEntry) -> Unit,
+    val onBack: () -> Unit,
+)
+
 /**
  * One Document, scrolling continuously from page to page, reopened where it was left in [positions].
- * Tapping the pen in use in the toolbar moves on through [favouritePens]; fingers do what
- * [fingerGestures] says.
+ * A PDF dropped onto a page is copied into its folder and opened.
+ * Tapping the pen in use in the toolbar moves on through the Favourite pens in [settings]; fingers
+ * do what it says, and Entries go to the Revision log of its Course folder. A [sharedImage] is
+ * placed in the middle of the screen, selected with the Lasso so the pen can move it.
  */
 @Composable
 fun DocumentScreen(
     pdf: PdfEntry,
     positions: ReadingPositions,
-    favouritePens: FavouritePens,
-    fingerGestures: FingerGestures,
-    onBack: () -> Unit,
+    settings: DocumentSettings,
+    sharedImage: SharedImage?,
+    navigation: DocumentNavigation,
 ) {
+    val onBack = navigation.onBack
     BackHandler(onBack = onBack)
+    val favouritePens = settings.favouritePens
     // Each Document opens with the first Favourite pen.
     val tool = remember(pdf.path) { mutableStateOf<InkTool>(InkTool.Pen(favouritePens.colours.first())) }
     val kind = remember(pdf.path) { mutableStateOf(PenKind.INK) }
     val pages = remember(pdf.path) { PdfPages(File(pdf.path)) }
+    val shared =
+        remember(pdf.path, sharedImage) { sharedImage?.let { SharedPicture(it) { kind.value = PenKind.LASSO } } }
     DisposableEffect(pages) { onDispose { pages.close() } }
-    val opening by produceState<Opening>(Opening.InProgress, pages) {
-        value =
-            try {
-                val sizes = pages.open()
-                Opening.Ready(sizes, withContext(Dispatchers.IO) { DocumentInk.open(File(pdf.path), sizes.size) })
-            } catch (e: DocumentOpenException) {
-                AppLog.w("opening a Document failed: ${e.message}", e)
-                Opening.Failed(e)
-            }
-    }
+    val opening by rememberOpening(pdf, pages)
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
-            Text(text = pdf.name, style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.weight(1f))
+        DocumentTopBar(pdf.name, onBack) {
             PenToolbar(tool, kind, favouritePens)
             (opening as? Opening.Ready)?.let { InkControls(it.ink) }
         }
@@ -108,6 +108,7 @@ fun DocumentScreen(
                 // A Lasso selection only lasts while the Lasso is picked.
                 LaunchedEffect(current.ink, kind.value) { if (kind.value != PenKind.LASSO) current.ink.lasso.clear() }
                 current.ink.warnings.forEach { InkWarning(it) }
+                shared?.Bar(current.ink)
                 PageList(
                     OpenDocument(
                         pages,
@@ -115,7 +116,10 @@ fun DocumentScreen(
                         pdf.path,
                         positions,
                         current.ink,
-                        fingerGestures,
+                        settings.fingerGestures,
+                        rememberRevisionLogAdder(pdf, settings.course, pages, current.pageSizes, current.ink),
+                        openDropped = { copy -> navigation.openPdf(PdfEntry(copy.path, pdf.folder, copy.name)) },
+                        sharedImage = shared?.placement,
                     ) {
                         when (kind.value) {
                             PenKind.INK -> PenMode.Draw(tool.value)
@@ -129,12 +133,46 @@ fun DocumentScreen(
     }
 }
 
-/** Delete while there is a Lasso selection, undo and redo, and "Not saved" while the ink isn't. */
+/** Opens [pages] and the ink of [pdf], off the main thread. */
+@Composable
+private fun rememberOpening(
+    pdf: PdfEntry,
+    pages: PdfPages,
+): State<Opening> =
+    produceState<Opening>(Opening.InProgress, pages) {
+        value =
+            try {
+                val sizes = pages.open()
+                Opening.Ready(sizes, withContext(Dispatchers.IO) { DocumentInk.open(File(pdf.path), sizes.size) })
+            } catch (e: DocumentOpenException) {
+                AppLog.w("opening a Document failed: ${e.message}", e)
+                Opening.Failed(e)
+            }
+    }
+
+/** Back, the Document's name (cut short when it doesn't fit), then [tools]. */
+@Composable
+private fun DocumentTopBar(
+    name: String,
+    onBack: () -> Unit,
+    tools: @Composable () -> Unit,
+) {
+    Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        BackButton(onBack)
+        Text(
+            text = name,
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        tools()
+    }
+}
+
+/** Undo and redo, and "Not saved" while the ink isn't. */
 @Composable
 private fun InkControls(ink: DocumentInk) {
-    if (ink.lasso.selection != null) {
-        TextButton(onClick = ink.lasso::delete) { Text(stringResource(R.string.delete_selection)) }
-    }
     UndoRedoButtons(ink.canUndo, ink.canRedo, ink::undo, ink::redo)
     if (ink.saveStatus == SaveStatus.FAILED) {
         Text(

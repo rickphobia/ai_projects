@@ -7,6 +7,9 @@ import androidx.ink.brush.InputToolType
 import androidx.ink.brush.StockBrushes
 import androidx.ink.strokes.MutableStrokeInputBatch
 import com.rickphobia.ricknotes.core.ink.PageId
+import com.rickphobia.ricknotes.core.ink.Picture
+import com.rickphobia.ricknotes.core.ink.PictureFrame
+import com.rickphobia.ricknotes.core.ink.PictureId
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.ink.Tool
@@ -14,6 +17,8 @@ import com.rickphobia.ricknotes.core.session.PageOffset
 import com.rickphobia.ricknotes.core.session.SaveStatus
 import com.rickphobia.ricknotes.core.session.SessionWarning
 import com.rickphobia.ricknotes.logging.AppLog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import androidx.ink.strokes.Stroke as InkStroke
 
@@ -52,10 +57,14 @@ internal class DrawnStroke(
 }
 
 /**
- * The ink of one open Document: its strokes for drawing, kept in `core`'s Document session, which
- * saves them to the Ink file beside [pdf] and keeps their undo history. [saveStatus] follows the
- * session, so the screen can show "Not saved".
+ * The ink of one open Document: its strokes and Pictures for drawing, kept in `core`'s Document
+ * session, which saves them to the Ink file beside [pdf] and keeps their undo history. [saveStatus]
+ * follows the session, so the screen can show "Not saved".
+ *
+ * It is the screen's one way to change a Document's ink, so its operations stay together even past
+ * detekt's function count.
  */
+@Suppress("TooManyFunctions")
 internal class DocumentInk private constructor(
     private val pdf: File,
     private val held: HeldSession,
@@ -63,11 +72,13 @@ internal class DocumentInk private constructor(
 ) {
     private val session = held.session
     private val strokes = mutableStateListOf<DrawnStroke>().apply { addAll(loaded) }
+    private val pictures = mutableStateListOf<Picture>().apply { addAll(session.pictures) }
 
     // Counts changes, so Compose reads canUndo and canRedo again after each one.
     private val changes = mutableIntStateOf(0)
 
     val readOnly: Boolean get() = session.readOnly
+    val assetsFolder: File get() = session.assetsFolder.toFile()
     val warnings: List<SessionWarning> get() = session.warnings
     val saveStatus: SaveStatus get() = held.status.current.value
     val canUndo: Boolean get() = changes.intValue.let { session.canUndo }
@@ -95,6 +106,34 @@ internal class DocumentInk private constructor(
         offset: PageOffset,
     ): Boolean = session.moveStrokes(ids, offset).also { moved -> if (moved) followSession() }
 
+    /** Moves or resizes the Picture [id] to [frame], as one undo step; false if nothing changed. */
+    fun reframe(
+        id: PictureId,
+        frame: PictureFrame,
+    ): Boolean = session.reframePicture(id, frame).also { changed -> if (changed) followSession() }
+
+    /** Takes the Picture [id] off its page, as one undo step. Its image stays in `.assets`. */
+    fun deletePicture(id: PictureId) {
+        if (session.deletePicture(id)) followSession() else AppLog.w("delete of Picture ${id.value}, which isn't here")
+    }
+
+    /**
+     * Copies [image] into the Document's `.assets` folder and places it on [pageId] at [frame], as
+     * one undo step. The copy runs off the main thread.
+     *
+     * @throws com.rickphobia.ricknotes.core.session.PictureNotPlaced if the image can't be copied.
+     */
+    suspend fun place(
+        image: File,
+        extension: String,
+        pageId: PageId,
+        frame: PictureFrame,
+    ): Picture {
+        val picture = withContext(Dispatchers.IO) { session.placePicture(image.toPath(), extension, pageId, frame) }
+        followSession()
+        return picture
+    }
+
     // A selection may hold strokes that an undo or redo takes away, so it is let go of.
     fun undo() {
         lasso.clear()
@@ -106,14 +145,17 @@ internal class DocumentInk private constructor(
         if (session.redo()) followSession() else AppLog.w("redo with nothing to redo")
     }
 
+    /** The page's Pictures, drawn under its strokes in this order. */
+    fun picturesOn(pageId: PageId): List<Picture> = pictures.filter { it.pageId == pageId }
+
     /** The page's strokes in drawing order: highlighter first, so it sits under the pen's writing. */
     fun on(pageId: PageId): List<DrawnStroke> =
         strokes
             .filter { it.stroke.pageId == pageId && !eraser.hides(it.stroke.id) }
             .sortedBy { it.stroke.tool != Tool.HIGHLIGHTER }
 
-    // Matches the drawn strokes to the session's after an undo, redo or move, keeping the meshes
-    // already built of strokes that haven't moved.
+    // Matches the drawn strokes and Pictures to the session's after an undo, redo, move, placing or delete,
+    // keeping the meshes already built of strokes that haven't moved.
     private fun followSession() {
         val built = strokes.associateBy { it.stroke.id }
         val now =
@@ -123,6 +165,8 @@ internal class DocumentInk private constructor(
             }
         strokes.clear()
         strokes.addAll(now)
+        pictures.clear()
+        pictures.addAll(session.pictures)
         changes.intValue++
     }
 
@@ -160,7 +204,7 @@ internal class DocumentInk private constructor(
  * so all of them are caught.
  */
 @Suppress("TooGenericExceptionCaught")
-private fun Stroke.toMesh(): InkStroke? =
+internal fun Stroke.toMesh(): InkStroke? =
     try {
         val inputs = MutableStrokeInputBatch()
         addTo(inputs)

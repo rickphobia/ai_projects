@@ -1,47 +1,126 @@
 package com.rickphobia.ricknotes.home
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.rickphobia.ricknotes.R
+import com.rickphobia.ricknotes.core.studyfolder.StudyFolder
+import com.rickphobia.ricknotes.core.studyfolder.StudyFolderListingException
+import com.rickphobia.ricknotes.core.studyfolder.TreeLayout
+import com.rickphobia.ricknotes.core.studyfolder.TreeNode
 import com.rickphobia.ricknotes.files.PdfEntry
-import com.rickphobia.ricknotes.files.PdfLister
+import com.rickphobia.ricknotes.imports.PdfDrop
 import com.rickphobia.ricknotes.logging.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.File
+import java.nio.file.Path
+
+/** What the home screen shows once the Study folder has been walked. */
+private sealed interface Listing {
+    data object Loading : Listing
+
+    data class Ready(
+        val tree: TreeNode.Folder,
+        val recent: List<TreeNode.Document>,
+        val initiallyExpanded: Set<String>,
+    ) : Listing
+
+    data class Failed(
+        val message: String,
+    ) : Listing
+}
+
+private fun loadListing(
+    studyFolder: StudyFolder,
+    recentPaths: List<String>,
+): Listing =
+    try {
+        val started = System.nanoTime()
+        val tree = studyFolder.listTree { _, error -> AppLog.w("left out of the tree: ${error.message}") }
+        AppLog.i("listed the Study folder in ${(System.nanoTime() - started) / NANOS_PER_MS} ms")
+        Listing.Ready(
+            tree = tree,
+            recent = TreeLayout.documents(tree, recentPaths),
+            initiallyExpanded = TreeLayout.initiallyExpanded(tree, recentPaths),
+        )
+    } catch (e: StudyFolderListingException) {
+        AppLog.e("listing the Study folder failed", e)
+        Listing.Failed(e.message.orEmpty())
+    }
+
+private const val NANOS_PER_MS = 1_000_000
+
+/**
+ * What the home screen reads: the Recent Documents and the Course folder marks from settings, and
+ * [dueCount], how many Entries Review has today (slow: it is called off the main thread).
+ */
+class HomeLibrary(
+    val recentPaths: () -> List<String>,
+    val courses: CourseFolderActions,
+    val dueCount: () -> Int,
+)
+
+/** Where the home screen leads. [openRevisionLog] takes a Course folder relative to the Study folder. */
+class HomeNavigation(
+    val openSettings: () -> Unit,
+    val openPdf: (PdfEntry) -> Unit,
+    val openRevisionLog: (String) -> Unit,
+    val openReview: () -> Unit,
+)
+
+/** Makes, by a folder's tree path, the target that copies a PDF dropped onto it in, then opens it. */
+@Composable
+private fun rememberPdfDrops(
+    folder: StudyFolder,
+    openPdf: (PdfEntry) -> Unit,
+): (String) -> DragAndDropTarget {
+    val activity = checkNotNull(LocalActivity.current) { "the home screen is shown outside an activity" }
+    val scope = rememberCoroutineScope()
+    return { path ->
+        PdfDrop(activity, scope, { folder.resolve(path).toFile() }) { copy ->
+            openPdf(PdfEntry(copy.path, path, copy.name))
+        }
+    }
+}
 
 @Composable
 fun HomeScreen(
     versionName: String,
     studyFolder: String,
-    onOpenSettings: () -> Unit,
-    onOpenPdf: (PdfEntry) -> Unit,
+    library: HomeLibrary,
+    navigation: HomeNavigation,
 ) {
+    val folder = remember(studyFolder) { StudyFolder(Path.of(studyFolder)) }
     // A large Study folder takes a moment to walk, so it is listed off the main thread.
-    val pdfs by produceState<List<PdfEntry>?>(initialValue = null, studyFolder) {
-        value =
-            withContext(Dispatchers.IO) {
-                PdfLister.list(File(studyFolder)).also { AppLog.i("listed ${it.size} PDFs") }
-            }
+    val listing by produceState<Listing>(initialValue = Listing.Loading, studyFolder) {
+        value = withContext(Dispatchers.IO) { loadListing(folder, library.recentPaths()) }
     }
+    // Null until counted; counted again each time the home screen shows, so after Review too.
+    val dueCount by produceState<Int?>(initialValue = null, studyFolder) {
+        value = withContext(Dispatchers.IO) { library.dueCount() }
+    }
+    val open = { document: TreeNode.Document ->
+        navigation.openPdf(PdfEntry(folder.resolve(document.path).toString(), document.folder, document.name))
+    }
+    val pdfDrop = rememberPdfDrops(folder, navigation.openPdf)
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -50,31 +129,40 @@ fun HomeScreen(
                 Text(text = studyFolder, style = MaterialTheme.typography.bodyMedium)
             }
             Text(text = stringResource(R.string.version, versionName), style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.settings)) }
+            TextButton(onClick = navigation.openSettings) { Text(stringResource(R.string.settings)) }
         }
-        val listed = pdfs
-        when {
-            listed == null -> {
+        Button(onClick = navigation.openReview, modifier = Modifier.padding(top = 16.dp)) {
+            Text(
+                dueCount?.let { pluralStringResource(R.plurals.review_due, it, it) } ?: stringResource(R.string.review),
+            )
+        }
+        when (val current = listing) {
+            Listing.Loading -> {
                 Text(stringResource(R.string.listing_pdfs), modifier = Modifier.padding(top = 24.dp))
             }
 
-            listed.isEmpty() -> {
-                Text(stringResource(R.string.no_pdfs), modifier = Modifier.padding(top = 24.dp))
+            is Listing.Failed -> {
+                Text(
+                    current.message,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 24.dp),
+                )
             }
 
-            else -> {
-                LazyColumn(modifier = Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.Top) {
-                    items(listed, key = PdfEntry::path) { pdf ->
-                        Column(
-                            modifier = Modifier.fillMaxWidth().clickable { onOpenPdf(pdf) }.padding(vertical = 8.dp),
-                        ) {
-                            Text(text = pdf.name, style = MaterialTheme.typography.bodyLarge)
-                            if (pdf.folder.isNotEmpty()) {
-                                Text(text = pdf.folder, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                        HorizontalDivider()
-                    }
+            is Listing.Ready -> {
+                if (current.recent.isNotEmpty()) {
+                    RecentDocumentsRow(current.recent, onOpen = open, modifier = Modifier.padding(top = 16.dp))
+                }
+                if (current.tree.children.isEmpty()) {
+                    Text(stringResource(R.string.no_pdfs), modifier = Modifier.padding(top = 24.dp))
+                } else {
+                    StudyFolderTree(
+                        tree = current.tree,
+                        initiallyExpanded = current.initiallyExpanded,
+                        courses = library.courses,
+                        opens = TreeOpens(document = open, revisionLog = navigation.openRevisionLog, pdfDrop = pdfDrop),
+                        modifier = Modifier.padding(top = 16.dp),
+                    )
                 }
             }
         }

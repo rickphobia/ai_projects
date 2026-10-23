@@ -1,5 +1,9 @@
 package com.rickphobia.ricknotes.core.session
 
+import com.rickphobia.ricknotes.core.ink.PageId
+import com.rickphobia.ricknotes.core.ink.Picture
+import com.rickphobia.ricknotes.core.ink.PictureFrame
+import com.rickphobia.ricknotes.core.ink.PictureId
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.inkfile.InkFile
@@ -8,6 +12,7 @@ import com.rickphobia.ricknotes.core.inkfile.InkFileDamaged
 import com.rickphobia.ricknotes.core.inkfile.InkPage
 import java.io.IOException
 import java.nio.file.Path
+import java.util.UUID
 
 /** Something the student should be told about when a Document opens. */
 sealed interface SessionWarning {
@@ -23,56 +28,21 @@ sealed interface SessionWarning {
     ) : SessionWarning
 }
 
-enum class SaveStatus {
-    /** Everything drawn is in the Ink file. */
-    SAVED,
-
-    /** There are changes a save is scheduled for. */
-    PENDING,
-
-    /** The last save failed: changes are only in memory until a retry succeeds. Shown as "Not saved". */
-    FAILED,
-}
-
-/** A save that didn't reach the Ink file; the old file is untouched and the changes are kept. */
-class InkSaveFailed(
-    val fileName: String,
-    cause: Exception,
-) : Exception("couldn't save $fileName: ${cause.message}", cause)
-
-/**
- * What the session reports as it saves, for the screen and the log. Called on whichever thread
- * saved; [statusChanged] is called with the session's lock held, so statuses arrive in order and it
- * must not call back into the session.
- */
-interface SaveListener {
-    fun statusChanged(status: SaveStatus) {}
-
-    fun saved(
-        fileName: String,
-        bytes: Int,
-        durationMs: Long,
-    ) {}
-
-    fun saveFailed(error: InkSaveFailed) {}
-
-    fun versionFailed(error: VersionFailed) {}
-}
-
 /**
  * One open Document's ink: the seam the screen talks to (spec, Seam 1). It loads the Ink file
- * beside the PDF, keeps the strokes, and saves [SAVE_DELAY_MS] after the last change or at once on
- * [saveNow]. It takes a Version of the Ink file on open and, while ink is being added, before the
- * first save at least [VERSION_INTERVAL_MS] after the last one. It may be called from any thread.
+ * beside the PDF, keeps the strokes and Pictures, and saves them through an [AutoSave]: [SAVE_DELAY_MS] after
+ * the last change or at once on [saveNow], with a Version of the Ink file on open and, while ink is
+ * being added, before the first save at least [VERSION_INTERVAL_MS] after the last one. It may be
+ * called from any thread.
  *
  * It is the one seam for every change to a Document's ink, so its operations stay together even
- * past detekt's function count; the rest are the few steps of saving, which share its lock.
+ * past detekt's function count.
  */
 @Suppress("TooManyFunctions")
 class DocumentSession private constructor(
     private val store: InkFileStore,
-    private val clock: Clock,
-    private val listener: SaveListener,
+    clock: Clock,
+    listener: SaveListener,
     loaded: InkFile,
     pdfPageCount: Int,
     val warnings: List<SessionWarning>,
@@ -80,25 +50,29 @@ class DocumentSession private constructor(
     /** True when the Ink file couldn't be read: nothing may be drawn and nothing is ever saved. */
     val readOnly: Boolean = warnings.any { it is SessionWarning.InkFileUnreadable }
 
-    private val versions = VersionStore(store.inkFile)
-    private val lock = Any()
-
-    // Held for a whole save, so two saves never write the temporary file at once.
-    private val writing = Any()
+    private val assets = PictureAssets(store.pdf)
     private val pageCount = pdfPageCount
     private val pages: List<InkPage> = loaded.pages + InkFile.pdfPages(pdfPageCount).filter { it !in loaded.pages }
-    private val history = StrokeHistory(loaded.strokes)
-    private var revision = 0L
-    private var savedRevision = 0L
-    private var pendingSave: Scheduled? = null
-    private var currentStatus = SaveStatus.SAVED
-
-    // Starts at open, whether or not there was an Ink file to take a Version of. Guarded by [writing].
-    private var lastVersionMs = clock.nowMs()
+    private val history = InkHistory(InkContent(loaded.strokes, loaded.pictures))
+    private val saving =
+        AutoSave(
+            store.inkFile,
+            clock,
+            listener,
+            readOnly,
+            snapshot = { InkFile(pageCount, pages, history.strokes, history.pictures) },
+        ) { InkFileCodec.encode(it).toByteArray(Charsets.UTF_8) }
+    private val lock = saving.lock
 
     val strokes: List<Stroke> get() = synchronized(lock) { history.strokes }
 
-    val status: SaveStatus get() = synchronized(lock) { currentStatus }
+    /** The Pictures on every page, in drawing order: a later one is drawn over an earlier one. */
+    val pictures: List<Picture> get() = synchronized(lock) { history.pictures }
+
+    /** The folder that holds the Pictures' images: a Picture's image is `assetsFolder/imageFile`. */
+    val assetsFolder: Path get() = assets.folder
+
+    val status: SaveStatus get() = saving.status
 
     val canUndo: Boolean get() = synchronized(lock) { history.canUndo }
 
@@ -127,6 +101,52 @@ class DocumentSession private constructor(
         return edit { history.move(ids, offset) }
     }
 
+    /**
+     * Copies [image] into the Document's `.assets` folder under a new name ending in [extension]
+     * (such as "png"), then places it on page [pageId] at [frame], as one undo step. The copy is
+     * there before the Ink file can refer to it, and [image] itself is never changed.
+     *
+     * @throws PictureNotPlaced if the image can't be copied; nothing is placed then.
+     */
+    fun placePicture(
+        image: Path,
+        extension: String,
+        pageId: PageId,
+        frame: PictureFrame,
+    ): Picture {
+        check(!readOnly) { "${store.fileName} is open read-only" }
+        require(pages.any { it.id == pageId }) { "page ${pageId.value} is not in ${store.fileName}" }
+        val id = UUID.randomUUID().toString()
+        val name = "$id.$extension"
+        // Copied outside the lock: a large image must not hold up the pen.
+        assets.copyIn(image, name)
+        val picture = Picture(PictureId(id), pageId, name, frame.left, frame.top, frame.widthPt, frame.heightPt)
+        edit { history.place(picture) }
+        return picture
+    }
+
+    /**
+     * Moves or resizes the Picture [id] to [frame], as one undo step. The caller keeps it on its page
+     * and its shape (see `resizedPicture`). Returns false, with no undo step, if it isn't here or is
+     * there already.
+     */
+    fun reframePicture(
+        id: PictureId,
+        frame: PictureFrame,
+    ): Boolean {
+        check(!readOnly) { "${store.fileName} is open read-only" }
+        return edit { history.reframe(id, frame) }
+    }
+
+    /**
+     * Takes the Picture [id] off its page, as one undo step; false if it isn't here. Its image stays
+     * in `.assets`, so undo works and Versions still point at a real file.
+     */
+    fun deletePicture(id: PictureId): Boolean {
+        check(!readOnly) { "${store.fileName} is open read-only" }
+        return edit { history.delete(id) }
+    }
+
     /** Takes back the last change, or returns false if there is none. Saved like any change. */
     fun undo(): Boolean = edit { history.undo() }
 
@@ -136,96 +156,16 @@ class DocumentSession private constructor(
     // Makes a change to the strokes and, if [change] says it changed anything, schedules a save.
     private fun edit(change: () -> Boolean): Boolean =
         synchronized(lock) {
-            change().also { changed ->
-                if (changed) {
-                    revision++
-                    scheduleSave(SAVE_DELAY_MS)
-                    if (currentStatus != SaveStatus.FAILED) setStatus(SaveStatus.PENDING)
-                }
-            }
+            change().also { changed -> if (changed) saving.changed() }
         }
 
     /** Saves any changes now, for when the app goes to the background or the Document closes. */
-    fun saveNow() {
-        synchronized(lock) {
-            pendingSave?.cancel()
-            pendingSave = null
-        }
-        save()
-    }
-
-    private fun save() {
-        if (readOnly) return
-        synchronized(writing) {
-            val changes =
-                synchronized(lock) {
-                    (InkFile(pageCount, pages, history.strokes) to revision).takeIf { revision != savedRevision }
-                }
-            changes?.let { (file, savingRevision) ->
-                val now = clock.nowMs()
-                // A failed Version is retried at the next save.
-                if (now - lastVersionMs >= VERSION_INTERVAL_MS &&
-                    takeVersion(versions, store.fileName, now, listener)
-                ) {
-                    lastVersionMs = now
-                }
-                write(file, savingRevision)
-            }
-        }
-    }
-
-    private fun write(
-        file: InkFile,
-        savingRevision: Long,
-    ) {
-        val started = clock.nowMs()
-        val bytes = InkFileCodec.encode(file).toByteArray(Charsets.UTF_8)
-        val failure =
-            try {
-                store.write(bytes)
-                null
-            } catch (e: IOException) {
-                e
-            } catch (e: SecurityException) {
-                e
-            }
-        if (failure != null) {
-            synchronized(lock) {
-                scheduleSave(RETRY_DELAY_MS)
-                setStatus(SaveStatus.FAILED)
-            }
-            listener.saveFailed(InkSaveFailed(store.fileName, failure))
-        } else {
-            synchronized(lock) {
-                savedRevision = savingRevision
-                setStatus(if (savedRevision == revision) SaveStatus.SAVED else SaveStatus.PENDING)
-            }
-            listener.saved(store.fileName, bytes.size, clock.nowMs() - started)
-        }
-    }
-
-    // Call with [lock] held.
-    private fun scheduleSave(delayMs: Long) {
-        pendingSave?.cancel()
-        pendingSave = clock.schedule(delayMs) { save() }
-    }
-
-    // Call with [lock] held.
-    private fun setStatus(status: SaveStatus) {
-        if (status == currentStatus) return
-        currentStatus = status
-        listener.statusChanged(status)
-    }
+    fun saveNow() = saving.saveNow()
 
     companion object {
-        /** A save happens this long after the last change: soon enough that a force-close loses little. */
-        const val SAVE_DELAY_MS = 2_000L
-
-        /** A failed save is tried again this often until it works. */
-        const val RETRY_DELAY_MS = 5_000L
-
-        /** While writing, a Version is taken at most this often. */
-        const val VERSION_INTERVAL_MS = 15 * 60_000L
+        const val SAVE_DELAY_MS = AutoSave.SAVE_DELAY_MS
+        const val RETRY_DELAY_MS = AutoSave.RETRY_DELAY_MS
+        const val VERSION_INTERVAL_MS = AutoSave.VERSION_INTERVAL_MS
 
         /**
          * Opens the ink of the Document at [pdf], which has [pdfPageCount] pages. A missing Ink file
@@ -245,7 +185,6 @@ class DocumentSession private constructor(
                     // No Version of a damaged file: it would push a good Version out of the newest 10.
                     return readOnly(store, clock, listener, pdfPageCount, e)
                 }
-            if (loaded != null) takeVersion(VersionStore(store.inkFile), store.fileName, clock.nowMs(), listener)
             val warnings =
                 listOfNotNull(
                     loaded?.takeIf { it.pdfPageCount != pdfPageCount }?.let {
@@ -253,7 +192,9 @@ class DocumentSession private constructor(
                     },
                 )
             val start = loaded ?: InkFile.empty(pdfPageCount)
-            return DocumentSession(store, clock, listener, start, pdfPageCount, warnings)
+            return DocumentSession(store, clock, listener, start, pdfPageCount, warnings).also {
+                if (loaded != null) it.saving.takeVersion()
+            }
         }
 
         /** The Ink file's contents, or null if there is none. */
@@ -267,24 +208,6 @@ class DocumentSession private constructor(
                 }
             return text?.let { InkFileCodec.decode(it, fileName) }
         }
-
-        /** True if the Version was taken; a failure is reported and must not stop the Document opening or saving. */
-        private fun takeVersion(
-            versions: VersionStore,
-            fileName: String,
-            nowMs: Long,
-            listener: SaveListener,
-        ): Boolean =
-            try {
-                versions.take(nowMs)
-                true
-            } catch (e: IOException) {
-                listener.versionFailed(VersionFailed(fileName, e))
-                false
-            } catch (e: SecurityException) {
-                listener.versionFailed(VersionFailed(fileName, e))
-                false
-            }
 
         private fun readOnly(
             store: InkFileStore,

@@ -29,17 +29,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
+import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.PagePlacement
+import com.rickphobia.ricknotes.core.revisionlog.EntryKind
 import com.rickphobia.ricknotes.core.touch.FingerGestures
 import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.InkLayer
+import com.rickphobia.ricknotes.ink.LassoAction
+import com.rickphobia.ricknotes.ink.LassoMenu
 import com.rickphobia.ricknotes.ink.PageInk
 import com.rickphobia.ricknotes.ink.PenMode
 import com.rickphobia.ricknotes.logging.AppLog
+import com.rickphobia.ricknotes.revisionlog.RevisionLogAdder
+import com.rickphobia.ricknotes.revisionlog.RevisionLogNoteBar
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -66,8 +73,15 @@ internal data class OpenDocument(
     val positions: ReadingPositions,
     val ink: DocumentInk,
     val fingerGestures: FingerGestures,
+    val revisionLog: RevisionLogAdder,
+    val openDropped: (File) -> Unit,
+    val sharedImage: SharedImagePlacement?,
     val penMode: () -> PenMode,
-)
+) {
+    /** A PDF dropped onto a page is copied into this Document's folder. */
+    val pdfDropTarget: PdfDropTarget
+        get() = PdfDropTarget(checkNotNull(File(path).parentFile), openDropped)
+}
 
 /**
  * The pages of a Document in one zoomable column, with the ink layer over them: the pen writes, one
@@ -121,10 +135,14 @@ internal fun PageList(document: OpenDocument) {
                     document.pages,
                     pageLayout(index, size),
                     part?.let { SettledPart(it.pageWidth, it.visibleParts[index]) },
-                ) { PageInk(ink, PageId.ofPdfPage(index), size.widthPt.toFloat(), strokeRenderer) }
+                ) { PageOverlay(ink, PageId.ofPdfPage(index), size.widthPt.toFloat(), strokeRenderer) }
             }
         }
-        TouchLayer(document, PageListView(view, listState, screen, gapPx))
+        val listView = PageListView(view, listState, screen, gapPx)
+        PictureDropArea(document) { listView.placements(document.pageSizes) }
+        TouchLayer(document, listView)
+        LassoMenu(ink, { listView.placements(document.pageSizes) }, lassoActions(ink, document.revisionLog))
+        RevisionLogNoteBar(document.revisionLog, Modifier.align(Alignment.BottomCenter).padding(16.dp))
         PageNavigator(
             pageIndex = current,
             pageCount = pageCount,
@@ -169,6 +187,23 @@ private fun TouchLayer(
         gestures = document.fingerGestures,
     )
 }
+
+/** What the Lasso menu offers for a selection: Delete only when it holds strokes or a Picture. */
+@Composable
+private fun lassoActions(
+    ink: DocumentInk,
+    revisionLog: RevisionLogAdder,
+): List<LassoAction> =
+    listOfNotNull(
+        LassoAction(R.drawable.ic_delete, stringResource(R.string.delete_selection), ink.lasso::delete)
+            .takeIf { ink.lasso.selection?.holdsSomething == true },
+        LassoAction(R.drawable.ic_add_mistake, stringResource(R.string.add_mistake)) {
+            revisionLog.add(EntryKind.MISTAKE)
+        },
+        LassoAction(R.drawable.ic_add_key_point, stringResource(R.string.add_key_point)) {
+            revisionLog.add(EntryKind.KEY_POINT)
+        },
+    )
 
 private fun restoredPosition(document: OpenDocument): ReadingPosition {
     val position =
