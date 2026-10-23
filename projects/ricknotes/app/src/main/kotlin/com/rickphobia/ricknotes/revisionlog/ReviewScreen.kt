@@ -29,10 +29,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import com.rickphobia.ricknotes.R
+import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.revisionlog.DueCourse
 import com.rickphobia.ricknotes.core.revisionlog.Entry
 import com.rickphobia.ricknotes.core.revisionlog.EntryId
+import com.rickphobia.ricknotes.core.revisionlog.EntryKind
 import com.rickphobia.ricknotes.core.revisionlog.Grade
+import com.rickphobia.ricknotes.ink.DrawnStroke
+import com.rickphobia.ricknotes.ink.RedoPad
 import com.rickphobia.ricknotes.logging.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -88,7 +92,11 @@ fun ReviewScreen(
                 modifier = Modifier.padding(top = 16.dp),
             )
         } else {
-            ReviewCard(card, remaining = unrated(card.course).size) { grade ->
+            ReviewCard(card, remaining = unrated(card.course).size) { grade, redo ->
+                if (redo.isNotEmpty()) {
+                    card.course.session.addRedo(card.entry.id, redo)
+                    AppLog.i("saved a Redo of Entry ${card.entry.id.value} in ${courseName(card.course)}")
+                }
                 card.course.session.rate(card.entry.id, grade)
                 AppLog.i("rated ${card.entry.kind} Entry ${card.entry.id.value} in ${courseName(card.course)}: $grade")
                 rated.add(card.entry.id)
@@ -123,14 +131,19 @@ private fun CoursePicker(
     }
 }
 
-/** One card: its front, then on Show answer its back and why line, and Again or Good. */
+/**
+ * One card: its front, with a writing area under it for a Mistake's Redo, then on Show answer its
+ * back beside them and its why line, and Again or Good. The Redo, if any, is kept on rating.
+ */
 @Composable
 private fun ReviewCard(
     card: Card,
     remaining: Int,
-    onRate: (Grade) -> Unit,
+    onRate: (Grade, redo: List<Stroke>) -> Unit,
 ) {
     var answered by remember(card.entry.id) { mutableStateOf(false) }
+    val redo = remember(card.entry.id) { mutableStateListOf<DrawnStroke>() }
+    val rate = { grade: Grade -> onRate(grade, redo.map { it.stroke }) }
     val session = card.course.session
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
         Text(
@@ -139,14 +152,20 @@ private fun ReviewCard(
         )
         Text(entryTitle(card.entry), style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
-            Snip(session.frontSnip(card.entry), R.string.review_front, Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
+                Snip(session.frontSnip(card.entry), R.string.review_front, Modifier.fillMaxWidth())
+                if (card.entry.kind == EntryKind.MISTAKE) {
+                    Text(stringResource(R.string.redo_area), style = MaterialTheme.typography.labelMedium)
+                    RedoPad(redo, Modifier.weight(1f).fillMaxWidth())
+                }
+            }
             if (answered) Snip(session.backSnip(card.entry), R.string.review_back, Modifier.weight(1f))
         }
         if (answered) {
             card.entry.why?.let { Text(stringResource(R.string.entry_why, it)) }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                OutlinedButton(onClick = { onRate(Grade.AGAIN) }) { Text(stringResource(R.string.again)) }
-                Button(onClick = { onRate(Grade.GOOD) }) { Text(stringResource(R.string.good)) }
+                OutlinedButton(onClick = { rate(Grade.AGAIN) }) { Text(stringResource(R.string.again)) }
+                Button(onClick = { rate(Grade.GOOD) }) { Text(stringResource(R.string.good)) }
             }
         } else {
             Button(onClick = { answered = true }) { Text(stringResource(R.string.show_answer)) }

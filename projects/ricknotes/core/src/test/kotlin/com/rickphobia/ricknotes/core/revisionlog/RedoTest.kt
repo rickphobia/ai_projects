@@ -27,7 +27,13 @@ class RedoTest {
     @get:Rule val folder = TemporaryFolder()
 
     private val clock = FakeClock().also { it.advance(OCT_23_MORNING_MS) }
-    private val course: Path by lazy { folder.root.toPath().resolve("Y1/Sem1/EE2001").also { Files.createDirectories(it) } }
+    private val course: Path by lazy {
+        folder.root
+            .toPath()
+            .resolve(
+                "Y1/Sem1/EE2001",
+            ).also { Files.createDirectories(it) }
+    }
 
     private fun open() = RevisionLogSession.open(course, clock, ZoneOffset.UTC)
 
@@ -71,7 +77,12 @@ class RedoTest {
         val strokes = listOf(stroke("a"), stroke("b", Tool.HIGHLIGHTER))
 
         session.addRedo(entry.id, strokes)
-        val redo = reopen(session).entries.single().redos.single()
+        val redo =
+            reopen(session)
+                .entries
+                .single()
+                .redos
+                .single()
 
         assertEquals(strokes, redo.strokes)
         assertEquals(OCT_23_MORNING_MS, redo.atMs)
@@ -87,7 +98,14 @@ class RedoTest {
         session.addRedo(entry.id, listOf(stroke("second")))
         val redos = reopen(session).entries.single().redos
 
-        assertEquals(listOf("first", "second"), redos.map { it.strokes.single().id.value })
+        assertEquals(
+            listOf("first", "second"),
+            redos.map {
+                it.strokes
+                    .single()
+                    .id.value
+            },
+        )
         assertEquals(listOf(OCT_23_MORNING_MS, OCT_23_MORNING_MS + 3 * DAY_MS), redos.map { it.atMs })
     }
 

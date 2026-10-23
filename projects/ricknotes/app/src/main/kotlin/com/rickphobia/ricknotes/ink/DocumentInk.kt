@@ -204,7 +204,7 @@ internal class DocumentInk private constructor(
  * so all of them are caught.
  */
 @Suppress("TooGenericExceptionCaught")
-private fun Stroke.toMesh(): InkStroke? =
+internal fun Stroke.toMesh(): InkStroke? =
     try {
         val inputs = MutableStrokeInputBatch()
         addTo(inputs)

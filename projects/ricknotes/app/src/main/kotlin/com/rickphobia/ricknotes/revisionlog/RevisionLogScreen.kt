@@ -2,14 +2,17 @@ package com.rickphobia.ricknotes.revisionlog
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -28,7 +31,9 @@ import androidx.compose.ui.unit.dp
 import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.revisionlog.Entry
 import com.rickphobia.ricknotes.core.revisionlog.EntryKind
+import com.rickphobia.ricknotes.core.revisionlog.Redo
 import com.rickphobia.ricknotes.core.revisionlog.RevisionLogSession
+import com.rickphobia.ricknotes.ink.SavedRedo
 import com.rickphobia.ricknotes.logging.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -158,6 +163,7 @@ private fun EntryDetail(
             }
         }
         if (documentMissing) Text(stringResource(R.string.document_not_found), color = MaterialTheme.colorScheme.error)
+        if (entry.redos.isNotEmpty()) EarlierRedos(entry.redos)
         SnipPair(session, entry, modifier = Modifier.weight(1f))
     }
     if (editing) {
@@ -184,10 +190,32 @@ private fun EntryDetail(
     }
 }
 
+/** An Entry's Redos, newest first, each with the date it was written. */
+@Composable
+private fun EarlierRedos(redos: List<Redo>) {
+    Text(stringResource(R.string.earlier_redos, redos.size), style = MaterialTheme.typography.labelLarge)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+    ) {
+        redos.asReversed().forEach { redo ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(formatDate(redo.atMs), style = MaterialTheme.typography.labelMedium)
+                SavedRedo(redo, Modifier.size(REDO_PREVIEW_WIDTH, REDO_PREVIEW_HEIGHT))
+            }
+        }
+    }
+}
+
+private val REDO_PREVIEW_WIDTH = 240.dp
+private val REDO_PREVIEW_HEIGHT = 160.dp
+
+private fun formatDate(epochMs: Long): String = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(epochMs))
+
 @Composable
 internal fun entryTitle(entry: Entry): String {
     val kind = stringResource(if (entry.kind == EntryKind.MISTAKE) R.string.edit_mistake else R.string.edit_key_point)
-    val date = remember(entry.addedAtMs) { DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(entry.addedAtMs)) }
+    val date = remember(entry.addedAtMs) { formatDate(entry.addedAtMs) }
     val name = entry.source.documentPath.substringAfterLast('/')
     return stringResource(R.string.entry_title, kind, name, entry.source.pageNumber, date)
 }

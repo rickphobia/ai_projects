@@ -186,20 +186,6 @@ class RevisionLogSession private constructor(
     /** Saves any changes now, for when the app goes to the background. */
     fun saveNow() = saving.saveNow()
 
-    private fun writeSnip(
-        file: Path,
-        png: ByteArray,
-    ) {
-        try {
-            Files.createDirectories(folder)
-            writeSafely(file, png)
-        } catch (e: IOException) {
-            throw SnipSaveFailed(file.fileName.toString(), e)
-        } catch (e: SecurityException) {
-            throw SnipSaveFailed(file.fileName.toString(), e)
-        }
-    }
-
     // What open found on disk.
     private class Loaded(
         val entries: List<Entry>,
@@ -280,3 +266,18 @@ private fun dayIn(
     zone: ZoneId,
     epochMs: Long,
 ): LocalDate = Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()
+
+/** Writes the Snip [file], making its folder if needed. */
+private fun writeSnip(
+    file: Path,
+    png: ByteArray,
+) {
+    try {
+        Files.createDirectories(file.parent)
+        writeSafely(file, png)
+    } catch (e: IOException) {
+        throw SnipSaveFailed(file.fileName.toString(), e)
+    } catch (e: SecurityException) {
+        throw SnipSaveFailed(file.fileName.toString(), e)
+    }
+}
