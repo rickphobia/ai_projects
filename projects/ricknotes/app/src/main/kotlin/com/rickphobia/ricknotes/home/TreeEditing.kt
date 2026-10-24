@@ -23,6 +23,12 @@ sealed interface TreeEdit {
         val node: TreeNode,
         val toFolder: String,
     ) : TreeEdit
+
+    /** Links [orphan] to the PDF at tree path [pdf] in its folder. */
+    data class LinkInk(
+        val orphan: TreeNode.OrphanedInk,
+        val pdf: String,
+    ) : TreeEdit
 }
 
 /** How a [TreeEdit] went. */
@@ -67,6 +73,7 @@ fun runTreeEdit(
                 is TreeEdit.NewFolder -> edits.newFolder(edit.parent, edit.name)
                 is TreeEdit.Rename -> rename(edits, edit.node, edit.name)
                 is TreeEdit.Move -> move(edits, edit.node, edit.toFolder)
+                is TreeEdit.LinkInk -> edits.linkOrphanedInk(edit.orphan.path, edit.pdf)
             }
         AppLog.i("$what: done as ${to.substringAfterLast('/')}")
         TreeEditOutcome.Done(edit.edited?.path, to, documents)
@@ -86,6 +93,7 @@ private val TreeEdit.edited: TreeNode?
             is TreeEdit.NewFolder -> null
             is TreeEdit.Rename -> node
             is TreeEdit.Move -> node
+            is TreeEdit.LinkInk -> orphan
         }
 
 private fun rename(
@@ -95,6 +103,7 @@ private fun rename(
 ) = when (node) {
     is TreeNode.Document -> edits.renameDocument(node.path, name)
     is TreeNode.Folder -> edits.renameFolder(node.path, name)
+    is TreeNode.OrphanedInk -> throw TreeEditRefused("link ${node.name} to a PDF first")
 }
 
 private fun move(
@@ -104,12 +113,17 @@ private fun move(
 ) = when (node) {
     is TreeNode.Document -> edits.moveDocument(node.path, toFolder)
     is TreeNode.Folder -> edits.moveFolder(node.path, toFolder)
+    is TreeNode.OrphanedInk -> throw TreeEditRefused("link ${node.name} to a PDF first")
 }
 
-/** The tree paths of [node] if it is a Document, or of every Document inside it. */
+/**
+ * The tree paths of [node] if it is a Document (or Orphaned ink, which a link makes one), or of
+ * every Document inside it.
+ */
 fun documentsIn(node: TreeNode): List<String> =
     when (node) {
         is TreeNode.Document -> listOf(node.path)
+        is TreeNode.OrphanedInk -> listOf(node.path)
         is TreeNode.Folder -> node.children.flatMap(::documentsIn)
     }
 
@@ -125,5 +139,7 @@ private fun describe(edit: TreeEdit): String {
         is TreeEdit.Move -> "move of ${kind(
             edit.node,
         )} ${edit.node.name} to ${edit.toFolder.substringAfterLast('/').ifEmpty { "the Study folder" }}"
+
+        is TreeEdit.LinkInk -> "link of Orphaned ink ${edit.orphan.name} to ${edit.pdf.substringAfterLast('/')}"
     }
 }

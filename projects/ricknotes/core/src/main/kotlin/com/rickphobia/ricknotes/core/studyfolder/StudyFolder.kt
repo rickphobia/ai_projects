@@ -1,6 +1,7 @@
 package com.rickphobia.ricknotes.core.studyfolder
 
 import com.rickphobia.ricknotes.core.presets.PresetsFile
+import com.rickphobia.ricknotes.core.session.InkFileStore
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -20,8 +21,9 @@ typealias UnreadableFolderListener = (folder: String, error: StudyFolderListingE
 
 /**
  * The Study folder as the home screen sees it: folders and PDFs only. The app's own files
- * (Ink files, `.assets`, `.versions`, `_revision_log`, `_ricknotes`, hidden temporary files) are left out.
- * Listing only; [TreeEdits] creates, renames and moves.
+ * (Ink files, `.assets`, `.versions`, `_revision_log`, `_ricknotes`, hidden temporary files) are left out,
+ * except that an Ink file whose PDF is missing is listed as [TreeNode.OrphanedInk].
+ * Listing only; [TreeEdits] creates, renames, moves and links.
  */
 class StudyFolder(
     private val root: Path,
@@ -34,6 +36,21 @@ class StudyFolder(
      */
     fun listTree(onUnreadable: UnreadableFolderListener): TreeNode.Folder = listFolder(root, "", onUnreadable)
 
+    /**
+     * The PDFs that the Orphaned ink at tree path [orphan] can be linked to: those in its folder
+     * with no Ink file, by tree path, sorted by name ignoring case.
+     * @throws StudyFolderListingException if the folder can't be read.
+     */
+    fun linkCandidates(orphan: String): List<String> {
+        val folder = parentOf(orphan)
+        return entriesOf(resolve(folder), folder)
+            .filter { isShown(it) && !Files.isDirectory(it, LinkOption.NOFOLLOW_LINKS) }
+            .filterNot { exists(InkFileStore(it).inkFile) }
+            .map { it.fileName.toString() }
+            .sortedWith(String.CASE_INSENSITIVE_ORDER)
+            .map { childPath(folder, it) }
+    }
+
     /** The file on disk for a tree [path]. */
     fun resolve(path: String): Path = if (path.isEmpty()) root else root.resolve(path)
 
@@ -42,21 +59,40 @@ class StudyFolder(
         path: String,
         onUnreadable: UnreadableFolderListener,
     ): TreeNode.Folder {
-        val entries =
-            try {
-                Files.newDirectoryStream(folder).use { it.toList() }
-            } catch (e: IOException) {
-                throw StudyFolderListingException(path, e)
-            }
+        val entries = entriesOf(folder, path)
         val (folders, files) =
             entries
                 .filter { isShown(it) }
                 .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.fileName.toString() })
                 .partition { Files.isDirectory(it, LinkOption.NOFOLLOW_LINKS) }
+        val documents = files.map { it.fileName.toString() }.map { TreeNode.Document(it, childPath(path, it)) }
+        val orphans = entries.mapNotNull(::orphanedPdfName).map { TreeNode.OrphanedInk(it, childPath(path, it)) }
         val children =
-            folders.mapNotNull { listSubfolder(it, childPath(path, it), onUnreadable) } +
-                files.map { TreeNode.Document(it.fileName.toString(), childPath(path, it)) }
+            folders.mapNotNull { listSubfolder(it, childPath(path, it.fileName.toString()), onUnreadable) } +
+                (documents + orphans).sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
         return TreeNode.Folder(folder.fileName?.toString().orEmpty(), path, children)
+    }
+
+    private fun entriesOf(
+        folder: Path,
+        path: String,
+    ): List<Path> =
+        try {
+            Files.newDirectoryStream(folder).use { it.toList() }
+        } catch (e: IOException) {
+            throw StudyFolderListingException(path, e)
+        }
+
+    // The name of the missing PDF if [entry] is an Ink file without one, else null.
+    private fun orphanedPdfName(entry: Path): String? {
+        val name = entry.fileName.toString()
+        val pdfName = name.removeSuffix(InkFileStore.INK_SUFFIX)
+        val isInk =
+            pdfName != name &&
+                !name.startsWith(".") &&
+                pdfName.endsWith(PDF_SUFFIX, ignoreCase = true) &&
+                Files.isRegularFile(entry, LinkOption.NOFOLLOW_LINKS)
+        return pdfName.takeIf { isInk && !exists(entry.resolveSibling(it)) }
     }
 
     private fun listSubfolder(
@@ -70,11 +106,6 @@ class StudyFolder(
             onUnreadable(e.folder, e)
             null
         }
-
-    private fun childPath(
-        parent: String,
-        child: Path,
-    ) = if (parent.isEmpty()) child.fileName.toString() else "$parent/${child.fileName}"
 
     private fun isShown(entry: Path): Boolean {
         val name = entry.fileName.toString()

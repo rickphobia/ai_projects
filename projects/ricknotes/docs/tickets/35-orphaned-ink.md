@@ -4,12 +4,12 @@
 
 **Blocked by:** 34 (Rename, move and new folder)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-studyfolder, app-home
 
 **Effort:** low
 
-- [ ] Study folder: Orphaned ink is found in a listing; the candidates are the same folder's PDFs without ink; linking renames every companion and refuses on a clash (tested)
-- [ ] The tree shows Orphaned ink greyed with "Link to PDF…"
-- [ ] On-tablet check written in the PR: rename an inked PDF in Files, see it greyed, link it back, reopen with the ink there
+- [x] Study folder: Orphaned ink is found in a listing; the candidates are the same folder's PDFs without ink; linking renames every companion and refuses on a clash (tested)
+- [x] The tree shows Orphaned ink greyed with "Link to PDF…"
+- [x] On-tablet check written in the PR: rename an inked PDF in Files, see it greyed, link it back, reopen with the ink there

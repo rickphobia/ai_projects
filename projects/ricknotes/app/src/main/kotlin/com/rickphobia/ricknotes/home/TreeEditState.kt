@@ -7,7 +7,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.rickphobia.ricknotes.core.studyfolder.StudyFolder
+import com.rickphobia.ricknotes.core.studyfolder.StudyFolderListingException
 import com.rickphobia.ricknotes.core.studyfolder.TreeEdits
+import com.rickphobia.ricknotes.core.studyfolder.TreeNode
+import com.rickphobia.ricknotes.logging.AppLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -20,6 +24,7 @@ import java.nio.file.Path
  */
 class TreeEditState(
     private val edits: TreeEdits,
+    private val studyFolder: StudyFolder,
     private val hooks: TreeEditHooks,
     private val scope: CoroutineScope,
 ) {
@@ -32,7 +37,24 @@ class TreeEditState(
             newFolder = { dialog = TreeEditDialog.NewFolder(it) },
             rename = { dialog = TreeEditDialog.Rename(it) },
             moveTo = { dialog = TreeEditDialog.MoveTo(it) },
+            linkToPdf = ::offerLink,
         )
+
+    // Listing the folder reads the disk, so the dialog opens once its PDFs are known.
+    private fun offerLink(orphan: TreeNode.OrphanedInk) {
+        scope.launch {
+            dialog =
+                try {
+                    TreeEditDialog.LinkToPdf(
+                        orphan,
+                        withContext(Dispatchers.IO) { studyFolder.linkCandidates(orphan.path) },
+                    )
+                } catch (e: StudyFolderListingException) {
+                    AppLog.w("PDFs to link Orphaned ink ${orphan.name} to: ${e.cause?.javaClass?.simpleName}")
+                    TreeEditDialog.NotDone(TreeEditOutcome.NotDone(e.message.orEmpty(), partly = false))
+                }
+        }
+    }
 
     /** Runs [edit] off the main thread, then lets the rest of the app follow it or says why not. */
     fun run(edit: TreeEdit) {
@@ -55,5 +77,8 @@ fun rememberTreeEditState(
     hooks: TreeEditHooks,
 ): TreeEditState {
     val scope = rememberCoroutineScope()
-    return remember(studyFolder) { TreeEditState(TreeEdits(Path.of(studyFolder), hooks.stillSaving), hooks, scope) }
+    return remember(studyFolder) {
+        val root = Path.of(studyFolder)
+        TreeEditState(TreeEdits(root, hooks.stillSaving), StudyFolder(root), hooks, scope)
+    }
 }

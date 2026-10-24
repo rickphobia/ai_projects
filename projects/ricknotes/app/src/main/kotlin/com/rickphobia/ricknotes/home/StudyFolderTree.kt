@@ -44,6 +44,7 @@ import com.rickphobia.ricknotes.core.studyfolder.TreeRow
 
 private val INDENT_PER_LEVEL = 24.dp
 private val MARKER_WIDTH = 24.dp
+private const val ORPHAN_ALPHA = 0.38f
 
 /** What long-pressing a folder in the tree does. Only settings change: no file is touched. */
 interface CourseFolderActions {
@@ -72,6 +73,7 @@ class TreeEditMenu(
     val newFolder: (String) -> Unit,
     val rename: (TreeNode) -> Unit,
     val moveTo: (TreeNode) -> Unit,
+    val linkToPdf: (TreeNode.OrphanedInk) -> Unit,
 )
 
 /**
@@ -93,7 +95,8 @@ class TreeOpens(
  * it, tap a PDF to open it (or long-press and drag it out, where that is offered), long-press a
  * folder to mark or unmark it as a Course folder, drop a PDF onto a folder to copy it in. With
  * [TreeOpens.edits], long-pressing a folder also offers New folder, Rename and Move to…, and
- * long-pressing a Document offers Rename and Move to…. An open Course folder starts with its
+ * long-pressing a Document offers Rename and Move to…; Orphaned ink shows greyed, and tapping or
+ * long-pressing it offers Link to PDF…. An open Course folder starts with its
  * Revision log row.
  */
 @Composable
@@ -120,18 +123,16 @@ fun StudyFolderTree(
             val drag = opens.documentDrag?.let { drag -> (node as? TreeNode.Document)?.let { DraggedOut(it, drag) } }
             // Where it can be dragged out, a Document's long-press is left to that.
             val hasMenu = node is TreeNode.Folder || (edits != null && drag == null)
+            val showMenu = { menuFor = node.path }.takeIf { hasMenu }
             Box(modifier = Modifier.takingPdfs(dropTarget).draggingOut(drag)) {
                 TreeRowContent(
                     row = row,
                     isOpen = node.path in expanded,
                     isCourse = isCourse,
                     onClick = {
-                        when (node) {
-                            is TreeNode.Folder -> expanded = TreeLayout.toggle(expanded, node.path)
-                            is TreeNode.Document -> opens.document(node)
-                        }
+                        tapped(node, opens, toggle = { expanded = TreeLayout.toggle(expanded, it) }, showMenu)
                     },
-                    onLongClick = { menuFor = node.path }.takeIf { hasMenu },
+                    onLongClick = showMenu,
                 )
                 RowMenu(
                     node = node,
@@ -165,6 +166,22 @@ fun StudyFolderTree(
     }
 }
 
+private fun tapped(
+    node: TreeNode,
+    opens: TreeOpens,
+    toggle: (String) -> Unit,
+    showMenu: (() -> Unit)?,
+) {
+    when (node) {
+        is TreeNode.Folder -> toggle(node.path)
+
+        is TreeNode.Document -> opens.document(node)
+
+        // Nothing to open: tapping offers Link to PDF…, where the menu has it.
+        is TreeNode.OrphanedInk -> showMenu?.invoke()
+    }
+}
+
 private class RowMenuActions(
     val courses: CourseFolderActions,
     val edits: TreeEditMenu?,
@@ -192,7 +209,9 @@ private fun RowMenu(
             }
             if (edits != null) MenuItem(R.string.new_folder) { choose { edits.newFolder(node.path) } }
         }
-        if (edits != null) {
+        if (edits != null && node is TreeNode.OrphanedInk) {
+            MenuItem(R.string.link_to_pdf) { choose { edits.linkToPdf(node) } }
+        } else if (edits != null) {
             MenuItem(R.string.rename) { choose { edits.rename(node) } }
             MenuItem(R.string.move_to) { choose { edits.moveTo(node) } }
         }
@@ -284,6 +303,16 @@ private fun TreeRowContent(
                 text = stringResource(R.string.course_label),
                 style = typography.labelMedium,
                 color = colour,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        } else if (node is TreeNode.OrphanedInk) {
+            // Greyed like a disabled control: the ink is there, its PDF isn't.
+            val grey = MaterialTheme.colorScheme.onSurface.copy(alpha = ORPHAN_ALPHA)
+            Text(text = node.name, style = style, color = grey)
+            Text(
+                text = stringResource(R.string.orphaned_ink_label),
+                style = typography.labelMedium,
+                color = grey,
                 modifier = Modifier.padding(start = 8.dp),
             )
         } else {
