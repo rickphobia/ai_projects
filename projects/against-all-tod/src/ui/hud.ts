@@ -249,6 +249,8 @@ export class Hud {
   private readonly hint: HTMLElement;
   private readonly roundHint: HTMLElement;
   private readonly message: HTMLElement;
+  /** Where the Settings menu sits, beside the status chips. */
+  readonly tricks: HTMLElement;
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
   /** The Round whose Curse was last announced, so each Round's is announced once. */
   private announcedRound: number | null = null;
@@ -274,7 +276,10 @@ export class Hud {
     this.status.setAttribute("aria-label", "Run status");
     this.heading = this.doc.createElement("h1");
     this.heading.className = "chip hud-turn";
-    top.append(this.status, this.heading);
+    this.tricks = this.doc.createElement("section");
+    this.tricks.className = "hud-tricks";
+    this.tricks.setAttribute("aria-label", "Settings");
+    top.append(this.status, this.heading, this.tricks);
     const band = this.doc.createElement("div");
     band.className = "hud-band";
     const tray = this.doc.createElement("div");
