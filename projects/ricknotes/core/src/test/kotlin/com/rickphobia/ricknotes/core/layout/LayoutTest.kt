@@ -178,3 +178,77 @@ class LayoutTest {
         assertEquals(0, secondClosed.focused)
     }
 }
+
+class LayoutDividerAndMovingTest {
+    private val start = TabPosition(pageIndex = 0, zoom = 1f)
+
+    private fun twoPanes() =
+        Layout()
+            .open("a.pdf", TabPosition(3, 2f))
+            .split()
+            .open("b.pdf", start)
+            .open("c.pdf", start)
+
+    private fun Layout.paths(pane: Int) = panes[pane].tabs.map { it.path }
+
+    @Test
+    fun `the divider starts in the middle and moves`() {
+        assertEquals(EQUAL_PANES, Layout().divider)
+        assertEquals(0.3f, twoPanes().setDivider(0.3f).divider)
+    }
+
+    @Test
+    fun `the divider stops where either Pane would get too small`() {
+        assertEquals(MIN_PANE_SHARE, twoPanes().setDivider(0.01f).divider)
+        assertEquals(1 - MIN_PANE_SHARE, twoPanes().setDivider(2f).divider)
+    }
+
+    @Test
+    fun `making the Panes equal puts the divider back in the middle`() {
+        assertEquals(EQUAL_PANES, twoPanes().setDivider(0.7f).makeEqual().divider)
+    }
+
+    @Test
+    fun `a moved Tab goes after the other Pane's Tabs at its position, selected and focused`() {
+        val layout = twoPanes().setDivider(0.4f).moveToOtherPane(1, 1)
+
+        assertEquals(listOf("a.pdf", "b.pdf"), layout.paths(0))
+        assertEquals(listOf("a.pdf", "c.pdf"), layout.paths(1))
+        assertEquals(0, layout.focused)
+        assertEquals(Tab("b.pdf", start), layout.selectedTab)
+        assertEquals(0.4f, layout.divider)
+    }
+
+    @Test
+    fun `a Tab moved onto its Document's Tab in the other Pane brings its position there`() {
+        val layout = twoPanes().moved(1, 0, TabPosition(9, 1.5f)).moveToOtherPane(1, 0)
+
+        assertEquals(listOf("a.pdf"), layout.paths(0))
+        assertEquals(TabPosition(9, 1.5f), layout.selectedTab?.position)
+        assertEquals(listOf("b.pdf", "c.pdf"), layout.paths(1))
+    }
+
+    @Test
+    fun `moving a Pane's last Tab closes that Pane`() {
+        val layout =
+            Layout()
+                .open("a.pdf", start)
+                .split()
+                .open("b.pdf", start)
+                .focus(0)
+                .moveToOtherPane(0, 0)
+
+        assertEquals(1, layout.panes.size)
+        assertEquals(listOf("a.pdf", "b.pdf"), layout.paths(0))
+        assertEquals("a.pdf", layout.selectedTab?.path)
+        assertEquals(0, layout.focused)
+    }
+
+    @Test
+    fun `with one Pane, or a Tab that isn't there, moving changes nothing`() {
+        val one = Layout().open("a.pdf", start)
+
+        assertEquals(one, one.moveToOtherPane(0, 0))
+        assertEquals(twoPanes(), twoPanes().moveToOtherPane(1, 5))
+    }
+}

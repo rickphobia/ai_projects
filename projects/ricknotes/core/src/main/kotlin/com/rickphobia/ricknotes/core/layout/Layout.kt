@@ -28,20 +28,27 @@ data class Pane(
 // Side by side or stacked, two Panes keep each PDF big enough to read on the tablet.
 const val MAX_PANES = 2
 
+// Each Pane keeps at least a quarter of the screen: room for its tab bar, toolbar and a page.
+const val MIN_PANE_SHARE = 0.25f
+const val EQUAL_PANES = 0.5f
+
 /**
- * The Panes and their Tabs, and the [focused] Pane, as plain data: each operation returns the
+ * The Panes and their Tabs, the [focused] Pane and the [divider] (the first Pane's share of the
+ * screen, kept [MIN_PANE_SHARE] from either edge), as plain data: each operation returns the
  * changed Layout. A Tab is named by its Pane's index and its index in that Pane; naming one that
  * isn't there changes nothing.
  */
 data class Layout(
     val panes: List<Pane> = emptyList(),
     val focused: Int = 0,
+    val divider: Float = EQUAL_PANES,
 ) {
     init {
         require(panes.size <= MAX_PANES) { "a Layout has at most $MAX_PANES Panes, not ${panes.size}" }
         require((panes.isEmpty() && focused == 0) || focused in panes.indices) {
             "the Focused Pane $focused is not one of the ${panes.size}"
         }
+        require(divider in MIN_PANE_SHARE..1 - MIN_PANE_SHARE) { "the divider is at $divider" }
     }
 
     /** The Tab showing in the Focused Pane, or null when nothing is open. */

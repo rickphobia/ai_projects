@@ -50,6 +50,7 @@ object LayoutLoader {
                 PaneJson(pane.tabs.map { TabJson(it.path, it.position.pageIndex, it.position.zoom) }, pane.selected)
             },
             focused,
+            divider,
         )
 
     private fun LayoutJson.toLayout() =
@@ -65,6 +66,7 @@ object LayoutLoader {
                 )
             },
             focused,
+            divider,
         )
 }
 
@@ -73,6 +75,8 @@ private class LayoutJson(
     val panes: List<PaneJson>,
     // Missing from a Layout saved before there were two Panes.
     val focused: Int = 0,
+    // Missing from a Layout saved before the divider moved.
+    val divider: Float = EQUAL_PANES,
 )
 
 @Serializable
