@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Only the cache folder that "Share log" copies the log into is shareable. -->
+<!-- What a content URI can be made for: the "Share log" copy and, for Send to, Study folder PDFs. -->
 <paths>
   <cache-path name="shared" path="shared/" />
+  <!-- Send to: the Study folder is on the tablet's own storage, and each share grants one PDF only. -->
+  <external-path name="study" path="." />
 </paths>
