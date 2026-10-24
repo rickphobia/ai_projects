@@ -22,6 +22,8 @@ import com.rickphobia.ricknotes.home.HomeScreen
 import com.rickphobia.ricknotes.imports.IncomingShare
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.panes.KeyShortcuts
+import com.rickphobia.ricknotes.panes.PaneSources
+import com.rickphobia.ricknotes.panes.TreeSource
 import com.rickphobia.ricknotes.panes.startPosition
 import com.rickphobia.ricknotes.revisionlog.ReviewScreen
 import com.rickphobia.ricknotes.revisionlog.RevisionLogScreen
@@ -218,7 +220,8 @@ fun <S> RickNotesApp(
                     val settings = { pdf: PdfEntry ->
                         documentSettings(pdf, current.studyFolder, pens, gestures, courses)
                     }
-                    DocumentRoute(current, storage, system.shortcuts, settings) { screen = it }
+                    val tree = TreeSource(recentDocuments::paths, courseFolders)
+                    DocumentRoute(current, storage, system.shortcuts, PaneSources(settings, tree)) { screen = it }
                 }
             }
         }
