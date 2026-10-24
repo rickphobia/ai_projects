@@ -237,7 +237,10 @@ export interface HudHandlers {
   readonly onContinue: () => void;
 }
 
-/** The DOM band over the Board: the Run's status, the turn, its buttons, what to do, and why an action was refused. */
+/**
+ * The DOM bands around the Board: the Run's status, the turn and why an action was refused along
+ * the top; what to do and the turn's buttons in a tray along the bottom.
+ */
 export class Hud {
   private readonly doc: Document;
   private readonly status: HTMLElement;
@@ -272,6 +275,10 @@ export class Hud {
     this.heading = this.doc.createElement("h1");
     this.heading.className = "chip hud-turn";
     top.append(this.status, this.heading);
+    const band = this.doc.createElement("div");
+    band.className = "hud-band";
+    const tray = this.doc.createElement("div");
+    tray.className = "hud-tray";
     this.controls = this.doc.createElement("div");
     this.controls.className = "hud-controls";
     this.hint = this.doc.createElement("p");
@@ -282,15 +289,12 @@ export class Hud {
     this.message.className = "hud-message";
     this.message.setAttribute("role", "status");
     this.message.hidden = true;
-    host.replaceChildren(
-      top,
-      this.controls,
-      this.hint,
-      this.roundHint,
-      this.message,
-    );
+    band.append(top, this.message);
+    tray.append(this.roundHint, this.hint, this.controls);
+    host.replaceChildren(band, tray);
     this.dudeInfo = new DudeInfo(this.doc);
-    this.followHeight();
+    this.followHeight(band, "--hud-height");
+    this.followHeight(tray, "--tray-height");
     this.doc.addEventListener("keydown", (event) => {
       if (!(event.ctrlKey || event.metaKey) || event.shiftKey) return;
       if (event.key.toLowerCase() !== "z") return;
@@ -405,7 +409,7 @@ export class Hud {
     this.showMessage(refusalMessage(refusal));
   }
 
-  /** A short message under the heading that fades after a few seconds. */
+  /** A short message under the status chips that fades after a few seconds. */
   showMessage(text: string): void {
     this.message.textContent = text;
     this.message.hidden = false;
@@ -417,7 +421,7 @@ export class Hud {
 
   /**
    * One button per item the side's shop sells, with its price, the chosen one pressed (none when
-   * `chosen` is null), any `tools` after them, then Take back and Fight.
+   * `chosen` is null), then any `tools`, Take back and Fight at the tray's right end.
    */
   private showShop<Id extends DudeKindId | PieceId>(
     side: Side,
@@ -452,8 +456,8 @@ export class Hud {
     fight.classList.add("hud-fight");
     const choices = this.doc.createElement("div");
     choices.className = "hud-choices";
-    choices.append(...choiceButtons, ...tools);
-    this.controls.replaceChildren(choices, takeBack, fight);
+    choices.append(...choiceButtons);
+    this.controls.replaceChildren(choices, ...tools, takeBack, fight);
   }
 
   /** Puts an ⓘ on each Dude kind card's corner; a sibling of the card, so tapping it never picks the brush. */
@@ -481,20 +485,20 @@ export class Hud {
   }
 
   /**
-   * The band is as tall as its text needs, so nothing is clipped; the Board and the panels
-   * below it read that height from --hud-height.
+   * Each band is as tall as its text needs, so nothing is clipped; the Board and the panels
+   * beside it read that height from `variable`.
    */
-  private followHeight(): void {
+  private followHeight(band: HTMLElement, variable: string): void {
     const view = this.doc.defaultView;
     if (view === null) return;
     const root = this.doc.documentElement;
     new view.ResizeObserver(() => {
-      const height = `${String(Math.ceil(this.host.getBoundingClientRect().height))}px`;
-      if (root.style.getPropertyValue("--hud-height") === height) return;
-      root.style.setProperty("--hud-height", height);
+      const height = `${String(Math.ceil(band.getBoundingClientRect().height))}px`;
+      if (root.style.getPropertyValue(variable) === height) return;
+      root.style.setProperty(variable, height);
       // PixiJS's resizeTo only listens for window resizes, and the Board's box just changed.
       view.dispatchEvent(new Event("resize"));
-    }).observe(this.host);
+    }).observe(band);
   }
 
   private labelTakeBack(button: HTMLButtonElement): void {

@@ -4,15 +4,15 @@
 
 **Blocked by:** 38 (Dude info button and a hint that fits)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** ui/hud, ui/shop, ui/style
 
 **Effort:** low
 
-- [ ] The Unit bar and the Piece shop are a bottom tray of portrait cards with name and price; the chosen card is clearly raised and outlined
-- [ ] Eraser, Take back and Fight sit at the tray's right end; the ⓘ button from 38 stays in each card's top-right corner
-- [ ] The tray never covers the Spawn zone or the Goal: the board is sized to the space between the top bar and the tray
-- [ ] With more cards than fit, the tray scrolls sideways; on a 390×844 phone the cards stay big enough to tap
-- [ ] Screenshots in the PR of an Attack and a Defense turn at 1910×873 and on a phone
-- [ ] Lint, type checks and tests pass
+- [x] The Unit bar and the Piece shop are a bottom tray of portrait cards with name and price; the chosen card is clearly raised and outlined
+- [x] Eraser, Take back and Fight sit at the tray's right end; the ⓘ button from 38 stays in each card's top-right corner
+- [x] The tray never covers the Spawn zone or the Goal: the board is sized to the space between the top bar and the tray
+- [x] With more cards than fit, the tray scrolls sideways; on a 390×844 phone the cards stay big enough to tap
+- [x] Screenshots in the PR of an Attack and a Defense turn at 1910×873 and on a phone
+- [x] Lint, type checks and tests pass

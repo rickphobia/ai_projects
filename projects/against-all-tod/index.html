@@ -44,16 +44,20 @@
         --screen-ms: 250ms;
         --font-display: "Fredoka", system-ui, sans-serif;
         /* A first guess for the band's height; the Hud then sets it to the band's real height. */
-        --hud-height: 144px;
+        --hud-height: 72px;
+        /* The same for the bottom tray. */
+        --tray-height: 140px;
       }
       @media (pointer: coarse) {
         :root {
-          --hud-height: 156px;
+          --hud-height: 80px;
+          --tray-height: 150px;
         }
       }
       @media (max-height: 500px) {
         :root {
-          --hud-height: 120px;
+          --hud-height: 64px;
+          --tray-height: 110px;
         }
       }
       /* Bundled, so the game looks the same offline and on itch.io (OFL, see assets/fonts/fredoka). */
@@ -83,7 +87,7 @@
       /* PixiJS sizes its canvas to this box; pinch and drag belong to the game, not the browser. */
       #game {
         position: fixed;
-        inset: var(--hud-height) 0 0 0;
+        inset: var(--hud-height) 0 var(--tray-height) 0;
         touch-action: none;
       }
       #game canvas {
@@ -184,11 +188,18 @@
         margin-top: 18px;
         padding-top: 22px;
       }
-      /* Its own band above the Board, so it never hides a tile. */
+      /* Its own bands above and below the Board, so it never hides a tile. */
       #hud {
         --side: var(--defense);
         position: fixed;
         inset: 0 0 auto 0;
+        text-align: center;
+      }
+      .hud-band {
+        position: relative;
+      }
+      .hud-band,
+      .hud-tray {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
         align-content: start;
@@ -196,7 +207,14 @@
         row-gap: 4px;
         box-sizing: border-box;
         padding: 6px 16px 4px;
-        text-align: center;
+      }
+      /* The Unit bar or Piece shop, along the bottom like a TABS unit picker. */
+      .hud-tray {
+        position: fixed;
+        inset: auto 0 0 0;
+        padding: 4px 16px 8px;
+        border-top: 3px solid var(--outline);
+        background: rgb(0 0 0 / 0.35);
       }
       #hud[data-side="attack"] {
         --side: var(--attack);
@@ -315,40 +333,64 @@
         color: #fff;
         font-size: 1rem;
       }
-      /* Room under the buttons for their shadow. */
+      /* Room under the buttons for their shadow; the cards fill the row, the buttons end it. */
       .hud-controls {
+        justify-self: stretch;
+        justify-content: center;
         padding-bottom: var(--press-depth);
+      }
+      .hud-controls:has(.hud-choices) {
+        justify-content: flex-end;
       }
       /* A long shop scrolls sideways; Take back and Fight stay in reach after it. */
       .hud-choices {
         display: flex;
-        gap: 6px;
+        flex: 1 1 auto;
+        gap: 8px;
         min-width: 0;
+        margin-right: auto;
         overflow-x: auto;
+        /* Room above for the chosen card to rise. */
+        padding-top: 8px;
         padding-bottom: var(--press-depth);
         margin-bottom: calc(-1 * var(--press-depth));
         scrollbar-width: none;
       }
+      /* A square card: a big portrait, the name, the price. */
       .hud-choices .shop-item {
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: flex-end;
         flex-shrink: 0;
-        padding: 2px 10px;
+        width: 88px;
+        height: 88px;
+        padding: 4px;
+        gap: 1px;
+        font-size: 0.8rem;
         line-height: 1.1;
       }
+      .hud-choices .shop-item .price {
+        font-size: 0.85rem;
+      }
+      /* The chosen card stands up out of the row, outlined in the side's colour. */
+      .hud-choices .shop-item[aria-pressed="true"] {
+        transform: translateY(-6px);
+        border-color: #fff;
+        outline: 3px solid var(--side);
+        box-shadow:
+          0 calc(var(--press-depth) + 6px) 0 var(--outline),
+          0 0 12px var(--side);
+      }
       .shop-portrait {
-        width: 32px;
-        height: 32px;
+        width: 48px;
+        height: 48px;
       }
       /* A Dude kind card with its ⓘ, a separate button so it never picks the brush. */
       .shop-slot {
         position: relative;
         flex-shrink: 0;
         display: flex;
-      }
-      .shop-slot .shop-item {
-        padding-right: 22px;
       }
       .shop-info {
         position: absolute;
@@ -437,25 +479,50 @@
         color: inherit;
         font-weight: 600;
       }
+      /* Floats over the Board's top edge for a few seconds, so it never takes the Board's room. */
       #hud .hud-message {
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: max-content;
+        max-width: calc(100% - 32px);
+        padding: 4px 12px;
+        border-radius: 10px;
+        background: rgb(0 0 0 / 0.75);
         color: var(--attack);
         font-weight: 600;
       }
-      /* Keeps its line when hidden, so the band doesn't jump. */
       #hud .hud-message[hidden] {
-        display: block;
-        visibility: hidden;
+        display: none;
       }
       /* A phone on its side: tighter edges. The gold in words leaves no room to share a row with the buttons. */
       @media (max-height: 500px) {
-        #hud {
+        .hud-band {
           padding: 4px 12px 0;
+        }
+        .hud-tray {
+          padding: 2px 12px 4px;
+          row-gap: 2px;
+        }
+        #hud .hud-tray p {
+          font-size: 0.75rem;
+          line-height: 1.2;
+        }
+        .hud-choices .shop-item {
+          width: 68px;
+          height: 68px;
+          font-size: 0.7rem;
+        }
+        .shop-portrait {
+          width: 34px;
+          height: 34px;
         }
       }
       #piece-info {
         position: fixed;
         left: 12px;
-        bottom: 12px;
+        bottom: calc(var(--tray-height) + 12px);
         max-width: 18rem;
         text-align: center;
         pointer-events: none;
@@ -602,7 +669,7 @@
       #pause {
         position: fixed;
         left: 12px;
-        bottom: 12px;
+        bottom: calc(var(--tray-height) + 12px);
         max-width: min(22rem, calc(100% - 24px));
         font-size: 0.85rem;
       }
@@ -654,7 +721,7 @@
       #crate {
         position: fixed;
         left: 50%;
-        bottom: 12px;
+        bottom: calc(var(--tray-height) + 12px);
         transform: translateX(-50%);
         width: min(620px, calc(100% - 32px));
         padding: 22px 10px 12px;
@@ -736,7 +803,7 @@
       /* A landscape phone: picture beside the name, so the panel leaves most of the Board in view. */
       @media (max-height: 500px) {
         #crate {
-          bottom: 4px;
+          bottom: calc(var(--tray-height) + 4px);
           padding: 16px 6px 6px;
         }
         .crate-card {
