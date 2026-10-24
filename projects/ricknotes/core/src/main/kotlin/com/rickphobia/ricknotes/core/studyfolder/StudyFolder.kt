@@ -1,5 +1,6 @@
 package com.rickphobia.ricknotes.core.studyfolder
 
+import com.rickphobia.ricknotes.core.presets.PresetsFile
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -19,7 +20,7 @@ typealias UnreadableFolderListener = (folder: String, error: StudyFolderListingE
 
 /**
  * The Study folder as the home screen sees it: folders and PDFs only. The app's own files
- * (Ink files, `.assets`, `.versions`, `_revision_log`, hidden temporary files) are left out.
+ * (Ink files, `.assets`, `.versions`, `_revision_log`, `_ricknotes`, hidden temporary files) are left out.
  * Listing only; [TreeEdits] creates, renames and moves.
  */
 class StudyFolder(
@@ -86,6 +87,7 @@ class StudyFolder(
 
             Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS) -> {
                 name != REVISION_LOG_FOLDER &&
+                    name != PresetsFile.FOLDER &&
                     !name.endsWith(ASSETS_SUFFIX)
             }
 

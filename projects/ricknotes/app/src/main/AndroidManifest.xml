@@ -7,6 +7,12 @@
     android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
     tools:ignore="ScopedStorage" />
 
+  <!-- Send to checks whether the Gemini or Claude app takes a shared PDF (sendto/SendTarget.kt). -->
+  <queries>
+    <package android:name="com.google.android.apps.bard" />
+    <package android:name="com.anthropic.claude" />
+  </queries>
+
   <application
     android:dataExtractionRules="@xml/data_extraction_rules"
     android:icon="@mipmap/ic_launcher"
