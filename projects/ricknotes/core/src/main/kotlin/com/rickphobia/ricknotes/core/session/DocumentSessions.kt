@@ -19,6 +19,9 @@ class DocumentSessions<H : Any>(
         val held: H,
     ) {
         var tabs = 0
+
+        // Tabs moving to the other Pane, counted in [tabs] until they open there.
+        var handedOver = 0
     }
 
     private val entries = mutableMapOf<Path, Entry<H>>()
@@ -30,8 +33,20 @@ class DocumentSessions<H : Any>(
         open: () -> H,
     ): H {
         val entry = entries.getOrPut(pdf) { Entry(open()) }
-        entry.tabs++
+        if (entry.handedOver > 0) entry.handedOver-- else entry.tabs++
         return entry.held
+    }
+
+    /**
+     * A Tab of [pdf] is moving to another Pane: its old place closes before the new one opens, so
+     * this keeps the session (and its undo history) for the next [open] instead of saving and
+     * ending it in between. Does nothing when [pdf] isn't open.
+     */
+    @Synchronized
+    fun handOver(pdf: Path) {
+        val entry = entries[pdf] ?: return
+        entry.tabs++
+        entry.handedOver++
     }
 
     /**

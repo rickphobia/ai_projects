@@ -123,6 +123,10 @@ _Avoid_: overdue, scheduled
 One side of the split view, holding one or more Tabs. There are at most two.
 _Avoid_: window, split, editor
 
+**Divider**:
+The line between two Panes. Dragging it resizes them; its position is saved with the Layout.
+_Avoid_: splitter, separator
+
 **Focused Pane**:
 The Pane last touched. A Document opened from the home screen or the tree drawer goes there.
 _Avoid_: active pane, current pane

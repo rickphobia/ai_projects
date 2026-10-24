@@ -103,6 +103,32 @@ class DocumentSessionsTest {
     }
 
     @Test
+    fun `a Tab handed over keeps its session and undo history until it opens in its new place`() {
+        val session = openTab()
+        session.addStroke(stroke)
+
+        sessions.handOver(pdf)
+        closeTab()
+        assertTrue(sessions.isOpen(pdf))
+        assertSame(session, openTab())
+        assertTrue(session.canUndo)
+
+        // The new place's Tab is the only one left: closing it ends the session.
+        closeTab()
+        assertFalse(sessions.isOpen(pdf))
+    }
+
+    @Test
+    fun `handing over a Document that isn't open does nothing`() {
+        sessions.handOver(pdf)
+
+        assertFalse(sessions.isOpen(pdf))
+        openTab()
+        closeTab()
+        assertFalse(sessions.isOpen(pdf))
+    }
+
+    @Test
     fun `closing a Document that isn't open is a bug`() {
         assertThrows(IllegalStateException::class.java) { closeTab() }
     }

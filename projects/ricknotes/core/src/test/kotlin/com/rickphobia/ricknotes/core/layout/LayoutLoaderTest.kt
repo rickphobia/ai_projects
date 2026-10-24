@@ -95,4 +95,31 @@ class LayoutLoaderTest {
         assertFalse(warnings.single(), warnings.single().contains("Secret"))
         assertTrue(warnings.single(), warnings.single().contains(LAYOUT_KEY))
     }
+
+    @Test
+    fun `the divider comes back where it was`() {
+        val layout =
+            Layout()
+                .open("a.pdf", TabPosition(0, 1f))
+                .split()
+                .setDivider(0.35f)
+        val saved = mutableMapOf<String, String>()
+
+        LayoutLoader.save({ key, value -> saved[key] = value }, layout)
+
+        assertEquals(0.35f, LayoutLoader.restore({ saved[it] }, warnings::add).divider)
+        assertTrue(warnings.isEmpty())
+    }
+
+    @Test
+    fun `a Layout saved before the divider moved has equal Panes`() {
+        assertEquals(EQUAL_PANES, restored("""{"panes":[$PANE,$PANE]}""").divider)
+        assertTrue(warnings.isEmpty())
+    }
+
+    @Test
+    fun `a divider past either Pane's minimum starts empty with a warning`() {
+        assertEquals(Layout(), restored("""{"panes":[$PANE],"divider":0.01}"""))
+        assertEquals(1, warnings.size)
+    }
 }
