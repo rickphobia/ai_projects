@@ -12,7 +12,7 @@ object LayoutLoader {
 
     private val json =
         Json {
-            // A newer app may add fields (the divider, the Focused Pane); this one still reads its Tabs.
+            // A newer app may add fields (the divider); this one still reads its Tabs.
             ignoreUnknownKeys = true
         }
 
@@ -49,6 +49,7 @@ object LayoutLoader {
             panes.map { pane ->
                 PaneJson(pane.tabs.map { TabJson(it.path, it.position.pageIndex, it.position.zoom) }, pane.selected)
             },
+            focused,
         )
 
     private fun LayoutJson.toLayout() =
@@ -63,12 +64,15 @@ object LayoutLoader {
                     pane.selected,
                 )
             },
+            focused,
         )
 }
 
 @Serializable
 private class LayoutJson(
     val panes: List<PaneJson>,
+    // Missing from a Layout saved before there were two Panes.
+    val focused: Int = 0,
 )
 
 @Serializable

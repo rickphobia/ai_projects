@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -34,6 +35,7 @@ import com.rickphobia.ricknotes.revisionlog.rememberRevisionLogAdder
 import com.rickphobia.ricknotes.toolbar.BackButton
 import com.rickphobia.ricknotes.toolbar.PenKind
 import com.rickphobia.ricknotes.toolbar.PenToolbar
+import com.rickphobia.ricknotes.toolbar.SplitButton
 import com.rickphobia.ricknotes.toolbar.UndoRedoButtons
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -58,10 +60,14 @@ class DocumentTab(
     val positions: ReadingPositions,
 )
 
-/** Where a Document's Tab leads: a PDF dropped onto a page opens with [openPdf]. */
+/**
+ * Where a Document's Tab leads: a PDF dropped onto a page opens with [openPdf], and [split] opens
+ * the Document in the other Pane.
+ */
 class DocumentNavigation(
     val openPdf: (PdfEntry) -> Unit,
     val onBack: () -> Unit,
+    val split: () -> Unit,
 )
 
 /**
@@ -94,11 +100,11 @@ fun DocumentScreen(
         remember(pdf.path, sharedImage) { sharedImage?.let { SharedPicture(it) { kind.value = PenKind.LASSO } } }
     DisposableEffect(pages) { onDispose { pages.close() } }
     val opening by rememberOpening(pdf, pages)
-    (opening as? Opening.Ready)?.let { SaveWhenLeaving(it.ink) }
+    (opening as? Opening.Ready)?.let { InkUpkeep(it.ink) }
     if (!shown) return
 
     Column(modifier = Modifier.fillMaxSize()) {
-        DocumentTopBar(onBack) {
+        DocumentTopBar(onBack, navigation.split) {
             PenToolbar(tool, kind, favouritePens)
             (opening as? Opening.Ready)?.let { InkControls(it.ink) }
         }
@@ -161,14 +167,16 @@ private fun rememberOpening(
             }
     }
 
-/** Back, then [tools] at the end; the tab bar above names the Document. */
+/** Back and split, then [tools] at the end; the tab bar above names the Document. */
 @Composable
 private fun DocumentTopBar(
     onBack: () -> Unit,
+    onSplit: () -> Unit,
     tools: @Composable () -> Unit,
 ) {
     Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
         BackButton(onBack)
+        SplitButton(onSplit)
         Spacer(modifier = Modifier.weight(1f))
         tools()
     }
@@ -188,11 +196,24 @@ private fun InkControls(ink: DocumentInk) {
     }
 }
 
+/** Keeps an open Document's ink saved, and drawing what its other Tabs change, even while hidden. */
+@Composable
+private fun InkUpkeep(ink: DocumentInk) {
+    SaveWhenLeaving(ink)
+    FollowOtherTabs(ink)
+}
+
 /** Saves the ink when the app goes to the background, and once more when the Document closes. */
 @Composable
 private fun SaveWhenLeaving(ink: DocumentInk) {
     LifecycleStartEffect(ink) { onStopOrDispose { ink.saveInBackground() } }
     DisposableEffect(ink) { onDispose { ink.close() } }
+}
+
+/** Draws the strokes another Tab of the same Document adds, erases or undoes, on the next frame. */
+@Composable
+private fun FollowOtherTabs(ink: DocumentInk) {
+    LaunchedEffect(ink) { snapshotFlow { ink.revision }.collect { ink.catchUp() } }
 }
 
 @Composable

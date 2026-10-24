@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Drawn for RickNotes: a page split into two Panes, in the style of Material Symbols (24px). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+  <group android:translateY="960">
+    <path
+        android:fillColor="@android:color/white"
+        android:fillType="evenOdd"
+        android:pathData="M160-160H800Q840-160 840-200V-760Q840-800 800-800H160Q120-800 120-760V-200Q120-160 160-160ZM200-240H440V-720H200ZM520-240H760V-720H520Z" />
+  </group>
+</vector>

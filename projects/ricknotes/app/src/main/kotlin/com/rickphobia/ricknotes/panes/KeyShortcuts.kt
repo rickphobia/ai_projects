@@ -10,6 +10,9 @@ class KeyShortcuts {
     /** What Ctrl+W does, set while a screen with Tabs shows. */
     var closeTab: (() -> Unit)? = null
 
+    /** What Ctrl+\ does, set while a screen with Tabs shows. */
+    var split: (() -> Unit)? = null
+
     /** True when [event] was a shortcut, run once per press however long the key is held. */
     fun handle(event: KeyEvent): Boolean {
         val action = if (event.isCtrlPressed) actionFor(event.keyCode) else null
@@ -20,6 +23,7 @@ class KeyShortcuts {
     private fun actionFor(keyCode: Int): (() -> Unit)? =
         when (keyCode) {
             KeyEvent.KEYCODE_W -> closeTab
+            KeyEvent.KEYCODE_BACKSLASH -> split
             else -> null
         }
 }

@@ -4,16 +4,16 @@
 
 **Blocked by:** 29 (Tabs in one Pane)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-layout, core-session, app-panes, app-viewer
 
 **Effort:** medium
 
-- [ ] Layout: split, split with two Panes open, focus, closing the last Tab closes the Pane, two-Pane JSON round-trip (tested)
-- [ ] A registry in `core` keeps one Document session per open Document, counted by its Tabs; closing one of two Tabs keeps undo, closing the last saves and ends the session (tested)
-- [ ] Split button and Ctrl+\ open the current Document in the other Pane at the same page
-- [ ] Landscape shows the Panes side by side, portrait stacks them; rotating never changes the Layout
-- [ ] A stroke in one Pane shows in the other when both show the same Document
-- [ ] The Focused Pane is marked, and opening from home goes there
-- [ ] On-tablet check written in the PR: split a lecture, write in one Pane and watch it appear in the other, undo from the other, rotate, force-close and reopen with both Panes back
+- [x] Layout: split, split with two Panes open, focus, closing the last Tab closes the Pane, two-Pane JSON round-trip (tested)
+- [x] A registry in `core` keeps one Document session per open Document, counted by its Tabs; closing one of two Tabs keeps undo, closing the last saves and ends the session (tested)
+- [x] Split button and Ctrl+\ open the current Document in the other Pane at the same page
+- [x] Landscape shows the Panes side by side, portrait stacks them; rotating never changes the Layout
+- [x] A stroke in one Pane shows in the other when both show the same Document
+- [x] The Focused Pane is marked, and opening from home goes there
+- [x] On-tablet check written in the PR: split a lecture, write in one Pane and watch it appear in the other, undo from the other, rotate, force-close and reopen with both Panes back

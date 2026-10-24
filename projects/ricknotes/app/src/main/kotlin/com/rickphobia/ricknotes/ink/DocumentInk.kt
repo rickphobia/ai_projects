@@ -77,6 +77,12 @@ internal class DocumentInk private constructor(
     // Counts changes, so Compose reads canUndo and canRedo again after each one.
     private val changes = mutableIntStateOf(0)
 
+    // The session's revision these strokes and Pictures match.
+    private var drawnRevision = held.revision.intValue
+
+    /** The session's revision: it moves on whenever any Tab of the Document changes its ink. */
+    val revision: Int get() = held.revision.intValue
+
     val readOnly: Boolean get() = session.readOnly
     val assetsFolder: File get() = session.assetsFolder.toFile()
     val warnings: List<SessionWarning> get() = session.warnings
@@ -90,14 +96,14 @@ internal class DocumentInk private constructor(
     fun add(stroke: DrawnStroke) {
         session.addStroke(stroke.stroke)
         strokes.add(stroke)
-        changes.intValue++
+        changed()
     }
 
     /** Removes the strokes with these IDs, as one undo step. */
     fun delete(ids: Set<StrokeId>) {
         session.eraseStrokes(ids)
         strokes.removeAll { it.stroke.id in ids }
-        changes.intValue++
+        changed()
     }
 
     /** Moves the strokes with these IDs by [offset], as one undo step; false if none of them is here. */
@@ -154,9 +160,37 @@ internal class DocumentInk private constructor(
             .filter { it.stroke.pageId == pageId && !eraser.hides(it.stroke.id) }
             .sortedBy { it.stroke.tool != Tool.HIGHLIGHTER }
 
-    // Matches the drawn strokes and Pictures to the session's after an undo, redo, move, placing or delete,
-    // keeping the meshes already built of strokes that haven't moved.
+    // After this Tab's own undo, redo, move, placing or delete: draws the session's ink, which now
+    // holds every Tab's changes.
     private fun followSession() {
+        redraw()
+        held.revision.intValue++
+        drawnRevision = held.revision.intValue
+    }
+
+    /**
+     * Draws what another Tab of the Document changed. Its selection may hold strokes that changed,
+     * so it is let go of.
+     */
+    fun catchUp() {
+        if (drawnRevision == held.revision.intValue) return
+        lasso.clear()
+        redraw()
+        drawnRevision = held.revision.intValue
+    }
+
+    // After this Tab added or erased strokes itself. If another Tab's change isn't drawn yet, this
+    // Tab stays behind, so catchUp still draws it.
+    private fun changed() {
+        val current = drawnRevision == held.revision.intValue
+        held.revision.intValue++
+        if (current) drawnRevision = held.revision.intValue
+        changes.intValue++
+    }
+
+    // Matches the drawn strokes and Pictures to the session's, keeping the meshes already built of
+    // strokes that haven't moved.
+    private fun redraw() {
         val built = strokes.associateBy { it.stroke.id }
         val now =
             session.strokes.mapNotNull { stroke ->
