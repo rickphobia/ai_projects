@@ -1,0 +1,13 @@
+-- One row per Lookup. made_at is epoch milliseconds, so a change of time zone never moves one.
+CREATE TABLE lookup (
+  id INTEGER NOT NULL PRIMARY KEY,
+  selection TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  made_at INTEGER NOT NULL
+);
+
+insert:
+INSERT INTO lookup(selection, answer, made_at) VALUES (?, ?, ?);
+
+all:
+SELECT selection, answer, made_at FROM lookup ORDER BY made_at, id;

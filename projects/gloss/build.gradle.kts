@@ -6,6 +6,7 @@ plugins {
     // Applied here too so the root build scripts are checked.
     alias(libs.plugins.ktlint)
     alias(libs.plugins.detekt) apply false
+    alias(libs.plugins.sqldelight) apply false
 }
 
 ktlint {

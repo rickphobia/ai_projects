@@ -3,4 +3,27 @@
   <string name="app_name">Gloss</string>
   <!-- Entries in the text-selection menu. The Preview build labels its own (src/preview/res). -->
   <string name="menu_define">Define</string>
+
+  <!-- The card -->
+  <string name="card_no_key">Add your Anthropic key to use Define.</string>
+  <string name="card_key_rejected">Anthropic didn\'t accept your key.</string>
+  <string name="card_no_internet">Couldn\'t reach Anthropic. Check your internet connection.</string>
+  <string name="card_ai_error">The AI couldn\'t answer just now.</string>
+  <string name="card_retry">Retry</string>
+
+  <!-- First run and Settings -->
+  <string name="key_explained">Gloss answers with your own Anthropic API key. Paste it here: it is checked with a small test call, then stored encrypted on this phone and never backed up.</string>
+  <string name="key_label">Anthropic API key</string>
+  <string name="key_save">Save key</string>
+  <string name="key_checking">Checking…</string>
+  <string name="key_rejected">Anthropic didn\'t accept this key. Check it and try again.</string>
+  <string name="key_no_internet">Couldn\'t reach Anthropic to check the key. Check your internet connection.</string>
+  <string name="key_check_failed">Anthropic couldn\'t check the key just now. Try again in a moment.</string>
+  <string name="settings_key_saved">Your Anthropic key is saved.</string>
+  <string name="settings_where_define_is">Select text in Legado, Chrome or any app, then tap Define in the menu over the selection. It may be under ⋮ or More.</string>
+  <string name="settings_log_explained">The log records what Gloss did (model, tokens, timings, errors), never what you selected or the answers.</string>
+  <string name="add_key">Add key</string>
+  <string name="change_key">Change key</string>
+  <string name="share_log">Share log</string>
+  <string name="cancel">Cancel</string>
 </resources>

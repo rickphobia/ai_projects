@@ -4,7 +4,7 @@ An Android app that explains English words and sentences you highlight in a book
 
 ## Status
 
-`in progress`: ticket 01 (walking skeleton). Selecting text in Legado, Chrome or any app that offers the selection menu shows **Define**; tapping it opens an empty card at the bottom of the screen showing the Selection. Tapping outside the card, swiping it down or pressing back closes it and leaves the app where it was. The card follows the phone's dark mode. There is no AI yet, and no app screen: Gloss has no icon in the app drawer until the first-run screen arrives. Every merge to `main` that raises the version name is released on GitHub, and every pull request gets a separate Preview app.
+`in progress`: tickets 01 and 02. Selecting text in Legado, Chrome or any app that offers the selection menu shows **Define**; tapping it opens a card at the bottom of the screen with the Selection and, a moment later, its meaning in a line or two, from the Selection alone (no Book context yet: that is ticket 03). If there is no internet, the AI fails or Anthropic rejects the key, the card says so with **Retry**, and a rejected key also offers **Change key**. Every answer is saved as a Lookup on the phone. Tapping outside the card, swiping it down or pressing back closes it and leaves the app where it was. The card follows the phone's dark mode. Gloss's icon opens the first-run screen, which asks for your Anthropic API key, and after that Settings (Change key, Share log). Every merge to `main` that raises the version name is released on GitHub, and every pull request gets a separate Preview app.
 
 ## Requirements
 
@@ -50,7 +50,9 @@ There are two apps from one codebase. They install side by side, each with its o
 scripts/tests/pr-try-link.test.sh   # the script CI uses to put the Preview link in a PR body
 ```
 
-`./gradlew lintAll` runs only the linters and `./gradlew :core:test` only the tests. Reports are in `<module>/build/reports/`. The card itself is checked by hand on the phone (spec, "Testing Decisions"): select text in Legado and in Chrome, tap **Define**, and check the card opens, shows the Selection, and closes on an outside tap and on back.
+`./gradlew lintAll` runs only the linters, `./gradlew :core:test` the core's tests and `./gradlew :app:testDebugUnitTest` the app's JVM tests. Reports are in `<module>/build/reports/`. The core's tests drive Define through `Gloss` with a fake AI, a real in-memory database and a stopped clock; they never call Anthropic.
+
+The Anthropic client, the card and the screens are checked by hand on the phone (spec, "Testing Decisions"): open Gloss and save your key (a wrong key is refused), then select a word and a whole sentence in Legado and in Chrome, tap **Define**, and check the card shows the Selection, a loading bar, then a one- or two-line meaning, and closes on an outside tap and on back. Turn on airplane mode and check the card says it couldn't reach Anthropic, with Retry. In Settings, **Share log** should send a log with lines like `messages model=claude-haiku-5-5 status=200 input_tokens=… output_tokens=… latency_ms=…` and no Selection or answer.
 
 ## Releases
 
@@ -69,7 +71,11 @@ The `versionCode` is CI's run number (`GLOSS_BUILD_NUMBER`, 1 for a local build)
 
 Without Obtainium, download the newest `gloss-v*` release's APK from the repo's Releases page on the phone and open it.
 
-Gloss asks for no permissions (no notifications, SMS, accessibility or location), so Play Protect's block on sideloaded apps with those permissions doesn't apply to it.
+Gloss asks only for internet access, which Android grants at install without a prompt; it has no notification, SMS, accessibility or location permission, so Play Protect's block on sideloaded apps with those permissions doesn't apply to it.
+
+### First run: your Anthropic key
+
+Open **Gloss** from the app drawer and paste an Anthropic API key (create one at console.anthropic.com → API keys). Gloss checks it with a free call that lists one model and saves it only if Anthropic accepts it. The key is encrypted with an AES key kept in the Android Keystore, so the stored copy is useless off this phone, and it is never backed up. To replace it, open Gloss and tap **Change key**; the card's **Change key** button (shown when Anthropic rejects the key) opens the same box and returns to the card once the new key is saved. Each Define is one call to Claude Haiku 5.5, a fraction of a cent.
 
 ### Gloss Preview, from a pull request
 
@@ -117,7 +123,7 @@ Until they are set, CI's signed build fails with `The GLOSS_KEYSTORE_BASE64 secr
 
 ## Configuration
 
-The app has no environment variables; its settings will live on the phone (spec, "Storage and settings"). Build-time values come from environment variables listed in `.env.example`:
+The app has no environment variables. The Anthropic key is entered on the phone (see [First run](#first-run-your-anthropic-key)). The model, Anthropic's address and API version, timeouts and the retry wait are in the settings module, `app/src/main/kotlin/com/rickphobia/gloss/settings/PhoneSettings.kt`; changing one is a code change and a new build. Build-time values come from environment variables listed in `.env.example`:
 
 | Variable | Required | What it does |
 |----------|----------|--------------|
@@ -134,18 +140,35 @@ In CI the keystore comes from the `GLOSS_KEYSTORE_BASE64` secret, decoded to a t
 
 Two Gradle modules, set up like duit-log's (copied, not shared):
 
-- **`core`**: plain Kotlin on the JVM with no Android code; it will hold the Gloss core (spec, "Seam 1"). For now it holds `Selection`, the highlighted text with the whitespace around it dropped (or none, when nothing was selected). A build check (`:core:checkNoAndroidDependencies`, part of `lintAll`) fails if an Android library or an `android`/`androidx` import gets into `core`.
-- **`app`**: the Android app. `card/CardActivity` is the one activity: a translucent window, kept out of Recents, that reads the text Android hands it with `PROCESS_TEXT` and shows `card/SelectionCard` (a Material 3 bottom sheet) in `card/GlossTheme` (light or dark, following the phone). Each selection-menu entry is an `<activity-alias>` of it in the manifest (only `.card.Define` so far), so later entries can share the card and tell which one was tapped. It never sets a result: a `PROCESS_TEXT` activity that returns text would replace the Selection in the reader. Nothing is backed up (`res/xml/data_extraction_rules.xml`, and `backup_rules.xml` for Android 10 and 11): the key, Lookups and Notes are meant to stay on the phone. The log goes to logcat (tag `Gloss`) and never contains the Selection.
+- **`core`**: plain Kotlin on the JVM with no Android code: the Gloss core (spec, "Seam 1"). `Gloss` is the one entry point the card uses: `define(Selection)` builds the prompt (`define/DefinePrompt`), asks the AI, saves an answer as a Lookup and returns what the card shows, an answer or a failure (`DefineResult`). It reaches the outside world only through ports: `ai/Ai` (one prompt in, the answer and token usage or an `AiFailure` out), `lookup/LookupStore`, `settings/SettingsSource` and a `java.time.Clock`. A failure is not saved as a Lookup. `lookup/SqlLookupStore` is the store on SQLite: the schema is `src/main/sqldelight/` (`lookup`: Selection, answer, time as epoch milliseconds), compiled by SQLDelight against Android 10's SQLite as in duit-log, so SQL the oldest supported phone can't run fails the build. A build check (`:core:checkNoAndroidDependencies`, part of `lintAll`) fails if an Android library or an `android`/`androidx` import gets into `core`.
+- **`app`**: the Android app, thin adapters around the core, wired together in `GlossApplication`.
+  - `card/CardActivity` is the card: a translucent window, kept out of Recents, that reads the text Android hands it with `PROCESS_TEXT` and shows `card/SelectionCard` (a Material 3 bottom sheet) in `card/GlossTheme` (light or dark, following the phone). `card/CardViewModel` runs the Define on a background thread and survives rotation, so turning the phone doesn't pay twice. Each selection-menu entry is an `<activity-alias>` of it in the manifest (only `.card.Define` so far). It never sets a result: a `PROCESS_TEXT` activity that returns text would replace the Selection in the reader.
+  - `ai/AnthropicClient` is the AI port on Anthropic's Messages API (`HttpURLConnection` and Android's `org.json`, no SDK): connect and read timeouts, one retry after a short wait on a network error, HTTP 401 or 403 as a rejected key, anything else as an AI error. It also checks a key with `GET /v1/models`.
+  - `settings/` holds `PhoneSettings` (the settings module), `ApiKeyStore` (the key, AES-GCM with a Keystore key, ciphertext in private shared preferences) and the launcher screen `SettingsActivity`: the key box on first run or after Change key, then Settings.
+  - `logging/RollingLog` is the log "Share log" sends: `files/logs/gloss.log` plus the one file before it, about 256 KB each, also echoed to logcat (tag `Gloss`). It records the model, tokens, latency, retries, HTTP status and Anthropic's error type, the card opening, and crashes, never the Selection, the answer or the key. Share log copies it to the cache and hands it out through a `FileProvider` limited to that copy.
+  - `storage/PhoneDatabase` opens `gloss.db` with SQLDelight's Android driver.
+  - Nothing is backed up (`res/xml/data_extraction_rules.xml`, and `backup_rules.xml` for Android 10 and 11): the key, the database and the log stay on the phone.
 
 ```
-core/src/main/kotlin/com/rickphobia/gloss/core/   Selection
-core/src/test/kotlin/...                          its JVM tests
-app/src/main/kotlin/com/rickphobia/gloss/card/    the selection-menu card
-app/src/main/res/                                 strings, theme, icon, backup rules
+core/src/main/kotlin/com/rickphobia/gloss/core/   Gloss, Selection, and the ports: ai/, lookup/, settings/; define/ prompts
+core/src/main/sqldelight/                         the database schema and queries (.sq files)
+core/src/test/kotlin/...                          the core's JVM tests
+app/src/main/kotlin/com/rickphobia/gloss/         GlossApplication and the adapters: card/, ai/, settings/, logging/, storage/
+app/src/test/kotlin/...                           the app's JVM tests (the rolling log)
+app/src/main/res/                                 strings, themes, icon, backup rules, the log's FileProvider paths
 app/src/preview/res/                              Gloss Preview's labels
 scripts/                                          SDK setup, the PR-body link script and its test
 config/detekt.yml                                 detekt rules on top of its defaults
 ```
+
+## Troubleshooting
+
+Open Gloss, tap **Share log** and read the newest lines.
+
+- **"Anthropic didn't accept your key":** the log has `status=401` (wrong or revoked key) or `status=403` (the key's workspace can't use the model). Tap **Change key** and paste a working key.
+- **"Couldn't reach Anthropic":** the log has `network error` lines with the reason (no route, DNS, timeout). Gloss retries once after a second; check the phone's connection and tap Retry.
+- **"The AI couldn't answer just now":** the log has the HTTP status and Anthropic's error type, such as `overloaded_error` (529, busy: try again) or `invalid_request_error` (400: the request itself is wrong, which needs a code fix, such as a retired model name in `PhoneSettings`).
+- **The key box appears again after a phone restore:** the Keystore key doesn't survive a restore, so the saved key can't be decrypted; the log says so. Paste the key again.
 
 ## Pinned versions
 
@@ -160,7 +183,9 @@ Every version is pinned: tools and libraries in `gradle/libs.versions.toml`, Gra
 | Compose BOM | 2026.09.00 | Google Maven `androidx.compose:compose-bom` |
 | Activity Compose | 1.13.0 | Google Maven `androidx.activity` |
 | Core KTX | 1.19.1 | Google Maven `androidx.core` |
-| Lifecycle | 2.11.0 | Google Maven `androidx.lifecycle` |
+| Lifecycle (runtime, ViewModel) | 2.11.0 | Google Maven `androidx.lifecycle` |
+| kotlinx.coroutines | 1.11.0 (checked 2026-10-25) | Maven Central `org.jetbrains.kotlinx:kotlinx-coroutines-core` |
+| SQLDelight | 2.4.1 (checked 2026-10-25) | Maven Central `app.cash.sqldelight` |
 | JUnit | 4.13.2 | Maven Central `junit:junit` |
 | ktlint / ktlint Gradle plugin | 1.8.0 / 14.2.0 | Maven Central `com.pinterest.ktlint`, Gradle Plugin Portal |
 | detekt | 1.23.8 (2.0 is still alpha) | Maven Central and Gradle Plugin Portal |
