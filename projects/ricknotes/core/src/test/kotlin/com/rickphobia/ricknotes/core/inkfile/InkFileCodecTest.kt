@@ -1,5 +1,6 @@
 package com.rickphobia.ricknotes.core.inkfile
 
+import com.rickphobia.ricknotes.core.ink.PageBackground
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.Picture
 import com.rickphobia.ricknotes.core.ink.PictureId
@@ -45,7 +46,7 @@ class InkFileCodecTest {
         val text = InkFileCodec.encode(file)
 
         listOf(
-            "\"formatVersion\": 2",
+            "\"formatVersion\": 3",
             "\"pdfPageCount\": 2",
             "\"id\": \"pdf-1\"",
             "\"tool\": \"highlighter\"",
@@ -69,6 +70,44 @@ class InkFileCodecTest {
 
         assertEquals(emptyList<Picture>(), read.pictures)
         assertEquals(StrokeId("a"), read.strokes.single().id)
+    }
+
+    @Test
+    fun `an Inserted page round-trips with its background, and a PDF page is written with none`() {
+        val inserted = InkPage(PageId("inserted-1"), PageBackground.GRID)
+        val withInserted = file.copy(pages = listOf(file.pages[0], inserted, file.pages[1]))
+
+        val text = InkFileCodec.encode(withInserted)
+
+        assertEquals(withInserted, InkFileCodec.decode(text, "a.pdf.ink.json"))
+        assertTrue(text, text.contains("\"id\": \"inserted-1\",\n            \"background\": \"grid\""))
+        assertTrue(text, text.contains("\"id\": \"pdf-1\"\n"))
+    }
+
+    @Test
+    fun `an Ink file written before Inserted pages opens unchanged`() {
+        val version2 =
+            """
+            {"formatVersion": 2, "pdfPageCount": 2, "pages": [{"id": "pdf-1"}, {"id": "pdf-2"}], "strokes": [
+              {"id": "a", "page": "pdf-2", "tool": "pen", "colour": "#FF000000", "widthPt": 1.5,
+               "drawnAtMs": 1760000000000, "points": "7250,10025,400,0"}
+            ], "pictures": []}
+            """.trimIndent()
+
+        val read = InkFileCodec.decode(version2, "a.pdf.ink.json")
+
+        assertEquals(InkFile.pdfPages(2), read.pages)
+        assertEquals(PageId("pdf-2"), read.strokes.single().pageId)
+    }
+
+    @Test
+    fun `an unknown background is reported as damaged`() {
+        val text =
+            InkFileCodec
+                .encode(file.copy(pages = file.pages + InkPage(PageId("inserted-1"), PageBackground.LINED)))
+                .replace("\"lined\"", "\"music\"")
+
+        assertThrows(InkFileDamaged::class.java) { InkFileCodec.decode(text, "a.pdf.ink.json") }
     }
 
     @Test
@@ -106,7 +145,8 @@ class InkFileCodecTest {
             good.replace("7250,10025,400,0,51", "7250,10025,400,0,x"),
             good.replace("7250,10025,400,0,51,-26,112,8,", "7250,10025,400,0,51,-26,"),
             good.replace("\"page\": \"pdf-2\"", "\"page\": \"pdf-9\""),
-            good.replace("\"formatVersion\": 2", "\"formatVersion\": 3"),
+            good.replace("\"formatVersion\": 3", "\"formatVersion\": 4"),
+            """{"formatVersion": 3, "pdfPageCount": 1, "pages": [{"id": "pdf-1"}, {"id": "pdf-1"}], "strokes": []}""",
             good.replace("\"page\": \"pdf-2\",\n            \"image\"", "\"page\": \"pdf-9\",\n            \"image\""),
             good.replace("\"image\": \"p.png\"", "\"image\": \"../p.png\""),
             good.replace("\"heightPt\": 150.25", "\"heightPt\": 0.0"),

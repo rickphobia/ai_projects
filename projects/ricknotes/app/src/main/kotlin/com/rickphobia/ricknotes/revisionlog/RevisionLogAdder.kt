@@ -6,7 +6,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.revisionlog.Entry
 import com.rickphobia.ricknotes.core.revisionlog.EntryKind
 import com.rickphobia.ricknotes.core.revisionlog.EntrySource
@@ -24,6 +23,7 @@ import com.rickphobia.ricknotes.snip.renderSnips
 import com.rickphobia.ricknotes.viewer.PageRenderException
 import com.rickphobia.ricknotes.viewer.PageSize
 import com.rickphobia.ricknotes.viewer.PdfPages
+import com.rickphobia.ricknotes.viewer.documentPages
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -120,10 +120,16 @@ internal class RevisionLogAdder(
         selection: LassoSelection,
         course: CourseFolder,
     ) {
-        val pageIndex = pageSizes.indices.first { PageId.ofPdfPage(it) == selection.pageId }
-        val size = pageSizes[pageIndex]
+        // Numbered as the Document shows it, Inserted pages included.
+        val shown = documentPages(ink.pages, pageSizes)
+        val pageIndex = shown.indexOfFirst { it.id == selection.pageId }
+        val page = shown.getOrNull(pageIndex)
+        if (page == null) {
+            AppLog.w("Add to Revision log: the selection's page ${selection.pageId.value} isn't shown")
+            return
+        }
         val area = selection.snipArea
-        val snip = SnipRegion.of(area, size)
+        val snip = SnipRegion.of(area, page.size)
         if (snip == null) {
             AppLog.w("Add to Revision log: the selection on page ${pageIndex + 1} is off the page")
             return
@@ -136,7 +142,7 @@ internal class RevisionLogAdder(
         scope.launch {
             note =
                 try {
-                    added(course, kind, source, renderSnips(pages, pageIndex, size, snip, strokes))
+                    added(course, kind, source, renderSnips(pages, page, snip, strokes))
                 } catch (e: PageRenderException) {
                     AppLog.e("Entry not added to ${course.name}: its Snips couldn't be drawn", e)
                     RevisionLogNote.Failed(course.name)
