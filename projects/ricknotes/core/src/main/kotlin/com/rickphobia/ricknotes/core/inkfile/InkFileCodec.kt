@@ -36,6 +36,7 @@ object InkFileCodec {
                 pages = file.pages.map { PageJson(it.id.value, it.background?.name?.lowercase()) },
                 strokes = file.strokes.map { it.toJson() },
                 pictures = file.pictures.map { it.toJson() },
+                notebook = file.notebook?.name?.lowercase(),
             ),
         )
 
@@ -77,18 +78,19 @@ object InkFileCodec {
                     throw IllegalArgumentException("picture ${picture.id}: ${e.message}", e)
                 }
             }
-        return InkFile(pdfPageCount, inkPages, inkStrokes, inkPictures)
+        val notebookValue = notebook?.let { backgroundNamed(it) { "the Notebook has an unknown background \"$it\"" } }
+        return InkFile(pdfPageCount, inkPages, inkStrokes, inkPictures, notebookValue)
     }
 
     private fun PageJson.toPage(): InkPage {
-        val backgroundValue =
-            background?.let { name ->
-                requireNotNull(PageBackground.entries.firstOrNull { it.name.lowercase() == name }) {
-                    "page $id has an unknown background \"$name\""
-                }
-            }
+        val backgroundValue = background?.let { backgroundNamed(it) { "page $id has an unknown background \"$it\"" } }
         return InkPage(PageId(id), backgroundValue)
     }
+
+    private fun backgroundNamed(
+        name: String,
+        unknown: () -> String,
+    ): PageBackground = requireNotNull(PageBackground.entries.firstOrNull { it.name.lowercase() == name }, unknown)
 
     private fun Picture.toJson() = PictureJson(id.value, pageId.value, imageFile, left, top, widthPt, heightPt)
 
@@ -132,6 +134,8 @@ private data class InkFileJson(
     val strokes: List<StrokeJson>,
     // Absent from format version 1, written before Pictures.
     val pictures: List<PictureJson> = emptyList(),
+    // Only on a Notebook. An older app ignores it, so it isn't a format version of its own.
+    val notebook: String? = null,
 )
 
 // [background] is set only on an Inserted page, and absent before format version 3.

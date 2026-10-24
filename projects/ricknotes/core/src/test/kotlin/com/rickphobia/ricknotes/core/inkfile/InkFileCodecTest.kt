@@ -101,6 +101,24 @@ class InkFileCodecTest {
     }
 
     @Test
+    fun `a Notebook's background round-trips, and other Documents have none`() {
+        val notebook = file.copy(notebook = PageBackground.DOTTED)
+
+        val text = InkFileCodec.encode(notebook)
+
+        assertEquals(notebook, InkFileCodec.decode(text, "a.pdf.ink.json"))
+        assertTrue(text, text.contains("\"notebook\": \"dotted\""))
+        assertEquals(null, InkFileCodec.decode(InkFileCodec.encode(file), "a.pdf.ink.json").notebook)
+    }
+
+    @Test
+    fun `an unknown Notebook background is reported as damaged`() {
+        val text = InkFileCodec.encode(file.copy(notebook = PageBackground.LINED)).replace("\"lined\"", "\"music\"")
+
+        assertThrows(InkFileDamaged::class.java) { InkFileCodec.decode(text, "a.pdf.ink.json") }
+    }
+
+    @Test
     fun `an unknown background is reported as damaged`() {
         val text =
             InkFileCodec
