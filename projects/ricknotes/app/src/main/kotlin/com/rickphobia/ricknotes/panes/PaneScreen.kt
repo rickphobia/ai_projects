@@ -98,6 +98,7 @@ internal fun PaneScreen(
     val layout = context.layout
     val paneCount = layout.layout.panes.size
     PaneShortcuts(context)
+    MissingDocumentCheck(context.studyFolder, layout)
     if (paneCount == 0) {
         LaunchedEffect(Unit) { context.navigation.home() }
         return
@@ -181,9 +182,8 @@ private fun TreeDrawerOver(
 }
 
 /**
- * The Pane at [index]: its tab bar, and the selected Tab showing its Document. A Tab is opened the
- * first time it is selected and stays open, drawing nothing, while another is selected. Touching
- * the Pane anywhere makes it the Focused Pane, which is marked while there are two.
+ * The Pane at [index]: its tab bar, and the selected Tab showing its Document. Touching the Pane
+ * anywhere makes it the Focused Pane, which is marked while there are two.
  */
 @Composable
 private fun OnePane(
@@ -197,10 +197,6 @@ private fun OnePane(
     val layout = context.layout
     val pane = layout.layout.panes.getOrNull(index) ?: return
     val marked = layout.layout.panes.size > 1 && layout.layout.focused == index
-    val selected = pane.selectedTab.path
-    // Not Compose state: it only grows while the selected Tab is drawn, so nothing reads it stale.
-    val selectedOnce = remember { mutableSetOf<String>() }
-    selectedOnce.add(selected)
     DisposableEffect(index) { onDispose { dragging.paneBounds.remove(index) } }
     val navigation =
         DocumentNavigation(
@@ -233,8 +229,33 @@ private fun OnePane(
                 dropped = { tab, at -> dragging.dropped(index, tab, at) },
             ),
         )
-        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-            pane.tabs.filter { it.path in selectedOnce }.forEach { tab ->
+        PaneTabs(context, index, shared, navigation, Modifier.fillMaxWidth().weight(1f))
+    }
+}
+
+/**
+ * The Tabs of the Pane at [index] below its tab bar. A Tab is opened the first time it is selected
+ * and stays open, drawing nothing, while another is selected; a missing one shows [MissingDocument].
+ */
+@Composable
+private fun PaneTabs(
+    context: PaneContext,
+    index: Int,
+    shared: SharedTo?,
+    navigation: DocumentNavigation,
+    modifier: Modifier,
+) {
+    val layout = context.layout
+    val pane = layout.layout.panes.getOrNull(index) ?: return
+    val selected = pane.selectedTab.path
+    // Not Compose state: it only grows while the selected Tab is drawn, so nothing reads it stale.
+    val selectedOnce = remember { mutableSetOf<String>() }
+    selectedOnce.add(selected)
+    Box(modifier = modifier) {
+        pane.tabs.forEachIndexed { tabIndex, tab ->
+            if (tab.missing) {
+                if (tab.path == selected) MissingDocument { layout.change { close(index, tabIndex) } }
+            } else if (tab.path in selectedOnce) {
                 key(tab.path) {
                     val document =
                         remember {
