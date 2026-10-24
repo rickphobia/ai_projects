@@ -1,12 +1,15 @@
 package com.rickphobia.ricknotes.core.session
 
 import com.rickphobia.ricknotes.core.ink.InkTool
+import com.rickphobia.ricknotes.core.ink.PageBackground
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.PenColour
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.ink.StrokePoint
 import com.rickphobia.ricknotes.core.ink.Tool
+import com.rickphobia.ricknotes.core.inkfile.InkFile
+import com.rickphobia.ricknotes.core.inkfile.InkFileCodec
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -205,6 +208,23 @@ class DocumentSessionTest {
 
         assertEquals(StrokeId("first"), reopened.id)
         assertEquals(PageId("pdf-2"), reopened.pageId)
+    }
+
+    @Test
+    fun `a Notebook keeps its background through saves`() {
+        Files.writeString(inkFile, InkFileCodec.encode(InkFile.empty(1).copy(notebook = PageBackground.GRID)))
+        open(pageCount = 1).apply {
+            assertEquals(PageBackground.GRID, notebook)
+            addStroke(stroke("a"))
+            saveNow()
+        }
+
+        assertEquals(PageBackground.GRID, open(pageCount = 1).notebook)
+    }
+
+    @Test
+    fun `a Document that isn't a Notebook has no Notebook background`() {
+        assertEquals(null, open().notebook)
     }
 
     @Test

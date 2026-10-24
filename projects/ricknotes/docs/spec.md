@@ -218,7 +218,7 @@ The main test seam. One session per open Document; the UI talks only to it.
 Decision 0003 has the reasons. One file per Document, named `<pdf name>.ink.json`, beside the PDF.
 
 - Readable JSON with a format version number, the PDF's page count when the file was last saved, the page list, and the strokes.
-- **Page list:** the PDF's own pages plus any inserted pages, each with a stable ID, so inserting a page never renumbers anything. An inserted page records its background (blank, lined, grid, dotted) and has A4 portrait size.
+- **Page list:** the PDF's own pages plus any inserted pages, each with a stable ID, so inserting a page never renumbers anything. An inserted page records its background (blank, lined, grid, dotted) and has A4 portrait size. A Notebook's Ink file also records the background printed into its PDF (`notebook`), so Add page can match it; older apps ignore the field.
 - **Each stroke:** a stable ID, the page ID it belongs to, tool (pen or highlighter), colour, width, time drawn, and its points (x, y, pressure, time) in page coordinates, packed by `core` itself as difference-encoded integers stored as text (decision 0003). Jetpack Ink's own encoding is not used, because it is Android-only and would keep Ink files out of the JVM tests. Page coordinates are PDF points (1/72 inch), so ink lines up at any zoom or screen size.
 - Placed Snips (milestone 7) are recorded as an image file name in `<pdf name>.assets/`, page ID, position and size.
 - Hidden temporary files and `.versions` use names the sync app can be told to skip.

@@ -73,14 +73,14 @@ fun HomeScreen(
     navigation: HomeNavigation,
 ) {
     val folder = remember(studyFolder) { StudyFolder(Path.of(studyFolder)) }
-    val editing = rememberTreeEditState(studyFolder, library.edits)
+    val open = { document: TreeNode.Document ->
+        navigation.openPdf(PdfEntry(folder.resolve(document.path).toString(), document.folder, document.name))
+    }
+    val editing = rememberTreeEditState(studyFolder, library.edits, { library.courses.folders }, open)
     val listing by rememberListing(folder, library.recentPaths, editing.generation)
     // Null until counted; counted again each time the home screen shows, so after Review too.
     val dueCount by produceState<Int?>(initialValue = null, studyFolder) {
         value = withContext(Dispatchers.IO) { library.dueCount() }
-    }
-    val open = { document: TreeNode.Document ->
-        navigation.openPdf(PdfEntry(folder.resolve(document.path).toString(), document.folder, document.name))
     }
     val opens =
         TreeOpens(
@@ -121,6 +121,7 @@ fun HomeScreen(
                     TreeEditDialogs(
                         it,
                         current.tree,
+                        editing.notebookActions,
                         onEdit = editing::run,
                     ) { editing.dialog = null }
                 }

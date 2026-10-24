@@ -67,10 +67,11 @@ class DocumentDrag(
 
 /**
  * What the long-press menu offers on the home screen beside the Course folder mark: each opens its
- * dialog. [newFolder] takes the tree path of the folder to make it in.
+ * dialog. [newFolder] and [newNotebook] take the tree path of the folder that was long-pressed.
  */
 class TreeEditMenu(
     val newFolder: (String) -> Unit,
+    val newNotebook: (String) -> Unit,
     val rename: (TreeNode) -> Unit,
     val moveTo: (TreeNode) -> Unit,
     val linkToPdf: (TreeNode.OrphanedInk) -> Unit,
@@ -94,7 +95,7 @@ class TreeOpens(
  * The Study folder tree, on the home screen and in the tree drawer: tap a folder to open or close
  * it, tap a PDF to open it (or long-press and drag it out, where that is offered), long-press a
  * folder to mark or unmark it as a Course folder, drop a PDF onto a folder to copy it in. With
- * [TreeOpens.edits], long-pressing a folder also offers New folder, Rename and Move to…, and
+ * [TreeOpens.edits], long-pressing a folder also offers New folder, New Notebook, Rename and Move to…, and
  * long-pressing a Document offers Rename and Move to…; Orphaned ink shows greyed, and tapping or
  * long-pressing it offers Link to PDF…. An open Course folder starts with its
  * Revision log row.
@@ -207,7 +208,10 @@ private fun RowMenu(
             MenuItem(if (course) R.string.unmark_course else R.string.mark_as_course) {
                 choose { if (course) courses.unmark(node.path) else courses.mark(node.path) }
             }
-            if (edits != null) MenuItem(R.string.new_folder) { choose { edits.newFolder(node.path) } }
+            if (edits != null) {
+                MenuItem(R.string.new_folder) { choose { edits.newFolder(node.path) } }
+                MenuItem(R.string.new_notebook) { choose { edits.newNotebook(node.path) } }
+            }
         }
         if (edits != null && node is TreeNode.OrphanedInk) {
             MenuItem(R.string.link_to_pdf) { choose { edits.linkToPdf(node) } }

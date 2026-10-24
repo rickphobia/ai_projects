@@ -26,6 +26,11 @@
   <string name="new_folder">New folder</string>
   <string name="new_folder_in">New folder in %1$s</string>
   <string name="create">Create</string>
+  <string name="new_notebook">New Notebook</string>
+  <string name="new_notebook_in">New Notebook in %1$s</string>
+  <string name="notebook_made">Notebook made: name it</string>
+  <string name="open">Open</string>
+  <string name="keep_name">Keep this name</string>
   <string name="rename">Rename</string>
   <string name="rename_title">Rename %1$s</string>
   <string name="move_to">Move to…</string>
@@ -166,6 +171,7 @@
   <string name="background_lined">Lined</string>
   <string name="background_grid">Grid</string>
   <string name="background_dotted">Dotted</string>
+  <string name="add_page">Add page</string>
   <string name="remove_page">Remove page %1$d</string>
   <string name="remove_page_title">Remove this page?</string>
   <string name="remove_page_text">Its ink goes with it. Undo brings the page and its ink back.</string>

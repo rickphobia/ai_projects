@@ -90,6 +90,9 @@ internal class DocumentInk private constructor(
     val revision: Int get() = held.revision.intValue
 
     val readOnly: Boolean get() = session.readOnly
+
+    /** The background printed into this Document if the app made it as a Notebook, else null. */
+    val notebook: PageBackground? get() = session.notebook
     val assetsFolder: File get() = session.assetsFolder.toFile()
     val warnings: List<SessionWarning> get() = session.warnings
     val saveStatus: SaveStatus get() = held.status.current.value
@@ -155,6 +158,9 @@ internal class DocumentInk private constructor(
             AppLog.i("inserted a ${background.name.lowercase()} page after ${after.value} in ${pdf.name}")
             followSession()
         }
+
+    /** Adds an Inserted page with the Notebook's background after the last page; null if this isn't a Notebook. */
+    fun addNotebookPage(): InkPage? = notebook?.let { insertPageAfter(pageList.last().id, it) }
 
     /** True if page [id] has strokes or Pictures, so removing it asks first. */
     fun hasInk(id: PageId): Boolean = session.hasInk(id)

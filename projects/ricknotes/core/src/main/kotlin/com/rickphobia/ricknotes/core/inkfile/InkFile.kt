@@ -18,13 +18,16 @@ data class InkPage(
 
 /**
  * Everything an Ink file holds: the PDF's page count when it was saved, the page list, the strokes
- * and the Pictures. The PDF itself is never written to (decision 0003).
+ * and the Pictures. The PDF itself is never written to (decision 0003). [notebook] is the
+ * background printed into the PDF when the app made it as a Notebook, so Add page can match it;
+ * null for every other Document.
  */
 data class InkFile(
     val pdfPageCount: Int,
     val pages: List<InkPage>,
     val strokes: List<Stroke>,
     val pictures: List<Picture> = emptyList(),
+    val notebook: PageBackground? = null,
 ) {
     companion object {
         /** A Document nobody has written on yet: one page per PDF page, no strokes and no Pictures. */
