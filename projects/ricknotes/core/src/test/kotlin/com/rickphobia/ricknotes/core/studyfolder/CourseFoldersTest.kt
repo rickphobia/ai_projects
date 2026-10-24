@@ -58,4 +58,19 @@ class CourseFoldersTest {
         assertEquals(none, none.mark("Misc").unmark("Misc"))
         assertEquals(CourseFolders(unmarked = setOf("Y1/Sem1/EE2001")), none.unmark("Y1/Sem1/EE2001"))
     }
+
+    @Test
+    fun `marks on and inside a renamed folder follow it`() {
+        val folders =
+            none
+                .mark("Misc")
+                .mark("Y1/labs")
+                .unmark("Y1/Sem1/EE2001")
+                .mark("Y10")
+
+        val renamed = folders.renamed("Y1", "Year 1")
+
+        assertEquals(setOf("Misc", "Year 1/labs", "Y10"), renamed.marked)
+        assertEquals(setOf("Year 1/Sem1/EE2001"), renamed.unmarked)
+    }
 }

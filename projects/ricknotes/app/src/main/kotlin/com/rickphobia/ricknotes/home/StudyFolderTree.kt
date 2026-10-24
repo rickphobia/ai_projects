@@ -1,5 +1,6 @@
 package com.rickphobia.ricknotes.home
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -64,22 +65,36 @@ class DocumentDrag(
 )
 
 /**
+ * What the long-press menu offers on the home screen beside the Course folder mark: each opens its
+ * dialog. [newFolder] takes the tree path of the folder to make it in.
+ */
+class TreeEditMenu(
+    val newFolder: (String) -> Unit,
+    val rename: (TreeNode) -> Unit,
+    val moveTo: (TreeNode) -> Unit,
+)
+
+/**
  * What tapping opens: a Document, or a Course folder's Revision log by the folder's path (with no
  * [revisionLog], no Revision log row shows). [pdfDrop] makes the target that takes a PDF dropped
- * onto a folder, by the folder's path; with [documentDrag], a Document can be dragged out.
+ * onto a folder, by the folder's path; with [documentDrag], a Document can be dragged out; with
+ * [edits], the long-press menu changes the tree.
  */
 class TreeOpens(
     val document: (TreeNode.Document) -> Unit,
     val revisionLog: ((String) -> Unit)?,
     val pdfDrop: ((String) -> DragAndDropTarget)?,
     val documentDrag: DocumentDrag? = null,
+    val edits: TreeEditMenu? = null,
 )
 
 /**
- * The browse-only Study folder tree, on the home screen and in the tree drawer: tap a folder to
- * open or close it, tap a PDF to open it (or long-press and drag it out, where that is offered),
- * long-press a folder to mark or unmark it as a Course folder, drop a PDF onto a folder to copy it
- * in. An open Course folder starts with its Revision log row.
+ * The Study folder tree, on the home screen and in the tree drawer: tap a folder to open or close
+ * it, tap a PDF to open it (or long-press and drag it out, where that is offered), long-press a
+ * folder to mark or unmark it as a Course folder, drop a PDF onto a folder to copy it in. With
+ * [TreeOpens.edits], long-pressing a folder also offers New folder, Rename and Move to…, and
+ * long-pressing a Document offers Rename and Move to…. An open Course folder starts with its
+ * Revision log row.
  */
 @Composable
 fun StudyFolderTree(
@@ -89,7 +104,9 @@ fun StudyFolderTree(
     opens: TreeOpens,
     modifier: Modifier = Modifier,
 ) {
-    var expanded by remember(tree) { mutableStateOf(initiallyExpanded) }
+    val edits = opens.edits
+    // Not keyed on the tree: listing it again after an edit keeps the folders that were open.
+    var expanded by remember { mutableStateOf(initiallyExpanded) }
     var menuFor by remember { mutableStateOf<String?>(null) }
     val rows = remember(tree, expanded) { TreeLayout.visibleRows(tree, expanded) }
 
@@ -101,6 +118,8 @@ fun StudyFolderTree(
             val dropTarget =
                 (node as? TreeNode.Folder)?.let { folder -> pdfDrop?.let { remember(folder.path) { it(folder.path) } } }
             val drag = opens.documentDrag?.let { drag -> (node as? TreeNode.Document)?.let { DraggedOut(it, drag) } }
+            // Where it can be dragged out, a Document's long-press is left to that.
+            val hasMenu = node is TreeNode.Folder || (edits != null && drag == null)
             Box(modifier = Modifier.takingPdfs(dropTarget).draggingOut(drag)) {
                 TreeRowContent(
                     row = row,
@@ -112,19 +131,15 @@ fun StudyFolderTree(
                             is TreeNode.Document -> opens.document(node)
                         }
                     },
-                    // A Document's long-press is left to dragging it out.
-                    onLongClick = if (node is TreeNode.Folder) ({ menuFor = node.path }) else null,
+                    onLongClick = { menuFor = node.path }.takeIf { hasMenu },
                 )
-                DropdownMenu(expanded = menuFor == node.path, onDismissRequest = { menuFor = null }) {
-                    val label = if (isCourse) R.string.unmark_course else R.string.mark_as_course
-                    DropdownMenuItem(
-                        text = { Text(stringResource(label)) },
-                        onClick = {
-                            menuFor = null
-                            if (isCourse) courses.unmark(node.path) else courses.mark(node.path)
-                        },
-                    )
-                }
+                RowMenu(
+                    node = node,
+                    shown = menuFor == node.path,
+                    course = isCourse,
+                    actions = RowMenuActions(courses, edits),
+                    onDismiss = { menuFor = null },
+                )
             }
             HorizontalDivider()
             // An open Course folder's first row is its Revision log, above its own files.
@@ -148,6 +163,48 @@ fun StudyFolderTree(
             }
         }
     }
+}
+
+private class RowMenuActions(
+    val courses: CourseFolderActions,
+    val edits: TreeEditMenu?,
+)
+
+/** A row's long-press menu: a folder's Course mark, and the edits where they are offered. */
+@Composable
+private fun RowMenu(
+    node: TreeNode,
+    shown: Boolean,
+    course: Boolean,
+    actions: RowMenuActions,
+    onDismiss: () -> Unit,
+) {
+    val edits = actions.edits
+    val choose = { action: () -> Unit ->
+        onDismiss()
+        action()
+    }
+    DropdownMenu(expanded = shown, onDismissRequest = onDismiss) {
+        if (node is TreeNode.Folder) {
+            val courses = actions.courses
+            MenuItem(if (course) R.string.unmark_course else R.string.mark_as_course) {
+                choose { if (course) courses.unmark(node.path) else courses.mark(node.path) }
+            }
+            if (edits != null) MenuItem(R.string.new_folder) { choose { edits.newFolder(node.path) } }
+        }
+        if (edits != null) {
+            MenuItem(R.string.rename) { choose { edits.rename(node) } }
+            MenuItem(R.string.move_to) { choose { edits.moveTo(node) } }
+        }
+    }
+}
+
+@Composable
+private fun MenuItem(
+    @StringRes label: Int,
+    onClick: () -> Unit,
+) {
+    DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = onClick)
 }
 
 // Folder rows take dropped PDFs; Documents take nothing.

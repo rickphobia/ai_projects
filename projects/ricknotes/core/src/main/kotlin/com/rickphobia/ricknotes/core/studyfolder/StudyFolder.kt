@@ -21,7 +21,7 @@ typealias UnreadableFolderListener = (folder: String, error: StudyFolderListingE
 /**
  * The Study folder as the home screen sees it: folders and PDFs only. The app's own files
  * (Ink files, `.assets`, `.versions`, `_revision_log`, `_ricknotes`, hidden temporary files) are left out.
- * Browse only; creating, renaming and moving come in milestone 3.
+ * Listing only; [TreeEdits] creates, renames and moves.
  */
 class StudyFolder(
     private val root: Path,

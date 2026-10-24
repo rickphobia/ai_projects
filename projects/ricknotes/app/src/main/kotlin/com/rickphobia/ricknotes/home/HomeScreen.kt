@@ -32,12 +32,14 @@ import java.nio.file.Path
 
 /**
  * What the home screen reads: the Recent Documents and the Course folder marks from settings, and
- * [dueCount], how many Entries Review has today (slow: it is called off the main thread).
+ * [dueCount], how many Entries Review has today (slow: it is called off the main thread). [edits]
+ * is what a new folder, rename or move needs beside the files.
  */
 class HomeLibrary(
     val recentPaths: () -> List<String>,
     val courses: CourseFolderActions,
     val dueCount: () -> Int,
+    val edits: TreeEditHooks,
 )
 
 /** Where the home screen leads. [openRevisionLog] takes a Course folder relative to the Study folder. */
@@ -71,7 +73,8 @@ fun HomeScreen(
     navigation: HomeNavigation,
 ) {
     val folder = remember(studyFolder) { StudyFolder(Path.of(studyFolder)) }
-    val listing by rememberListing(folder, library.recentPaths)
+    val editing = rememberTreeEditState(studyFolder, library.edits)
+    val listing by rememberListing(folder, library.recentPaths, editing.generation)
     // Null until counted; counted again each time the home screen shows, so after Review too.
     val dueCount by produceState<Int?>(initialValue = null, studyFolder) {
         value = withContext(Dispatchers.IO) { library.dueCount() }
@@ -79,7 +82,13 @@ fun HomeScreen(
     val open = { document: TreeNode.Document ->
         navigation.openPdf(PdfEntry(folder.resolve(document.path).toString(), document.folder, document.name))
     }
-    val pdfDrop = rememberPdfDrops(folder, navigation.openPdf)
+    val opens =
+        TreeOpens(
+            document = open,
+            revisionLog = navigation.openRevisionLog,
+            pdfDrop = rememberPdfDrops(folder, navigation.openPdf),
+            edits = editing.menu,
+        )
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -90,11 +99,9 @@ fun HomeScreen(
             Text(text = stringResource(R.string.version, versionName), style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = navigation.openSettings) { Text(stringResource(R.string.settings)) }
         }
-        Button(onClick = navigation.openReview, modifier = Modifier.padding(top = 16.dp)) {
-            Text(
-                dueCount?.let { pluralStringResource(R.plurals.review_due, it, it) } ?: stringResource(R.string.review),
-            )
-        }
+        // The top of the Study folder has no row to long-press, so it gets its own New folder button.
+        val newFolder = { editing.menu.newFolder("") }
+        HomeActions(dueCount, navigation.openReview, newFolder.takeIf { listing is Listing.Ready })
         when (val current = listing) {
             Listing.Loading -> {
                 Text(stringResource(R.string.listing_pdfs), modifier = Modifier.padding(top = 24.dp))
@@ -109,21 +116,59 @@ fun HomeScreen(
             }
 
             is Listing.Ready -> {
-                if (current.recent.isNotEmpty()) {
-                    RecentDocumentsRow(current.recent, onOpen = open, modifier = Modifier.padding(top = 16.dp))
-                }
-                if (current.tree.children.isEmpty()) {
-                    Text(stringResource(R.string.no_pdfs), modifier = Modifier.padding(top = 24.dp))
-                } else {
-                    StudyFolderTree(
-                        tree = current.tree,
-                        initiallyExpanded = current.initiallyExpanded,
-                        courses = library.courses,
-                        opens = TreeOpens(document = open, revisionLog = navigation.openRevisionLog, pdfDrop = pdfDrop),
-                        modifier = Modifier.padding(top = 16.dp),
-                    )
+                HomeTree(current, library.courses, opens)
+                editing.dialog?.let {
+                    TreeEditDialogs(
+                        it,
+                        current.tree,
+                        onEdit = editing::run,
+                    ) { editing.dialog = null }
                 }
             }
         }
+    }
+}
+
+/** Review, with how many Entries are due once counted, and New folder at the top of the tree when offered. */
+@Composable
+private fun HomeActions(
+    dueCount: Int?,
+    openReview: () -> Unit,
+    newFolder: (() -> Unit)?,
+) {
+    Row(modifier = Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Button(onClick = openReview) {
+            Text(
+                dueCount?.let { pluralStringResource(R.plurals.review_due, it, it) } ?: stringResource(R.string.review),
+            )
+        }
+        if (newFolder != null) {
+            TextButton(onClick = newFolder, modifier = Modifier.padding(start = 8.dp)) {
+                Text(stringResource(R.string.new_folder))
+            }
+        }
+    }
+}
+
+/** The Recent Documents row and the tree, once the Study folder is listed. */
+@Composable
+private fun HomeTree(
+    listing: Listing.Ready,
+    courses: CourseFolderActions,
+    opens: TreeOpens,
+) {
+    if (listing.recent.isNotEmpty()) {
+        RecentDocumentsRow(listing.recent, onOpen = opens.document, modifier = Modifier.padding(top = 16.dp))
+    }
+    if (listing.tree.children.isEmpty()) {
+        Text(stringResource(R.string.no_pdfs), modifier = Modifier.padding(top = 24.dp))
+    } else {
+        StudyFolderTree(
+            tree = listing.tree,
+            initiallyExpanded = listing.initiallyExpanded,
+            courses = courses,
+            opens = opens,
+            modifier = Modifier.padding(top = 16.dp),
+        )
     }
 }

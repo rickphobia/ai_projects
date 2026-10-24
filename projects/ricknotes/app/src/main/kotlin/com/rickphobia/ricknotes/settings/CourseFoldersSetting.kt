@@ -22,6 +22,15 @@ class CourseFoldersSetting<S>(
 
     override fun unmark(folder: String) = change(folders.unmark(folder), "unmarked")
 
+    /** The marks on and inside the folder [from] follow it to [to], renamed or moved in the app. */
+    fun renamed(
+        from: String,
+        to: String,
+    ) {
+        val renamed = folders.renamed(from, to)
+        if (renamed != folders) change(renamed, "marks followed a rename")
+    }
+
     private fun change(
         folders: CourseFolders,
         what: String,

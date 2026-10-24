@@ -30,6 +30,16 @@ data class CourseFolders(
             copy(marked = marked - folder)
         }
 
+    /** These folders with every mark on or inside the folder [from] carried to [to]. */
+    fun renamed(
+        from: String,
+        to: String,
+    ): CourseFolders =
+        CourseFolders(
+            marked = marked.mapTo(mutableSetOf()) { renamedPath(it, from, to) ?: it },
+            unmarked = unmarked.mapTo(mutableSetOf()) { renamedPath(it, from, to) ?: it },
+        )
+
     companion object {
         // Year → Sem → course.
         const val COURSE_DEPTH = 3

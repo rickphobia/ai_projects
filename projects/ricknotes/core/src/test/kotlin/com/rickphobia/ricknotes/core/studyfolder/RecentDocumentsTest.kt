@@ -69,4 +69,29 @@ class RecentDocumentsTest {
 
         assertEquals(listOf("a.pdf", "b.pdf"), recent().paths())
     }
+
+    @Test
+    fun `a renamed Document keeps its place in the row`() {
+        listOf("a.pdf", "Y1/b.pdf", "c.pdf").forEach { recent().opened(it) }
+
+        recent().renamed("Y1/b.pdf", "Y2/d.pdf")
+
+        assertEquals(listOf("c.pdf", "Y2/d.pdf", "a.pdf"), recent().paths())
+    }
+
+    @Test
+    fun `Documents inside a renamed folder follow it, and no others`() {
+        listOf("Y1/Sem1/a.pdf", "Y10/b.pdf").forEach { recent().opened(it) }
+
+        recent().renamed("Y1", "Y2")
+
+        assertEquals(listOf("Y10/b.pdf", "Y2/Sem1/a.pdf"), recent().paths())
+    }
+
+    @Test
+    fun `a rename that touches no Recent Document writes nothing`() {
+        recent().renamed("a.pdf", "b.pdf")
+
+        assertEquals(emptyMap<String, String>(), settings.stored)
+    }
 }
