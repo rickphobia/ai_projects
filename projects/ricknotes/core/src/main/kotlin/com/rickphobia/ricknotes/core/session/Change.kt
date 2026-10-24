@@ -3,12 +3,50 @@ package com.rickphobia.ricknotes.core.session
 import com.rickphobia.ricknotes.core.ink.Picture
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
+import com.rickphobia.ricknotes.core.inkfile.InkPage
 
-/** One undo step: a change to a Document's strokes or Pictures that can be made and taken back. */
+/** One undo step: a change to a Document's pages, strokes or Pictures that can be made and taken back. */
 internal sealed interface Change {
     fun apply(content: InkContent)
 
     fun undo(content: InkContent)
+
+    /** [inserted] holds the new page with the place it goes in the page list. */
+    data class PageInserted(
+        val inserted: IndexedValue<InkPage>,
+    ) : Change {
+        override fun apply(content: InkContent) {
+            val pages = content.pages
+            pages.add(inserted.index.coerceAtMost(pages.size), inserted.value)
+        }
+
+        override fun undo(content: InkContent) {
+            content.pages.removeAll { it.id == inserted.value.id }
+        }
+    }
+
+    /**
+     * An Inserted page taken out with its [strokes] and [pictures], each with its place in its list,
+     * so undo brings the page and everything on it back exactly where it was.
+     */
+    data class PageRemoved(
+        val removed: IndexedValue<InkPage>,
+        val strokes: List<IndexedValue<Stroke>>,
+        val pictures: List<IndexedValue<Picture>>,
+    ) : Change {
+        override fun apply(content: InkContent) {
+            val id = removed.value.id
+            content.pages.removeAll { it.id == id }
+            content.strokes.removeAll { it.pageId == id }
+            content.pictures.removeAll { it.pageId == id }
+        }
+
+        override fun undo(content: InkContent) {
+            content.pages.putBack(listOf(removed))
+            content.strokes.putBack(strokes)
+            content.pictures.putBack(pictures)
+        }
+    }
 
     data class Added(
         val stroke: Stroke,
@@ -71,11 +109,7 @@ internal sealed interface Change {
             content.strokes.removeAll { it.id in ids }
         }
 
-        override fun undo(content: InkContent) {
-            val strokes = content.strokes
-            // In ascending order, each index is right once the ones before it are back.
-            erased.sortedBy { it.index }.forEach { strokes.add(it.index.coerceAtMost(strokes.size), it.value) }
-        }
+        override fun undo(content: InkContent) = content.strokes.putBack(erased)
     }
 
     /** [before] holds the strokes as they were, so undo puts them back exactly, with no rounding. */
@@ -95,3 +129,8 @@ internal sealed interface Change {
         ) = strokes.replaceAll { byId[it.id] ?: it }
     }
 }
+
+// Puts each item back at its old place. In ascending order, each index is right once the ones
+// before it are back.
+private fun <T> MutableList<T>.putBack(items: List<IndexedValue<T>>) =
+    items.sortedBy { it.index }.forEach { add(it.index.coerceAtMost(size), it.value) }

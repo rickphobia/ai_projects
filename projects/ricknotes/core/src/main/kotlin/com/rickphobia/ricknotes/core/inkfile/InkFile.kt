@@ -1,13 +1,20 @@
 package com.rickphobia.ricknotes.core.inkfile
 
+import com.rickphobia.ricknotes.core.ink.PageBackground
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.Picture
 import com.rickphobia.ricknotes.core.ink.Stroke
 
-/** One page of a Document as its Ink file lists it. Inserted pages (milestone 3) will add a background. */
+/**
+ * One page of a Document as its Ink file lists it: one of the PDF's own pages, or an Inserted page,
+ * which has a [background] and is A4 portrait ([com.rickphobia.ricknotes.core.ink.Paper]).
+ */
 data class InkPage(
     val id: PageId,
-)
+    val background: PageBackground? = null,
+) {
+    val inserted: Boolean get() = background != null
+}
 
 /**
  * Everything an Ink file holds: the PDF's page count when it was saved, the page list, the strokes

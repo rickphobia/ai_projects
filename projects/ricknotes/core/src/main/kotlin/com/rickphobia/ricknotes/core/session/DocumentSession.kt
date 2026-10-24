@@ -1,5 +1,6 @@
 package com.rickphobia.ricknotes.core.session
 
+import com.rickphobia.ricknotes.core.ink.PageBackground
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.Picture
 import com.rickphobia.ricknotes.core.ink.PictureFrame
@@ -52,17 +53,26 @@ class DocumentSession private constructor(
 
     private val assets = PictureAssets(store.pdf)
     private val pageCount = pdfPageCount
-    private val pages: List<InkPage> = loaded.pages + InkFile.pdfPages(pdfPageCount).filter { it !in loaded.pages }
-    private val history = InkHistory(InkContent(loaded.strokes, loaded.pictures))
+    private val history =
+        InkHistory(
+            InkContent(
+                loaded.pages + InkFile.pdfPages(pdfPageCount).filter { it !in loaded.pages },
+                loaded.strokes,
+                loaded.pictures,
+            ),
+        )
     private val saving =
         AutoSave(
             store.inkFile,
             clock,
             listener,
             readOnly,
-            snapshot = { InkFile(pageCount, pages, history.strokes, history.pictures) },
+            snapshot = { InkFile(pageCount, history.pages, history.strokes, history.pictures) },
         ) { InkFileCodec.encode(it).toByteArray(Charsets.UTF_8) }
     private val lock = saving.lock
+
+    /** Every page in the order it shows: the PDF's own pages with any Inserted pages between them. */
+    val pages: List<InkPage> get() = synchronized(lock) { history.pages }
 
     val strokes: List<Stroke> get() = synchronized(lock) { history.strokes }
 
@@ -147,6 +157,35 @@ class DocumentSession private constructor(
         return edit { history.delete(id) }
     }
 
+    /**
+     * Adds an Inserted page with [background] right after the page [after], as one undo step. It
+     * lives only in the Ink file; the PDF is never changed.
+     */
+    fun insertPageAfter(
+        after: PageId,
+        background: PageBackground,
+    ): InkPage {
+        check(!readOnly) { "${store.fileName} is open read-only" }
+        val page = InkPage(PageId("$INSERTED_PAGE_PREFIX${UUID.randomUUID()}"), background)
+        edit { history.insertPage(page, after) }
+        return page
+    }
+
+    /**
+     * Removes the Inserted page [id] with its strokes and Pictures, as one undo step, so undo brings
+     * them all back; false if it isn't here. Pictures' images stay in `.assets`.
+     *
+     * @throws IllegalArgumentException for one of the PDF's own pages, which can't be removed.
+     */
+    fun removePage(id: PageId): Boolean {
+        check(!readOnly) { "${store.fileName} is open read-only" }
+        return edit { history.removePage(id) }
+    }
+
+    /** True if page [id] has any strokes or Pictures on it: removing it then asks first. */
+    fun hasInk(id: PageId): Boolean =
+        synchronized(lock) { history.strokes.any { it.pageId == id } || history.pictures.any { it.pageId == id } }
+
     /** Takes back the last change, or returns false if there is none. Saved like any change. */
     fun undo(): Boolean = edit { history.undo() }
 
@@ -166,6 +205,9 @@ class DocumentSession private constructor(
         const val SAVE_DELAY_MS = AutoSave.SAVE_DELAY_MS
         const val RETRY_DELAY_MS = AutoSave.RETRY_DELAY_MS
         const val VERSION_INTERVAL_MS = AutoSave.VERSION_INTERVAL_MS
+
+        // An Inserted page's ID is this and a random UUID, so it never clashes with `pdf-<number>`.
+        private const val INSERTED_PAGE_PREFIX = "inserted-"
 
         /**
          * Opens the ink of the Document at [pdf], which has [pdfPageCount] pages. A missing Ink file

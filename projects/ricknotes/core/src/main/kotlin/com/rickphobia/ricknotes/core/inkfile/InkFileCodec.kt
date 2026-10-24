@@ -1,5 +1,6 @@
 package com.rickphobia.ricknotes.core.inkfile
 
+import com.rickphobia.ricknotes.core.ink.PageBackground
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.Picture
 import com.rickphobia.ricknotes.core.ink.PictureId
@@ -14,9 +15,10 @@ import kotlinx.serialization.json.Json
 object InkFileCodec {
     /**
      * Raised whenever the layout below changes in a way an older app couldn't read. 2 added
-     * Pictures; a version 1 file reads as one with none.
+     * Pictures; a version 1 file reads as one with none. 3 added Inserted pages, which an older app
+     * would save back as PDF pages; a version 1 or 2 file reads as one with none.
      */
-    const val FORMAT_VERSION = 2
+    const val FORMAT_VERSION = 3
 
     private val json =
         Json {
@@ -31,7 +33,7 @@ object InkFileCodec {
             InkFileJson(
                 formatVersion = FORMAT_VERSION,
                 pdfPageCount = file.pdfPageCount,
-                pages = file.pages.map { PageJson(it.id.value) },
+                pages = file.pages.map { PageJson(it.id.value, it.background?.name?.lowercase()) },
                 strokes = file.strokes.map { it.toJson() },
                 pictures = file.pictures.map { it.toJson() },
             ),
@@ -52,7 +54,8 @@ object InkFileCodec {
 
     private fun InkFileJson.toInkFile(): InkFile {
         require(formatVersion <= FORMAT_VERSION) { "format version $formatVersion is newer than this app reads" }
-        val inkPages = pages.map { InkPage(PageId(it.id)) }
+        val inkPages = pages.map { it.toPage() }
+        require(inkPages.map { it.id }.toSet().size == inkPages.size) { "a page is listed twice" }
         val pageIds = inkPages.map { it.id }.toSet()
         val inkStrokes =
             strokes.map { stroke ->
@@ -75,6 +78,16 @@ object InkFileCodec {
                 }
             }
         return InkFile(pdfPageCount, inkPages, inkStrokes, inkPictures)
+    }
+
+    private fun PageJson.toPage(): InkPage {
+        val backgroundValue =
+            background?.let { name ->
+                requireNotNull(PageBackground.entries.firstOrNull { it.name.lowercase() == name }) {
+                    "page $id has an unknown background \"$name\""
+                }
+            }
+        return InkPage(PageId(id), backgroundValue)
     }
 
     private fun Picture.toJson() = PictureJson(id.value, pageId.value, imageFile, left, top, widthPt, heightPt)
@@ -121,9 +134,11 @@ private data class InkFileJson(
     val pictures: List<PictureJson> = emptyList(),
 )
 
+// [background] is set only on an Inserted page, and absent before format version 3.
 @Serializable
 private data class PageJson(
     val id: String,
+    val background: String? = null,
 )
 
 @Serializable
