@@ -27,8 +27,8 @@ class ApiKeyStore(
 
     /**
      * The saved key, or null when there is none. A key that can't be decrypted (the Keystore key
-     * was lost, as after a phone reset restored over the files) is logged and treated as none, so
-     * the owner is asked for it again.
+     * was lost, as after a phone reset restored over the files, or the stored text is damaged) is
+     * logged and treated as none, so the owner is asked for it again.
      */
     fun read(): String? {
         val ciphertext = prefs.getString(CIPHERTEXT, null)
@@ -39,22 +39,35 @@ class ApiKeyStore(
             cipher.init(Cipher.DECRYPT_MODE, keystoreKey(), GCMParameterSpec(TAG_BITS, decode(iv)))
             String(cipher.doFinal(decode(ciphertext)), Charsets.UTF_8)
         } catch (e: GeneralSecurityException) {
-            log.error("couldn't decrypt the saved Anthropic key; asking for it again", e)
-            prefs.edit { clear() }
-            null
+            forgetUnreadableKey(e)
+        } catch (e: IllegalArgumentException) {
+            // Base64.decode's error for damaged text.
+            forgetUnreadableKey(e)
         }
     }
 
-    fun save(apiKey: String) {
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, keystoreKey())
-        val ciphertext = cipher.doFinal(apiKey.toByteArray(Charsets.UTF_8))
-        prefs.edit {
-            putString(CIPHERTEXT, encode(ciphertext))
-            putString(IV, encode(cipher.iv))
-        }
-        log.info("Anthropic key saved")
+    private fun forgetUnreadableKey(cause: Exception): String? {
+        log.error("couldn't decrypt the saved Anthropic key; asking for it again", cause)
+        prefs.edit { clear() }
+        return null
     }
+
+    /** Encrypts and saves [apiKey]. Returns false, logging why, when the Keystore refuses. */
+    fun save(apiKey: String): Boolean =
+        try {
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, keystoreKey())
+            val ciphertext = cipher.doFinal(apiKey.toByteArray(Charsets.UTF_8))
+            prefs.edit {
+                putString(CIPHERTEXT, encode(ciphertext))
+                putString(IV, encode(cipher.iv))
+            }
+            log.info("Anthropic key saved")
+            true
+        } catch (e: GeneralSecurityException) {
+            log.error("couldn't encrypt the Anthropic key with the Keystore", e)
+            false
+        }
 
     private fun keystoreKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }

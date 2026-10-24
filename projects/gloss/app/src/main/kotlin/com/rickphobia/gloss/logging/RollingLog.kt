@@ -1,6 +1,7 @@
 package com.rickphobia.gloss.logging
 
 import java.io.File
+import java.io.IOException
 import java.time.Clock
 
 /**
@@ -31,18 +32,32 @@ class RollingLog(
         cause: Throwable? = null,
     ) = write(Level.ERROR, if (cause == null) message else "$message: $cause")
 
+    /**
+     * Appends one line. A file the log can't write to (disk full) is reported through [echo]
+     * rather than thrown, so logging never takes the app down with it.
+     */
     @Synchronized
     fun write(
         level: Level,
         message: String,
     ) {
         echo(level, message)
-        directory.mkdirs()
-        if (current.length() >= maxBytes) {
-            previous.delete()
-            current.renameTo(previous)
+        try {
+            directory.mkdirs()
+            if (current.length() >= maxBytes) rotate()
+            current.appendText("${clock.instant()} ${level.name} $message\n")
+        } catch (e: IOException) {
+            echo(Level.ERROR, "couldn't write the log file: $e")
         }
-        current.appendText("${clock.instant()} ${level.name} $message\n")
+    }
+
+    private fun rotate() {
+        previous.delete()
+        if (!current.renameTo(previous)) {
+            // Start afresh rather than let the file grow without limit.
+            echo(Level.WARNING, "couldn't rotate the log file; starting a new one")
+            current.delete()
+        }
     }
 
     /** Writes the whole log, oldest line first, to [target] and returns it. */

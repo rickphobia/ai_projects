@@ -28,7 +28,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.rickphobia.gloss.R
-import com.rickphobia.gloss.core.ai.AiFailure
 
 /**
  * Gloss's own screen: on first run it asks for the Anthropic key; after that it is Settings, with
@@ -39,7 +38,7 @@ fun SettingsScreen(
     hasKey: Boolean,
     enteringKey: Boolean,
     checkingKey: Boolean,
-    keyProblem: AiFailure?,
+    keyProblem: KeyProblem?,
     onSaveKey: (String) -> Unit,
     onChangeKey: () -> Unit,
     onCancelKeyEntry: () -> Unit,
@@ -74,7 +73,7 @@ fun SettingsScreen(
 private fun KeyEntry(
     hasKey: Boolean,
     checkingKey: Boolean,
-    keyProblem: AiFailure?,
+    keyProblem: KeyProblem?,
     onSaveKey: (String) -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -93,9 +92,10 @@ private fun KeyEntry(
     if (keyProblem != null) {
         val message =
             when (keyProblem) {
-                AiFailure.KeyRejected -> R.string.key_rejected
-                AiFailure.NoInternet -> R.string.key_no_internet
-                AiFailure.NoKey, AiFailure.AiError -> R.string.key_check_failed
+                KeyProblem.Rejected -> R.string.key_rejected
+                KeyProblem.NoInternet -> R.string.key_no_internet
+                KeyProblem.CheckFailed -> R.string.key_check_failed
+                KeyProblem.NotStored -> R.string.key_not_stored
             }
         Text(
             stringResource(message),

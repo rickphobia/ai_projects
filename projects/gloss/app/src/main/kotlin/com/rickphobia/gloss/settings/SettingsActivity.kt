@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.LaunchedEffect
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -23,17 +24,20 @@ class SettingsActivity : ComponentActivity() {
         val app = application as GlossApplication
         val openedForKey = intent.getBooleanExtra(EXTRA_CHANGE_KEY, false)
         val settings: SettingsViewModel by viewModels {
-            viewModelFactory { initializer { SettingsViewModel(app.apiKeys, app.anthropic, openedForKey) } }
+            viewModelFactory {
+                initializer { SettingsViewModel(app.apiKeys, app.anthropic, PhoneSettings.DEFINE_MODEL, openedForKey) }
+            }
         }
         setContent {
+            // Opened from the card to fix the key: go straight back to it, where Retry waits.
+            LaunchedEffect(settings.keySaved) { if (settings.keySaved && openedForKey) finish() }
             GlossTheme {
                 SettingsScreen(
                     hasKey = settings.hasKey,
                     enteringKey = settings.enteringKey,
                     checkingKey = settings.checkingKey,
                     keyProblem = settings.keyProblem,
-                    // Opened from the card to fix the key: go straight back to it, where Retry waits.
-                    onSaveKey = { key -> settings.saveKey(key, onSaved = { if (openedForKey) finish() }) },
+                    onSaveKey = settings::saveKey,
                     onChangeKey = settings::changeKey,
                     onCancelKeyEntry = settings::cancelKeyEntry,
                     onShareLog = { shareLog(app) },

@@ -18,7 +18,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * The AI port on Anthropic's Messages API. Network errors get one retry after a short wait; the
+ * The AI port on Anthropic's Messages API. A failed connection gets one retry after a short wait; the
  * log records the model, tokens, latency and retries of every call, never the prompt or answer.
  */
 class AnthropicClient(
@@ -55,13 +55,29 @@ class AnthropicClient(
             AiReply.Failed(AiFailure.AiError)
         }
 
-    /** Checks [key] with a free call that lists one model. Returns null when Anthropic accepts it. */
-    suspend fun checkKey(key: String): AiFailure? {
-        val response = withOneRetry("key check") { send("GET", "/v1/models?limit=1", key, body = null) }
+    /**
+     * Checks [key] with a one-token call to [model], so a key that can't pay for or use the model
+     * is caught too. Returns null when Anthropic answers.
+     */
+    suspend fun checkKey(
+        key: String,
+        model: String,
+    ): AiFailure? {
+        val testPrompt = AiPrompt(model = model, system = "Reply with one word.", userMessage = "Hi", maxTokens = 1)
+        val response = withOneRetry("key check") { send("POST", "/v1/messages", key, requestBody(testPrompt)) }
         return when {
-            response == null -> AiFailure.NoInternet
-            response.http.status == HttpURLConnection.HTTP_OK -> null.also { log.info("key check: accepted") }
-            else -> failureFor(response.http.status).also { log.warning("key check: status=${response.http.status}") }
+            response == null -> {
+                AiFailure.NoInternet
+            }
+
+            response.http.status == HttpURLConnection.HTTP_OK -> {
+                null.also { log.info("key check: accepted") }
+            }
+
+            else -> {
+                log.warning("key check: status=${response.http.status} error=${errorType(response.http.body)}")
+                failureFor(response.http.status)
+            }
         }
     }
 
@@ -96,22 +112,27 @@ class AnthropicClient(
         return AiReply.Answer(text, usage)
     }
 
+    /**
+     * Runs [call], and once more after a short wait if it couldn't connect. A failure after the
+     * request went out (such as a read timeout) isn't retried: Anthropic may have run, and billed,
+     * it already.
+     */
     private suspend fun withOneRetry(
-        what: String,
+        logLabel: String,
         call: () -> HttpReply,
     ): Attempted? =
         withContext(Dispatchers.IO) {
             try {
-                Attempted(call(), attempt = 1)
-            } catch (e: IOException) {
-                log.warning("$what: network error, retrying in ${settings.retryDelayMillis} ms: $e")
-                delay(settings.retryDelayMillis)
                 try {
+                    Attempted(call(), attempt = 1)
+                } catch (e: NotConnectedException) {
+                    log.warning("$logLabel: couldn't connect, retrying in ${settings.retryDelayMillis} ms: ${e.cause}")
+                    delay(settings.retryDelayMillis)
                     Attempted(call(), attempt = 2)
-                } catch (retryError: IOException) {
-                    log.error("$what: network error again, giving up", retryError)
-                    null
                 }
+            } catch (e: IOException) {
+                log.error("$logLabel: network error, giving up", e.cause ?: e)
+                null
             }
         }
 
@@ -128,20 +149,19 @@ class AnthropicClient(
             connection.readTimeout = settings.readTimeoutMillis
             connection.setRequestProperty("x-api-key", key)
             connection.setRequestProperty("anthropic-version", settings.apiVersion)
+            try {
+                connection.connect()
+            } catch (e: IOException) {
+                throw NotConnectedException(e)
+            }
             if (body != null) {
                 connection.doOutput = true
                 connection.setRequestProperty("content-type", "application/json")
                 connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
             }
             val status = connection.responseCode
-            val stream =
-                if (status <
-                    HttpURLConnection.HTTP_BAD_REQUEST
-                ) {
-                    connection.inputStream
-                } else {
-                    connection.errorStream
-                }
+            val succeeded = status < HttpURLConnection.HTTP_BAD_REQUEST
+            val stream = if (succeeded) connection.inputStream else connection.errorStream
             val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             return HttpReply(status, text)
         } finally {
@@ -175,6 +195,11 @@ class AnthropicClient(
         val status: Int,
         val body: String,
     )
+
+    /** The request never reached Anthropic, so sending it again can't double-bill. */
+    private class NotConnectedException(
+        cause: IOException,
+    ) : IOException(cause)
 
     private class Attempted(
         val http: HttpReply,

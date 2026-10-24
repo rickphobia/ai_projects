@@ -45,8 +45,11 @@ class CardActivity : ComponentActivity() {
         }
     }
 
-    /** Opens Gloss's own screen in its own task, over the reader; Retry works once the owner is back. */
+    /**
+     * Opens the key box over the card, in the reader's task, so saving the key or pressing back
+     * returns to the card, where Retry waits.
+     */
     private fun openKeySettings() {
-        startActivity(SettingsActivity.changeKeyIntent(this).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        startActivity(SettingsActivity.changeKeyIntent(this))
     }
 }

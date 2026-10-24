@@ -34,12 +34,19 @@ class GlossApplication : Application() {
         log.info("$packageName ${packageManager.getPackageInfo(packageName, 0).versionName} started")
     }
 
-    /** Puts a crash in the shared log before Android's own handler ends the app. */
+    /**
+     * Puts a crash in the shared log before Android's own handler ends the app. Only the exception's
+     * type and where it was thrown: its message could quote a Selection or an answer.
+     */
     private fun logCrashes(log: RollingLog) {
         val androidHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
-            log.error("crash on ${thread.name}: ${error.stackTraceToString()}")
-            androidHandler?.uncaughtException(thread, error)
+            try {
+                val frames = error.stackTrace.joinToString("\n") { "    at $it" }
+                log.error("crash on ${thread.name}: ${error.javaClass.name}\n$frames")
+            } finally {
+                androidHandler?.uncaughtException(thread, error)
+            }
         }
     }
 
