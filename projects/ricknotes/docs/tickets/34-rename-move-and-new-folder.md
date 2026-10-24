@@ -4,16 +4,18 @@
 
 **Blocked by:** 29 (Tabs in one Pane)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-studyfolder, core-layout, app-home
 
 **Effort:** medium
 
-- [ ] Study folder: rename and move a Document carry every companion; a clash on the PDF or any companion refuses with nothing moved; a failure halfway moves everything back (tested)
-- [ ] Study folder: new folder, folder rename and move; moving a folder into itself is refused (tested)
-- [ ] Layout and Recent Documents follow a renamed or moved Document (tested)
-- [ ] Long-press menus and the Move to… folder picker in the home tree
-- [ ] An open Document is saved before it is renamed or moved, and keeps working after
-- [ ] Each operation is logged with its result and the step that failed, file names only
-- [ ] On-tablet check written in the PR: on a copy of the Study folder, rename a Document with ink and Pictures, move it to another course, reopen it with everything there
+**Owner steps:** the on-tablet check in the PR, with the Preview app on a copy of the Study folder.
+
+- [x] Study folder: rename and move a Document carry every companion; a clash on the PDF or any companion refuses with nothing moved; a failure halfway moves everything back (tested)
+- [x] Study folder: new folder, folder rename and move; moving a folder into itself is refused (tested)
+- [x] Layout and Recent Documents follow a renamed or moved Document (tested)
+- [x] Long-press menus and the Move to… folder picker in the home tree
+- [x] An open Document is saved before it is renamed or moved, and keeps working after
+- [x] Each operation is logged with its result and the step that failed, file names only
+- [x] On-tablet check written in the PR: on a copy of the Study folder, rename a Document with ink and Pictures, move it to another course, reopen it with everything there

@@ -40,6 +40,9 @@ internal object InkSessions {
     /** A Tab of [pdf] is moving to the other Pane: keeps its session until it opens there. */
     fun handOver(pdf: File) = sessions.handOver(pdf.toPath())
 
+    /** True while a Tab shows [pdf], or its ink from a closed Tab is not yet saved. */
+    fun isOpen(pdf: File) = sessions.isOpen(pdf.toPath())
+
     /** One Tab of [pdf] closed: the last one saves its ink and lets the session go once it is saved. */
     fun close(pdf: File) =
         sessions.close(pdf.toPath()) { saved ->

@@ -9,21 +9,26 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.rickphobia.ricknotes.core.layout.renamed
 import com.rickphobia.ricknotes.core.revisionlog.Entry
 import com.rickphobia.ricknotes.core.settings.SettingsSource
 import com.rickphobia.ricknotes.core.settings.SettingsStore
 import com.rickphobia.ricknotes.core.studyfolder.RecentDocuments
+import com.rickphobia.ricknotes.core.studyfolder.renamedPath
 import com.rickphobia.ricknotes.diagnostics.PenTestScreen
 import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.home.CourseFolderActions
 import com.rickphobia.ricknotes.home.HomeLibrary
 import com.rickphobia.ricknotes.home.HomeNavigation
 import com.rickphobia.ricknotes.home.HomeScreen
+import com.rickphobia.ricknotes.home.TreeEditHooks
 import com.rickphobia.ricknotes.imports.IncomingShare
+import com.rickphobia.ricknotes.ink.InkSessions
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.panes.KeyShortcuts
 import com.rickphobia.ricknotes.panes.PaneSources
 import com.rickphobia.ricknotes.panes.TreeSource
+import com.rickphobia.ricknotes.panes.pdfAt
 import com.rickphobia.ricknotes.panes.startPosition
 import com.rickphobia.ricknotes.revisionlog.ReviewScreen
 import com.rickphobia.ricknotes.revisionlog.RevisionLogScreen
@@ -52,7 +57,40 @@ class AppStorage<S>(
 
     /** Opens [pdf] in a Tab, or selects its Tab, where it was last left. */
     fun open(pdf: PdfEntry) = layout.change { open(pdf.treePath, startPosition(readingPositions, pdf)) }
+
+    /**
+     * The Document or folder at tree path [from] in [studyFolder] was renamed or moved to [to] in
+     * the app: its Tabs, Recent Documents and the reading positions of the [documents] it carried
+     * follow it.
+     */
+    fun renamed(
+        studyFolder: String,
+        from: String,
+        to: String,
+        documents: List<String>,
+    ) {
+        layout.change { renamed(from, to) }
+        recentDocuments.renamed(from, to)
+        for (document in documents) {
+            val moved = renamedPath(document, from, to)
+            val position = readingPositions.load(pdfAt(studyFolder, document).path)
+            if (moved != null && position != null) readingPositions.save(pdfAt(studyFolder, moved).path, position)
+        }
+    }
 }
+
+/** What a tree edit in [studyFolder] needs beside the files. */
+private fun treeEditHooks(
+    studyFolder: String,
+    storage: AppStorage<*>,
+    courseFolders: CourseFoldersSetting<*>,
+) = TreeEditHooks(
+    stillSaving = { path -> InkSessions.isOpen(File(pdfAt(studyFolder, path).path)) },
+    followed = { from, to, documents ->
+        storage.renamed(studyFolder, from, to, documents)
+        courseFolders.renamed(from, to)
+    },
+)
 
 /** Where the home screen [route] leads, going there with [go]; a Document opens with [open]. */
 private fun homeNavigation(
@@ -74,10 +112,11 @@ private fun homeLibrary(
     studyFolder: String,
     recentPaths: () -> List<String>,
     courseFolders: CourseFolderActions,
+    edits: TreeEditHooks,
 ): HomeLibrary {
     // Walks the Study folder; the home screen calls it off the main thread.
     val dueCount = { RevisionLogSessions.dueCourses(File(studyFolder)).sumOf { it.entries.size } }
-    return HomeLibrary(recentPaths, courseFolders, dueCount)
+    return HomeLibrary(recentPaths, courseFolders, dueCount, edits)
 }
 
 /** The home screen of [route], or the Document a shared image goes on; [open] opens a Document in a Tab. */
@@ -182,7 +221,8 @@ fun <S> RickNotesApp(
                 }
 
                 is Screen.Home -> {
-                    val library = homeLibrary(current.studyFolder, recentDocuments::paths, courseFolders)
+                    val edits = treeEditHooks(current.studyFolder, storage, courseFolders)
+                    val library = homeLibrary(current.studyFolder, recentDocuments::paths, courseFolders, edits)
                     HomeRoute(current, versionName, library, storage::open) { screen = it }
                 }
 

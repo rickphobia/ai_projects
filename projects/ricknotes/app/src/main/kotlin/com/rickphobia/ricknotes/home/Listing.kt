@@ -48,13 +48,15 @@ private const val NANOS_PER_MS = 1_000_000
 
 /**
  * [folder]'s tree, opening on the semester of the most recent of [recentPaths]. A large Study
- * folder takes a moment to walk, so it is listed off the main thread.
+ * folder takes a moment to walk, so it is listed off the main thread. A new [generation] lists it
+ * again, after the tree was changed.
  */
 @Composable
 fun rememberListing(
     folder: StudyFolder,
     recentPaths: () -> List<String>,
+    generation: Int = 0,
 ): State<Listing> =
-    produceState<Listing>(initialValue = Listing.Loading, folder) {
+    produceState<Listing>(initialValue = Listing.Loading, folder, generation) {
         value = withContext(Dispatchers.IO) { loadListing(folder, recentPaths()) }
     }
