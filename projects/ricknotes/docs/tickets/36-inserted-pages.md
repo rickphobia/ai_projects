@@ -4,15 +4,17 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-session, core-inkfile, app-viewer
 
 **Effort:** medium
 
-- [ ] Ink file records an inserted page's background; older Ink files open unchanged (tested)
-- [ ] Document session: insert and remove as undo steps; removing one with ink and undoing brings the ink back; a PDF's own page can't be removed (tested)
-- [ ] Background geometry is one set of named constants in `core`
-- [ ] Page menu with Insert page after and Remove page, asking first when the page has ink
-- [ ] Page numbers and page jump count inserted pages
-- [ ] On-tablet check written in the PR: insert a lined and a grid page into a lecture, write on them, remove one and undo, reopen with both there and the PDF unchanged
+- [x] Ink file records an inserted page's background; older Ink files open unchanged (tested)
+- [x] Document session: insert and remove as undo steps; removing one with ink and undoing brings the ink back; a PDF's own page can't be removed (tested)
+- [x] Background geometry is one set of named constants in `core`
+- [x] Page menu with Insert page after and Remove page, asking first when the page has ink
+- [x] Page numbers and page jump count inserted pages
+- [x] On-tablet check written in the PR: insert a lined and a grid page into a lecture, write on them, remove one and undo, reopen with both there and the PDF unchanged
+
+**Owner steps:** the on-tablet check in the Preview app (in the PR body).
