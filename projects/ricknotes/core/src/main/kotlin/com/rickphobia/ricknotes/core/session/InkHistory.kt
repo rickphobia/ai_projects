@@ -55,6 +55,8 @@ internal class InkHistory(
         return make(Change.PageInserted(IndexedValue(index + 1, page)))
     }
 
+    fun hasInk(id: PageId): Boolean = strokeList.any { it.pageId == id } || content.pictures.any { it.pageId == id }
+
     /**
      * Takes the Inserted page [id] out with its strokes and Pictures; false, and no undo step, if it
      * isn't here. A PDF's own page can't be removed.

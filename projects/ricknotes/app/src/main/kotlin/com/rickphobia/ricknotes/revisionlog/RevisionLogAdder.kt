@@ -123,7 +123,11 @@ internal class RevisionLogAdder(
         // Numbered as the Document shows it, Inserted pages included.
         val shown = documentPages(ink.pages, pageSizes)
         val pageIndex = shown.indexOfFirst { it.id == selection.pageId }
-        val page = shown[pageIndex]
+        val page = shown.getOrNull(pageIndex)
+        if (page == null) {
+            AppLog.w("Add to Revision log: the selection's page ${selection.pageId.value} isn't shown")
+            return
+        }
         val area = selection.snipArea
         val snip = SnipRegion.of(area, page.size)
         if (snip == null) {

@@ -63,7 +63,7 @@ internal data class PageLayout(
 @Composable
 internal fun InsertedPageView(
     background: PageBackground,
-    size: PageSize,
+    pageSize: PageSize,
     number: Int,
     overlay: @Composable () -> Unit,
 ) {
@@ -72,14 +72,16 @@ internal fun InsertedPageView(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .aspectRatio(size.aspectRatio)
+                .aspectRatio(pageSize.aspectRatio)
                 .background(Color.White)
                 .semantics { contentDescription = description },
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val pixelsPerPoint = this.size.width / size.widthPt
+            val pixelsPerPoint = size.width / pageSize.widthPt
             drawIntoCanvas { canvas ->
-                canvas.nativeCanvas.withScale(pixelsPerPoint, pixelsPerPoint, 0f, 0f) { drawPaper(background, size) }
+                canvas.nativeCanvas.withScale(pixelsPerPoint, pixelsPerPoint, 0f, 0f) {
+                    drawPaper(background, pageSize)
+                }
             }
         }
         overlay()

@@ -5,7 +5,6 @@ import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -50,7 +49,6 @@ import com.rickphobia.ricknotes.revisionlog.RevisionLogAdder
 import com.rickphobia.ricknotes.revisionlog.RevisionLogNoteBar
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.math.roundToInt
 
@@ -136,7 +134,7 @@ internal fun PageList(document: OpenDocument) {
                 if (background != null) {
                     InsertedPageView(background, page.size, number = index + 1, overlay)
                 } else {
-                    val part = settled?.takeIf { it.pageWidth == pageWidthPx }?.partOf(index)
+                    val part = settled?.takeIf { it.pageWidth == pageWidthPx }?.partOf(page.id)
                     PageView(document.pages, pageLayout(page, index + 1), part, overlay)
                 }
             }
@@ -254,12 +252,15 @@ private fun Modifier.zoomedLayout(
         }
     }
 
-/** The view once it stopped moving: the page width, and which part of each laid-out page shows. */
+/**
+ * The view once it stopped moving: the page width, and which part of each laid-out page shows, by
+ * the page's list key (its ID), so a page an insert or remove moved never takes another's part.
+ */
 private data class SettledView(
     val pageWidth: Int,
-    val visibleParts: Map<Int, PixelRect?>,
+    val visibleParts: Map<Any, PixelRect?>,
 ) {
-    fun partOf(index: Int) = SettledPart(pageWidth, visibleParts[index])
+    fun partOf(id: PageId) = SettledPart(pageWidth, visibleParts[id.value])
 }
 
 private fun settle(
@@ -270,8 +271,8 @@ private fun settle(
 ): SettledView {
     val pageWidth = zoomedListWidth(screen, view) - gapPx * 2
     val parts =
-        visiblePages(info).associate { page ->
-            page.index to
+        info.visibleItemsInfo.zip(visiblePages(info)).associate { (item, page) ->
+            item.key to
                 PlacedPage(page.top, gapPx, pageWidth, page.height).visiblePart(view.panX.roundToInt(), screen)
         }
     return SettledView(pageWidth, parts)

@@ -183,8 +183,7 @@ class DocumentSession private constructor(
     }
 
     /** True if page [id] has any strokes or Pictures on it: removing it then asks first. */
-    fun hasInk(id: PageId): Boolean =
-        synchronized(lock) { history.strokes.any { it.pageId == id } || history.pictures.any { it.pageId == id } }
+    fun hasInk(id: PageId): Boolean = synchronized(lock) { history.hasInk(id) }
 
     /** Takes back the last change, or returns false if there is none. Saved like any change. */
     fun undo(): Boolean = edit { history.undo() }
