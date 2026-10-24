@@ -101,6 +101,12 @@ fun BackButton(onBack: () -> Unit) {
     ToolIcon(R.drawable.ic_arrow_back, stringResource(R.string.back), onBack)
 }
 
+/** Opens the Document in the other Pane. */
+@Composable
+fun SplitButton(onSplit: () -> Unit) {
+    ToolIcon(R.drawable.ic_split, stringResource(R.string.split), onSplit)
+}
+
 /** A round swatch of a pen's colour, as the Favourite pens editor shows it. */
 @Composable
 fun PenSwatch(

@@ -7,6 +7,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+private const val PANE = """{"tabs":[{"path":"a.pdf","page":0,"zoom":1}],"selected":0}"""
+
 class LayoutLoaderTest {
     private val warnings = mutableListOf<String>()
 
@@ -34,6 +36,30 @@ class LayoutLoaderTest {
     }
 
     @Test
+    fun `two Panes come back with their Tabs and the Focused Pane`() {
+        val layout =
+            Layout()
+                .open("a.pdf", TabPosition(5, 2.5f))
+                .split()
+                .open("b.pdf", TabPosition(1, 1f))
+                .focus(0)
+        val saved = mutableMapOf<String, String>()
+
+        LayoutLoader.save({ key, value -> saved[key] = value }, layout)
+
+        assertEquals(layout, LayoutLoader.restore({ saved[it] }, warnings::add))
+        assertTrue(warnings.isEmpty())
+    }
+
+    @Test
+    fun `a Layout saved before the Focused Pane was kept focuses the first Pane`() {
+        val layout = restored("""{"panes":[{"tabs":[{"path":"a.pdf","page":2,"zoom":1}],"selected":0}]}""")
+
+        assertEquals(0, layout.focused)
+        assertEquals("a.pdf", layout.selectedTab?.path)
+    }
+
+    @Test
     fun `an empty Layout round-trips`() {
         val saved = mutableMapOf<String, String>()
 
@@ -51,6 +77,8 @@ class LayoutLoaderTest {
                 """{"panes":[{"tabs":[{"path":"a.pdf","page":0,"zoom":1}],"selected":1}]}""",
                 """{"panes":[{"tabs":[{"path":"a.pdf","page":-1,"zoom":1}],"selected":0}]}""",
                 """{"panes":[{"tabs":[{"path":"","page":0,"zoom":1}],"selected":0}]}""",
+                """{"panes":[{"tabs":[{"path":"a.pdf","page":0,"zoom":1}],"selected":0}],"focused":1}""",
+                """{"panes":[$PANE,$PANE,$PANE]}""",
             )
         damaged.forEach { text ->
             warnings.clear()

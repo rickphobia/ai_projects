@@ -25,42 +25,72 @@ data class Pane(
     val selectedTab: Tab get() = tabs[selected]
 }
 
+// Side by side or stacked, two Panes keep each PDF big enough to read on the tablet.
+const val MAX_PANES = 2
+
 /**
- * The Panes and their Tabs, as plain data: each operation returns the changed Layout. A Tab is
- * named by its Pane's index and its index in that Pane; naming one that isn't there changes nothing.
+ * The Panes and their Tabs, and the [focused] Pane, as plain data: each operation returns the
+ * changed Layout. A Tab is named by its Pane's index and its index in that Pane; naming one that
+ * isn't there changes nothing.
  */
 data class Layout(
     val panes: List<Pane> = emptyList(),
+    val focused: Int = 0,
 ) {
-    /** The Tab showing in the first Pane, or null when nothing is open. */
-    val selectedTab: Tab? get() = panes.firstOrNull()?.selectedTab
+    init {
+        require(panes.size <= MAX_PANES) { "a Layout has at most $MAX_PANES Panes, not ${panes.size}" }
+        require((panes.isEmpty() && focused == 0) || focused in panes.indices) {
+            "the Focused Pane $focused is not one of the ${panes.size}"
+        }
+    }
+
+    /** The Tab showing in the Focused Pane, or null when nothing is open. */
+    val selectedTab: Tab? get() = panes.getOrNull(focused)?.selectedTab
 
     /**
-     * Opens the Document at [path] in the first Pane as a new Tab at [position], after the others,
-     * or selects its Tab, left where it was, if it is already open there.
+     * Opens the Document at [path] in [pane] (the Focused Pane unless named) as a new Tab at
+     * [position], after the others, or selects its Tab, left where it was, if it is already open there.
      */
     fun open(
         path: String,
         position: TabPosition,
+        pane: Int = focused,
     ): Layout {
-        val pane = panes.firstOrNull() ?: return copy(panes = listOf(Pane(listOf(Tab(path, position)), 0)))
-        val open = pane.tabs.indexOfFirst { it.path == path }
+        val opening = panes.getOrNull(pane) ?: return if (panes.isEmpty()) firstTab(path, position) else this
+        val open = opening.tabs.indexOfFirst { it.path == path }
         val opened =
             if (open >=
                 0
             ) {
-                pane.copy(selected = open)
+                opening.copy(selected = open)
             } else {
-                Pane(pane.tabs + Tab(path, position), pane.tabs.size)
+                Pane(opening.tabs + Tab(path, position), opening.tabs.size)
             }
-        return withPane(0, opened)
+        return withPane(pane, opened)
     }
 
     /** Opens the Document at [path] like [open], but at [position] even if it is already open. */
     fun openAt(
         path: String,
         position: TabPosition,
-    ): Layout = open(path, position).let { it.moved(0, it.panes[0].selected, position) }
+        pane: Int = focused,
+    ): Layout = open(path, position, pane).let { it.moved(pane, it.panes[pane].selected, position) }
+
+    /**
+     * Opens the Focused Pane's Document in the other Pane at the same page and zoom, making the
+     * second Pane if there is only one, and focuses it there.
+     */
+    fun split(): Layout {
+        val current = selectedTab ?: return this
+        val other = (focused + 1) % MAX_PANES
+        return when {
+            panes.size < MAX_PANES -> copy(panes = panes + Pane(listOf(current), 0), focused = panes.size)
+            else -> openAt(current.path, current.position, other).copy(focused = other)
+        }
+    }
+
+    /** Makes [pane] the Focused Pane. */
+    fun focus(pane: Int): Layout = if (pane in panes.indices) copy(focused = pane) else this
 
     fun select(
         pane: Int,
@@ -79,7 +109,7 @@ data class Layout(
 
     /**
      * Closes a Tab. The one that takes its place is selected, or the one before it when it was last;
-     * closing a Pane's last Tab closes the Pane.
+     * closing a Pane's last Tab closes the Pane and focuses the one left.
      */
     fun close(
         pane: Int,
@@ -88,11 +118,16 @@ data class Layout(
         val closing = panes.getOrNull(pane)?.takeIf { tab in it.tabs.indices } ?: return this
         val tabs = closing.tabs.filterIndexed { index, _ -> index != tab }
         return when {
-            tabs.isEmpty() -> copy(panes = panes.filterIndexed { index, _ -> index != pane })
+            tabs.isEmpty() -> Layout(panes.filterIndexed { index, _ -> index != pane })
             tab < closing.selected -> withPane(pane, Pane(tabs, closing.selected - 1))
             else -> withPane(pane, Pane(tabs, closing.selected.coerceAtMost(tabs.lastIndex)))
         }
     }
+
+    private fun firstTab(
+        path: String,
+        position: TabPosition,
+    ) = Layout(listOf(Pane(listOf(Tab(path, position)), 0)))
 
     private fun changing(
         pane: Int,

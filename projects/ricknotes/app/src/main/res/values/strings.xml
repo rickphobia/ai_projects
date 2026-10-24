@@ -34,6 +34,7 @@
   <string name="go">Go</string>
   <string name="cancel">Cancel</string>
   <string name="close_tab">Close %1$s</string>
+  <string name="split">Open in the other Pane</string>
   <string name="page_failed">Couldn\'t draw page %1$d.</string>
   <string name="clear">Clear</string>
   <string name="pen_test">Pen test</string>

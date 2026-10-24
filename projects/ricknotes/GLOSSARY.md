@@ -124,7 +124,7 @@ One side of the split view, holding one or more Tabs. There are at most two.
 _Avoid_: window, split, editor
 
 **Focused Pane**:
-The Pane last touched. A Document opened from the tree drawer goes there.
+The Pane last touched. A Document opened from the home screen or the tree drawer goes there.
 _Avoid_: active pane, current pane
 
 **Tab**:

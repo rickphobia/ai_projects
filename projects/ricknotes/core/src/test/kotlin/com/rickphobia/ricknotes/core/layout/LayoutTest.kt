@@ -104,4 +104,77 @@ class LayoutTest {
         assertEquals(layout, layout.close(1, 0))
         assertEquals(layout, layout.moved(0, -1, start))
     }
+
+    @Test
+    fun `split opens the current Document in a second Pane at the same page, focused`() {
+        val layout = opened("a.pdf", "b.pdf").moved(0, 1, TabPosition(6, 2f)).split()
+
+        assertEquals(2, layout.panes.size)
+        assertEquals(listOf("a.pdf", "b.pdf"), layout.panes[0].tabs.map { it.path })
+        assertEquals(Pane(listOf(Tab("b.pdf", TabPosition(6, 2f))), 0), layout.panes[1])
+        assertEquals(1, layout.focused)
+        assertEquals("b.pdf", layout.selectedTab?.path)
+    }
+
+    @Test
+    fun `split with two Panes open opens the Document in the other Pane, never a third`() {
+        val layout =
+            opened("a.pdf")
+                .split()
+                .open("c.pdf", start)
+                .moved(1, 1, TabPosition(4, 1f))
+                .split()
+
+        assertEquals(2, layout.panes.size)
+        assertEquals(listOf("a.pdf", "c.pdf"), layout.panes[0].tabs.map { it.path })
+        assertEquals(Tab("c.pdf", TabPosition(4, 1f)), layout.panes[0].selectedTab)
+        assertEquals(0, layout.focused)
+    }
+
+    @Test
+    fun `split to a Pane where the Document is already open moves its Tab to the same page`() {
+        val layout =
+            opened("a.pdf")
+                .split()
+                .moved(1, 0, TabPosition(8, 1f))
+                .split()
+
+        assertEquals(listOf("a.pdf"), layout.panes[0].tabs.map { it.path })
+        assertEquals(TabPosition(8, 1f), layout.panes[0].selectedTab.position)
+    }
+
+    @Test
+    fun `split with nothing open changes nothing`() {
+        assertEquals(Layout(), Layout().split())
+    }
+
+    @Test
+    fun `a Document opened goes to the Focused Pane`() {
+        val layout = opened("a.pdf").split().focus(0).open("c.pdf", start)
+
+        assertEquals(listOf("a.pdf", "c.pdf"), layout.panes[0].tabs.map { it.path })
+        assertEquals(listOf("a.pdf"), layout.panes[1].tabs.map { it.path })
+        assertEquals("c.pdf", layout.selectedTab?.path)
+    }
+
+    @Test
+    fun `focusing a Pane that isn't there changes nothing`() {
+        val layout = opened("a.pdf")
+
+        assertEquals(layout, layout.focus(1))
+    }
+
+    @Test
+    fun `closing a Pane's last Tab closes that Pane and focuses the one left`() {
+        val split = opened("a.pdf").split().open("c.pdf", start).focus(0)
+
+        val firstClosed = split.close(0, 0)
+        assertEquals(1, firstClosed.panes.size)
+        assertEquals(listOf("a.pdf", "c.pdf"), firstClosed.paths())
+        assertEquals(0, firstClosed.focused)
+
+        val secondClosed = split.focus(1).close(1, 1).close(1, 0)
+        assertEquals(listOf("a.pdf"), secondClosed.paths())
+        assertEquals(0, secondClosed.focused)
+    }
 }
