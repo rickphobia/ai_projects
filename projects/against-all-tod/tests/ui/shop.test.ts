@@ -55,11 +55,11 @@ describe("the shop", () => {
   });
 
   it("labels an item with its price", () => {
-    expect(itemLabel({ id: "x", name: "Sniper Nest", price: 40 })).toBe(
-      "Sniper Nest · 40g",
-    );
-    expect(itemLabel({ id: "x", name: "Intern", price: 1, free: 12 })).toBe(
-      "Intern · 1g · 12 free",
-    );
+    expect(
+      itemLabel({ id: "x", name: "Sniper Nest", price: 40 }, "defense"),
+    ).toBe("Sniper Nest, 40 Defense gold");
+    expect(
+      itemLabel({ id: "x", name: "Intern", price: 1, free: 12 }, "attack"),
+    ).toBe("Intern, 1 Attack gold, 12 free");
   });
 });

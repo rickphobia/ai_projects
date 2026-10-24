@@ -1,4 +1,5 @@
 import type { BattleOutcome, Side } from "../battle/battle";
+import type { Wallets } from "../economy/economy";
 import { WATCH_SPEEDS, type WatchSpeed } from "../battle/watch-clock";
 import { BOSSES, type BossId } from "../catalog/bosses";
 import { CURSES, type CurseId } from "../catalog/curses";
@@ -12,6 +13,7 @@ import {
   attackItems,
   defenseItems,
   itemLabel,
+  priceTag,
   type Portraits,
   type ShopItem,
   type ShopStock,
@@ -85,6 +87,7 @@ export interface StatusChip {
     | "lives"
     | "defense-gold"
     | "attack-gold"
+    | "army"
     | "score"
     | "round"
     | "curse"
@@ -95,7 +98,10 @@ export interface StatusChip {
   readonly label: string;
 }
 
-/** ❤ Lives, 🛡 Defense gold, ⚔ Attack gold, ★ Score and the Round, then the Round's Curse and boss, if any. */
+/**
+ * ❤ Lives, 🛡 Defense gold and ⚔ Attack gold in words, 👥 the Army, ★ Score and the Round, then
+ * the Round's Curse and boss, if any.
+ */
 export function statusChips(status: RunStatus): StatusChip[] {
   const count = (
     kind: StatusChip["kind"],
@@ -108,11 +114,22 @@ export function statusChips(status: RunStatus): StatusChip[] {
     text: String(value),
     label: `${name} ${String(value)}`,
   });
+  const gold = (
+    kind: StatusChip["kind"],
+    icon: string,
+    name: string,
+    value: number,
+  ): StatusChip => {
+    const words = `${name} ${String(value)}`;
+    return { kind, icon, text: words, label: words };
+  };
   const round = `Round ${String(status.round)}`;
+  const dudes = `${String(status.armySize)} ${status.armySize === 1 ? "Dude" : "Dudes"}`;
   const chips: StatusChip[] = [
     count("lives", "❤", "Lives", status.lives),
-    count("defense-gold", "🛡", "Defense gold", status.wallets.defense),
-    count("attack-gold", "⚔", "Attack gold", status.wallets.attack),
+    gold("defense-gold", "🛡", "Defense gold", status.wallets.defense),
+    gold("attack-gold", "⚔", "Attack gold", status.wallets.attack),
+    { kind: "army", icon: "👥", text: dudes, label: `Army: ${dudes}` },
     count("score", "★", "Score", status.score),
     { kind: "round", icon: "", text: round, label: round },
   ];
@@ -135,6 +152,24 @@ export function statusChips(status: RunStatus): StatusChip[] {
     });
   }
   return chips;
+}
+
+/** A short "+12" or "−3" (a real minus sign) to pop on a wallet's chip. */
+export interface GoldPop {
+  readonly side: Side;
+  readonly text: string;
+}
+
+/** What each wallet gained or lost since `before`; nothing the first time. */
+export function goldPops(before: Wallets | null, after: Wallets): GoldPop[] {
+  if (before === null) return [];
+  const sides: readonly Side[] = ["defense", "attack"];
+  return sides.flatMap((side) => {
+    const change = after[side] - before[side];
+    if (change === 0) return [];
+    const text = change > 0 ? `+${String(change)}` : `\u2212${String(-change)}`;
+    return [{ side, text }];
+  });
 }
 
 /** "Boss Round: The Landlord. Joins the Army…", announced as building starts. */
@@ -218,6 +253,8 @@ export class Hud {
   private nextTakeBack: TakeBackAction | null = null;
   private takeBackButton: HTMLButtonElement | null = null;
   private readonly dudeInfo: DudeInfo;
+  /** The wallets last shown, so a change pops on its chip. */
+  private shownWallets: Wallets | null = null;
 
   constructor(
     private readonly host: HTMLElement,
@@ -281,6 +318,10 @@ export class Hud {
     this.status.replaceChildren(
       ...statusChips(status).map((chip) => this.chip(chip)),
     );
+    for (const pop of goldPops(this.shownWallets, status.wallets)) {
+      this.popGold(pop);
+    }
+    this.shownWallets = status.wallets;
     const hint = roundHint(status.round, status.firstRun);
     this.roundHint.textContent = hint ?? "";
     this.roundHint.hidden = hint === null;
@@ -299,6 +340,7 @@ export class Hud {
   showDefenseBuilding(chosen: PieceId): void {
     this.heading.textContent = SIDE_NAMES.defense;
     this.showShop(
+      "defense",
       defenseItems(this.stock()),
       chosen,
       this.handlers.onChoosePiece,
@@ -319,6 +361,7 @@ export class Hud {
     const eraser = this.button("Eraser", erasing, this.handlers.onChooseEraser);
     const items = attackItems(this.stock(), freeItems);
     this.showShop(
+      "attack",
       items,
       erasing ? null : chosen,
       this.handlers.onChooseDudeKind,
@@ -377,15 +420,21 @@ export class Hud {
    * `chosen` is null), any `tools` after them, then Take back and Fight.
    */
   private showShop<Id extends DudeKindId | PieceId>(
+    side: Side,
     items: readonly ShopItem<Id>[],
     chosen: Id | null,
     onChoose: (id: Id) => void,
     ...tools: HTMLButtonElement[]
   ): void {
     const choiceButtons = items.map((item) => {
-      const button = this.button(itemLabel(item), item.id === chosen, () => {
+      const button = this.button(item.name, item.id === chosen, () => {
         onChoose(item.id);
       });
+      button.append(" ", priceTag(this.doc, item.price, side));
+      if (item.free !== undefined) {
+        button.append(` · ${String(item.free)} free`);
+      }
+      button.setAttribute("aria-label", itemLabel(item, side));
       // The label already names the item, so screen readers skip the picture.
       const portrait = this.doc.createElement("img");
       portrait.className = "shop-portrait";
@@ -453,6 +502,20 @@ export class Hud {
     button.disabled = disabled;
     button.title = label;
     button.setAttribute("aria-label", label);
+  }
+
+  /** Floats "+12" or "−3" off the wallet's chip, then removes it; CSS skips it for reduced motion. */
+  private popGold({ side, text }: GoldPop): void {
+    const chip = this.status.querySelector(`.chip-${side}-gold`);
+    if (chip === null) return;
+    const pop = this.doc.createElement("span");
+    pop.className = "chip-pop";
+    pop.setAttribute("aria-hidden", "true");
+    pop.textContent = text;
+    pop.addEventListener("animationend", () => {
+      pop.remove();
+    });
+    chip.append(pop);
   }
 
   /** The icon is hidden from screen readers, which read the label instead. */

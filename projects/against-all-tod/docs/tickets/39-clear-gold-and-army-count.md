@@ -4,16 +4,16 @@
 
 **Blocked by:** 38 (Dude info button and a hint that fits)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** ui/hud, ui/shop, ui/style
 
 **Effort:** low
 
-- [ ] Attack gold and Defense gold chips are labelled with words, in their side's colour, readable at a glance on a phone
-- [ ] The current side's chip is larger and lit; the other side's chip is greyed out, and they swap at each turn change
-- [ ] Every price uses the matching coin icon and colour; no "g" suffix left anywhere
-- [ ] Spending or earning gold pops a short "−N" / "+N" on its chip (skipped when reduced motion is on, if the game honours it)
-- [ ] The top bar shows the Army size and it updates as Dudes are painted, Erased or Dismissed (tested: the count comes from the Army, not a separate tally)
-- [ ] Screenshots in the PR at 1910×873 and a 390×844 phone viewport, on both an Attack and a Defense turn
-- [ ] Lint, type checks and tests pass
+- [x] Attack gold and Defense gold chips are labelled with words, in their side's colour, readable at a glance on a phone
+- [x] The current side's chip is larger and lit; the other side's chip is greyed out, and they swap at each turn change
+- [x] Every price uses the matching coin icon and colour; no "g" suffix left anywhere
+- [x] Spending or earning gold pops a short "−N" / "+N" on its chip (skipped when reduced motion is on, if the game honours it)
+- [x] The top bar shows the Army size and it updates as Dudes are painted, Erased or Dismissed (tested: the count comes from the Army, not a separate tally)
+- [x] Screenshots in the PR at 1910×873 and a phone viewport, on both an Attack and a Defense turn (844×390: the game asks a portrait phone to turn, so 390×844 shows only that)
+- [x] Lint, type checks and tests pass

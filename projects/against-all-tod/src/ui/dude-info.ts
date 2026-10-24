@@ -1,4 +1,5 @@
 import type { DudeKindEntry, WallBreakerStats } from "../catalog/dudes";
+import { priceWords } from "./shop";
 
 export interface DudeInfoStat {
   readonly label: string;
@@ -54,7 +55,7 @@ export function dudeInfoContent(
   }
   return {
     name: entry.name,
-    price: `${String(price)}g each`,
+    price: `${priceWords(price, "attack")} each`,
     description: entry.description,
     stats,
   };

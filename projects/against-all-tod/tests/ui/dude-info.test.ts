@@ -12,7 +12,7 @@ describe("dudeInfoContent", () => {
       const content = dudeInfoContent(entry, entry.dudePrice);
       expect(content.name).toBe(entry.name);
       expect(content.description).toBe(entry.description);
-      expect(content.price).toBe(`${String(entry.dudePrice)}g each`);
+      expect(content.price).toBe(`${String(entry.dudePrice)} Attack gold each`);
       const stats = new Map(content.stats.map((s) => [s.label, s.value]));
       expect(stats.get("Health")).toBe(String(entry.health));
       expect(stats.get("Speed")).toBe(`${String(entry.speed)} tiles/s`);
@@ -21,7 +21,9 @@ describe("dudeInfoContent", () => {
   );
 
   it("shows the shop's price, which can differ from the catalogue's", () => {
-    expect(dudeInfoContent(DUDE_KINDS.intern, 7).price).toBe("7g each");
+    expect(dudeInfoContent(DUDE_KINDS.intern, 7).price).toBe(
+      "7 Attack gold each",
+    );
   });
 
   it("lists a kind's special abilities only when it has them", () => {

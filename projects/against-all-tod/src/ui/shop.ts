@@ -1,3 +1,4 @@
+import type { Side } from "../battle/battle";
 import { DUDE_KINDS, type DudeKindId } from "../catalog/dudes";
 import { PIECES, type PieceId } from "../catalog/pieces";
 import { dudeKindsOnSale } from "../progress/progress";
@@ -65,10 +66,39 @@ export function attackItems(
   });
 }
 
-/** "Sniper Nest · 40g", or "Intern · 1g · 12 free" while a gift lasts, for a shop button. */
-export function itemLabel(item: ShopItem<string>): string {
-  const label = `${item.name} · ${String(item.price)}g`;
+const GOLD_NAMES: Readonly<Record<Side, string>> = {
+  defense: "Defense gold",
+  attack: "Attack gold",
+};
+
+/** "40 Defense gold": a price in words, for screen readers and plain text. */
+export function priceWords(price: number, side: Side): string {
+  return `${String(price)} ${GOLD_NAMES[side]}`;
+}
+
+/**
+ * "Sniper Nest, 40 Defense gold", or "Intern, 1 Attack gold, 12 free" while a gift lasts: what a
+ * shop button says to screen readers; the screen shows the price as a coin.
+ */
+export function itemLabel(item: ShopItem<string>, side: Side): string {
+  const label = `${item.name}, ${priceWords(item.price, side)}`;
   return item.free === undefined
     ? label
-    : `${label} · ${String(item.free)} free`;
+    : `${label}, ${String(item.free)} free`;
+}
+
+/** A price as a coin in the side's colour and the number; screen readers get the words. */
+export function priceTag(
+  doc: Document,
+  price: number,
+  side: Side,
+): HTMLElement {
+  const tag = doc.createElement("span");
+  tag.className = "price";
+  tag.setAttribute("aria-label", priceWords(price, side));
+  const coin = doc.createElement("span");
+  coin.className = `coin coin-${side}`;
+  coin.setAttribute("aria-hidden", "true");
+  tag.append(coin, String(price));
+  return tag;
 }

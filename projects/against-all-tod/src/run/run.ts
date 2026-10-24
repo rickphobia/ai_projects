@@ -264,6 +264,8 @@ export interface RunStatus {
   readonly curse: CurseId | null;
   readonly boss: BossId | null;
   readonly firstRun: boolean;
+  /** Dudes in the Army, read from it so it never drifts from what is painted. */
+  readonly armySize: number;
 }
 
 export function runStatusOf(state: RunState): RunStatus {
@@ -276,6 +278,7 @@ export function runStatusOf(state: RunState): RunStatus {
     curse: curseOf(state),
     boss: bossOf(state),
     firstRun: state.firstRun,
+    armySize: state.army.length,
   };
 }
 
