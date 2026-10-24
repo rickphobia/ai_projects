@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Gloss</string>
+  <!-- Entries in the text-selection menu. The Preview build labels its own (src/preview/res). -->
+  <string name="menu_define">Define</string>
+</resources>

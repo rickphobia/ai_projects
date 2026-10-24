@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An open book with a note in its margin, inside the adaptive icon's 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+  android:width="108dp"
+  android:height="108dp"
+  android:viewportWidth="108"
+  android:viewportHeight="108">
+  <path
+    android:fillColor="#FFFFFFFF"
+    android:pathData="M30,38c8,-3 16,-3 22,1v34c-6,-4 -14,-4 -22,-1zM56,39c6,-4 14,-4 22,-1v34c-8,-3 -16,-3 -22,1z" />
+  <path
+    android:strokeColor="#FF5B3A8C"
+    android:strokeWidth="2.5"
+    android:strokeLineCap="round"
+    android:pathData="M61,48h11M61,55h11M61,62h7" />
+</vector>

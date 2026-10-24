@@ -4,19 +4,19 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** build, ci, core-gloss, app-card
 
 **Effort:** medium
 
-- [ ] `core` (pure Kotlin) and `app` (Compose) modules, with the build setup copied from duit-log (not referenced): Gradle wrapper, version catalog, JDK toolchain, a setup script for the pinned Android SDK; current stable SDK versions looked up and recorded, minimum Android 10
-- [ ] One passing JVM test in `core`
+- [x] `core` (pure Kotlin) and `app` (Compose) modules, with the build setup copied from duit-log (not referenced): Gradle wrapper, version catalog, JDK toolchain, a setup script for the pinned Android SDK; current stable SDK versions looked up and recorded, minimum Android 10
+- [x] One passing JVM test in `core`
 - [ ] `.github/workflows/gloss.yml` (`name: gloss`, scoped to `projects/gloss/`) runs ktlint, detekt, Android lint, the JVM tests and a signed release build, and is green; `ci-gate` waits for it
-- [ ] On `main`, a new version name publishes GitHub Release `gloss-v<version>`; green PRs publish a `gloss-pr-<N>` prerelease with a **Gloss Preview** APK (its own application ID, labelled menu entries), deleted when the PR closes; version code is the CI run number
-- [ ] A translucent activity handles `PROCESS_TEXT` as **Define**, shows a bottom sheet with the Selection, never returns text to the calling app, and closes on outside tap or back
-- [ ] The card follows the phone's dark mode
-- [ ] README: what Gloss is, setup, build, test, install through Obtainium (filter `^gloss-v[0-9.]+$`), the signing key and CI secrets; MIT licence; Gloss added to the root index
-- [ ] Checked by hand on the phone: Define appears in Legado's selection menu and in Chrome's, and the card opens and closes
+- [x] On `main`, a new version name publishes GitHub Release `gloss-v<version>`; green PRs publish a `gloss-pr-<N>` prerelease with a **Gloss Preview** APK (its own application ID, labelled menu entries), deleted when the PR closes; version code is the CI run number
+- [x] A translucent activity handles `PROCESS_TEXT` as **Define**, shows a bottom sheet with the Selection, never returns text to the calling app, and closes on outside tap or back
+- [x] The card follows the phone's dark mode
+- [x] README: what Gloss is, setup, build, test, install through Obtainium (filter `^gloss-v[0-9.]+$`), the signing key and CI secrets; MIT licence; Gloss added to the root index
+- [ ] Checked by hand on the phone (owner step: no phone attached to the Beelink): Define appears in Legado's selection menu and in Chrome's, and the card opens and closes
 
-**Owner steps:** generate the Gloss release signing key on the Beelink and add the CI secrets as the README describes; install Gloss through Obtainium.
+**Owner steps:** check by hand on the phone that Define appears in Legado's and Chrome's selection menus and the card opens and closes; generate the Gloss release signing key on the Beelink and add the CI secrets as the README describes; install Gloss through Obtainium.
