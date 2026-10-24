@@ -16,6 +16,7 @@ import {
   giftLeft,
   newRun,
   roundOf,
+  runStatusOf,
   sideOf,
   type RunAction,
   type RunState,
@@ -515,6 +516,14 @@ describe("erasing", () => {
     expect(erased.wallets.attack).toBe(
       painted.wallets.attack + DUDE_KINDS.intern.dudePrice,
     );
+  });
+
+  it("reports the Army size from the Army as Dudes are painted and Erased", () => {
+    const painted = play(attacking, ...paintInterns(6, 3));
+    expect(runStatusOf(painted).armySize).toBe(attacking.army.length + 3);
+    const erased = play(painted, erase(painted.army.length - 1));
+    expect(runStatusOf(erased).armySize).toBe(erased.army.length);
+    expect(runStatusOf(erased).armySize).toBe(attacking.army.length + 2);
   });
 
   it("gives an Erased gift Dude back to the gift, even once the gift ran out", () => {

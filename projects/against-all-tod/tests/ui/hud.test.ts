@@ -7,6 +7,7 @@ import {
   bossAnnouncement,
   curseAnnouncement,
   curseStatus,
+  goldPops,
   outcomeMessage,
   refusalMessage,
   roundOverMessage,
@@ -78,16 +79,55 @@ const STATUS = {
   curse: null,
   boss: null,
   firstRun: false,
+  armySize: 54,
 } as const;
 
 describe("statusChips", () => {
-  it("shows Lives, both wallets, the Score and the Round as icon chips, in that order", () => {
+  it("shows Lives, both wallets in words, the Army, the Score and the Round as icon chips, in that order", () => {
     expect(statusChips(STATUS)).toEqual([
       { kind: "lives", icon: "❤", text: "2", label: "Lives 2" },
-      { kind: "defense-gold", icon: "🛡", text: "50", label: "Defense gold 50" },
-      { kind: "attack-gold", icon: "⚔", text: "40", label: "Attack gold 40" },
+      {
+        kind: "defense-gold",
+        icon: "🛡",
+        text: "Defense gold 50",
+        label: "Defense gold 50",
+      },
+      {
+        kind: "attack-gold",
+        icon: "⚔",
+        text: "Attack gold 40",
+        label: "Attack gold 40",
+      },
+      { kind: "army", icon: "👥", text: "54 Dudes", label: "Army: 54 Dudes" },
       { kind: "score", icon: "★", text: "4", label: "Score 4" },
       { kind: "round", icon: "", text: "Round 3", label: "Round 3" },
+    ]);
+  });
+
+  it("counts a lone Dude as one Dude", () => {
+    expect(statusChips({ ...STATUS, armySize: 1 })).toContainEqual({
+      kind: "army",
+      icon: "👥",
+      text: "1 Dude",
+      label: "Army: 1 Dude",
+    });
+  });
+});
+
+describe("goldPops", () => {
+  it("pops nothing the first time, or when no wallet changed", () => {
+    expect(goldPops(null, { defense: 50, attack: 40 })).toEqual([]);
+    expect(
+      goldPops({ defense: 50, attack: 40 }, { defense: 50, attack: 40 }),
+    ).toEqual([]);
+  });
+
+  it("pops what each wallet spent or earned, with a real minus sign", () => {
+    expect(
+      goldPops({ defense: 50, attack: 40 }, { defense: 62, attack: 37 }),
+    ).toEqual([
+      { side: "defense", text: "+12" },
+      { side: "attack", text: "\u22123" },
     ]);
   });
 });

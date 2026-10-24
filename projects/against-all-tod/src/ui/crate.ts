@@ -6,7 +6,7 @@ import { CRATE_RULES, type CrateItem } from "../catalog/pools";
 import type { Crate } from "../run/crate";
 import type { FreeItem } from "../run/run";
 import { FREE_UNDO_MARK, MUTATION_MARKS } from "./crate-marks";
-import type { Portraits } from "./shop";
+import { priceTag, priceWords, type Portraits } from "./shop";
 import { iconElement } from "./trick-icons";
 
 /** "Sniper Nest", "20 free Interns", "Gold Teeth Mutation" or "Free Undo". */
@@ -99,9 +99,9 @@ export function crateHeading(crate: Crate): string {
   return `${name}: take ${picks} for free`;
 }
 
-/** "Reroll · 15g", in the side's own gold. */
+/** "Reroll, 15 Defense gold", in the side's own gold: what the button says to screen readers. */
 export function rerollLabel(side: Side): string {
-  return `Reroll · ${String(CRATE_RULES.rerollPrice[side])}g`;
+  return `Reroll, ${priceWords(CRATE_RULES.rerollPrice[side], side)}`;
 }
 
 export interface CrateHandlers {
@@ -174,8 +174,10 @@ export class CratePanel {
         this.handlers.onTake(index);
       }),
     );
-    const reroll = this.button(rerollLabel(side), this.handlers.onReroll);
+    const reroll = this.button("Reroll", this.handlers.onReroll);
     reroll.classList.add("crate-reroll");
+    reroll.setAttribute("aria-label", rerollLabel(side));
+    reroll.append(" ", priceTag(this.doc, CRATE_RULES.rerollPrice[side], side));
     const row = this.doc.createElement("div");
     row.className = "crate-items";
     row.append(...cards);

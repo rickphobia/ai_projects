@@ -221,11 +221,92 @@
       .chip-score .chip-icon {
         color: var(--gold);
       }
+      /* With the gold in words the chips wrap onto a second row on a phone. */
+      .hud-top,
+      .hud-status {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .chip-defense-gold,
+      .chip-attack-gold {
+        position: relative;
+        transition:
+          transform 0.2s,
+          opacity 0.2s;
+      }
       .chip-defense-gold {
         border-color: var(--defense);
+        color: var(--defense);
       }
       .chip-attack-gold {
         border-color: var(--attack);
+        color: var(--attack);
+      }
+      /* The wallet being spent this turn is bigger and lit; the other side's waits greyed out. */
+      #hud[data-side="defense"] .chip-defense-gold,
+      #hud[data-side="attack"] .chip-attack-gold {
+        height: 32px;
+        padding: 0 12px;
+        background: var(--side);
+        color: #fff;
+        font-size: 1.1rem;
+        box-shadow: 0 0 10px var(--side);
+        text-shadow: 0 1px 0 var(--outline);
+      }
+      #hud[data-side="defense"] .chip-attack-gold,
+      #hud[data-side="attack"] .chip-defense-gold {
+        opacity: 0.55;
+        filter: grayscale(0.8);
+      }
+      /* "+12" or "−3" dropping off a wallet's chip; down, as the chips sit at the screen's top edge. */
+      .chip-pop {
+        position: absolute;
+        top: 70%;
+        right: 6px;
+        z-index: 1;
+        color: var(--gold);
+        font-size: 1rem;
+        font-weight: 700;
+        text-shadow: 0 2px 0 var(--outline);
+        pointer-events: none;
+        animation: chip-pop 0.9s ease-out forwards;
+      }
+      @keyframes chip-pop {
+        from {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateY(18px);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .chip-pop {
+          display: none;
+        }
+      }
+      /* Every price: a coin in the gold's side colour, then the number. */
+      .price {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-weight: 700;
+      }
+      .coin {
+        display: inline-block;
+        width: 0.85em;
+        height: 0.85em;
+        border: 2px solid var(--gold);
+        border-radius: 50%;
+        box-sizing: border-box;
+        box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.3);
+      }
+      .coin-defense {
+        background: var(--defense);
+      }
+      .coin-attack {
+        background: var(--attack);
       }
       /* The turn, in the side's colour. */
       #hud .hud-turn {
@@ -365,18 +446,10 @@
         display: block;
         visibility: hidden;
       }
-      /* A phone on its side: the chips and the buttons share one row. */
+      /* A phone on its side: tighter edges. The gold in words leaves no room to share a row with the buttons. */
       @media (max-height: 500px) {
         #hud {
-          grid-template-columns: auto minmax(0, 1fr);
-          column-gap: 8px;
           padding: 4px 12px 0;
-        }
-        #hud .hud-controls {
-          justify-self: start;
-        }
-        #hud p {
-          grid-column: 1 / -1;
         }
       }
       #piece-info {

@@ -82,7 +82,7 @@ describe("crate labels", () => {
 
   it("shows the side's reroll price", () => {
     expect(rerollLabel("defense")).toBe(
-      `Reroll · ${String(CRATE_RULES.rerollPrice.defense)}g`,
+      `Reroll, ${String(CRATE_RULES.rerollPrice.defense)} Defense gold`,
     );
   });
 });
