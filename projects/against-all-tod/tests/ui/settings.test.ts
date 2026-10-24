@@ -5,6 +5,7 @@ import {
   handlePrice,
   positionLabel,
   stepHint,
+  TRICKS_TOGGLE_LABEL,
   undoLabel,
   undoPickHint,
 } from "../../src/ui/settings";
@@ -54,5 +55,11 @@ describe("Settings menu labels", () => {
     expect(handlePercent(-2)).toBe(0);
     expect(handlePercent(0)).toBe(50);
     expect(handlePercent(1)).toBe(75);
+  });
+});
+
+describe("Settings menu toggle", () => {
+  it("is labelled, never a bare icon, where the tricks fold away", () => {
+    expect(TRICKS_TOGGLE_LABEL).toBe("⚙ Tricks & Settings");
   });
 });

@@ -11,6 +11,9 @@ import { COIN_ICON, iconElement, SKULL_ICON, TRICK_ICONS } from "./trick-icons";
 /** Shown instead of the step hints for a slider that can't be dragged during a battle. */
 export const BETWEEN_BATTLES_HINT = "Only between battles";
 
+/** The button the tricks fold into on a narrow screen; never a bare icon. */
+export const TRICKS_TOGGLE_LABEL = "⚙ Tricks & Settings";
+
 /** What a drag one step each way would cost now; null at that end of the slider. */
 export type PriceOf = (slider: SliderId, to: number) => number | null;
 
@@ -80,9 +83,10 @@ export interface SettingsHandlers {
 }
 
 /**
- * The game's own Settings menu: a button that opens a slider per trick, each showing where it
- * stands, which side each way helps and what a step costs the side being played. A refused drag
- * snaps back, as the panel always redraws from the Run.
+ * The game's own Settings menu: a slider per trick, each showing where it stands, which side each
+ * way helps and what a step costs the side being played. It lives in the top band: in the open on
+ * a wide screen, folded behind a labelled button on a narrow one (the stylesheet picks which). A
+ * refused drag snaps back, as the panel always redraws from the Run.
  */
 export class SettingsMenu {
   private readonly doc: Document;
@@ -97,14 +101,14 @@ export class SettingsMenu {
     this.toggle = this.doc.createElement("button");
     this.toggle.type = "button";
     this.toggle.className = "btn settings-toggle";
-    this.toggle.textContent = "Settings";
+    this.toggle.textContent = TRICKS_TOGGLE_LABEL;
     this.toggle.setAttribute("aria-expanded", "false");
     this.panel = this.doc.createElement("div");
     this.panel.className = "card settings-panel";
-    this.panel.hidden = true;
+    // Not `hidden`: on a wide screen the panel shows whatever the toggle says.
     this.toggle.addEventListener("click", () => {
-      this.panel.hidden = !this.panel.hidden;
-      this.toggle.setAttribute("aria-expanded", String(!this.panel.hidden));
+      const open = this.toggle.getAttribute("aria-expanded") !== "true";
+      this.toggle.setAttribute("aria-expanded", String(open));
     });
     host.replaceChildren(this.toggle, this.panel);
   }
@@ -203,7 +207,7 @@ export class SettingsMenu {
       row.append(
         name,
         this.track(slider, position, input, null),
-        this.hint(BETWEEN_BATTLES_HINT),
+        this.hint(BETWEEN_BATTLES_HINT, "settings-locked"),
       );
       return row;
     }
@@ -212,9 +216,11 @@ export class SettingsMenu {
     row.append(
       name,
       this.track(slider, position, input, handlePrice(down, up)),
-      this.hint(stepHint(slider, -1, down)),
-      this.hint(stepHint(slider, 1, up)),
+      this.hint(stepHint(slider, -1, down), "settings-step"),
+      this.hint(stepHint(slider, 1, up), "settings-step"),
     );
+    // The strip hides the step lines to fit; a hover still tells a mouse what each way does.
+    row.title = `${stepHint(slider, -1, down)}\n${stepHint(slider, 1, up)}`;
     return row;
   }
 
@@ -250,8 +256,9 @@ export class SettingsMenu {
     return track;
   }
 
-  private hint(text: string): HTMLElement {
+  private hint(text: string, className?: string): HTMLElement {
     const line = this.doc.createElement("p");
+    if (className !== undefined) line.className = className;
     line.textContent = text;
     return line;
   }

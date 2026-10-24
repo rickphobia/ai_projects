@@ -4,15 +4,15 @@
 
 **Blocked by:** 39 (Clear gold and an Army count in the top bar)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** ui/settings, ui/hud, ui/style
 
 **Effort:** low
 
-- [ ] At 1910×873 and 1280×720 every trick's control is visible at the top without opening anything, with its icon, position and price
-- [ ] Buying or moving a trick works the same as from today's menu (existing settings tests stay green; add one if the controls move to new code)
-- [ ] On a 390×844 phone they collapse into a labelled "⚙ Tricks & Settings" button in the top bar that opens the same controls
-- [ ] The old left-hand Settings button is gone
-- [ ] Screenshots in the PR at all three sizes
-- [ ] Lint, type checks and tests pass
+- [x] At 1910×873 and 1280×720 every trick's control is visible at the top without opening anything, with its icon, position and price
+- [x] Buying or moving a trick works the same as from today's menu (existing settings tests stay green; add one if the controls move to new code)
+- [x] On a 390×844 phone they collapse into a labelled "⚙ Tricks & Settings" button in the top bar that opens the same controls
+- [x] The old left-hand Settings button is gone
+- [x] Screenshots in the PR at all three sizes
+- [x] Lint, type checks and tests pass

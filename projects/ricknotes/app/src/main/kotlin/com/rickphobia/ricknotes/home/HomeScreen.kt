@@ -23,50 +23,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.studyfolder.StudyFolder
-import com.rickphobia.ricknotes.core.studyfolder.StudyFolderListingException
-import com.rickphobia.ricknotes.core.studyfolder.TreeLayout
 import com.rickphobia.ricknotes.core.studyfolder.TreeNode
 import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.imports.PdfDrop
-import com.rickphobia.ricknotes.logging.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.file.Path
-
-/** What the home screen shows once the Study folder has been walked. */
-private sealed interface Listing {
-    data object Loading : Listing
-
-    data class Ready(
-        val tree: TreeNode.Folder,
-        val recent: List<TreeNode.Document>,
-        val initiallyExpanded: Set<String>,
-    ) : Listing
-
-    data class Failed(
-        val message: String,
-    ) : Listing
-}
-
-private fun loadListing(
-    studyFolder: StudyFolder,
-    recentPaths: List<String>,
-): Listing =
-    try {
-        val started = System.nanoTime()
-        val tree = studyFolder.listTree { _, error -> AppLog.w("left out of the tree: ${error.message}") }
-        AppLog.i("listed the Study folder in ${(System.nanoTime() - started) / NANOS_PER_MS} ms")
-        Listing.Ready(
-            tree = tree,
-            recent = TreeLayout.documents(tree, recentPaths),
-            initiallyExpanded = TreeLayout.initiallyExpanded(tree, recentPaths),
-        )
-    } catch (e: StudyFolderListingException) {
-        AppLog.e("listing the Study folder failed", e)
-        Listing.Failed(e.message.orEmpty())
-    }
-
-private const val NANOS_PER_MS = 1_000_000
 
 /**
  * What the home screen reads: the Recent Documents and the Course folder marks from settings, and
@@ -109,10 +71,7 @@ fun HomeScreen(
     navigation: HomeNavigation,
 ) {
     val folder = remember(studyFolder) { StudyFolder(Path.of(studyFolder)) }
-    // A large Study folder takes a moment to walk, so it is listed off the main thread.
-    val listing by produceState<Listing>(initialValue = Listing.Loading, studyFolder) {
-        value = withContext(Dispatchers.IO) { loadListing(folder, library.recentPaths()) }
-    }
+    val listing by rememberListing(folder, library.recentPaths)
     // Null until counted; counted again each time the home screen shows, so after Review too.
     val dueCount by produceState<Int?>(initialValue = null, studyFolder) {
         value = withContext(Dispatchers.IO) { library.dueCount() }

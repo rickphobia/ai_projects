@@ -101,6 +101,12 @@ fun BackButton(onBack: () -> Unit) {
     ToolIcon(R.drawable.ic_arrow_back, stringResource(R.string.back), onBack)
 }
 
+/** Opens or closes the tree drawer. */
+@Composable
+fun TreeButton(onToggle: () -> Unit) {
+    ToolIcon(R.drawable.ic_tree, stringResource(R.string.tree_drawer), onToggle)
+}
+
 /** Opens the Document in the other Pane. */
 @Composable
 fun SplitButton(onSplit: () -> Unit) {

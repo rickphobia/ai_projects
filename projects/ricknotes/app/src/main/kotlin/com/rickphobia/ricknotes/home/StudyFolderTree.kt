@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.draganddrop.dragAndDropTarget
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,10 +21,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -48,17 +54,30 @@ interface CourseFolderActions {
 }
 
 /**
- * What tapping opens: a Document, or a Course folder's Revision log by the folder's path.
- * [pdfDrop] makes the target that takes a PDF dropped onto a folder, by the folder's path.
+ * What a Document long-pressed and dragged out of the tree does: [dragged] gets where the finger or
+ * pen is, in the screen's coordinates, and [dropped] where it let go, or null if the drag was
+ * cancelled.
  */
-class TreeOpens(
-    val document: (TreeNode.Document) -> Unit,
-    val revisionLog: (String) -> Unit,
-    val pdfDrop: (String) -> DragAndDropTarget,
+class DocumentDrag(
+    val dragged: (Offset) -> Unit,
+    val dropped: (TreeNode.Document, Offset?) -> Unit,
 )
 
 /**
- * The browse-only Study folder tree: tap a folder to open or close it, tap a PDF to open it,
+ * What tapping opens: a Document, or a Course folder's Revision log by the folder's path (with no
+ * [revisionLog], no Revision log row shows). [pdfDrop] makes the target that takes a PDF dropped
+ * onto a folder, by the folder's path; with [documentDrag], a Document can be dragged out.
+ */
+class TreeOpens(
+    val document: (TreeNode.Document) -> Unit,
+    val revisionLog: ((String) -> Unit)?,
+    val pdfDrop: ((String) -> DragAndDropTarget)?,
+    val documentDrag: DocumentDrag? = null,
+)
+
+/**
+ * The browse-only Study folder tree, on the home screen and in the tree drawer: tap a folder to
+ * open or close it, tap a PDF to open it (or long-press and drag it out, where that is offered),
  * long-press a folder to mark or unmark it as a Course folder, drop a PDF onto a folder to copy it
  * in. An open Course folder starts with its Revision log row.
  */
@@ -78,8 +97,11 @@ fun StudyFolderTree(
         items(rows, key = { it.node.path }) { row ->
             val node = row.node
             val isCourse = node is TreeNode.Folder && courses.folders.isCourse(node.path)
-            val dropTarget = (node as? TreeNode.Folder)?.let { remember(it.path) { opens.pdfDrop(it.path) } }
-            Box(modifier = Modifier.takingPdfs(dropTarget)) {
+            val pdfDrop = opens.pdfDrop
+            val dropTarget =
+                (node as? TreeNode.Folder)?.let { folder -> pdfDrop?.let { remember(folder.path) { it(folder.path) } } }
+            val drag = opens.documentDrag?.let { drag -> (node as? TreeNode.Document)?.let { DraggedOut(it, drag) } }
+            Box(modifier = Modifier.takingPdfs(dropTarget).draggingOut(drag)) {
                 TreeRowContent(
                     row = row,
                     isOpen = node.path in expanded,
@@ -90,7 +112,8 @@ fun StudyFolderTree(
                             is TreeNode.Document -> opens.document(node)
                         }
                     },
-                    onLongClick = { if (node is TreeNode.Folder) menuFor = node.path },
+                    // A Document's long-press is left to dragging it out.
+                    onLongClick = if (node is TreeNode.Folder) ({ menuFor = node.path }) else null,
                 )
                 DropdownMenu(expanded = menuFor == node.path, onDismissRequest = { menuFor = null }) {
                     val label = if (isCourse) R.string.unmark_course else R.string.mark_as_course
@@ -105,7 +128,8 @@ fun StudyFolderTree(
             }
             HorizontalDivider()
             // An open Course folder's first row is its Revision log, above its own files.
-            if (isCourse && node.path in expanded) {
+            val revisionLog = opens.revisionLog
+            if (isCourse && node.path in expanded && revisionLog != null) {
                 Text(
                     text = stringResource(R.string.revision_log),
                     style = MaterialTheme.typography.bodyLarge,
@@ -113,7 +137,7 @@ fun StudyFolderTree(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .clickable { opens.revisionLog(node.path) }
+                            .clickable { revisionLog(node.path) }
                             .padding(
                                 start = INDENT_PER_LEVEL * (row.depth + 1) + MARKER_WIDTH,
                                 top = 10.dp,
@@ -130,6 +154,39 @@ fun StudyFolderTree(
 private fun Modifier.takingPdfs(target: DragAndDropTarget?): Modifier =
     if (target == null) this else dragAndDropTarget(shouldStartDragAndDrop = { true }, target = target)
 
+/** A Document row that can be dragged out of the tree, and what dragging it does. */
+private class DraggedOut(
+    val document: TreeNode.Document,
+    val drag: DocumentDrag,
+)
+
+// The drag follows the finger past the tree's edge, so a Document can be dropped beside it.
+@Composable
+private fun Modifier.draggingOut(dragged: DraggedOut?): Modifier {
+    if (dragged == null) return this
+    val latest by rememberUpdatedState(dragged)
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    var at by remember { mutableStateOf<Offset?>(null) }
+    return onGloballyPositioned { origin = it.boundsInRoot().topLeft }
+        .pointerInput(dragged.document.path) {
+            detectDragGesturesAfterLongPress(
+                onDragStart = { start -> at = (origin + start).also { latest.drag.dragged(it) } },
+                onDragEnd = {
+                    latest.drag.dropped(latest.document, at)
+                    at = null
+                },
+                onDragCancel = {
+                    latest.drag.dropped(latest.document, null)
+                    at = null
+                },
+                onDrag = { change, amount ->
+                    change.consume()
+                    at = at?.plus(amount)?.also { latest.drag.dragged(it) }
+                },
+            )
+        }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TreeRowContent(
@@ -137,7 +194,7 @@ private fun TreeRowContent(
     isOpen: Boolean,
     isCourse: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
 ) {
     val node = row.node
     val openState = stringResource(R.string.folder_open)
