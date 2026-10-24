@@ -36,6 +36,7 @@ import com.rickphobia.ricknotes.toolbar.BackButton
 import com.rickphobia.ricknotes.toolbar.PenKind
 import com.rickphobia.ricknotes.toolbar.PenToolbar
 import com.rickphobia.ricknotes.toolbar.SplitButton
+import com.rickphobia.ricknotes.toolbar.TreeButton
 import com.rickphobia.ricknotes.toolbar.UndoRedoButtons
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -62,12 +63,13 @@ class DocumentTab(
 
 /**
  * Where a Document's Tab leads: a PDF dropped onto a page opens with [openPdf], and [split] opens
- * the Document in the other Pane.
+ * the Document in the other Pane, and [toggleTree] opens or closes the tree drawer.
  */
 class DocumentNavigation(
     val openPdf: (PdfEntry) -> Unit,
     val onBack: () -> Unit,
     val split: () -> Unit,
+    val toggleTree: () -> Unit,
 )
 
 /**
@@ -104,7 +106,7 @@ fun DocumentScreen(
     if (!shown) return
 
     Column(modifier = Modifier.fillMaxSize()) {
-        DocumentTopBar(onBack, navigation.split) {
+        DocumentTopBar(onBack, navigation) {
             PenToolbar(tool, kind, favouritePens)
             (opening as? Opening.Ready)?.let { InkControls(it.ink) }
         }
@@ -167,16 +169,17 @@ private fun rememberOpening(
             }
     }
 
-/** Back and split, then [tools] at the end; the tab bar above names the Document. */
+/** Back, the tree drawer and split, then [tools] at the end; the tab bar above names the Document. */
 @Composable
 private fun DocumentTopBar(
     onBack: () -> Unit,
-    onSplit: () -> Unit,
+    navigation: DocumentNavigation,
     tools: @Composable () -> Unit,
 ) {
     Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
         BackButton(onBack)
-        SplitButton(onSplit)
+        TreeButton(navigation.toggleTree)
+        SplitButton(navigation.split)
         Spacer(modifier = Modifier.weight(1f))
         tools()
     }

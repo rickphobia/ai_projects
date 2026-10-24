@@ -12,6 +12,7 @@ import com.rickphobia.ricknotes.panes.KeyShortcuts
 import com.rickphobia.ricknotes.panes.PaneContext
 import com.rickphobia.ricknotes.panes.PaneNavigation
 import com.rickphobia.ricknotes.panes.PaneScreen
+import com.rickphobia.ricknotes.panes.PaneSources
 import com.rickphobia.ricknotes.panes.startPosition
 import com.rickphobia.ricknotes.revisionlog.CourseFolder
 import com.rickphobia.ricknotes.viewer.DocumentSettings
@@ -46,7 +47,7 @@ internal fun DocumentRoute(
     route: Screen.Document,
     storage: AppStorage<*>,
     shortcuts: KeyShortcuts,
-    settings: (PdfEntry) -> DocumentSettings,
+    sources: PaneSources,
     go: (Screen) -> Unit,
 ) {
     val layout = storage.layout.layout
@@ -62,7 +63,7 @@ internal fun DocumentRoute(
             layout = storage.layout,
             positions = storage.readingPositions,
             shortcuts = shortcuts,
-            settings = settings,
+            sources = sources,
             navigation = PaneNavigation(back = { go(route.back) }, home = { go(Screen.Home(route.studyFolder)) }),
         )
     PaneScreen(context, sharedImage)

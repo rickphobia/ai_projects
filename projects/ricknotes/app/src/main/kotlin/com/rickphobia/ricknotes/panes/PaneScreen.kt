@@ -17,26 +17,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import com.rickphobia.ricknotes.core.layout.MAX_PANES
 import com.rickphobia.ricknotes.core.layout.MIN_PANE_SHARE
 import com.rickphobia.ricknotes.core.layout.makeEqual
-import com.rickphobia.ricknotes.core.layout.moveToOtherPane
 import com.rickphobia.ricknotes.core.layout.setDivider
 import com.rickphobia.ricknotes.files.PdfEntry
-import com.rickphobia.ricknotes.ink.InkSessions
+import com.rickphobia.ricknotes.home.DocumentDrag
+import com.rickphobia.ricknotes.home.TreeOpens
 import com.rickphobia.ricknotes.settings.LayoutSetting
 import com.rickphobia.ricknotes.viewer.DocumentNavigation
 import com.rickphobia.ricknotes.viewer.DocumentScreen
@@ -44,7 +40,6 @@ import com.rickphobia.ricknotes.viewer.DocumentSettings
 import com.rickphobia.ricknotes.viewer.DocumentTab
 import com.rickphobia.ricknotes.viewer.ReadingPositions
 import com.rickphobia.ricknotes.viewer.SharedImage
-import java.io.File
 
 // Thin enough not to cover the page, but visible beside the other Pane.
 private val FOCUS_MARK_WIDTH = 2.dp
@@ -59,14 +54,26 @@ internal class PaneNavigation(
     val home: () -> Unit,
 )
 
+/** What the Pane screen reads from the settings: each Tab's, and the tree drawer's. */
+internal class PaneSources(
+    val settings: (PdfEntry) -> DocumentSettings,
+    val tree: TreeSource,
+)
+
 /** What the Pane screen needs from the app: where things are kept, and where it leads. */
 internal class PaneContext(
     val studyFolder: String,
     val layout: LayoutSetting<*>,
     val positions: ReadingPositions,
     val shortcuts: KeyShortcuts,
-    val settings: (PdfEntry) -> DocumentSettings,
+    val sources: PaneSources,
     val navigation: PaneNavigation,
+)
+
+/** What every Pane shares: the drags between Panes, and the toolbar button that opens or closes the tree drawer. */
+internal class PaneControls(
+    val dragging: TabDragging,
+    val toggleTree: () -> Unit,
 )
 
 /** A shared image, and the path of the Tab it goes onto. */
@@ -76,57 +83,12 @@ private class SharedTo(
 )
 
 /**
- * Where each Pane is on screen and which one a dragged Tab is over, so a Tab dropped on the other
- * Pane moves there.
- */
-private class TabDragging(
-    private val context: PaneContext,
-) {
-    val paneBounds = mutableStateMapOf<Int, Rect>()
-    var over by mutableStateOf<Int?>(null)
-
-    fun dragged(
-        from: Int,
-        at: Offset,
-    ) {
-        over = paneAt(at)?.takeIf { it != from }
-    }
-
-    fun dropped(
-        from: Int,
-        tab: Int,
-        at: Offset?,
-    ) {
-        over = null
-        if (at != null && paneAt(at).let { it != null && it != from }) move(from, tab)
-    }
-
-    private fun paneAt(at: Offset) = paneBounds.entries.firstOrNull { it.value.contains(at) }?.key
-
-    private fun move(
-        from: Int,
-        tab: Int,
-    ) {
-        val layout = context.layout.layout
-        val moving =
-            layout.panes
-                .getOrNull(from)
-                ?.tabs
-                ?.getOrNull(tab) ?: return
-        val other = layout.panes.getOrNull((from + 1) % MAX_PANES) ?: return
-        // The first Pane's place is kept when it closes, Tabs and all, so its last Tab never reopens.
-        val reopens = other.tabs.none { it.path == moving.path } && !(from == 0 && layout.panes[0].tabs.size == 1)
-        if (reopens) InkSessions.handOver(File(context.studyFolder, moving.path))
-        context.layout.change { moveToOtherPane(from, tab) }
-    }
-}
-
-/**
  * The Document screen: one or two Panes of Tabs, side by side when the screen is wider than tall
  * and stacked otherwise, so turning the tablet never changes the Layout. The divider between them
  * drags to resize them and a double-tap makes them equal; a Tab long-pressed and dragged onto the
- * other Pane moves there. A [sharedImage] goes onto the Tab selected in the Focused Pane when the
- * screen opened. Closing the last Tab goes home.
+ * other Pane moves there. The toolbar's tree button opens the tree drawer over the Panes. A
+ * [sharedImage] goes onto the Tab selected in the Focused Pane when the screen opened. Closing the
+ * last Tab goes home.
  */
 @Composable
 internal fun PaneScreen(
@@ -142,11 +104,13 @@ internal fun PaneScreen(
     }
     val sharedTo = remember { layout.layout.focused to layout.layout.selectedTab?.path }
     val dragging = remember(context) { TabDragging(context) }
+    var treeOpen by remember { mutableStateOf(false) }
+    val toggleTree = { treeOpen = !treeOpen }
     val pane: @Composable (Int, Modifier) -> Unit = { index, modifier ->
         // Keyed by place: when the first Pane closes, the second's Tabs move into the first's place.
         key(index) {
             val shared = sharedImage?.takeIf { sharedTo.first == index }?.let { SharedTo(it, sharedTo.second) }
-            OnePane(context, index, shared, dragging, modifier)
+            OnePane(context, index, shared, PaneControls(dragging, toggleTree), modifier)
         }
     }
     // Follows the finger while the divider is dragged; the Layout is changed (and saved) when it lets go.
@@ -177,7 +141,43 @@ internal fun PaneScreen(
                 }
             }
         }
+        if (treeOpen) TreeDrawerOver(context, dragging) { treeOpen = false }
     }
+}
+
+/**
+ * The tree drawer over the Panes: tapping a Document opens it in the Focused Pane and dragging it
+ * onto a Pane opens it there, either way closing the drawer with [close].
+ */
+@Composable
+private fun TreeDrawerOver(
+    context: PaneContext,
+    dragging: TabDragging,
+    close: () -> Unit,
+) {
+    DisposableEffect(dragging) { onDispose { dragging.drawerBounds = null } }
+    val opens =
+        TreeOpens(
+            document = { document ->
+                val pdf = pdfAt(context.studyFolder, document.path)
+                context.layout.change { open(document.path, startPosition(context.positions, pdf)) }
+                close()
+            },
+            revisionLog = null,
+            pdfDrop = null,
+            documentDrag =
+                DocumentDrag(
+                    dragged = dragging::documentDragged,
+                    dropped = { document, at -> if (dragging.documentDropped(document, at)) close() },
+                ),
+        )
+    TreeDrawer(
+        context.studyFolder,
+        context.sources.tree,
+        opens,
+        close,
+        Modifier.onGloballyPositioned { dragging.drawerBounds = it.boundsInRoot() },
+    )
 }
 
 /**
@@ -190,9 +190,10 @@ private fun OnePane(
     context: PaneContext,
     index: Int,
     shared: SharedTo?,
-    dragging: TabDragging,
+    controls: PaneControls,
     modifier: Modifier,
 ) {
+    val dragging = controls.dragging
     val layout = context.layout
     val pane = layout.layout.panes.getOrNull(index) ?: return
     val marked = layout.layout.panes.size > 1 && layout.layout.focused == index
@@ -206,6 +207,7 @@ private fun OnePane(
             openPdf = { pdf -> layout.change { open(pdf.treePath, startPosition(context.positions, pdf), index) } },
             onBack = context.navigation.back,
             split = { layout.change { focus(index).split() } },
+            toggleTree = controls.toggleTree,
         )
     val markColour = MaterialTheme.colorScheme.primary
     val mark =
@@ -241,7 +243,7 @@ private fun OnePane(
                         }
                     DocumentScreen(
                         document,
-                        context.settings(document.pdf),
+                        context.sources.settings(document.pdf),
                         shared?.image?.takeIf { tab.path == shared.path },
                         navigation,
                         shown = tab.path == selected,

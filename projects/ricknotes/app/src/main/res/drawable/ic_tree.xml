@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Drawn for RickNotes: a folder with two files under it, in the style of Material Symbols (24px). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M120,160H360L420,220H560V360H120ZM200,360H260V480H440V540H260V680H440V740H200ZM480,440H840V580H480ZM480,640H840V780H480Z" />
+</vector>
