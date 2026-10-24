@@ -4,15 +4,15 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-layout, app-panes, app-viewer, app-settings
 
 **Effort:** medium
 
-- [ ] Layout seam in `core`: open a Document (new Tab, or select an open one), select and close Tabs, JSON round-trip (tested)
-- [ ] Layout is saved in app settings on every change and restored on start; a damaged saved Layout starts empty with a warning in the log (tested)
-- [ ] Tab bar in the Document screen; switching Tabs keeps each one's page, zoom and undo history
-- [ ] Only the selected Tab renders pages
-- [ ] Ctrl+W closes the current Tab; closing the last Tab goes to the home screen
-- [ ] On-tablet check written in the PR: open three Documents, write in each, switch between them, undo in the first, force-close, reopen with all three Tabs at their pages
+- [x] Layout seam in `core`: open a Document (new Tab, or select an open one), select and close Tabs, JSON round-trip (tested)
+- [x] Layout is saved in app settings on every change and restored on start; a damaged saved Layout starts empty with a warning in the log (tested)
+- [x] Tab bar in the Document screen; switching Tabs keeps each one's page, zoom and undo history
+- [x] Only the selected Tab renders pages
+- [x] Ctrl+W closes the current Tab; closing the last Tab goes to the home screen
+- [x] On-tablet check written in the PR: open three Documents, write in each, switch between them, undo in the first, force-close, reopen with all three Tabs at their pages

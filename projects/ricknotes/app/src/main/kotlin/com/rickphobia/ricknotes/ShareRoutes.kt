@@ -25,6 +25,7 @@ import com.rickphobia.ricknotes.imports.ShareKind
 import com.rickphobia.ricknotes.imports.ShareRoute
 import com.rickphobia.ricknotes.imports.shareRoute
 import com.rickphobia.ricknotes.logging.AppLog
+import com.rickphobia.ricknotes.panes.pdfAt
 import java.io.File
 
 /**
@@ -37,6 +38,7 @@ internal fun TakeShare(
     share: IncomingShare?,
     current: () -> Screen,
     recentPaths: () -> List<String>,
+    open: (PdfEntry) -> Unit,
     go: (Screen) -> Unit,
 ) {
     val context = LocalContext.current
@@ -62,7 +64,8 @@ internal fun TakeShare(
             }
 
             is ShareRoute.OpenDocument -> {
-                go(Screen.Document(studyFolder, pdfAt(studyFolder, route.path), sharedImage = uri))
+                open(pdfAt(studyFolder, route.path))
+                go(Screen.Document(studyFolder, sharedImage = uri))
             }
 
             ShareRoute.ChooseDocument -> {
@@ -86,19 +89,11 @@ private val Screen.studyFolder: String?
             is Screen.Document -> studyFolder
         }
 
-private fun pdfAt(
-    studyFolder: String,
-    treePath: String,
-) = PdfEntry(
-    File(studyFolder, treePath).path,
-    treePath.substringBeforeLast('/', missingDelimiterValue = ""),
-    treePath.substringAfterLast('/'),
-)
-
 /** The folder picker for a shared PDF, which is then copied there and opened. */
 @Composable
 internal fun ShareFolderRoute(
     route: Screen.ShareFolder,
+    open: (PdfEntry) -> Unit,
     go: (Screen) -> Unit,
 ) {
     val activity = checkNotNull(LocalActivity.current) { "the folder picker is shown outside an activity" }
@@ -108,7 +103,8 @@ internal fun ShareFolderRoute(
         startFolder = route.startFolder,
         onPick = { folder ->
             PdfCopyIn(activity, scope).start(route.uri, File(route.studyFolder, folder), { copy ->
-                go(Screen.Document(route.studyFolder, PdfEntry(copy.path, folder, copy.name)))
+                open(PdfEntry(copy.path, folder, copy.name))
+                go(Screen.Document(route.studyFolder))
             })
         },
         onCancel = { go(Screen.Home(route.studyFolder)) },
