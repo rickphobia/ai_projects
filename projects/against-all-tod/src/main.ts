@@ -131,7 +131,7 @@ async function start(): Promise<void> {
     },
   });
   const report = new RoundReportPanel(requireElement("round-report"));
-  const settings = new SettingsMenu(requireElement("settings"), {
+  const settings = new SettingsMenu(hud.tricks, {
     onDrag: (slider, to) => {
       run.dragSlider(slider, to);
     },
