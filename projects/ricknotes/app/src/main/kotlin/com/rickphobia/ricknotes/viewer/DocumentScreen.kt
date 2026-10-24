@@ -32,6 +32,7 @@ import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.PenMode
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.revisionlog.rememberRevisionLogAdder
+import com.rickphobia.ricknotes.sendto.SendToButton
 import com.rickphobia.ricknotes.toolbar.BackButton
 import com.rickphobia.ricknotes.toolbar.PenKind
 import com.rickphobia.ricknotes.toolbar.PenToolbar
@@ -107,6 +108,7 @@ fun DocumentScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         DocumentTopBar(onBack, navigation) {
+            SendToButton(File(pdf.path), settings.studyFolder)
             PenToolbar(tool, kind, favouritePens)
             (opening as? Opening.Ready)?.let { InkControls(it.ink) }
         }

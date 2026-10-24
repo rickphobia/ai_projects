@@ -36,6 +36,9 @@
   <string name="close_tab">Close %1$s</string>
   <string name="split">Open in the other Pane</string>
   <string name="tree_drawer">Study folder tree</string>
+  <string name="send_to">Send to</string>
+  <string name="send_to_target">Send to %1$s</string>
+  <string name="preset_ink_with_export">%1$s (ink comes with export)</string>
   <string name="close_tree">Close the tree</string>
   <string name="page_failed">Couldn\'t draw page %1$d.</string>
   <string name="clear">Clear</string>

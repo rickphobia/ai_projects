@@ -36,7 +36,7 @@ internal fun documentSettings(
     pens: FavouritePens,
     gestures: FingerGestures,
     courses: CourseFolders,
-) = DocumentSettings(pens, gestures, CourseFolder.of(pdf, studyFolder, courses))
+) = DocumentSettings(pens, gestures, CourseFolder.of(pdf, studyFolder, courses), studyFolder)
 
 /**
  * The Tabs of [route], Back going where it says and closing the last Tab going home. The selected

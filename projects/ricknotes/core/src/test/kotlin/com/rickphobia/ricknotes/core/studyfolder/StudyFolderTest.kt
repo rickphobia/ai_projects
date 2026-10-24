@@ -73,6 +73,7 @@ class StudyFolderTest {
         touch("EE2001/tuto3.pdf.assets/picture-1.png")
         touch("EE2001/.versions/tuto3.pdf.ink.json.1.version")
         touch("EE2001/_revision_log/revision_log.json")
+        touch("_ricknotes/presets.json")
         touch("EE2001/slides.pptx")
         touch("EE2001/.hidden.pdf")
 
