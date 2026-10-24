@@ -7,6 +7,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+private const val TAB_A = """{"path":"a.pdf","page":3,"zoom":1}"""
+
 private const val PANE = """{"tabs":[{"path":"a.pdf","page":0,"zoom":1}],"selected":0}"""
 
 class LayoutLoaderTest {
@@ -121,5 +123,28 @@ class LayoutLoaderTest {
     fun `a divider past either Pane's minimum starts empty with a warning`() {
         assertEquals(Layout(), restored("""{"panes":[$PANE],"divider":0.01}"""))
         assertEquals(1, warnings.size)
+    }
+
+    @Test
+    fun `a restored Tab whose Document is gone is kept and marked missing`() {
+        val layout =
+            restored("""{"panes":[{"tabs":[$TAB_A,{"path":"b.pdf","page":0,"zoom":1}],"selected":1}]}""")
+                .checkMissing { it != "a.pdf" }
+
+        val tabs = layout.panes.single().tabs
+        assertEquals(listOf("a.pdf", "b.pdf"), tabs.map { it.path })
+        assertEquals(listOf(true, false), tabs.map { it.missing })
+        assertEquals(1, layout.panes.single().selected)
+    }
+
+    @Test
+    fun `a Document that comes back loses its missing mark, and the mark is not saved`() {
+        val missing = Layout().open("a.pdf", TabPosition(0, 1f)).checkMissing { false }
+        val saved = mutableMapOf<String, String>()
+
+        LayoutLoader.save({ key, value -> saved[key] = value }, missing)
+
+        assertFalse(saved.getValue(LAYOUT_KEY), saved.getValue(LAYOUT_KEY).contains("missing"))
+        assertFalse(missing.checkMissing { true }.selectedTab!!.missing)
     }
 }
