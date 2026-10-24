@@ -27,6 +27,16 @@ class RecentDocuments<S>(
         settings.write(KEY, updated.joinToString("\n"))
     }
 
+    /** The Document at [from], or the Documents inside the folder at [from], now live at [to]; their order stays. */
+    fun renamed(
+        from: String,
+        to: String,
+    ) {
+        val stored = paths()
+        val updated = stored.map { renamedPath(it, from, to) ?: it }
+        if (updated != stored) settings.write(KEY, updated.joinToString("\n"))
+    }
+
     companion object {
         const val KEY = "recent_documents"
         const val LIMIT = 8
