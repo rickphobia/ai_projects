@@ -39,6 +39,8 @@
   <string name="send_to">Send to</string>
   <string name="send_to_target">Send to %1$s</string>
   <string name="preset_ink_with_export">%1$s (ink comes with export)</string>
+  <string name="document_missing">This Document was moved or renamed</string>
+  <string name="close_missing_tab">Close</string>
   <string name="close_tree">Close the tree</string>
   <string name="page_failed">Couldn\'t draw page %1$d.</string>
   <string name="clear">Clear</string>

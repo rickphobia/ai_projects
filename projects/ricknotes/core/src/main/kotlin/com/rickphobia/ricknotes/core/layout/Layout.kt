@@ -6,10 +6,14 @@ data class TabPosition(
     val zoom: Float,
 )
 
-/** One open Document: its path relative to the Study folder, and where it is being read. */
+/**
+ * One open Document: its path relative to the Study folder, and where it is being read. A [missing]
+ * Tab's Document was moved or renamed outside the app; it stays until closed, so nothing vanishes.
+ */
 data class Tab(
     val path: String,
     val position: TabPosition,
+    val missing: Boolean = false,
 )
 
 /** One Pane: its Tabs in tab-bar order, never empty, and which one shows. */
