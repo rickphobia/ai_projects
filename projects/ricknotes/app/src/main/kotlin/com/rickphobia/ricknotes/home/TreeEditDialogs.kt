@@ -52,6 +52,12 @@ sealed interface TreeEditDialog {
     data class NotDone(
         val outcome: TreeEditOutcome.NotDone,
     ) : TreeEditDialog
+
+    /** Link to PDF… for [orphan], offering [candidates] (tree paths of its folder's PDFs without ink). */
+    data class LinkToPdf(
+        val orphan: TreeNode.OrphanedInk,
+        val candidates: List<String>,
+    ) : TreeEditDialog
 }
 
 /** Shows [dialog]; [onEdit] gets the edit it asks for, and [onDismiss] closes it. */
@@ -85,6 +91,10 @@ fun TreeEditDialogs(
 
         is TreeEditDialog.MoveTo -> {
             MoveToDialog(dialog.node, tree, onMove = { onEdit(TreeEdit.Move(dialog.node, it)) }, onDismiss = onDismiss)
+        }
+
+        is TreeEditDialog.LinkToPdf -> {
+            LinkToPdfDialog(dialog, onLink = { onEdit(TreeEdit.LinkInk(dialog.orphan, it)) }, onDismiss = onDismiss)
         }
 
         is TreeEditDialog.NotDone -> {
@@ -197,6 +207,35 @@ private fun MoveToDialog(
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** Lists the PDFs [dialog] offers; tapping one links the Orphaned ink to it. */
+@Composable
+private fun LinkToPdfDialog(
+    dialog: TreeEditDialog.LinkToPdf,
+    onLink: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.link_title, dialog.orphan.name)) },
+        text = {
+            if (dialog.candidates.isEmpty()) {
+                Text(stringResource(R.string.link_no_pdfs))
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = PICKER_MAX_HEIGHT)) {
+                    items(dialog.candidates, key = { it }) { pdf ->
+                        Text(
+                            text = pdf.substringAfterLast('/'),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.fillMaxWidth().clickable { onLink(pdf) }.padding(vertical = 12.dp),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 

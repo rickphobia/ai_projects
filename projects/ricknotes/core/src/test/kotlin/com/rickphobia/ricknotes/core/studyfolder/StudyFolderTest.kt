@@ -33,6 +33,10 @@ class StudyFolderTest {
             is TreeNode.Folder -> {
                 listOf("  ".repeat(depth) + node.name + "/") + node.children.flatMap { outline(it, depth + 1) }
             }
+
+            is TreeNode.OrphanedInk -> {
+                listOf("  ".repeat(depth) + node.name + " (orphaned ink)")
+            }
         }
 
     private fun listed() =
@@ -137,5 +141,38 @@ class StudyFolderTest {
     fun `a Document knows its folder`() {
         assertEquals("Y1/Sem1", TreeNode.Document("a.pdf", "Y1/Sem1/a.pdf").folder)
         assertEquals("", TreeNode.Document("a.pdf", "a.pdf").folder)
+    }
+
+    @Test
+    fun `an Ink file whose PDF is missing is listed as Orphaned ink among the PDFs`() {
+        touch("EE2001/b.pdf")
+        touch("EE2001/b.pdf.ink.json")
+        touch("EE2001/old name.pdf.ink.json")
+        touch("EE2001/old name.pdf.assets/picture-1.png")
+        touch("EE2001/c.pdf")
+
+        assertEquals(
+            listOf("EE2001/", "  b.pdf", "  c.pdf", "  old name.pdf (orphaned ink)"),
+            listed(),
+        )
+        val tree = StudyFolder(temp.root.toPath()).listTree { _, error -> throw error }
+        val orphan = (tree.children.single() as TreeNode.Folder).children.last()
+        assertEquals(TreeNode.OrphanedInk("old name.pdf", "EE2001/old name.pdf"), orphan)
+    }
+
+    @Test
+    fun `the PDFs to link Orphaned ink to are the same folder's PDFs without ink`() {
+        touch("EE2001/old.pdf.ink.json")
+        touch("EE2001/inked.pdf")
+        touch("EE2001/inked.pdf.ink.json")
+        touch("EE2001/Renamed.pdf")
+        touch("EE2001/another.PDF")
+        touch("EE2001/notes.txt")
+        touch("EE2001/tuto/inside.pdf")
+        touch("elsewhere.pdf")
+
+        val candidates = StudyFolder(temp.root.toPath()).linkCandidates("EE2001/old.pdf")
+
+        assertEquals(listOf("EE2001/another.PDF", "EE2001/Renamed.pdf"), candidates)
     }
 }

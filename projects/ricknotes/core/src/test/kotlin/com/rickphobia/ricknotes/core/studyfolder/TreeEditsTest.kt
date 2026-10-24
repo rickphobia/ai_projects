@@ -308,4 +308,62 @@ class TreeEditsTest {
         assertEquals(null, renamedPath("Y10/a.pdf", "Y1", "Y2"))
         assertEquals(null, renamedPath("other.pdf", "a.pdf", "b.pdf"))
     }
+
+    @Test
+    fun `linking Orphaned ink to a PDF renames every companion to match it`() {
+        documentWithCompanions("EE2001")
+        File(temp.root, "EE2001/tuto3.pdf").renameTo(File(temp.root, "EE2001/Tutorial 3.pdf"))
+
+        val linked = edits().linkOrphanedInk("EE2001/tuto3.pdf", "EE2001/Tutorial 3.pdf")
+
+        assertEquals("EE2001/Tutorial 3.pdf", linked)
+        assertEquals(
+            mapOf(
+                "EE2001/Tutorial 3.pdf" to "pdf",
+                "EE2001/Tutorial 3.pdf.ink.json" to "ink",
+                "EE2001/Tutorial 3.pdf.assets/picture-1.png" to "picture",
+                "EE2001/.versions/Tutorial 3.pdf.ink.json.1000.version" to "v1",
+                "EE2001/.versions/Tutorial 3.pdf.ink.json.2000.version" to "v2",
+                "EE2001/.versions/tuto3.pdf.ink.json.notes.version" to "not a Version",
+                "EE2001/.versions/other.pdf.ink.json.1000.version" to "other",
+            ),
+            files(),
+        )
+    }
+
+    @Test
+    fun `linking refuses on a clash with nothing moved`() {
+        write("old.pdf.ink.json", "ink")
+        write("old.pdf.assets/picture-1.png", "picture")
+        write("new.pdf", "pdf")
+        write("new.pdf.assets/picture-1.png", "someone else's picture")
+        val before = files()
+
+        val error = assertThrows(TreeEditRefused::class.java) { edits().linkOrphanedInk("old.pdf", "new.pdf") }
+
+        assertEquals("new.pdf.assets already exists", error.message)
+        assertEquals(before, files())
+    }
+
+    @Test
+    fun `linking refuses a PDF with ink, in another folder, or ink that has its PDF`() {
+        write("Y1/old.pdf.ink.json", "ink")
+        write("Y1/inked.pdf", "pdf")
+        write("Y1/inked.pdf.ink.json", "other ink")
+        write("Y2/new.pdf", "pdf")
+        write("Y1/whole.pdf", "pdf")
+        write("Y1/whole.pdf.ink.json", "ink")
+        val before = files()
+
+        fun refusal(
+            orphan: String,
+            pdf: String,
+        ) = assertThrows(TreeEditRefused::class.java) { edits().linkOrphanedInk(orphan, pdf) }.message
+
+        assertEquals("inked.pdf already has ink", refusal("Y1/old.pdf", "Y1/inked.pdf"))
+        assertEquals("new.pdf isn't in the same folder as the ink", refusal("Y1/old.pdf", "Y2/new.pdf"))
+        assertEquals("whole.pdf has its PDF", refusal("Y1/whole.pdf", "Y1/inked.pdf"))
+        assertEquals("the ink of gone.pdf is gone", refusal("Y1/gone.pdf", "Y1/inked.pdf"))
+        assertEquals(before, files())
+    }
 }

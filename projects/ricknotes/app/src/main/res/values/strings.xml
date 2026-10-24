@@ -30,6 +30,10 @@
   <string name="rename_title">Rename %1$s</string>
   <string name="move_to">Move to…</string>
   <string name="move_title">Move %1$s to…</string>
+  <string name="orphaned_ink_label">Orphaned ink</string>
+  <string name="link_to_pdf">Link to PDF…</string>
+  <string name="link_title">Link the ink of %1$s to</string>
+  <string name="link_no_pdfs">Every PDF in this folder already has ink.</string>
   <string name="move_here">Move here</string>
   <string name="folder_up">Up</string>
   <string name="tree_study_folder_top">Study folder</string>

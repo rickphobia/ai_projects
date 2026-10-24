@@ -1,5 +1,6 @@
 package com.rickphobia.ricknotes.core.studyfolder
 
+import com.rickphobia.ricknotes.core.session.InkFileStore
 import java.io.IOException
 import java.io.UncheckedIOException
 import java.nio.file.FileSystemException
@@ -31,7 +32,7 @@ class TreeEditFailed(
 private fun reasonOf(cause: Exception): String = (cause as? FileSystemException)?.reason ?: cause.javaClass.simpleName
 
 /**
- * New folder, rename and move inside the Study folder at [root], by tree path. A Document's
+ * New folder, rename, move and linking Orphaned ink inside the Study folder at [root], by tree path. A Document's
  * companions (its Ink file, `.assets` and Versions) go with it, moved before the PDF. Every
  * target name is checked first and a clash refuses the whole edit; a step that fails moves the
  * done ones back. Nothing is ever overwritten or deleted. Each call returns the new tree path.
@@ -104,6 +105,32 @@ class TreeEdits(
         return childPath(toFolder, name)
     }
 
+    /**
+     * Links the Orphaned ink at tree path [orphan] to the PDF at [pdf] in the same folder, which
+     * must have no ink yet: its Ink file, `.assets` and Versions are renamed to match [pdf].
+     * Returns [pdf].
+     */
+    fun linkOrphanedInk(
+        orphan: String,
+        pdf: String,
+    ): String =
+        guarded(orphan) {
+            val missing = resolve(orphan)
+            val target = resolve(pdf)
+            refuseIf(exists(missing)) { "${missing.fileName} has its PDF" }
+            refuseIf(!exists(InkFileStore(missing).inkFile)) { "the ink of ${missing.fileName} is gone" }
+            refuseIf(parentOf(pdf) != parentOf(orphan)) { "${target.fileName} isn't in the same folder as the ink" }
+            refuseIf(!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) { "${target.fileName} is gone" }
+            refuseIf(exists(InkFileStore(target).inkFile)) { "${target.fileName} already has ink" }
+            refuseIf(
+                stillSaving(missing),
+            ) { "the ink of ${missing.fileName} is still being saved; try again in a moment" }
+            val moves = companionMoves(missing, target)
+            moves.forEach(::refuseIfTaken)
+            runAll(moves, mover)
+            pdf
+        }
+
     // A folder's companions are inside it, so one rename carries them all.
     private fun moveFolder(
         path: String,
@@ -113,7 +140,7 @@ class TreeEdits(
         refuseIf(path.isEmpty()) { "the Study folder itself can't be renamed or moved" }
         val folder = resolve(path)
         refuseIf(!Files.isDirectory(folder, LinkOption.NOFOLLOW_LINKS)) { "${folder.fileName} is gone" }
-        val saving = savingInside(folder)
+        val saving = savingInside(folder, stillSaving)
         refuseIf(saving != null) { "the ink of ${saving?.fileName} is still being saved; try again in a moment" }
         val move = FileMove(folder, existingFolder(toFolder).resolve(name))
         refuseIf(move.to == folder) { "$name is already there" }
@@ -128,16 +155,19 @@ class TreeEdits(
         return folder
     }
 
-    private fun savingInside(folder: Path): Path? =
-        Files.walk(folder).use { files ->
-            files.iterator().asSequence().firstOrNull {
-                Files.isRegularFile(it, LinkOption.NOFOLLOW_LINKS) &&
-                    stillSaving(it)
-            }
-        }
-
     private fun resolve(path: String): Path = if (path.isEmpty()) root else root.resolve(path)
 }
+
+private fun savingInside(
+    folder: Path,
+    stillSaving: (pdf: Path) -> Boolean,
+): Path? =
+    Files.walk(folder).use { files ->
+        files.iterator().asSequence().firstOrNull {
+            Files.isRegularFile(it, LinkOption.NOFOLLOW_LINKS) &&
+                stillSaving(it)
+        }
+    }
 
 // Wraps any I/O error the edit itself didn't turn into a TreeEditRefused or TreeEditFailed, so a
 // caller only has those two to handle. One throw per kind of error is the point of it.
