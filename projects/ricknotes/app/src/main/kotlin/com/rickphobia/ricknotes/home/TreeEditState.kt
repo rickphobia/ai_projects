@@ -38,7 +38,7 @@ class TreeEditState(
     fun run(edit: TreeEdit) {
         dialog = null
         scope.launch {
-            val outcome = withContext(Dispatchers.IO) { runTreeEdit(edits, edit, hooks.stillSaving) }
+            val outcome = withContext(Dispatchers.IO) { runTreeEdit(edits, edit) }
             when (outcome) {
                 is TreeEditOutcome.Done -> outcome.from?.let { hooks.followed(it, outcome.to, outcome.documents) }
                 is TreeEditOutcome.NotDone -> dialog = TreeEditDialog.NotDone(outcome)
@@ -55,5 +55,5 @@ fun rememberTreeEditState(
     hooks: TreeEditHooks,
 ): TreeEditState {
     val scope = rememberCoroutineScope()
-    return remember(studyFolder) { TreeEditState(TreeEdits(Path.of(studyFolder)), hooks, scope) }
+    return remember(studyFolder) { TreeEditState(TreeEdits(Path.of(studyFolder), hooks.stillSaving), hooks, scope) }
 }

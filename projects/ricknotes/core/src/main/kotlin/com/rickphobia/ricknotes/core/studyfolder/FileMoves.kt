@@ -65,5 +65,8 @@ private fun moveBack(
             null
         } catch (_: IOException) {
             move.to.fileName.toString()
+        } catch (_: SecurityException) {
+            // Named in the error rather than thrown, so the first failure isn't lost.
+            move.to.fileName.toString()
         }
     }

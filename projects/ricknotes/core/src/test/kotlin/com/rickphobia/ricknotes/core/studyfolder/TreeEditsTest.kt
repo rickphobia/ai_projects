@@ -9,6 +9,7 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
+import java.nio.file.Path
 
 class TreeEditsTest {
     @get:Rule
@@ -31,7 +32,10 @@ class TreeEditsTest {
             .filter { it.isFile }
             .associate { it.relativeTo(temp.root).invariantSeparatorsPath to it.readText() }
 
-    private fun edits(move: FileMover = { from, to -> Files.move(from, to) }) = TreeEdits(temp.root.toPath(), move)
+    private fun edits(
+        move: FileMover = { from, to -> Files.move(from, to) },
+        stillSaving: (Path) -> Boolean = { false },
+    ) = TreeEdits(temp.root.toPath(), stillSaving, move)
 
     // A Document with ink, a Picture and two Versions, plus another Document's Version beside them.
     private fun documentWithCompanions(folder: String) {
@@ -258,6 +262,43 @@ class TreeEditsTest {
         assertThrows(TreeEditRefused::class.java) { edits().renameFolder("Y1", "Y2") }
         assertThrows(TreeEditRefused::class.java) { edits().renameFolder("", "Y3") }
         assertEquals(before, files())
+    }
+
+    @Test
+    fun `a Document whose ink is still being saved can't be renamed or moved, alone or in its folder`() {
+        documentWithCompanions("Y1/EE2001")
+        folder("Y2")
+        val before = files()
+        val saving = { pdf: Path -> pdf.fileName.toString() == "tuto3.pdf" }
+
+        val error =
+            assertThrows(
+                TreeEditRefused::class.java,
+            ) { edits(stillSaving = saving).renameDocument("Y1/EE2001/tuto3.pdf", "b") }
+        assertThrows(
+            TreeEditRefused::class.java,
+        ) { edits(stillSaving = saving).moveDocument("Y1/EE2001/tuto3.pdf", "Y2") }
+        assertThrows(TreeEditRefused::class.java) { edits(stillSaving = saving).moveFolder("Y1", "Y2") }
+        assertThrows(TreeEditRefused::class.java) { edits(stillSaving = saving).renameFolder("Y1/EE2001", "EE2002") }
+
+        assertEquals("the ink of tuto3.pdf is still being saved; try again in a moment", error.message)
+        assertEquals(before, files())
+    }
+
+    @Test
+    fun `any other I-O error comes as a failure naming the file`() {
+        documentWithCompanions("")
+        val versions = File(temp.root, ".versions")
+        // Unlistable, so listing the Versions to carry fails before anything moves.
+        versions.setReadable(false)
+        try {
+            val error = assertThrows(TreeEditFailed::class.java) { edits().renameDocument("tuto3.pdf", "b") }
+
+            assertEquals("tuto3.pdf", error.fileName)
+        } finally {
+            versions.setReadable(true)
+        }
+        assertTrue(File(temp.root, "tuto3.pdf").isFile)
     }
 
     @Test

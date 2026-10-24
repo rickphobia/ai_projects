@@ -1,6 +1,7 @@
 package com.rickphobia.ricknotes.core.studyfolder
 
 import java.io.IOException
+import java.io.UncheckedIOException
 import java.nio.file.FileSystemException
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -37,52 +38,54 @@ private fun reasonOf(cause: Exception): String = (cause as? FileSystemException)
  * Slow on a big folder: call it off the main thread.
  *
  * Each call throws [TreeEditRefused] when it is refused with nothing changed, and
- * [TreeEditFailed] when a step failed.
+ * [TreeEditFailed] when a step failed; any other I/O error comes as a [TreeEditFailed] too.
+ *
+ * A Document whose ink is [stillSaving] (from a closed Tab whose save hasn't worked yet) is
+ * refused, alone or inside a folder: its session would go on saving under the old name.
  */
 class TreeEdits(
     private val root: Path,
+    private val stillSaving: (pdf: Path) -> Boolean = { false },
     private val mover: FileMover = moveWithoutReplacing,
 ) {
     fun newFolder(
         parent: String,
         name: String,
-    ): String {
-        val folderName = checkFolderName(name)
-        val created = existingFolder(parent).resolve(folderName)
-        refuseIf(exists(created)) { "$folderName already exists" }
-        try {
+    ): String =
+        guarded(name) {
+            val folderName = checkFolderName(name)
+            val created = existingFolder(parent).resolve(folderName)
+            refuseIf(exists(created)) { "$folderName already exists" }
             Files.createDirectory(created)
-        } catch (e: IOException) {
-            throw TreeEditFailed(folderName, emptyList(), e)
+            childPath(parent, folderName)
         }
-        return childPath(parent, folderName)
-    }
 
     fun renameDocument(
         path: String,
         name: String,
-    ): String = moveDocument(path, parentOf(path), checkDocumentName(name))
+    ): String = guarded(path) { moveDocument(path, parentOf(path), checkDocumentName(name)) }
 
     fun moveDocument(
         path: String,
         toFolder: String,
-    ): String = moveDocument(path, toFolder, path.substringAfterLast('/'))
+    ): String = guarded(path) { moveDocument(path, toFolder, path.substringAfterLast('/')) }
 
     fun renameFolder(
         path: String,
         name: String,
-    ): String = moveFolder(path, parentOf(path), checkFolderName(name))
+    ): String = guarded(path) { moveFolder(path, parentOf(path), checkFolderName(name)) }
 
     /** Also refused when [toFolder] is [path] itself or inside it. */
     fun moveFolder(
         path: String,
         toFolder: String,
-    ): String {
-        refuseIf(
-            toFolder == path || toFolder.startsWith("$path/"),
-        ) { "can't move ${path.substringAfterLast('/')} into itself" }
-        return moveFolder(path, toFolder, path.substringAfterLast('/'))
-    }
+    ): String =
+        guarded(path) {
+            refuseIf(toFolder == path || toFolder.startsWith("$path/")) {
+                "can't move ${path.substringAfterLast('/')} into itself"
+            }
+            moveFolder(path, toFolder, path.substringAfterLast('/'))
+        }
 
     private fun moveDocument(
         path: String,
@@ -91,6 +94,7 @@ class TreeEdits(
     ): String {
         val pdf = resolve(path)
         refuseIf(!Files.isRegularFile(pdf, LinkOption.NOFOLLOW_LINKS)) { "${pdf.fileName} is gone" }
+        refuseIf(stillSaving(pdf)) { "the ink of ${pdf.fileName} is still being saved; try again in a moment" }
         val target = existingFolder(toFolder).resolve(name)
         refuseIf(target == pdf) { "$name is already there" }
         // Companions first, so a failure part-way never leaves a PDF without its ink.
@@ -109,6 +113,8 @@ class TreeEdits(
         refuseIf(path.isEmpty()) { "the Study folder itself can't be renamed or moved" }
         val folder = resolve(path)
         refuseIf(!Files.isDirectory(folder, LinkOption.NOFOLLOW_LINKS)) { "${folder.fileName} is gone" }
+        val saving = savingInside(folder)
+        refuseIf(saving != null) { "the ink of ${saving?.fileName} is still being saved; try again in a moment" }
         val move = FileMove(folder, existingFolder(toFolder).resolve(name))
         refuseIf(move.to == folder) { "$name is already there" }
         refuseIfTaken(move)
@@ -122,5 +128,36 @@ class TreeEdits(
         return folder
     }
 
+    private fun savingInside(folder: Path): Path? =
+        Files.walk(folder).use { files ->
+            files.iterator().asSequence().firstOrNull {
+                Files.isRegularFile(it, LinkOption.NOFOLLOW_LINKS) &&
+                    stillSaving(it)
+            }
+        }
+
     private fun resolve(path: String): Path = if (path.isEmpty()) root else root.resolve(path)
+}
+
+// Wraps any I/O error the edit itself didn't turn into a TreeEditRefused or TreeEditFailed, so a
+// caller only has those two to handle. One throw per kind of error is the point of it.
+@Suppress("ThrowsCount")
+private fun <T> guarded(
+    subject: String,
+    edit: () -> T,
+): T {
+    val name = subject.substringAfterLast('/')
+    return try {
+        edit()
+    } catch (e: TreeEditRefused) {
+        throw e
+    } catch (e: TreeEditFailed) {
+        throw e
+    } catch (e: IOException) {
+        throw TreeEditFailed(name, emptyList(), e)
+    } catch (e: UncheckedIOException) {
+        throw TreeEditFailed(name, emptyList(), e.cause ?: e)
+    } catch (e: SecurityException) {
+        throw TreeEditFailed(name, emptyList(), e)
+    }
 }

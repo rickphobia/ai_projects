@@ -5,6 +5,7 @@ import com.rickphobia.ricknotes.core.studyfolder.TreeEditRefused
 import com.rickphobia.ricknotes.core.studyfolder.TreeEdits
 import com.rickphobia.ricknotes.core.studyfolder.TreeNode
 import com.rickphobia.ricknotes.logging.AppLog
+import java.nio.file.Path
 
 /** One change to the Study folder asked for from the tree's long-press menu. */
 sealed interface TreeEdit {
@@ -41,32 +42,25 @@ sealed interface TreeEditOutcome {
 }
 
 /**
- * What a tree edit needs beside the files: [stillSaving] says whether a Document's ink (by tree
- * path) is still being saved from a closed Tab, and [followed] makes the Layout, Recent Documents,
- * Course folder marks and reading positions follow a renamed or moved path.
+ * What a tree edit needs beside the files: [stillSaving] says whether the ink of a Document (its
+ * PDF on disk) is still being saved from a closed Tab, and [followed] makes the Layout, Recent
+ * Documents, Course folder marks and reading positions follow a renamed or moved path.
  */
 class TreeEditHooks(
-    val stillSaving: (String) -> Boolean,
+    val stillSaving: (Path) -> Boolean,
     val followed: (from: String, to: String, documents: List<String>) -> Unit,
 )
 
 /**
- * Runs [edit] with [edits] and logs it with its result, by file names only. A Document whose ink
- * is [still saving][TreeEditHooks.stillSaving] is refused: its session would save to the old name.
- * Slow on a big folder: call it off the main thread.
+ * Runs [edit] with [edits] and logs it with its result, by file names only. Slow on a big folder:
+ * call it off the main thread.
  */
 fun runTreeEdit(
     edits: TreeEdits,
     edit: TreeEdit,
-    stillSaving: (String) -> Boolean,
 ): TreeEditOutcome {
     val what = describe(edit)
     val documents = edit.edited?.let(::documentsIn).orEmpty()
-    documents.firstOrNull(stillSaving)?.let { saving ->
-        val name = saving.substringAfterLast('/')
-        AppLog.w("$what refused: the ink of $name is still being saved")
-        return TreeEditOutcome.NotDone("the ink of $name is still being saved; try again in a moment", partly = false)
-    }
     return try {
         val to =
             when (edit) {

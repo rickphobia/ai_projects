@@ -85,7 +85,7 @@ private fun treeEditHooks(
     storage: AppStorage<*>,
     courseFolders: CourseFoldersSetting<*>,
 ) = TreeEditHooks(
-    stillSaving = { path -> InkSessions.isOpen(File(pdfAt(studyFolder, path).path)) },
+    stillSaving = { pdf -> InkSessions.isOpen(pdf.toFile()) },
     followed = { from, to, documents ->
         storage.renamed(studyFolder, from, to, documents)
         courseFolders.renamed(from, to)
