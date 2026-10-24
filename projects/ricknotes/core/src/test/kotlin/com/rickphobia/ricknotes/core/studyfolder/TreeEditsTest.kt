@@ -207,7 +207,7 @@ class TreeEditsTest {
 
     @Test
     fun `a folder name the tree would hide is refused`() {
-        for (name in listOf("_revision_log", "notes.assets", ".versions", "a/b")) {
+        for (name in listOf("_revision_log", "_ricknotes", "notes.assets", ".versions", "a/b")) {
             assertThrows(name, TreeEditRefused::class.java) { edits().newFolder("", name) }
         }
         assertEquals(emptyList<String>(), temp.root.list()!!.toList())

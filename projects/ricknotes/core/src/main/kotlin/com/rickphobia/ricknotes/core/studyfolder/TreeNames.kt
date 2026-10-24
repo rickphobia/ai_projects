@@ -1,5 +1,6 @@
 package com.rickphobia.ricknotes.core.studyfolder
 
+import com.rickphobia.ricknotes.core.presets.PresetsFile
 import com.rickphobia.ricknotes.core.session.PictureAssets
 
 private const val PDF_EXTENSION = ".pdf"
@@ -31,7 +32,8 @@ private fun checkName(name: String): String {
 /** A usable folder name from [name]; the names of RickNotes' own folders are refused. */
 internal fun checkFolderName(name: String): String {
     val checked = checkName(name)
-    refuseIf(checked == REVISION_LOG_FOLDER || checked.endsWith(PictureAssets.ASSETS_SUFFIX)) {
+    val ownFolder = checked == REVISION_LOG_FOLDER || checked == PresetsFile.FOLDER
+    refuseIf(ownFolder || checked.endsWith(PictureAssets.ASSETS_SUFFIX)) {
         "$checked is a name RickNotes uses for its own files"
     }
     return checked
