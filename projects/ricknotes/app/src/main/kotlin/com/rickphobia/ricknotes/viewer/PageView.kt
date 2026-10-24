@@ -21,11 +21,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.core.graphics.withScale
 import com.rickphobia.ricknotes.R
+import com.rickphobia.ricknotes.core.ink.PageBackground
 import com.rickphobia.ricknotes.logging.AppLog
 import kotlin.math.roundToInt
 
@@ -38,16 +44,50 @@ internal data class SettledPart(
     val visible: PixelRect?,
 )
 
-/** How one page is drawn at the current zoom. */
+/**
+ * How one PDF page is drawn at the current zoom: page [index] of the PDF, shown as the Document's
+ * page [number], which counts Inserted pages too.
+ */
 internal data class PageLayout(
     val index: Int,
+    val number: Int,
     val size: PageSize,
     val baseWidthPx: Int,
     val sharpMarginPx: Int,
 )
 
 /**
- * One page: its whole image at the screen's width, stretched while zooming, with a sharp image of
+ * An Inserted page, shown as page [number]: white paper with [background]'s lines or dots, drawn as
+ * shapes so it is sharp at any zoom. [overlay] is drawn on top, filling the page: its ink.
+ */
+@Composable
+internal fun InsertedPageView(
+    background: PageBackground,
+    size: PageSize,
+    number: Int,
+    overlay: @Composable () -> Unit,
+) {
+    val description = stringResource(R.string.page_number, number)
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(size.aspectRatio)
+                .background(Color.White)
+                .semantics { contentDescription = description },
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val pixelsPerPoint = this.size.width / size.widthPt
+            drawIntoCanvas { canvas ->
+                canvas.nativeCanvas.withScale(pixelsPerPoint, pixelsPerPoint, 0f, 0f) { drawPaper(background, size) }
+            }
+        }
+        overlay()
+    }
+}
+
+/**
+ * One PDF page: its whole image at the screen's width, stretched while zooming, with a sharp image of
  * the part on screen drawn over it once the view settles. [settled] is null while it is moving.
  * [overlay] is drawn on top, filling the page: its ink.
  */
@@ -93,14 +133,14 @@ internal fun PageView(
             is PageImage.Drawn -> {
                 Image(
                     bitmap = current.bitmap,
-                    contentDescription = stringResource(R.string.page_number, index + 1),
+                    contentDescription = stringResource(R.string.page_number, layout.number),
                     contentScale = ContentScale.FillBounds,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
 
             PageImage.Failed -> {
-                Text(stringResource(R.string.page_failed, index + 1), color = Color.DarkGray)
+                Text(stringResource(R.string.page_failed, layout.number), color = Color.DarkGray)
             }
 
             PageImage.Pending -> {}

@@ -137,4 +137,13 @@
   <string name="share_different_document">Different Document…</string>
   <string name="share_done">Done</string>
   <string name="pdf_drop_not_saved">Couldn\'t copy the PDF into the folder, so nothing was added.</string>
+  <string name="page_menu">Page menu</string>
+  <string name="insert_page_after">Insert page after page %1$d</string>
+  <string name="background_blank">Blank</string>
+  <string name="background_lined">Lined</string>
+  <string name="background_grid">Grid</string>
+  <string name="background_dotted">Dotted</string>
+  <string name="remove_page">Remove page %1$d</string>
+  <string name="remove_page_title">Remove this page?</string>
+  <string name="remove_page_text">Its ink goes with it. Undo brings the page and its ink back.</string>
 </resources>

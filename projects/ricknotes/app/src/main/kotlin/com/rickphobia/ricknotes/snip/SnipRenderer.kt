@@ -6,8 +6,9 @@ import android.graphics.Matrix
 import androidx.core.graphics.withMatrix
 import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
 import com.rickphobia.ricknotes.core.revisionlog.Snips
-import com.rickphobia.ricknotes.viewer.PageSize
+import com.rickphobia.ricknotes.viewer.DocumentPage
 import com.rickphobia.ricknotes.viewer.PdfPages
+import com.rickphobia.ricknotes.viewer.renderPaperPart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -17,18 +18,24 @@ import androidx.ink.strokes.Stroke as InkStroke
 private const val PNG_QUALITY = 100
 
 /**
- * Draws the two Snips of [snip] on page [pageIndex] of [pages], off the main thread: the page alone
- * (front) and the page with [strokes] over it, in drawing order (back). The PDF and the strokes are
- * only read.
+ * Draws the two Snips of [snip] on [page] off the main thread: the page alone (front) and the page
+ * with [strokes] over it, in drawing order (back). A PDF page is drawn from [pages]; an Inserted
+ * page's paper is drawn by the app. The PDF and the strokes are only read.
  */
 internal suspend fun renderSnips(
     pages: PdfPages,
-    pageIndex: Int,
-    size: PageSize,
+    page: DocumentPage,
     snip: SnipRegion,
     strokes: List<InkStroke>,
 ): Snips {
-    val front = pages.renderPart(pageIndex, size, snip.pageWidthPx, snip.region)
+    val size = page.size
+    val background = page.background
+    val front =
+        if (background != null) {
+            withContext(Dispatchers.Default) { renderPaperPart(background, size, snip.pageWidthPx, snip.region) }
+        } else {
+            pages.renderPart(checkNotNull(page.pdfIndex), size, snip.pageWidthPx, snip.region)
+        }
     return withContext(Dispatchers.Default) {
         val back = front.copy(Bitmap.Config.ARGB_8888, true)
         try {

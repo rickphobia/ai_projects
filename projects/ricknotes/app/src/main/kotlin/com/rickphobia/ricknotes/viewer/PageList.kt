@@ -5,6 +5,7 @@ import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -90,13 +91,12 @@ internal data class OpenDocument(
  */
 @Composable
 internal fun PageList(document: OpenDocument) {
-    val pageCount = document.pageSizes.size
-    val restored = remember(document.path) { restoredPosition(document) }
+    val ink = document.ink
+    val pagesState = remember(ink) { derivedStateOf { documentPages(ink.pages, document.pageSizes) } }
+    val restored = remember(document.path) { restoredPosition(document, pagesState.value.size) }
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = restored.pageIndex)
     val view = remember { mutableStateOf(ZoomView(restored.zoom, panX = 0f)) }
     var settled by remember { mutableStateOf<SettledView?>(null) }
-    val scope = rememberCoroutineScope()
-    val ink = document.ink
     val strokeRenderer = remember { CanvasStrokeRenderer.create() }
 
     BoxWithConstraints(
@@ -105,8 +105,8 @@ internal fun PageList(document: OpenDocument) {
         val screen = ViewportSize(constraints.maxWidth, constraints.maxHeight)
         val gapPx = with(LocalDensity.current) { PAGE_GAP.roundToPx() }
         val pageWidthPx = zoomedListWidth(screen, view.value) - gapPx * 2
-        val pageLayout = { index: Int, size: PageSize ->
-            PageLayout(index, size, baseWidthPx = screen.width - gapPx * 2, sharpMarginPx = sharpMargin(screen))
+        val pageLayout = { page: DocumentPage, number: Int ->
+            PageLayout(checkNotNull(page.pdfIndex), number, page.size, screen.width - gapPx * 2, sharpMargin(screen))
         }
         val current by remember(screen) {
             derivedStateOf {
@@ -129,26 +129,24 @@ internal fun PageList(document: OpenDocument) {
             userScrollEnabled = false,
             modifier = Modifier.zoomedLayout(view, screen),
         ) {
-            itemsIndexed(document.pageSizes) { index, size ->
-                val part = settled?.takeIf { it.pageWidth == pageWidthPx }
-                PageView(
-                    document.pages,
-                    pageLayout(index, size),
-                    part?.let { SettledPart(it.pageWidth, it.visibleParts[index]) },
-                ) { PageOverlay(ink, PageId.ofPdfPage(index), size.widthPt.toFloat(), strokeRenderer) }
+            // Keyed by page ID, so a page keeps its drawn image when one is inserted above it.
+            itemsIndexed(pagesState.value, key = { _, page -> page.id.value }) { index, page ->
+                val overlay = @Composable { PageOverlay(ink, page.id, page.size.widthPt.toFloat(), strokeRenderer) }
+                val background = page.background
+                if (background != null) {
+                    InsertedPageView(background, page.size, number = index + 1, overlay)
+                } else {
+                    val part = settled?.takeIf { it.pageWidth == pageWidthPx }?.partOf(index)
+                    PageView(document.pages, pageLayout(page, index + 1), part, overlay)
+                }
             }
         }
-        val listView = PageListView(view, listState, screen, gapPx)
-        PictureDropArea(document) { listView.placements(document.pageSizes) }
+        val listView = PageListView(view, listState, screen, gapPx) { pagesState.value }
+        PictureDropArea(document, listView::placements)
         TouchLayer(document, listView)
-        LassoMenu(ink, { listView.placements(document.pageSizes) }, lassoActions(ink, document.revisionLog))
+        LassoMenu(ink, listView::placements, lassoActions(ink, document.revisionLog))
         RevisionLogNoteBar(document.revisionLog, Modifier.align(Alignment.BottomCenter).padding(16.dp))
-        PageNavigator(
-            pageIndex = current,
-            pageCount = pageCount,
-            onJump = { index -> scope.launch { listState.scrollToItem(index) } },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-        )
+        PageControls(ink, pagesState.value, current, listState, Modifier.align(Alignment.BottomEnd).padding(16.dp))
     }
 }
 
@@ -158,12 +156,13 @@ private class PageListView(
     val listState: LazyListState,
     val screen: ViewportSize,
     val gapPx: Int,
+    val pages: () -> List<DocumentPage>,
 ) {
     /** Where each page on screen is right now. */
-    fun placements(pageSizes: List<PageSize>): List<PagePlacement> {
+    fun placements(): List<PagePlacement> {
         val view = zoom.value
         val pageWidth = zoomedListWidth(screen, view) - gapPx * 2
-        return pagePlacements(visiblePages(listState.layoutInfo), pageSizes, pageWidth, gapPx, view)
+        return pagePlacements(visiblePages(listState.layoutInfo), pages(), pageWidth, gapPx, view)
     }
 }
 
@@ -181,7 +180,7 @@ private fun TouchLayer(
         }
     InkLayer(
         ink = document.ink,
-        placements = { list.placements(document.pageSizes) },
+        placements = list::placements,
         navigation = navigation,
         penMode = document.penMode,
         gestures = document.fingerGestures,
@@ -205,9 +204,11 @@ private fun lassoActions(
         },
     )
 
-private fun restoredPosition(document: OpenDocument): ReadingPosition {
-    val position =
-        document.positions.load(document.path)?.fitTo(document.pageSizes.size) ?: ReadingPosition(0, ZoomLimits.MIN)
+private fun restoredPosition(
+    document: OpenDocument,
+    pageCount: Int,
+): ReadingPosition {
+    val position = document.positions.load(document.path)?.fitTo(pageCount) ?: ReadingPosition(0, ZoomLimits.MIN)
     AppLog.i("reopening ${File(document.path).name} at page ${position.pageIndex + 1}, zoom ${position.zoom}")
     return position
 }
@@ -257,7 +258,9 @@ private fun Modifier.zoomedLayout(
 private data class SettledView(
     val pageWidth: Int,
     val visibleParts: Map<Int, PixelRect?>,
-)
+) {
+    fun partOf(index: Int) = SettledPart(pageWidth, visibleParts[index])
+}
 
 private fun settle(
     info: LazyListLayoutInfo,

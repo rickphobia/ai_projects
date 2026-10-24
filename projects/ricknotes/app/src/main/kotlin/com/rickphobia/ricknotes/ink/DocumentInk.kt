@@ -6,6 +6,7 @@ import androidx.ink.brush.Brush
 import androidx.ink.brush.InputToolType
 import androidx.ink.brush.StockBrushes
 import androidx.ink.strokes.MutableStrokeInputBatch
+import com.rickphobia.ricknotes.core.ink.PageBackground
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.Picture
 import com.rickphobia.ricknotes.core.ink.PictureFrame
@@ -13,6 +14,7 @@ import com.rickphobia.ricknotes.core.ink.PictureId
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.ink.Tool
+import com.rickphobia.ricknotes.core.inkfile.InkPage
 import com.rickphobia.ricknotes.core.session.PageOffset
 import com.rickphobia.ricknotes.core.session.SaveStatus
 import com.rickphobia.ricknotes.core.session.SessionWarning
@@ -73,6 +75,10 @@ internal class DocumentInk private constructor(
     private val session = held.session
     private val strokes = mutableStateListOf<DrawnStroke>().apply { addAll(loaded) }
     private val pictures = mutableStateListOf<Picture>().apply { addAll(session.pictures) }
+    private val pageList = mutableStateListOf<InkPage>().apply { addAll(session.pages) }
+
+    /** Every page in the order it shows, Inserted pages included. */
+    val pages: List<InkPage> get() = pageList
 
     // Counts changes, so Compose reads canUndo and canRedo again after each one.
     private val changes = mutableIntStateOf(0)
@@ -140,6 +146,30 @@ internal class DocumentInk private constructor(
         return picture
     }
 
+    /** Adds an Inserted page with [background] after page [after], as one undo step. */
+    fun insertPageAfter(
+        after: PageId,
+        background: PageBackground,
+    ): InkPage =
+        session.insertPageAfter(after, background).also {
+            AppLog.i("inserted a ${background.name.lowercase()} page after ${after.value} in ${pdf.name}")
+            followSession()
+        }
+
+    /** True if page [id] has strokes or Pictures, so removing it asks first. */
+    fun hasInk(id: PageId): Boolean = session.hasInk(id)
+
+    /** Removes the Inserted page [id] with its ink, as one undo step; undo brings them back. */
+    fun removePage(id: PageId) {
+        lasso.clear()
+        if (session.removePage(id)) {
+            AppLog.i("removed page ${id.value} from ${pdf.name}")
+            followSession()
+        } else {
+            AppLog.w("remove of page ${id.value}, which isn't here")
+        }
+    }
+
     // A selection may hold strokes that an undo or redo takes away, so it is let go of.
     fun undo() {
         lasso.clear()
@@ -201,6 +231,12 @@ internal class DocumentInk private constructor(
         strokes.addAll(now)
         pictures.clear()
         pictures.addAll(session.pictures)
+        // Only when they changed: a new page list lays every page out again.
+        val nowPages = session.pages
+        if (nowPages != pageList.toList()) {
+            pageList.clear()
+            pageList.addAll(nowPages)
+        }
         changes.intValue++
     }
 
