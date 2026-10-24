@@ -45,7 +45,10 @@ if [[ $1 == agents ]]; then
          {"kind":"background","state":"done","name":"fixture-04"},
          {"kind":"interactive","state":null,"name":"fixture-02"}]'
 else
-  printf '%s|' "$@" >>"$CLAUDE_STUB_LOG"; echo >>"$CLAUDE_STUB_LOG"
+  printf '%s|' "$@" >>"$CLAUDE_STUB_LOG"
+  # Record anything the session would read from stdin: it would land in its prompt.
+  if IFS= read -r -t 1 line; then printf 'stdin:%s|' "$line" >>"$CLAUDE_STUB_LOG"; fi
+  echo >>"$CLAUDE_STUB_LOG"
 fi
 EOF
 printf '#!/usr/bin/env bash\necho ""\n' >"$work/bin/gh"
@@ -101,6 +104,18 @@ check "--yes launches ticket 04 at medium" "--name|fixture-04|--model|claude-opu
 check "--yes launches ticket 09" "--name|fixture-09|" "$launched"
 count=$(grep -c . "$CLAUDE_STUB_LOG")
 check "exactly 3 sessions were launched" "3" "$count"
+
+# after-merge.sh runs next-tickets.sh inside a loop reading project names from stdin; a launched
+# session must not read the next name as part of its prompt.
+rm "$CLAUDE_STUB_LOG"
+printf 'other-project\n' | "$script" fixture --yes >/dev/null
+piped="$(cat "$CLAUDE_STUB_LOG")"
+if [[ $piped == *stdin:* ]]; then
+  echo "FAIL a launched session read the caller's stdin"
+  failures=$((failures + 1))
+else
+  echo "ok   a launched session doesn't read the caller's stdin"
+fi
 
 declined="$(echo n | "$script" fixture)"
 check "answering no starts nothing" "Nothing started." "$declined"

@@ -236,7 +236,9 @@ main() {
   fi
   local command
   for command in "${commands[@]}"; do
-    eval "$command"
+    # Not the caller's stdin: after-merge.sh loops over project names on it, and a session
+    # reads its stdin into the prompt.
+    eval "$command" </dev/null
   done
   echo
   echo "Started. Watch and answer them with: claude agents"
