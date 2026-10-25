@@ -12,6 +12,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -31,10 +32,20 @@ fun BookPageScreen(
     book: BookSummary,
     chapters: List<ChapterSection>?,
     actions: EntryActions,
+    onShare: () -> Unit,
     onBack: () -> Unit,
 ) {
     var toDelete by rememberLookupToDelete()
-    ScreenFrame(title = bookTitle(book.book), onBack = onBack) {
+    ScreenFrame(
+        title = bookTitle(book.book),
+        onBack = onBack,
+        action = {
+            TextButton(
+                onClick = onShare,
+                enabled = chapters != null,
+            ) { Text(stringResource(R.string.share_book)) }
+        },
+    ) {
         if (chapters == null) {
             LinearProgressIndicator(modifier = Modifier.padding(16.dp))
             return@ScreenFrame

@@ -89,6 +89,18 @@ class BooksViewModel(
         change("lookup deleted id=$id") { pages.deleteLookup(id) }
     }
 
+    /** Builds [book]'s Markdown off the main thread and hands it to [send]. */
+    fun shareBook(
+        book: BookSummary,
+        send: (String) -> Unit,
+    ) {
+        viewModelScope.launch {
+            val markdown = io { pages.markdown(book) }
+            log.info("book shared chars=${markdown.length}")
+            send(markdown)
+        }
+    }
+
     /**
      * Loads what is on screen again, such as when the owner comes back from the card. A load that
      * finishes after the owner has moved on is dropped, so it can't show on another page. A Lookup
