@@ -14,7 +14,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
@@ -25,29 +27,44 @@ import com.rickphobia.gloss.core.Selection
 import com.rickphobia.gloss.core.ai.AiFailure
 import com.rickphobia.gloss.core.context.BookContextResult
 import com.rickphobia.gloss.core.context.NoBookContextReason
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /**
  * The card at the bottom of the screen: the Selection, then a loading bar, then the book and
- * chapter the answer used (or why it had none) and the answer, or a failure with Retry. Tapping
- * outside it, swiping it down or pressing back calls [onClose].
+ * chapter the answer used (or why it had none) and the answer, or a failure with Retry. A Define
+ * card offers Explain more; an Explain card is a chat with a box for follow-ups. The card is as
+ * tall as its content, up to the full screen, and scrolls. Tapping outside it, swiping it down or
+ * pressing back calls [onClose].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SelectionCard(
     selection: Selection,
-    result: DefineResult?,
+    define: DefineResult?,
+    explain: ExplainCardState?,
+    question: String,
+    onQuestionChange: (String) -> Unit,
+    onAsk: () -> Unit,
+    onExplainMore: () -> Unit,
     onRetry: () -> Unit,
     onOpenKeySettings: () -> Unit,
     onClose: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onClose) {
+    // No half-open stop: a growing chat pushes the card up to full height instead of hiding below it.
+    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scroll = rememberScrollState()
+    // Keep the newest turn in view as the chat grows.
+    LaunchedEffect(explain?.chat?.followUps?.size, explain?.waiting, explain?.problem) {
+        if (explain != null) scroll.animateScrollTo(scroll.maxValue)
+    }
+    ModalBottomSheet(onDismissRequest = onClose, sheetState = sheet) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scroll)
                     .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -56,42 +73,68 @@ fun SelectionCard(
                 style = MaterialTheme.typography.bodyLarge,
                 fontStyle = FontStyle.Italic,
             )
-            when (result) {
-                null -> {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
-
-                is DefineResult.Answer -> {
-                    ContextLine(result.context)
-                    Text(text = result.text, style = MaterialTheme.typography.bodyLarge)
-                    if (result.nearLimit) {
-                        Text(
-                            text = stringResource(R.string.card_near_limit),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
-
-                is DefineResult.Failed -> {
-                    FailureMessage(result.failure, onRetry, onOpenKeySettings)
-                }
-
-                is DefineResult.LimitReached -> {
-                    val resetsOn = result.resetsOn.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG))
-                    Text(
-                        text = stringResource(R.string.card_limit_reached, resetsOn),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
+            if (explain != null) {
+                ExplainChatView(explain, question, onQuestionChange, onAsk, onRetry, onOpenKeySettings)
+            } else {
+                DefineView(define, onExplainMore, onRetry, onOpenKeySettings)
             }
         }
     }
 }
 
 @Composable
-private fun ContextLine(context: BookContextResult) {
+private fun DefineView(
+    result: DefineResult?,
+    onExplainMore: () -> Unit,
+    onRetry: () -> Unit,
+    onOpenKeySettings: () -> Unit,
+) {
+    when (result) {
+        null -> {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+
+        is DefineResult.Answer -> {
+            ContextLine(result.context)
+            Text(text = result.text, style = MaterialTheme.typography.bodyLarge)
+            if (result.nearLimit) NearLimitLine()
+            OutlinedButton(onClick = onExplainMore) { Text(stringResource(R.string.card_explain_more)) }
+        }
+
+        is DefineResult.Failed -> {
+            FailureMessage(result.failure, onRetry, onOpenKeySettings)
+        }
+
+        is DefineResult.LimitReached -> {
+            LimitReachedLine(result.resetsOn)
+        }
+    }
+}
+
+@Composable
+internal fun NearLimitLine() {
+    Text(
+        text = stringResource(R.string.card_near_limit),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.error,
+    )
+}
+
+@Composable
+internal fun LimitReachedLine(resetsOn: LocalDate) {
+    Text(
+        text =
+            stringResource(
+                R.string.card_limit_reached,
+                resetsOn.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)),
+            ),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.error,
+    )
+}
+
+@Composable
+internal fun ContextLine(context: BookContextResult) {
     val text =
         when (context) {
             is BookContextResult.Found -> {
@@ -123,7 +166,7 @@ private fun reasonText(reason: NoBookContextReason): Int =
     }
 
 @Composable
-private fun FailureMessage(
+internal fun FailureMessage(
     failure: AiFailure,
     onRetry: () -> Unit,
     onOpenKeySettings: () -> Unit,

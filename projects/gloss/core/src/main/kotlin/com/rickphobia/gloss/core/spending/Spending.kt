@@ -10,9 +10,18 @@ import java.time.YearMonth
 data class ModelPrice(
     val inputMicrosPerMillion: Long,
     val outputMicrosPerMillion: Long,
+    /** Writing a prompt's cached part, the first time it is sent. */
+    val cacheWriteMicrosPerMillion: Long,
+    /** Reading it back from the cache on a later call. */
+    val cacheReadMicrosPerMillion: Long,
 ) {
     fun costMicros(usage: TokenUsage): Long =
-        (usage.inputTokens * inputMicrosPerMillion + usage.outputTokens * outputMicrosPerMillion) / TOKENS_PER_PRICE
+        (
+            usage.inputTokens * inputMicrosPerMillion +
+                usage.outputTokens * outputMicrosPerMillion +
+                usage.cacheWriteTokens * cacheWriteMicrosPerMillion +
+                usage.cacheReadTokens * cacheReadMicrosPerMillion
+        ) / TOKENS_PER_PRICE
 
     private companion object {
         const val TOKENS_PER_PRICE = 1_000_000L

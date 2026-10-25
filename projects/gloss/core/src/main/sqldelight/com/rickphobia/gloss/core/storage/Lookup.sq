@@ -1,13 +1,34 @@
 -- One row per Lookup. made_at is epoch milliseconds, so a change of time zone never moves one.
+-- kind is 'define' or 'explain'.
 CREATE TABLE lookup (
   id INTEGER NOT NULL PRIMARY KEY,
   selection TEXT NOT NULL,
   answer TEXT NOT NULL,
-  made_at INTEGER NOT NULL
+  made_at INTEGER NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'define'
 );
 
+-- An Explain chat's follow-up questions and answers, in the order asked (by id).
+CREATE TABLE follow_up (
+  id INTEGER NOT NULL PRIMARY KEY,
+  lookup_id INTEGER NOT NULL REFERENCES lookup(id),
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL
+);
+
+CREATE INDEX follow_up_lookup_id ON follow_up(lookup_id);
+
 insert:
-INSERT INTO lookup(selection, answer, made_at) VALUES (?, ?, ?);
+INSERT INTO lookup(selection, answer, made_at, kind) VALUES (?, ?, ?, ?);
+
+lastId:
+SELECT last_insert_rowid();
+
+insertFollowUp:
+INSERT INTO follow_up(lookup_id, question, answer) VALUES (?, ?, ?);
 
 all:
-SELECT selection, answer, made_at FROM lookup ORDER BY made_at, id;
+SELECT id, selection, answer, made_at, kind FROM lookup ORDER BY made_at, id;
+
+allFollowUps:
+SELECT lookup_id, question, answer FROM follow_up ORDER BY id;

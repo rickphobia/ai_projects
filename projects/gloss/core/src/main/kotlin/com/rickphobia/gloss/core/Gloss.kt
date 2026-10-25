@@ -2,13 +2,17 @@ package com.rickphobia.gloss.core
 
 import com.rickphobia.gloss.core.ai.Ai
 import com.rickphobia.gloss.core.ai.AiFailure
-import com.rickphobia.gloss.core.ai.AiReply
 import com.rickphobia.gloss.core.context.BookContextFinder
 import com.rickphobia.gloss.core.context.BookContextResult
 import com.rickphobia.gloss.core.context.Legado
 import com.rickphobia.gloss.core.define.DefinePrompt
+import com.rickphobia.gloss.core.explain.ExplainChat
+import com.rickphobia.gloss.core.explain.ExplainPrompt
+import com.rickphobia.gloss.core.lookup.FollowUp
 import com.rickphobia.gloss.core.lookup.Lookup
+import com.rickphobia.gloss.core.lookup.LookupKind
 import com.rickphobia.gloss.core.lookup.LookupStore
+import com.rickphobia.gloss.core.settings.GlossSettings
 import com.rickphobia.gloss.core.settings.SettingsSource
 import com.rickphobia.gloss.core.spending.MonthSpend
 import com.rickphobia.gloss.core.spending.SpendStore
@@ -19,9 +23,13 @@ import java.time.LocalDate
 /**
  * The Gloss core: the one entry point the card and screens use. It talks to the outside world
  * only through its ports, so tests drive it with fakes.
+ *
+ * Every call checks the Spending limit first and makes no AI call at or over it. Every call that
+ * used tokens counts toward the limit, even one that then failed. An answer is saved; a failure
+ * isn't, since there is nothing to look back at.
  */
 class Gloss(
-    private val ai: Ai,
+    ai: Ai,
     legado: Legado,
     private val lookups: LookupStore,
     private val clock: Clock,
@@ -30,43 +38,87 @@ class Gloss(
 ) {
     private val bookContext = BookContextFinder(legado)
     private val spending = Spending(spends, clock)
+    private val metered = MeteredAi(ai, spending)
 
     /** This calendar month's spend against the Spending limit, for Settings. */
     suspend fun monthSpend(): MonthSpend = spending.thisMonth(settings.current().spendingLimitMicros)
 
-    /**
-     * Asks for the meaning of [selection], with its Book context when Legado has it, and returns
-     * what the card shows. An answer is saved as a Lookup; a failure isn't, since there is nothing
-     * to look back at. At or over the Spending limit no call is made. Every call that used tokens
-     * counts toward the limit, even one that then failed.
-     */
+    /** Asks for the meaning of [selection], with its Book context when Legado has it. */
     suspend fun define(selection: Selection): DefineResult {
         val current = settings.current()
-        val before = spending.thisMonth(current.spendingLimitMicros)
-        if (before.limitReached) return DefineResult.LimitReached(before.resetsOn)
+        metered.limitReachedUntil(current.spendingLimitMicros)?.let { return DefineResult.LimitReached(it) }
         val context = bookContext.find(selection, current.contextWordLimit)
         val found = (context as? BookContextResult.Found)?.bookContext
-        val reply = ai.ask(DefinePrompt.forSelection(selection, found, current))
-        val usage =
-            when (reply) {
-                is AiReply.Answer -> reply.usage
-                is AiReply.Failed -> reply.usage
-            }
-        if (usage != null) spending.record(usage, current.definePrice)
-        return when (reply) {
-            is AiReply.Answer -> {
-                val answer = reply.text.trim()
-                if (answer.isEmpty()) {
-                    DefineResult.Failed(AiFailure.AiError)
-                } else {
-                    lookups.save(Lookup(selection.text, answer, clock.instant()))
-                    val nearLimit = spending.thisMonth(current.spendingLimitMicros).nearLimit
-                    DefineResult.Answer(answer, context, nearLimit)
-                }
+        val prompt = DefinePrompt.forSelection(selection, found, current)
+        return when (val reply = metered.ask(prompt, current.definePrice, current.spendingLimitMicros)) {
+            is Metered.Answer -> {
+                lookups.save(Lookup(selection.text, reply.text, clock.instant()))
+                DefineResult.Answer(reply.text, context, reply.nearLimit)
             }
 
-            is AiReply.Failed -> {
+            is Metered.Failed -> {
                 DefineResult.Failed(reply.failure)
+            }
+        }
+    }
+
+    /** Starts an Explain chat on [selection], with its Book context when Legado has it. */
+    suspend fun explain(selection: Selection): ExplainResult {
+        val current = settings.current()
+        metered.limitReachedUntil(current.spendingLimitMicros)?.let { return ExplainResult.LimitReached(it) }
+        return startChat(selection, bookContext.find(selection, current.contextWordLimit), current)
+    }
+
+    /**
+     * "Explain more" on a Define card: an Explain chat on the Define's [selection], with the Book
+     * [context] that Define used, so Legado isn't asked again.
+     */
+    suspend fun explainMore(
+        selection: Selection,
+        context: BookContextResult,
+    ): ExplainResult {
+        val current = settings.current()
+        metered.limitReachedUntil(current.spendingLimitMicros)?.let { return ExplainResult.LimitReached(it) }
+        return startChat(selection, context, current)
+    }
+
+    /** Asks [question] in [chat], with the chat's Book context and Spoiler line, and adds it to its Lookup. */
+    suspend fun followUp(
+        chat: ExplainChat,
+        question: String,
+    ): ExplainResult {
+        val asked = question.trim()
+        require(asked.isNotEmpty()) { "A follow-up needs a question" }
+        val current = settings.current()
+        metered.limitReachedUntil(current.spendingLimitMicros)?.let { return ExplainResult.LimitReached(it) }
+        val prompt = ExplainPrompt.followUp(chat, asked, current)
+        return when (val reply = metered.ask(prompt, current.explainPrice, current.spendingLimitMicros)) {
+            is Metered.Answer -> {
+                val followUp = FollowUp(asked, reply.text)
+                lookups.addFollowUp(chat.lookupId, followUp)
+                ExplainResult.Answer(chat.copy(followUps = chat.followUps + followUp), reply.nearLimit)
+            }
+
+            is Metered.Failed -> {
+                ExplainResult.Failed(reply.failure)
+            }
+        }
+    }
+
+    private suspend fun startChat(
+        selection: Selection,
+        context: BookContextResult,
+        current: GlossSettings,
+    ): ExplainResult {
+        val prompt = ExplainPrompt.first(selection, context, current)
+        return when (val reply = metered.ask(prompt, current.explainPrice, current.spendingLimitMicros)) {
+            is Metered.Answer -> {
+                val id = lookups.save(Lookup(selection.text, reply.text, clock.instant(), LookupKind.Explain))
+                ExplainResult.Answer(ExplainChat(id, selection, context, reply.text), reply.nearLimit)
+            }
+
+            is Metered.Failed -> {
+                ExplainResult.Failed(reply.failure)
             }
         }
     }
@@ -92,4 +144,23 @@ sealed interface DefineResult {
     data class LimitReached(
         val resetsOn: LocalDate,
     ) : DefineResult
+}
+
+/** What the card shows for a turn of an Explain chat. */
+sealed interface ExplainResult {
+    /** The chat with the new answer at its end; [nearLimit] as in [DefineResult.Answer]. */
+    data class Answer(
+        val chat: ExplainChat,
+        val nearLimit: Boolean = false,
+    ) : ExplainResult
+
+    /** The turn failed; the chat is as it was before it. */
+    data class Failed(
+        val failure: AiFailure,
+    ) : ExplainResult
+
+    /** This month's spend has reached the Spending limit, so no call was made until [resetsOn]. */
+    data class LimitReached(
+        val resetsOn: LocalDate,
+    ) : ExplainResult
 }

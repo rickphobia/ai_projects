@@ -30,19 +30,31 @@ class CardActivity : ComponentActivity() {
             return
         }
         app.log.info("Card opened from ${intent.component?.shortClassName}")
-        val factory = viewModelFactory { initializer { CardViewModel(app.gloss, selection, app.log) } }
+        val openedFromExplain = intent.component?.className?.endsWith(EXPLAIN_ALIAS) == true
+        val kind = if (openedFromExplain) CardKind.Explain else CardKind.Define
+        val factory = viewModelFactory { initializer { CardViewModel(app.gloss, selection, kind, app.log) } }
         val card: CardViewModel by viewModels { factory }
         setContent {
             GlossTheme {
                 SelectionCard(
                     selection = card.selection,
-                    result = card.result,
+                    define = card.define,
+                    explain = card.explain,
+                    question = card.question,
+                    onQuestionChange = card::editQuestion,
+                    onAsk = card::ask,
+                    onExplainMore = card::explainMore,
                     onRetry = card::retry,
                     onOpenKeySettings = ::openKeySettings,
                     onClose = ::finish,
                 )
             }
         }
+    }
+
+    private companion object {
+        /** The manifest's Explain entry (`.card.Explain`); every other entry opens a Define. */
+        const val EXPLAIN_ALIAS = ".card.Explain"
     }
 
     /**
