@@ -89,7 +89,11 @@ internal class DocumentInk private constructor(
     /** The session's revision: it moves on whenever any Tab of the Document changes its ink. */
     val revision: Int get() = held.revision.intValue
 
-    val readOnly: Boolean get() = session.readOnly
+    /** True while nothing may be drawn: an unreadable Ink file, or a [conflictCopy] not yet resolved. */
+    val readOnly: Boolean get() = changes.intValue.let { session.readOnly }
+
+    /** The sync app's Conflict copy of the Ink file to choose about before writing, or null. */
+    val conflictCopy: String? get() = changes.intValue.let { session.conflictCopy }
 
     /** The background printed into this Document if the app made it as a Notebook, else null. */
     val notebook: PageBackground? get() = session.notebook
@@ -185,6 +189,32 @@ internal class DocumentInk private constructor(
     fun redo() {
         lasso.clear()
         if (session.redo()) followSession() else AppLog.w("redo with nothing to redo")
+    }
+
+    /**
+     * Keeps this tablet's ink and moves the Conflict copy into Versions, off the main thread.
+     *
+     * @throws com.rickphobia.ricknotes.core.session.ConflictNotResolved if it can't be moved.
+     */
+    suspend fun keepMine() = resolveConflict("kept mine; the Conflict copy went into Versions", session::keepMine)
+
+    /**
+     * Puts the Conflict copy in place of the Ink file and moves the Ink file into Versions, off the
+     * main thread.
+     *
+     * @throws com.rickphobia.ricknotes.core.session.ConflictNotResolved if it can't be read or moved.
+     */
+    suspend fun keepTheOther() =
+        resolveConflict("kept the other; the Ink file went into Versions", session::keepTheOther)
+
+    private suspend fun resolveConflict(
+        outcome: String,
+        resolve: () -> Unit,
+    ) {
+        val copy = session.conflictCopy ?: return
+        withContext(Dispatchers.IO) { resolve() }
+        AppLog.i("${pdf.name}: Conflict copy $copy: $outcome")
+        followSession()
     }
 
     /** The page's Pictures, drawn under its strokes in this order. */

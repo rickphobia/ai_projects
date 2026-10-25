@@ -16,14 +16,25 @@ internal fun companionMoves(
     pdf: Path,
     target: Path,
 ): List<FileMove> {
-    val ink = InkFileStore(pdf).inkFile
+    val store = InkFileStore(pdf)
+    val ink = store.inkFile
     val targetInk = InkFileStore(target).inkFile
     val assets = PictureAssets(pdf).folder
     return listOfNotNull(
         FileMove(ink, targetInk).takeIf { exists(ink) },
         FileMove(assets, PictureAssets(target).folder).takeIf { exists(assets) },
-    ) + versionMoves(ink, targetInk)
+    ) + conflictCopyMoves(store, InkFileStore(target)) + versionMoves(ink, targetInk)
 }
+
+// A Conflict copy keeps what the sync app added to the Ink file's name, so it is still found as one.
+private fun conflictCopyMoves(
+    store: InkFileStore,
+    target: InkFileStore,
+): List<FileMove> =
+    store.conflictCopies().map { copy ->
+        val added = copy.fileName.toString().removePrefix(store.copyStem)
+        FileMove(copy, target.inkFile.resolveSibling(target.copyStem + added))
+    }
 
 private fun versionMoves(
     ink: Path,

@@ -34,6 +34,7 @@ internal object InkSessions {
             val status = SaveStatusState(pdf.name)
             val session = DocumentSession.open(pdf.toPath(), pageCount, SaveThread, status)
             session.warnings.forEach { AppLog.w("${pdf.name}: $it") }
+            session.conflictCopy?.let { AppLog.w("${pdf.name}: found Conflict copy $it; writing waits for a choice") }
             HeldSession(session, status)
         }
 

@@ -128,7 +128,7 @@ fun DocumentScreen(
             is Opening.Ready -> {
                 // A Lasso selection only lasts while the Lasso is picked.
                 LaunchedEffect(current.ink, kind.value) { if (kind.value != PenKind.LASSO) current.ink.lasso.clear() }
-                current.ink.warnings.forEach { InkWarning(it) }
+                InkWarnings(current.ink)
                 shared?.Bar(current.ink)
                 PageList(
                     OpenDocument(
@@ -219,6 +219,12 @@ private fun SaveWhenLeaving(ink: DocumentInk) {
 @Composable
 private fun FollowOtherTabs(ink: DocumentInk) {
     LaunchedEffect(ink) { snapshotFlow { ink.revision }.collect { ink.catchUp() } }
+}
+
+@Composable
+private fun InkWarnings(ink: DocumentInk) {
+    ink.warnings.forEach { InkWarning(it) }
+    ConflictWarning(ink)
 }
 
 @Composable
