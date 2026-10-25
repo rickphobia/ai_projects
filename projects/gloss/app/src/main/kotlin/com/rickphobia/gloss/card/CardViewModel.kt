@@ -49,7 +49,7 @@ class CardViewModel(
         when (context) {
             is BookContextResult.Found -> {
                 log.info(
-                    "book context: found, passage_chars=${context.context.passage.length}",
+                    "book context: found, passage_chars=${context.bookContext.passage.length}",
                 )
             }
 

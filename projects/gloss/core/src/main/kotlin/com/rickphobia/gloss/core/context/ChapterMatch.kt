@@ -1,5 +1,7 @@
 package com.rickphobia.gloss.core.context
 
+import kotlin.math.abs
+
 /**
  * Finding a Selection in a chapter's text. What Android hands Gloss is the reader's screen, which
  * can differ from Legado's chapter text in spacing, line breaks, and quote and dash styles, so both
@@ -8,7 +10,9 @@ package com.rickphobia.gloss.core.context
 internal object ChapterMatch {
     /**
      * Where [selection] is in [chapter], as a range of the chapter's characters, or null when it
-     * isn't there. When it occurs more than once, the occurrence nearest [readingPosition] wins.
+     * isn't there. A Selection that starts or ends with a letter or digit matches only whole words,
+     * so "eve" isn't found in "evening". When it occurs more than once, the occurrence nearest
+     * [readingPosition] wins.
      */
     fun find(
         chapter: String,
@@ -24,8 +28,20 @@ internal object ChapterMatch {
         val nearest =
             starts
                 .takeIf { wanted.isNotEmpty() }
-                ?.minByOrNull { kotlin.math.abs(canonicalChapter.sourceIndex[it] - readingPosition) }
+                ?.filter { wholeWordsAt(canonicalChapter.text, it, wanted) }
+                ?.minByOrNull { abs(canonicalChapter.sourceIndex[it] - readingPosition) }
         return nearest?.let { canonicalChapter.sourceIndex[it]..canonicalChapter.sourceIndex[it + wanted.length - 1] }
+    }
+
+    private fun wholeWordsAt(
+        text: String,
+        start: Int,
+        wanted: String,
+    ): Boolean {
+        val end = start + wanted.length
+        val cutsWordBefore = wanted.first().isLetterOrDigit() && start > 0 && text[start - 1].isLetterOrDigit()
+        val cutsWordAfter = wanted.last().isLetterOrDigit() && end < text.length && text[end].isLetterOrDigit()
+        return !cutsWordBefore && !cutsWordAfter
     }
 }
 

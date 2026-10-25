@@ -7,6 +7,7 @@ import com.rickphobia.gloss.core.context.BookContextResult
 import com.rickphobia.gloss.core.context.Legado
 import com.rickphobia.gloss.core.context.LegadoFailure
 import com.rickphobia.gloss.core.context.NoBookContextReason
+import com.rickphobia.gloss.core.context.ShelfBook
 import com.rickphobia.gloss.core.define.DefinePrompt
 import com.rickphobia.gloss.core.lookup.SqlLookupStore
 import com.rickphobia.gloss.core.settings.GlossSettings
@@ -48,13 +49,13 @@ class BookContextTest {
 
     private fun legadoWith(
         text: String,
-        reading: com.rickphobia.gloss.core.context.ShelfBook = book,
+        reading: ShelfBook = book,
     ) = FakeLegado(listOf(reading), mapOf((reading.bookUrl to reading.chapterIndex) to text))
 
     private fun contextOf(result: DefineResult): BookContextResult = (result as DefineResult.Answer).context
 
     private fun foundPassage(result: DefineResult): String =
-        ((contextOf(result) as BookContextResult.Found).context).passage
+        (contextOf(result) as BookContextResult.Found).bookContext.passage
 
     private fun AiPrompt.everything() = system + "\n" + userMessage
 
@@ -67,7 +68,7 @@ class BookContextTest {
         val result = define(legado, "garret")
 
         assertEquals(listOf(book.bookUrl to 3), legado.chaptersAskedFor)
-        val context = (contextOf(result) as BookContextResult.Found).context
+        val context = (contextOf(result) as BookContextResult.Found).bookContext
         assertEquals("Crime and Punishment", context.book)
         assertEquals("Fyodor Dostoevsky", context.author)
         assertEquals("Part I, Chapter 1", context.chapter)
@@ -152,6 +153,27 @@ class BookContextTest {
         assertEquals(
             "⟪“Yes—I know,” he said,\nand   the ‘garret’ — his — was hot…⟫",
             foundPassage(result),
+        )
+    }
+
+    @Test
+    fun `a word is only found as a whole word, not inside another`() {
+        val result = define(legadoWith(chapter), "eve")
+
+        assertEquals(BookContextResult.Missing(NoBookContextReason.NotInChapter), contextOf(result))
+    }
+
+    @Test
+    fun `a paragraph ends at any line or paragraph separator`() {
+        val text = "The garret was small.\r\nSPOILER one.\u2029SPOILER two."
+
+        define(legadoWith(text), "garret")
+
+        assertFalse(
+            ai.prompts
+                .single()
+                .everything()
+                .contains("SPOILER"),
         )
     }
 

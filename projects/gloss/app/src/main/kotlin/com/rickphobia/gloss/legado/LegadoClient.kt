@@ -30,7 +30,8 @@ class LegadoClient(
     override suspend fun bookshelf(): LegadoReply<List<ShelfBook>> =
         call("bookshelf", "/getBookshelf") { data ->
             val books = (data as? JSONArray) ?: throw JSONException("data is not a list")
-            (0 until books.length()).map { shelfBook(books.getJSONObject(it)) }
+            // One odd entry shouldn't cost every book its Book context, so it is left out.
+            (0 until books.length()).mapNotNull { books.optJSONObject(it)?.let(::shelfBook) }
         }
 
     override suspend fun chapterText(
@@ -43,16 +44,27 @@ class LegadoClient(
         }
     }
 
-    private fun shelfBook(json: JSONObject): ShelfBook =
-        ShelfBook(
-            bookUrl = json.getString("bookUrl"),
-            name = json.getString("name"),
-            author = json.optString("author"),
+    /** The book in [json], or null without a book URL or name. */
+    private fun shelfBook(json: JSONObject): ShelfBook? {
+        val bookUrl = text(json, "bookUrl")
+        val name = text(json, "name")
+        if (bookUrl.isEmpty() || name.isEmpty()) return null
+        return ShelfBook(
+            bookUrl = bookUrl,
+            name = name,
+            author = text(json, "author"),
             chapterIndex = json.optInt("durChapterIndex"),
-            chapterTitle = json.optString("durChapterTitle"),
+            chapterTitle = text(json, "durChapterTitle"),
             chapterPosition = json.optInt("durChapterPos"),
             lastReadAtMillis = json.optLong("durChapterTime"),
         )
+    }
+
+    /** A text field, empty when missing or null: Android's optString gives "null" for a JSON null. */
+    private fun text(
+        json: JSONObject,
+        name: String,
+    ): String = if (json.isNull(name)) "" else json.optString(name)
 
     private suspend fun <T> call(
         logLabel: String,
@@ -71,8 +83,9 @@ class LegadoClient(
                     log.warning("legado $logLabel: no answer within the timeout")
                     LegadoReply.Failed(LegadoFailure.Slow)
                 } catch (e: IOException) {
+                    // Connected, so the web service is on, but the reply broke off.
                     log.warning("legado $logLabel: network error: ${e.javaClass.simpleName}")
-                    LegadoReply.Failed(LegadoFailure.Off)
+                    LegadoReply.Failed(LegadoFailure.Error)
                 }
             if (reply is LegadoReply.Ok) {
                 log.info("legado $logLabel: ok latency_ms=${(System.nanoTime() - started) / NANOS_PER_MILLI}")

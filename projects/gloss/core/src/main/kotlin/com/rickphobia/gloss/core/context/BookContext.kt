@@ -23,7 +23,7 @@ data class BookContext(
 /** The Book context a Lookup used, or why it had none. */
 sealed interface BookContextResult {
     data class Found(
-        val context: BookContext,
+        val bookContext: BookContext,
     ) : BookContextResult
 
     data class Missing(
@@ -95,7 +95,7 @@ class BookContextFinder(
         match: IntRange,
         wordLimit: Int,
     ): BookContext {
-        val paragraphEnd = chapter.indexOf('\n', match.last + 1).takeIf { it >= 0 } ?: chapter.length
+        val paragraphEnd = chapter.indexOfAny(PARAGRAPH_BREAKS, match.last + 1).takeIf { it >= 0 } ?: chapter.length
         val start = startOfLastWords(chapter, match.first, wordLimit)
         val marked =
             chapter.substring(start, match.first) + BookContext.SELECTION_START +
@@ -104,7 +104,7 @@ class BookContextFinder(
         // One paragraph per line, without Legado's indents or blank lines: the AI is paid by the token.
         val passage =
             marked
-                .split('\n')
+                .split(PARAGRAPH_BREAK)
                 .map(String::trim)
                 .filter(String::isNotEmpty)
                 .joinToString("\n")
@@ -131,6 +131,12 @@ class BookContextFinder(
             words++
         }
         return index
+    }
+
+    private companion object {
+        /** Line feed, carriage return, and Unicode's line and paragraph separators. */
+        val PARAGRAPH_BREAKS = charArrayOf('\n', '\r', ' ', ' ')
+        val PARAGRAPH_BREAK = Regex("[\n\r  ]")
     }
 
     private fun missing(failure: LegadoFailure): BookContextResult.Missing =

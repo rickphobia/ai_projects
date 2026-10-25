@@ -33,7 +33,7 @@ class Gloss(
     suspend fun define(selection: Selection): DefineResult {
         val current = settings.current()
         val context = bookContext.find(selection, current.contextWordLimit)
-        val found = (context as? BookContextResult.Found)?.context
+        val found = (context as? BookContextResult.Found)?.bookContext
         return when (val reply = ai.ask(DefinePrompt.forSelection(selection, found, current))) {
             is AiReply.Answer -> {
                 val answer = reply.text.trim()

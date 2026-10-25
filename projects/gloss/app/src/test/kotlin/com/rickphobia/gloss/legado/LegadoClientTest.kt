@@ -86,6 +86,9 @@ class LegadoClientTest {
         )
         assertEquals("Chapter 2. Father and Son", books[0].chapterTitle)
         assertEquals(0L, books[2].lastReadAtMillis)
+        // JSON nulls and missing fields are empty, not the text "null".
+        assertEquals("", books[2].chapterTitle)
+        assertEquals("", books[2].author)
         assertEquals(listOf("/getBookshelf?"), requests)
     }
 
@@ -119,6 +122,19 @@ class LegadoClientTest {
 
         assertEquals(LegadoReply.Failed(LegadoFailure.NoFileAccess), reply)
         assertFalse(logText().contains("Crime"))
+    }
+
+    @Test
+    fun `a bookshelf entry without a book URL or name is left out`() {
+        serve {
+            200 to
+                """{"isSuccess":true,"errorMsg":"","data":[{"name":"No URL"},{"bookUrl":"x","name":null},""" +
+                """{"bookUrl":"https://example.com/b","name":"Kept","durChapterTime":5}]}"""
+        }
+
+        val books = (runBlocking { client().bookshelf() } as LegadoReply.Ok).value
+
+        assertEquals(listOf("Kept"), books.map { it.name })
     }
 
     @Test

@@ -77,7 +77,10 @@ private fun ContextLine(context: BookContextResult) {
     val text =
         when (context) {
             is BookContextResult.Found -> {
-                listOf(context.context.book, context.context.chapter).filter(String::isNotEmpty).joinToString(" · ")
+                listOf(
+                    context.bookContext.book,
+                    context.bookContext.chapter,
+                ).filter(String::isNotEmpty).joinToString(" · ")
             }
 
             is BookContextResult.Missing -> {

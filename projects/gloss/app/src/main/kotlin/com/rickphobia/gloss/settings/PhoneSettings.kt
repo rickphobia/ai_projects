@@ -25,14 +25,15 @@ object PhoneSettings : SettingsSource {
 
     /**
      * Legado's web service, on this phone. 1122 is Legado's fixed port. Short timeouts: a slow
-     * Legado must not hold up the card, which then answers without Book context. The read timeout
-     * is longer because reading a local EPUB's chapter is the slow call.
+     * Legado must not hold up the card for long, which then answers without Book context. A Define
+     * makes two calls (bookshelf, then chapter), so the worst case is about twice these. Connecting
+     * on the same phone is instant or refused; reading a local EPUB's chapter is the slow part.
      */
     val legado =
         LegadoSettings(
             baseUrl = "http://127.0.0.1:1122",
-            connectTimeoutMillis = 1_000,
-            readTimeoutMillis = 3_000,
+            connectTimeoutMillis = 500,
+            readTimeoutMillis = 2_000,
         )
 
     override fun current(): GlossSettings =
