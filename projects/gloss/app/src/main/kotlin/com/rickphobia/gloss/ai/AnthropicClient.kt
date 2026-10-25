@@ -4,13 +4,13 @@ import com.rickphobia.gloss.core.ai.Ai
 import com.rickphobia.gloss.core.ai.AiFailure
 import com.rickphobia.gloss.core.ai.AiPrompt
 import com.rickphobia.gloss.core.ai.AiReply
+import com.rickphobia.gloss.core.ai.ChatMessage
 import com.rickphobia.gloss.core.ai.TokenUsage
 import com.rickphobia.gloss.logging.RollingLog
 import com.rickphobia.gloss.settings.AnthropicSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
@@ -34,7 +34,9 @@ class AnthropicClient(
         }
         val started = System.nanoTime()
         val response =
-            withOneRetry("messages model=${prompt.model}") { send("POST", "/v1/messages", key, requestBody(prompt)) }
+            withOneRetry(
+                "messages model=${prompt.model}",
+            ) { send("POST", "/v1/messages", key, messagesRequestBody(prompt)) }
         val latencyMillis = (System.nanoTime() - started) / NANOS_PER_MILLI
         return when {
             response == null -> AiReply.Failed(AiFailure.NoInternet)
@@ -63,8 +65,14 @@ class AnthropicClient(
         key: String,
         model: String,
     ): AiFailure? {
-        val testPrompt = AiPrompt(model = model, system = "Reply with one word.", userMessage = "Hi", maxTokens = 1)
-        val response = withOneRetry("key check") { send("POST", "/v1/messages", key, requestBody(testPrompt)) }
+        val testPrompt =
+            AiPrompt(
+                model = model,
+                system = "Reply with one word.",
+                messages = listOf(ChatMessage(ChatMessage.Speaker.Owner, "Hi")),
+                maxTokens = 1,
+            )
+        val response = withOneRetry("key check") { send("POST", "/v1/messages", key, messagesRequestBody(testPrompt)) }
         return when {
             response == null -> {
                 AiFailure.NoInternet
@@ -97,10 +105,17 @@ class AnthropicClient(
         }
         val json = JSONObject(http.body)
         val usageJson = json.getJSONObject("usage")
-        val usage = TokenUsage(usageJson.getLong("input_tokens"), usageJson.getLong("output_tokens"))
+        val usage =
+            TokenUsage(
+                inputTokens = usageJson.getLong("input_tokens"),
+                outputTokens = usageJson.getLong("output_tokens"),
+                cacheWriteTokens = usageJson.optLong("cache_creation_input_tokens"),
+                cacheReadTokens = usageJson.optLong("cache_read_input_tokens"),
+            )
         log.info(
             "messages model=$model status=200 input_tokens=${usage.inputTokens} " +
-                "output_tokens=${usage.outputTokens} latency_ms=$latencyMillis retries=$retries " +
+                "output_tokens=${usage.outputTokens} cache_write_tokens=${usage.cacheWriteTokens} " +
+                "cache_read_tokens=${usage.cacheReadTokens} latency_ms=$latencyMillis retries=$retries " +
                 "stop_reason=${json.optString("stop_reason")}",
         )
         val content = json.getJSONArray("content")
@@ -168,14 +183,6 @@ class AnthropicClient(
             connection.disconnect()
         }
     }
-
-    private fun requestBody(prompt: AiPrompt): String =
-        JSONObject()
-            .put("model", prompt.model)
-            .put("max_tokens", prompt.maxTokens)
-            .put("system", prompt.system)
-            .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", prompt.userMessage)))
-            .toString()
 
     /** Anthropic's error type (such as `overloaded_error`), for the log; its message may quote the request. */
     private fun errorType(body: String): String =

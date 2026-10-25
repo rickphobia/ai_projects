@@ -1,0 +1,11 @@
+-- Version 2 (ticket 04) had Lookups only for Define: add their kind, and Explain's follow-ups (Lookup.sq).
+ALTER TABLE lookup ADD COLUMN kind TEXT NOT NULL DEFAULT 'define';
+
+CREATE TABLE follow_up (
+  id INTEGER NOT NULL PRIMARY KEY,
+  lookup_id INTEGER NOT NULL REFERENCES lookup(id),
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL
+);
+
+CREATE INDEX follow_up_lookup_id ON follow_up(lookup_id);

@@ -3,6 +3,7 @@ package com.rickphobia.gloss.core
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.rickphobia.gloss.core.ai.AiPrompt
 import com.rickphobia.gloss.core.context.BookContext
+import com.rickphobia.gloss.core.context.BookContextPrompt
 import com.rickphobia.gloss.core.context.BookContextResult
 import com.rickphobia.gloss.core.context.Legado
 import com.rickphobia.gloss.core.context.LegadoFailure
@@ -57,7 +58,7 @@ class BookContextTest {
     private fun foundPassage(result: DefineResult): String =
         (contextOf(result) as BookContextResult.Found).bookContext.passage
 
-    private fun AiPrompt.everything() = system + "\n" + userMessage
+    private fun AiPrompt.everything() = system + "\n" + messages.joinToString("\n") { it.text }
 
     @Test
     fun `uses the book read most recently and its current chapter`() {
@@ -79,11 +80,11 @@ class BookContextTest {
         define(legadoWith(chapter), "staircase")
 
         val prompt = ai.prompts.single()
-        assertEquals("staircase", prompt.userMessage)
+        assertEquals("staircase", prompt.messages.single().text)
         assertTrue(prompt.system.contains("Crime and Punishment by Fyodor Dostoevsky"))
         assertTrue(prompt.system.contains("\"Part I, Chapter 1\""))
         assertTrue(prompt.system.contains("his landlady on the ⟪staircase⟫."))
-        assertTrue(prompt.system.contains(DefinePrompt.SPOILER_RULE))
+        assertTrue(prompt.system.contains(BookContextPrompt.SPOILER_RULE))
         assertTrue(prompt.system.contains("one or two short, plain lines"))
     }
 
@@ -183,7 +184,14 @@ class BookContextTest {
 
         assertEquals(BookContextResult.Missing(NoBookContextReason.NotInChapter), contextOf(result))
         assertEquals(DefinePrompt.SYSTEM, ai.prompts.single().system)
-        assertEquals("photosynthesis", ai.prompts.single().userMessage)
+        assertEquals(
+            "photosynthesis",
+            ai.prompts
+                .single()
+                .messages
+                .single()
+                .text,
+        )
     }
 
     @Test

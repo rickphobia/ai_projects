@@ -9,18 +9,41 @@ fun interface Ai {
     suspend fun ask(prompt: AiPrompt): AiReply
 }
 
-/** One call to the AI: which model, the instructions ([system]) and the owner's turn. */
+/**
+ * One call to the AI: which model, the instructions ([system]) and the chat so far, ending with the
+ * owner's turn.
+ */
 data class AiPrompt(
     val model: String,
     val system: String,
-    val userMessage: String,
+    val messages: List<ChatMessage>,
     val maxTokens: Int,
+    /**
+     * Marks [system] for prompt caching. Worth it only when the same instructions go out again within
+     * minutes, as in an Explain chat: writing to the cache costs more than reading the tokens plainly.
+     */
+    val cacheSystem: Boolean = false,
+    /** How hard the model thinks before answering (such as "low"), or null for the model's default. */
+    val effort: String? = null,
 )
 
-/** Tokens a call used, which is what it costs. */
+/** One turn of a chat with the AI. */
+data class ChatMessage(
+    val from: Speaker,
+    val text: String,
+) {
+    enum class Speaker { Owner, Ai }
+}
+
+/**
+ * Tokens a call used, which is what it costs. [inputTokens] are the ones read without the cache;
+ * [cacheWriteTokens] went into the cache and [cacheReadTokens] came from it.
+ */
 data class TokenUsage(
     val inputTokens: Long,
     val outputTokens: Long,
+    val cacheWriteTokens: Long = 0,
+    val cacheReadTokens: Long = 0,
 )
 
 sealed interface AiReply {

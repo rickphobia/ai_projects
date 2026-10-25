@@ -3,15 +3,19 @@
   <string name="app_name">Gloss</string>
   <!-- Entries in the text-selection menu. The Preview build labels its own (src/preview/res). -->
   <string name="menu_define">Define</string>
+  <string name="menu_explain">Explain</string>
 
   <!-- The card -->
-  <string name="card_no_key">Add your Anthropic key to use Define.</string>
+  <string name="card_no_key">Add your Anthropic key to use Gloss.</string>
   <string name="card_key_rejected">Anthropic didn\'t accept your key.</string>
   <string name="card_no_internet">Couldn\'t reach Anthropic. Check your internet connection.</string>
   <string name="card_ai_error">The AI couldn\'t answer just now.</string>
   <string name="card_retry">Retry</string>
+  <string name="card_explain_more">Explain more</string>
+  <string name="card_follow_up_hint">Ask a follow-up question</string>
+  <string name="card_ask">Ask</string>
   <string name="card_near_limit">Over 80% of this month\'s spending limit.</string>
-  <string name="card_limit_reached">This month\'s spending limit is reached. Define works again on %1$s, or raise the limit in Settings.</string>
+  <string name="card_limit_reached">This month\'s spending limit is reached. Gloss works again on %1$s, or raise the limit in Settings.</string>
   <string name="spend_this_month">%1$s of %2$s this month</string>
   <string name="spend_limit_label">Monthly limit in dollars</string>
   <string name="spend_limit_save">Set limit</string>
@@ -36,12 +40,12 @@
   <string name="settings_key_saved">Your Anthropic key is saved.</string>
   <string name="legado_explained">For answers that know your book, switch on Legado\'s Web service: in Legado, tap My, then turn on Web service. While it\'s on, others on the same Wi-Fi can see your bookshelf, so turn it off on Wi-Fi you don\'t control.</string>
   <string name="legado_checking">Checking for Legado…</string>
-  <string name="legado_reachable">Gloss can reach Legado. Define will use the book you\'re reading.</string>
+  <string name="legado_reachable">Gloss can reach Legado. Define and Explain will use the book you\'re reading.</string>
   <string name="legado_off">Gloss can\'t reach Legado: its Web service is off, or Legado isn\'t running.</string>
   <string name="legado_slow">Legado didn\'t answer in time. Try again in a moment.</string>
   <string name="legado_error">Legado answered with an error. Share log below shows more.</string>
   <string name="legado_check_again">Check again</string>
-  <string name="settings_where_define_is">Select text in Legado, Chrome or any app, then tap Define in the menu over the selection. It may be under ⋮ or More.</string>
+  <string name="settings_where_define_is">Select text in Legado, Chrome or any app, then tap Define or Explain in the menu over the selection. It may be under ⋮ or More.</string>
   <string name="settings_log_explained">The log records what Gloss did (model, tokens, timings, errors), never what you selected or the answers.</string>
   <string name="add_key">Add key</string>
   <string name="change_key">Change key</string>

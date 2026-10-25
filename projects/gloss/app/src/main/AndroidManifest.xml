@@ -27,18 +27,31 @@
       </intent-filter>
     </activity>
     <!-- The card. Translucent, so the reader stays visible behind it, and kept out of Recents so
-         closing it leaves the reader exactly where it was. -->
+         closing it leaves the reader exactly where it was. adjustResize hands the keyboard's
+         height to the card, which moves Explain's follow-up box up above it. -->
     <activity
       android:name=".card.CardActivity"
       android:excludeFromRecents="true"
       android:exported="false"
-      android:theme="@style/Theme.Gloss.Card" />
+      android:theme="@style/Theme.Gloss.Card"
+      android:windowSoftInputMode="adjustResize" />
     <!-- The selection-menu entries. Each is an alias of the card, so the card can tell which one
          was tapped from the component that started it. -->
     <activity-alias
       android:name=".card.Define"
       android:exported="true"
       android:label="@string/menu_define"
+      android:targetActivity=".card.CardActivity">
+      <intent-filter>
+        <action android:name="android.intent.action.PROCESS_TEXT" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="text/plain" />
+      </intent-filter>
+    </activity-alias>
+    <activity-alias
+      android:name=".card.Explain"
+      android:exported="true"
+      android:label="@string/menu_explain"
       android:targetActivity=".card.CardActivity">
       <intent-filter>
         <action android:name="android.intent.action.PROCESS_TEXT" />

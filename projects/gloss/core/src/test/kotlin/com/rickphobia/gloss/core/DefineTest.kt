@@ -61,7 +61,7 @@ class DefineTest {
         define(ai, text = "  a garret ")
 
         val prompt = ai.prompts.single()
-        assertEquals("a garret", prompt.userMessage)
+        assertEquals("a garret", prompt.messages.single().text)
         assertEquals("claude-haiku-5-5", prompt.model)
         assertEquals(150, prompt.maxTokens)
         assertTrue(prompt.system.contains("one or two short, plain lines"))
