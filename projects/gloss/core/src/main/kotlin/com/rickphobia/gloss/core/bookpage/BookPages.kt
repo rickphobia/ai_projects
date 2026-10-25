@@ -40,6 +40,9 @@ class BookPages(
                 ChapterSection(chapterIndex, entries.maxBy { it.at }.book?.chapter, inOrder)
             }
 
+    /** [book]'s Book page as Markdown, for the share sheet. */
+    suspend fun markdown(book: BookSummary): String = BookMarkdown.of(book, page(book.bookUrl))
+
     /** The newest [limit] Lookups and Notes across every book, newest first, each on its own. */
     suspend fun recent(limit: Int): List<Entry> {
         val all = lookups.all().map { LookupEntry(it.id, it.value) } + notes.all().map { NoteEntry(it.id, it.value) }

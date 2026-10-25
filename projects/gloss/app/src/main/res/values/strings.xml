@@ -82,5 +82,6 @@
   <string name="add_key">Add key</string>
   <string name="change_key">Change key</string>
   <string name="share_log">Share log</string>
+  <string name="share_book">Share</string>
   <string name="cancel">Cancel</string>
 </resources>

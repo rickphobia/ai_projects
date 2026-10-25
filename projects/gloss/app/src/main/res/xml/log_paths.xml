@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Only the copy of the log that "Share log" writes to the cache. -->
+<!-- Only the copy of the log that "Share log" writes to the cache, and the Markdown a Book page's Share writes there. -->
 <paths>
   <cache-path name="logs" path="logs/" />
+  <cache-path name="exports" path="exports/" />
 </paths>
