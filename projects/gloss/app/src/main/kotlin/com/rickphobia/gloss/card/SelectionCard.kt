@@ -25,6 +25,8 @@ import com.rickphobia.gloss.core.Selection
 import com.rickphobia.gloss.core.ai.AiFailure
 import com.rickphobia.gloss.core.context.BookContextResult
 import com.rickphobia.gloss.core.context.NoBookContextReason
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /**
  * The card at the bottom of the screen: the Selection, then a loading bar, then the book and
@@ -62,10 +64,26 @@ fun SelectionCard(
                 is DefineResult.Answer -> {
                     ContextLine(result.context)
                     Text(text = result.text, style = MaterialTheme.typography.bodyLarge)
+                    if (result.nearLimit) {
+                        Text(
+                            text = stringResource(R.string.card_near_limit),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
 
                 is DefineResult.Failed -> {
                     FailureMessage(result.failure, onRetry, onOpenKeySettings)
+                }
+
+                is DefineResult.LimitReached -> {
+                    val resetsOn = result.resetsOn.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG))
+                    Text(
+                        text = stringResource(R.string.card_limit_reached, resetsOn),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
         }

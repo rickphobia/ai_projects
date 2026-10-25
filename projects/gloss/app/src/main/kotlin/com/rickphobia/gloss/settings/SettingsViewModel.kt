@@ -6,10 +6,12 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rickphobia.gloss.ai.AnthropicClient
+import com.rickphobia.gloss.core.Gloss
 import com.rickphobia.gloss.core.ai.AiFailure
 import com.rickphobia.gloss.core.context.Legado
 import com.rickphobia.gloss.core.context.LegadoFailure
 import com.rickphobia.gloss.core.context.LegadoReply
+import com.rickphobia.gloss.core.spending.MonthSpend
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -31,13 +33,14 @@ sealed interface LegadoStatus {
 
 /**
  * The Settings screen's state: whether a key is saved, the key check in progress, and whether
- * Legado's web service can be reached.
+ * Legado's web service can be reached, and this month's spend against the Spending limit.
  */
 class SettingsViewModel(
     private val apiKeys: ApiKeyStore,
     private val anthropic: AnthropicClient,
     private val legado: Legado,
-    private val checkModel: String,
+    private val gloss: Gloss,
+    private val spendingLimit: SpendingLimitStore,
     startWithKeyEntry: Boolean,
 ) : ViewModel() {
     var hasKey by mutableStateOf(apiKeys.hasKey())
@@ -62,6 +65,27 @@ class SettingsViewModel(
         private set
 
     private var legadoCheck: Job? = null
+
+    /** This month's spend, or null until it is read. */
+    var monthSpend: MonthSpend? by mutableStateOf(null)
+        private set
+
+    /** Reads this month's spend. The screen calls it each time it's shown. */
+    fun loadMonthSpend() {
+        viewModelScope.launch { monthSpend = withContext(Dispatchers.IO) { gloss.monthSpend() } }
+    }
+
+    /** Saves a new Spending limit in dollars; one that isn't a positive amount is ignored. */
+    fun saveLimit(entered: String) {
+        val dollars = entered.trim().removePrefix("$").toBigDecimalOrNull() ?: return
+        if (dollars.signum() <= 0) return
+        spendingLimit.save(dollars.movePointRight(MICROS_PER_DOLLAR_DIGITS).toLong())
+        loadMonthSpend()
+    }
+
+    private companion object {
+        const val MICROS_PER_DOLLAR_DIGITS = 6
+    }
 
     /** Asks Legado for its bookshelf, as a Define does. The screen calls it each time it's shown. */
     fun checkLegado() {
@@ -95,7 +119,7 @@ class SettingsViewModel(
         keyProblem = null
         viewModelScope.launch {
             val problem =
-                when (anthropic.checkKey(key, checkModel)) {
+                when (anthropic.checkKey(key, PhoneSettings.DEFINE_MODEL)) {
                     null -> if (withContext(Dispatchers.IO) { apiKeys.save(key) }) null else KeyProblem.NotStored
                     AiFailure.KeyRejected -> KeyProblem.Rejected
                     AiFailure.NoInternet -> KeyProblem.NoInternet

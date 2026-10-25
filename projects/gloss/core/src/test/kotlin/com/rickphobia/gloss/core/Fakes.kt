@@ -8,6 +8,10 @@ import com.rickphobia.gloss.core.context.Legado
 import com.rickphobia.gloss.core.context.LegadoFailure
 import com.rickphobia.gloss.core.context.LegadoReply
 import com.rickphobia.gloss.core.context.ShelfBook
+import com.rickphobia.gloss.core.settings.GlossSettings
+import com.rickphobia.gloss.core.spending.ModelPrice
+import com.rickphobia.gloss.core.spending.SpendStore
+import java.time.Instant
 
 /** Records the prompts it was sent and answers each with [reply]. */
 class FakeAi(
@@ -60,3 +64,30 @@ fun shelfBook(
     position: Int = 0,
     lastReadAt: Long = 1_761_300_000_000,
 ) = ShelfBook(url, name, "Fyodor Dostoevsky", 3, "Part I, Chapter 1", position, lastReadAt)
+
+/** Haiku 5.5's price and a $10 Spending limit, as on the phone. */
+val testSettings =
+    GlossSettings(
+        defineModel = "claude-haiku-5-5",
+        definePrice = ModelPrice(inputMicrosPerMillion = 100_000, outputMicrosPerMillion = 500_000),
+        defineMaxTokens = 150,
+        contextWordLimit = 3000,
+        spendingLimitMicros = 10_000_000,
+    )
+
+/** Spends kept in a list. */
+class FakeSpendStore : SpendStore {
+    val spends = mutableListOf<Pair<Long, Instant>>()
+
+    override suspend fun add(
+        costMicros: Long,
+        at: Instant,
+    ) {
+        spends += costMicros to at
+    }
+
+    override suspend fun totalBetween(
+        from: Instant,
+        until: Instant,
+    ): Long = spends.filter { (_, at) -> at >= from && at < until }.sumOf { it.first }
+}

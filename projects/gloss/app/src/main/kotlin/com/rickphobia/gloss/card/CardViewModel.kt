@@ -39,7 +39,21 @@ class CardViewModel(
         result = null
         viewModelScope.launch {
             val defined = withContext(Dispatchers.IO) { gloss.define(selection) }
-            if (defined is DefineResult.Answer) logBookContext(defined.context)
+            when (defined) {
+                is DefineResult.Answer -> {
+                    logBookContext(defined.context)
+                }
+
+                is DefineResult.LimitReached -> {
+                    log.info(
+                        "define: spending limit reached, resets_on=${defined.resetsOn}",
+                    )
+                }
+
+                is DefineResult.Failed -> {
+                    Unit
+                }
+            }
             result = defined
         }
     }

@@ -24,7 +24,14 @@ class SettingsActivity : ComponentActivity() {
         val app = application as GlossApplication
         viewModelFactory {
             initializer {
-                SettingsViewModel(app.apiKeys, app.anthropic, app.legado, PhoneSettings.DEFINE_MODEL, openedForKey)
+                SettingsViewModel(
+                    app.apiKeys,
+                    app.anthropic,
+                    app.legado,
+                    app.gloss,
+                    app.spendingLimit,
+                    openedForKey,
+                )
             }
         }
     }
@@ -47,6 +54,8 @@ class SettingsActivity : ComponentActivity() {
                     onCancelKeyEntry = settings::cancelKeyEntry,
                     legadoStatus = settings.legadoStatus,
                     onCheckLegado = settings::checkLegado,
+                    monthSpend = settings.monthSpend,
+                    onSaveLimit = settings::saveLimit,
                     onShareLog = { shareLog(app) },
                 )
             }
@@ -57,6 +66,7 @@ class SettingsActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         settings.checkLegado()
+        settings.loadMonthSpend()
     }
 
     private fun shareLog(app: GlossApplication) {

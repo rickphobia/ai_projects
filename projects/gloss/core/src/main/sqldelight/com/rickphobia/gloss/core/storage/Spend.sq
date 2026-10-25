@@ -1,0 +1,16 @@
+-- One row per AI call that cost money, failed or not. cost_micros is millionths of a dollar;
+-- spent_at is epoch milliseconds, so the month a call falls in is decided in the phone's time zone
+-- when summing, not when saving.
+CREATE TABLE spend (
+  id INTEGER NOT NULL PRIMARY KEY,
+  cost_micros INTEGER NOT NULL,
+  spent_at INTEGER NOT NULL
+);
+
+CREATE INDEX spend_spent_at ON spend(spent_at);
+
+insert:
+INSERT INTO spend(cost_micros, spent_at) VALUES (?, ?);
+
+totalBetween:
+SELECT CAST(coalesce(sum(cost_micros), 0) AS INTEGER) FROM spend WHERE spent_at >= ? AND spent_at < ?;
