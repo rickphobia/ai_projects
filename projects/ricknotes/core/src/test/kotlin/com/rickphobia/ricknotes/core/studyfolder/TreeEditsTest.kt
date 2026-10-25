@@ -70,6 +70,24 @@ class TreeEditsTest {
     }
 
     @Test
+    fun `renaming a Document carries the Conflict copy of its Ink file, still named as one`() {
+        write("EE2001/tuto3.pdf", "pdf")
+        write("EE2001/tuto3.pdf.ink.json", "ink")
+        write("EE2001/tuto3.pdf.ink (1).json", "their ink")
+
+        edits().renameDocument("EE2001/tuto3.pdf", "Tutorial 3")
+
+        assertEquals(
+            mapOf(
+                "EE2001/Tutorial 3.pdf" to "pdf",
+                "EE2001/Tutorial 3.pdf.ink.json" to "ink",
+                "EE2001/Tutorial 3.pdf.ink (1).json" to "their ink",
+            ),
+            files(),
+        )
+    }
+
+    @Test
     fun `moving a Document to another course carries every companion into it`() {
         documentWithCompanions("EE2001")
         folder("EE2002")

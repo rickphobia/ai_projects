@@ -48,31 +48,43 @@ class DocumentSession private constructor(
     pdfPageCount: Int,
     val warnings: List<SessionWarning>,
 ) {
-    /** True when the Ink file couldn't be read: nothing may be drawn and nothing is ever saved. */
-    val readOnly: Boolean = warnings.any { it is SessionWarning.InkFileUnreadable }
-
-    private val assets = PictureAssets(store.pdf)
+    private val unreadable = warnings.any { it is SessionWarning.InkFileUnreadable }
     private val pageCount = pdfPageCount
+    private val assets = PictureAssets(store.pdf)
+    private val conflicts = InkConflicts(store, clock)
 
-    /** The background printed into this Document's pages if the app made it as a Notebook, else null. */
-    val notebook: PageBackground? = loaded.notebook
-    private val history =
-        InkHistory(
-            InkContent(
-                loaded.pages + InkFile.pdfPages(pdfPageCount).filter { it !in loaded.pages },
-                loaded.strokes,
-                loaded.pictures,
-            ),
-        )
+    // Guarded by [lock], like [pendingConflicts]. Replaced only by Keep the other.
+    private var content = loaded
+    private var history = historyOf(loaded)
+
+    // The Conflict copies found on open, each dropped once resolved. An unreadable Ink file isn't
+    // offered them: it is never written.
+    private var pendingConflicts: List<Path> = if (unreadable) emptyList() else conflicts.pending()
+
     private val saving =
         AutoSave(
             store.inkFile,
             clock,
             listener,
-            readOnly,
-            snapshot = { InkFile(pageCount, history.pages, history.strokes, history.pictures, notebook) },
+            unreadable,
+            snapshot = { InkFile(pageCount, history.pages, history.strokes, history.pictures, content.notebook) },
         ) { InkFileCodec.encode(it).toByteArray(Charsets.UTF_8) }
     private val lock = saving.lock
+
+    /**
+     * The file name of the sync app's Conflict copy of the Ink file, which must be resolved with
+     * [keepMine] or [keepTheOther] before anything is written, or null if there is none.
+     */
+    val conflictCopy: String? get() = synchronized(lock) { pendingConflicts.firstOrNull()?.fileName?.toString() }
+
+    /**
+     * True when nothing may be drawn: the Ink file couldn't be read (it is then never saved), or it
+     * has a [conflictCopy] still to resolve.
+     */
+    val readOnly: Boolean get() = unreadable || conflictCopy != null
+
+    /** The background printed into this Document's pages if the app made it as a Notebook, else null. */
+    val notebook: PageBackground? get() = synchronized(lock) { content.notebook }
 
     /** Every page in the order it shows: the PDF's own pages with any Inserted pages between them. */
     val pages: List<InkPage> get() = synchronized(lock) { history.pages }
@@ -92,13 +104,13 @@ class DocumentSession private constructor(
     val canRedo: Boolean get() = synchronized(lock) { history.canRedo }
 
     fun addStroke(stroke: Stroke) {
-        check(!readOnly) { "${store.fileName} is open read-only" }
+        checkWritable()
         edit { history.add(stroke) }
     }
 
     /** Removes the strokes with these IDs, as one undo step; IDs of strokes that aren't here are ignored. */
     fun eraseStrokes(ids: Set<StrokeId>) {
-        check(!readOnly) { "${store.fileName} is open read-only" }
+        checkWritable()
         edit { history.erase(ids) }
     }
 
@@ -110,7 +122,7 @@ class DocumentSession private constructor(
         ids: Set<StrokeId>,
         offset: PageOffset,
     ): Boolean {
-        check(!readOnly) { "${store.fileName} is open read-only" }
+        checkWritable()
         return edit { history.move(ids, offset) }
     }
 
@@ -127,7 +139,7 @@ class DocumentSession private constructor(
         pageId: PageId,
         frame: PictureFrame,
     ): Picture {
-        check(!readOnly) { "${store.fileName} is open read-only" }
+        checkWritable()
         require(pages.any { it.id == pageId }) { "page ${pageId.value} is not in ${store.fileName}" }
         val id = UUID.randomUUID().toString()
         val name = "$id.$extension"
@@ -147,7 +159,7 @@ class DocumentSession private constructor(
         id: PictureId,
         frame: PictureFrame,
     ): Boolean {
-        check(!readOnly) { "${store.fileName} is open read-only" }
+        checkWritable()
         return edit { history.reframe(id, frame) }
     }
 
@@ -156,7 +168,7 @@ class DocumentSession private constructor(
      * in `.assets`, so undo works and Versions still point at a real file.
      */
     fun deletePicture(id: PictureId): Boolean {
-        check(!readOnly) { "${store.fileName} is open read-only" }
+        checkWritable()
         return edit { history.delete(id) }
     }
 
@@ -168,7 +180,7 @@ class DocumentSession private constructor(
         after: PageId,
         background: PageBackground,
     ): InkPage {
-        check(!readOnly) { "${store.fileName} is open read-only" }
+        checkWritable()
         val page = InkPage(PageId("$INSERTED_PAGE_PREFIX${UUID.randomUUID()}"), background)
         edit { history.insertPage(page, after) }
         return page
@@ -181,12 +193,53 @@ class DocumentSession private constructor(
      * @throws IllegalArgumentException for one of the PDF's own pages, which can't be removed.
      */
     fun removePage(id: PageId): Boolean {
-        check(!readOnly) { "${store.fileName} is open read-only" }
+        checkWritable()
         return edit { history.removePage(id) }
     }
 
     /** True if page [id] has any strokes or Pictures on it: removing it then asks first. */
     fun hasInk(id: PageId): Boolean = synchronized(lock) { history.hasInk(id) }
+
+    /**
+     * Keep mine: moves the [conflictCopy] into Versions and keeps the ink as it is.
+     *
+     * @throws ConflictNotResolved if it can't be moved; nothing changes then.
+     */
+    fun keepMine(): Unit =
+        synchronized(lock) {
+            conflicts.keepMine(nextConflict())
+            pendingConflicts = pendingConflicts.drop(1)
+        }
+
+    /**
+     * Keep the other: puts the [conflictCopy] in place of the Ink file, after moving the Ink file into
+     * Versions, and shows the copy's ink.
+     *
+     * @throws ConflictNotResolved if the copy can't be read or moved; the ink stays as it was then.
+     */
+    fun keepTheOther(): Unit =
+        synchronized(lock) {
+            content = conflicts.keepTheOther(nextConflict())
+            history = historyOf(content)
+            pendingConflicts = pendingConflicts.drop(1)
+        }
+
+    private fun nextConflict(): Path =
+        checkNotNull(pendingConflicts.firstOrNull()) {
+            "${store.fileName} has no Conflict copy"
+        }
+
+    private fun checkWritable() = check(!readOnly) { "${store.fileName} is open read-only" }
+
+    // The undo history of [file], with no step to undo: every PDF page shows, whether it has ink or not.
+    private fun historyOf(file: InkFile): InkHistory =
+        InkHistory(
+            InkContent(
+                file.pages + InkFile.pdfPages(pageCount).filter { it !in file.pages },
+                file.strokes,
+                file.pictures,
+            ),
+        )
 
     /** Takes back the last change, or returns false if there is none. Saved like any change. */
     fun undo(): Boolean = edit { history.undo() }

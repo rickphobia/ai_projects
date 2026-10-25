@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-session, core-studyfolder, app-viewer, README
 
@@ -12,8 +12,8 @@
 
 **Owner steps:** on the tablet, set up FolderSync from the README, then make a real conflict (write on the tablet and edit the same Ink file's copy on Drive before a sync) and record FolderSync's exact conflict file name in the README if the ticket's guess was wrong.
 
-- [ ] `core` recognises FolderSync's conflict naming for Ink files, as recorded in the README (tested)
-- [ ] Keep mine moves the Conflict copy into Versions; Keep the other moves the current Ink file into Versions and puts the copy in its place through the safe write; no file is deleted (tested)
-- [ ] The warning shows on open and the pen can't write until a choice is made
-- [ ] README has the FolderSync setup steps
-- [ ] Logs which side was kept, file names only
+- [x] `core` recognises FolderSync's conflict naming for Ink files, as recorded in the README (tested)
+- [x] Keep mine moves the Conflict copy into Versions; Keep the other moves the current Ink file into Versions and puts the copy in its place through the safe write; no file is deleted (tested)
+- [x] The warning shows on open and the pen can't write until a choice is made
+- [x] README has the FolderSync setup steps
+- [x] Logs which side was kept, file names only

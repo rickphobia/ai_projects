@@ -2,8 +2,10 @@ package com.rickphobia.ricknotes.core.session
 
 import java.io.IOException
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 
 /** A Version that couldn't be taken. The file and its session carry on as before. */
 class VersionFailed(
@@ -35,9 +37,30 @@ internal class VersionStore(
                 return
             }
         Files.createDirectories(folder)
-        writeSafely(folder.resolve("$prefix$nowMs$SUFFIX"), bytes)
+        writeSafely(freeVersion(nowMs), bytes)
         dropOldest()
     }
+
+    /**
+     * Moves [other], another copy of the file such as the sync app's Conflict copy, into a Version
+     * taken at [nowMs], then drops the oldest beyond [KEEP]. It is renamed, never copied and deleted.
+     *
+     * @throws IOException if the move or the clean-up fails; [other] stays where it was if the move did.
+     */
+    fun moveIn(
+        other: Path,
+        nowMs: Long,
+    ) {
+        Files.createDirectories(folder)
+        Files.move(other, freeVersion(nowMs), StandardCopyOption.ATOMIC_MOVE)
+        dropOldest()
+    }
+
+    // The Version's file for [nowMs], a millisecond later if that is taken, so none is written over.
+    private fun freeVersion(nowMs: Long): Path =
+        generateSequence(nowMs) { it + 1 }
+            .map { folder.resolve("$prefix$it$SUFFIX") }
+            .first { !Files.exists(it, LinkOption.NOFOLLOW_LINKS) }
 
     private fun dropOldest() {
         val ours =
