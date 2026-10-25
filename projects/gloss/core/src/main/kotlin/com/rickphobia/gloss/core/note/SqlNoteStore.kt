@@ -1,5 +1,6 @@
 package com.rickphobia.gloss.core.note
 
+import com.rickphobia.gloss.core.context.BookPlace
 import com.rickphobia.gloss.core.storage.GlossDatabase
 import java.time.Instant
 
@@ -16,6 +17,15 @@ class SqlNoteStore(
                 note.book?.book,
                 note.book?.author,
                 note.book?.chapter,
+                note.book?.place?.bookUrl,
+                note.book
+                    ?.place
+                    ?.chapterIndex
+                    ?.toLong(),
+                note.book
+                    ?.place
+                    ?.position
+                    ?.toLong(),
                 note.lookupId,
             )
             database.noteQueries.lastId().executeAsOne()
@@ -23,12 +33,19 @@ class SqlNoteStore(
 
     override suspend fun all(): List<Note> =
         database.noteQueries
-            .all { selection, text, writtenAt, book, author, chapter, lookupId ->
+            .all { selection, text, writtenAt, book, author, chapter, bookUrl, chapterIndex, position, lookupId ->
+                val place = bookUrl?.let { BookPlace(it, chapterIndex?.toInt() ?: 0, position?.toInt() ?: 0) }
                 Note(
                     selection,
                     text,
                     Instant.ofEpochMilli(writtenAt),
-                    book?.let { NoteBook(it, author.orEmpty(), chapter.orEmpty()) },
+                    if (book != null &&
+                        place != null
+                    ) {
+                        NoteBook(book, author.orEmpty(), chapter.orEmpty(), place)
+                    } else {
+                        null
+                    },
                     lookupId,
                 )
             }.executeAsList()

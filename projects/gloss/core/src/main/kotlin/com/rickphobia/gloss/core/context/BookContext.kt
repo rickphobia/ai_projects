@@ -13,12 +13,24 @@ data class BookContext(
     val author: String,
     val chapter: String,
     val passage: String,
+    /** Where the Selection is in Legado, for Book pages. */
+    val place: BookPlace,
 ) {
     companion object {
         const val SELECTION_START = "⟪"
         const val SELECTION_END = "⟫"
     }
 }
+
+/**
+ * A place in a Legado book: the book's URL (how books are told apart), the chapter index, and how
+ * many characters into the chapter the Selection starts. Book pages order by chapter, then position.
+ */
+data class BookPlace(
+    val bookUrl: String,
+    val chapterIndex: Int,
+    val position: Int,
+)
 
 /** The Book context a Lookup used, or why it had none. */
 sealed interface BookContextResult {
@@ -113,6 +125,7 @@ class BookContextFinder(
             author = book.author.trim(),
             chapter = book.chapterTitle.trim(),
             passage = if (start > 0) "… $passage" else passage,
+            place = BookPlace(book.bookUrl, book.chapterIndex, match.first),
         )
     }
 

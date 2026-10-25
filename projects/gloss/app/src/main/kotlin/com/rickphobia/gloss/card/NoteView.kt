@@ -37,6 +37,13 @@ internal fun NoteView(
         )
         return
     }
+    if (state.failed) {
+        Text(
+            text = stringResource(R.string.card_note_failed),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
     OutlinedTextField(
         value = state.text,
         onValueChange = onTextChange,
@@ -46,7 +53,7 @@ internal fun NoteView(
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
     )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = onSave, enabled = !state.saving && state.text.isNotBlank()) {
+        Button(onClick = onSave, enabled = state.canSave) {
             Text(stringResource(R.string.card_note_save))
         }
         TextButton(onClick = onDiscard, enabled = !state.saving) { Text(stringResource(R.string.card_note_discard)) }

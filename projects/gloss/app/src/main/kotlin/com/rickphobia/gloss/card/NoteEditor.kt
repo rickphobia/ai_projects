@@ -8,6 +8,7 @@ import com.rickphobia.gloss.core.Selection
 import com.rickphobia.gloss.core.context.BookContextResult
 import com.rickphobia.gloss.logging.RollingLog
 import com.rickphobia.gloss.storage.NoteDraftStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -20,6 +21,16 @@ data class NoteCardState(
     val context: BookContextResult? = null,
     val saving: Boolean = false,
     val saved: Boolean = false,
+    /** Save is offered once the Note knows where it goes: its Book context, or its card's Lookup. */
+    val canSave: Boolean = false,
+    /** The last Save failed; the text is still in the box and the draft. */
+    val failed: Boolean = false,
+)
+
+/** Where a Note goes: with this Book context, attached to [lookupId] when written on a Lookup's card. */
+data class NoteTarget(
+    val context: BookContextResult,
+    val lookupId: Long? = null,
 )
 
 /**
@@ -32,64 +43,78 @@ class NoteEditor(
     private val drafts: NoteDraftStore,
     private val log: RollingLog,
     private val scope: CoroutineScope,
-    /** The card's Lookup id and Book context once it has an answer, to attach the Note to. */
-    private val lookup: () -> Pair<Long, BookContextResult>?,
+    /** The card's Lookup once it has an answer; null on a Note card and while the AI is answering. */
+    private val lookup: () -> NoteTarget?,
 ) {
+    private var current: NoteCardState? by mutableStateOf(null)
+
     /** Null until the card has a Note: from the Note entry, the Note button or a kept draft. */
-    var state: NoteCardState? by mutableStateOf(null)
-        private set
+    val state: NoteCardState?
+        get() = current?.let { it.copy(canSave = !it.saving && it.text.isNotBlank() && target(it) != null) }
 
     init {
         drafts.read(selection.text)?.let { draft ->
             log.info("note: draft restored")
-            state = NoteCardState(text = draft)
+            current = NoteCardState(text = draft)
         }
     }
 
     /** A Note card: shows the Book context Legado gives, with no AI call. */
     fun startFromMenu() {
-        if (state == null) state = NoteCardState()
+        open()
         scope.launch {
             val context = withContext(Dispatchers.IO) { gloss.noteContext(selection) }
             log.info("note: book context ${if (context is BookContextResult.Found) "found" else "none"}")
-            state = state?.copy(context = context)
+            current = current?.copy(context = context)
         }
     }
 
     /** Opens the Note box on a Define or Explain card. */
     fun open() {
-        if (state == null) state = NoteCardState()
+        if (current == null) current = NoteCardState()
     }
 
     fun edit(text: String) {
-        state = state?.copy(text = text, saved = false)
+        current = current?.copy(text = text, saved = false, failed = false)
         drafts.write(selection.text, text)
     }
 
     fun discard() {
         drafts.clear()
-        state = null
+        current = null
     }
 
     /**
      * Saves the Note: attached to the card's Lookup when it has an answer, otherwise with the Book
-     * context Legado gives, or under "No book".
+     * context Legado gave, or under "No book".
      */
     fun save() {
-        val current = state?.takeUnless { it.saving || it.saved || it.text.isBlank() } ?: return
-        state = current.copy(saving = true)
-        val onLookup = lookup()
+        val writing = current?.takeUnless { it.saving || it.saved || it.text.isBlank() } ?: return
+        val target = target(writing) ?: return
+        current = writing.copy(saving = true, failed = false)
         scope.launch {
-            withContext(Dispatchers.IO) {
-                if (onLookup != null) {
-                    gloss.note(selection, current.text, onLookup.second, onLookup.first)
-                } else {
-                    gloss.note(selection, current.text, current.context ?: gloss.noteContext(selection))
+            val saved =
+                try {
+                    withContext(Dispatchers.IO) {
+                        gloss.note(selection, writing.text, target.context, target.lookupId)
+                    }
+                    true
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") e: Exception,
+                ) {
+                    // The type only: the message could quote the Note.
+                    log.error("note: save failed, ${e.javaClass.name}")
+                    false
                 }
+            if (saved) {
+                drafts.clear()
+                log.info("note: saved, on_lookup=${target.lookupId != null}")
             }
-            drafts.clear()
-            log.info("note: saved, on_lookup=${onLookup != null}")
-            state = current.copy(saving = false, saved = true)
+            current = writing.copy(saving = false, saved = saved, failed = !saved)
         }
     }
+
+    private fun target(note: NoteCardState): NoteTarget? = lookup() ?: note.context?.let(::NoteTarget)
 }

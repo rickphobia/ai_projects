@@ -1,6 +1,7 @@
 package com.rickphobia.gloss.core.note
 
 import com.rickphobia.gloss.core.context.BookContext
+import com.rickphobia.gloss.core.context.BookPlace
 import java.time.Instant
 
 /**
@@ -16,14 +17,15 @@ data class Note(
     val lookupId: Long? = null,
 )
 
-/** The book and chapter a Note was written in: its Book context without the passage. */
+/** The book and chapter a Note was written in, and where: its Book context without the passage. */
 data class NoteBook(
     val book: String,
     val author: String,
     val chapter: String,
+    val place: BookPlace,
 ) {
     companion object {
-        fun of(context: BookContext) = NoteBook(context.book, context.author, context.chapter)
+        fun of(context: BookContext) = NoteBook(context.book, context.author, context.chapter, context.place)
     }
 }
 

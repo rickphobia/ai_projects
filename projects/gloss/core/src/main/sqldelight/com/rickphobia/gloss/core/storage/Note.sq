@@ -1,5 +1,6 @@
--- One row per Note. written_at is epoch milliseconds. book, author and chapter are null for a Note
--- made without Book context ("No book"); lookup_id is set for a Note written on a Lookup's card.
+-- One row per Note. written_at is epoch milliseconds. book, author, chapter, book_url (Legado's id
+-- for the book), chapter_index and position (characters into the chapter) are null for a Note made
+-- without Book context ("No book"); lookup_id is set for a Note written on a Lookup's card.
 CREATE TABLE note (
   id INTEGER NOT NULL PRIMARY KEY,
   selection TEXT NOT NULL,
@@ -8,16 +9,20 @@ CREATE TABLE note (
   book TEXT,
   author TEXT,
   chapter TEXT,
+  book_url TEXT,
+  chapter_index INTEGER,
+  position INTEGER,
   lookup_id INTEGER REFERENCES lookup(id)
 );
 
 CREATE INDEX note_lookup_id ON note(lookup_id);
 
 insert:
-INSERT INTO note(selection, text, written_at, book, author, chapter, lookup_id) VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO note(selection, text, written_at, book, author, chapter, book_url, chapter_index, position, lookup_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastId:
 SELECT last_insert_rowid();
 
 all:
-SELECT selection, text, written_at, book, author, chapter, lookup_id FROM note ORDER BY written_at, id;
+SELECT selection, text, written_at, book, author, chapter, book_url, chapter_index, position, lookup_id FROM note ORDER BY written_at, id;

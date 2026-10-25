@@ -7,6 +7,9 @@ CREATE TABLE note (
   book TEXT,
   author TEXT,
   chapter TEXT,
+  book_url TEXT,
+  chapter_index INTEGER,
+  position INTEGER,
   lookup_id INTEGER REFERENCES lookup(id)
 );
 

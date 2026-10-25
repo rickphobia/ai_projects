@@ -2,6 +2,7 @@ package com.rickphobia.gloss.core
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.rickphobia.gloss.core.context.BookContextResult
+import com.rickphobia.gloss.core.context.BookPlace
 import com.rickphobia.gloss.core.context.NoBookContextReason
 import com.rickphobia.gloss.core.lookup.SqlLookupStore
 import com.rickphobia.gloss.core.note.Note
@@ -28,7 +29,13 @@ class NoteTest {
     private val sentence = "He had successfully avoided meeting his landlady on the staircase."
     private val legado =
         FakeLegado(listOf(book), mapOf((book.bookUrl to book.chapterIndex) to "Part I, Chapter 1\n$sentence"))
-    private val crimeAndPunishment = NoteBook("Crime and Punishment", "Fyodor Dostoevsky", "Part I, Chapter 1")
+    private val crimeAndPunishment =
+        NoteBook(
+            "Crime and Punishment",
+            "Fyodor Dostoevsky",
+            "Part I, Chapter 1",
+            BookPlace(book.bookUrl, book.chapterIndex, "Part I, Chapter 1\n".length),
+        )
 
     private fun gloss(legado: FakeLegado = this.legado) =
         Gloss(ai, legado, GlossStorage(SqlLookupStore(database), spends, notes), Clock.fixed(now, ZoneOffset.UTC)) {

@@ -151,9 +151,9 @@ class CardViewModel(
     }
 
     /** The Lookup this card answered, with its Book context, or null before an answer. */
-    private fun lookupForNote(): Pair<Long, BookContextResult>? {
-        explain?.chat?.let { return it.lookupId to it.context }
-        return (define as? DefineResult.Answer)?.let { it.lookupId to it.context }
+    private fun lookupForNote(): NoteTarget? {
+        explain?.chat?.let { return NoteTarget(it.context, it.lookupId) }
+        return (define as? DefineResult.Answer)?.let { NoteTarget(it.context, it.lookupId) }
     }
 
     /** Whether the answer had Book context, and why not: never the book, the passage or the Selection. */

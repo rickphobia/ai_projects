@@ -20,6 +20,7 @@
   <string name="card_note_save">Save</string>
   <string name="card_note_discard">Discard</string>
   <string name="card_note_saved">Note saved.</string>
+  <string name="card_note_failed">Couldn\'t save the Note. It\'s kept here: try Save again.</string>
   <string name="card_near_limit">Over 80% of this month\'s spending limit.</string>
   <string name="card_limit_reached">This month\'s spending limit is reached. Gloss works again on %1$s, or raise the limit in Settings.</string>
   <string name="spend_this_month">%1$s of %2$s this month</string>
