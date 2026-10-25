@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the copy of the log that "Share log" writes to the cache. -->
+<paths>
+  <cache-path name="logs" path="logs/" />
+</paths>

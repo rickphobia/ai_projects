@@ -2,10 +2,14 @@ package com.rickphobia.gloss.card
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.rickphobia.gloss.GlossApplication
 import com.rickphobia.gloss.core.Selection
+import com.rickphobia.gloss.settings.SettingsActivity
 
 /**
  * Opened from the text-selection menu (the manifest's aliases, such as Define) with the
@@ -17,22 +21,35 @@ import com.rickphobia.gloss.core.Selection
 class CardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val app = application as GlossApplication
         val selection = Selection.from(intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT))
         // Never log the Selection itself: it is what the owner is reading.
         if (selection == null) {
-            Log.w(LOG_TAG, "Card opened from ${intent.component?.shortClassName} with no text; closing")
+            app.log.warning("Card opened from ${intent.component?.shortClassName} with no text; closing")
             finish()
             return
         }
-        Log.i(LOG_TAG, "Card opened from ${intent.component?.shortClassName}")
+        app.log.info("Card opened from ${intent.component?.shortClassName}")
+        val factory = viewModelFactory { initializer { CardViewModel(app.gloss, selection) } }
+        val card: CardViewModel by viewModels { factory }
         setContent {
             GlossTheme {
-                SelectionCard(selection = selection, onClose = ::finish)
+                SelectionCard(
+                    selection = card.selection,
+                    result = card.result,
+                    onRetry = card::retry,
+                    onOpenKeySettings = ::openKeySettings,
+                    onClose = ::finish,
+                )
             }
         }
     }
 
-    private companion object {
-        const val LOG_TAG = "Gloss"
+    /**
+     * Opens the key box over the card, in the reader's task, so saving the key or pressing back
+     * returns to the card, where Retry waits.
+     */
+    private fun openKeySettings() {
+        startActivity(SettingsActivity.changeKeyIntent(this))
     }
 }

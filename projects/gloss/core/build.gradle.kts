@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.sqldelight)
     alias(libs.plugins.ktlint)
     alias(libs.plugins.detekt)
 }
@@ -13,11 +14,37 @@ kotlin {
 }
 
 dependencies {
+    // api: the generated GlossDatabase takes a SqlDriver from the app.
+    api(libs.sqldelight.runtime)
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.core)
+    testImplementation(libs.sqldelight.sqlite.driver)
+}
+
+// The schema and queries (src/main/sqldelight) are checked against the SQLite of the oldest
+// phone the app supports (Android 10).
+sqldelight {
+    databases {
+        create("GlossDatabase") {
+            packageName.set("com.rickphobia.gloss.core.storage")
+            dialect(libs.sqldelight.dialect.sqlite318)
+        }
+    }
 }
 
 ktlint {
     version.set(libs.versions.ktlint)
+}
+
+// SQLDelight's generated Kotlin is not ours to format. (The ktlint extension's `filter` doesn't
+// reach the generated folder, so the check tasks drop it themselves.)
+tasks.withType<org.jlleitschuh.gradle.ktlint.tasks.BaseKtLintCheckTask>().configureEach {
+    val generated =
+        layout.buildDirectory
+            .dir("generated")
+            .get()
+            .asFile
+    exclude { it.file.startsWith(generated) }
 }
 
 detekt {

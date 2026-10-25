@@ -1,15 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-  <!-- No permissions (spec story 3). Nothing is backed up: dataExtractionRules on Android 12+,
-       fullBackupContent on Android 10 and 11. -->
+  <!-- Only the internet, to reach Anthropic: a normal permission Android grants at install, with
+       no prompt (spec story 3). -->
+  <uses-permission android:name="android.permission.INTERNET" />
+
+  <!-- Nothing is backed up: dataExtractionRules on Android 12+, fullBackupContent on Android 10
+       and 11. That covers the encrypted key, the Lookups database and the log. -->
   <application
+    android:name=".GlossApplication"
     android:dataExtractionRules="@xml/data_extraction_rules"
     android:fullBackupContent="@xml/backup_rules"
     android:icon="@mipmap/ic_launcher"
     android:label="@string/app_name"
     android:supportsRtl="true"
     android:theme="@style/Theme.Gloss.Card">
+    <!-- Gloss's own screen: the first-run key screen, then Settings. -->
+    <activity
+      android:name=".settings.SettingsActivity"
+      android:exported="true"
+      android:theme="@style/Theme.Gloss.Screen">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
     <!-- The card. Translucent, so the reader stays visible behind it, and kept out of Recents so
          closing it leaves the reader exactly where it was. -->
     <activity
@@ -30,6 +45,16 @@
         <data android:mimeType="text/plain" />
       </intent-filter>
     </activity-alias>
+    <!-- Hands the exported log to the app chosen in "Share log", and nothing else. -->
+    <provider
+      android:name="androidx.core.content.FileProvider"
+      android:authorities="${applicationId}.logs"
+      android:exported="false"
+      android:grantUriPermissions="true">
+      <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/log_paths" />
+    </provider>
   </application>
 
 </manifest>
