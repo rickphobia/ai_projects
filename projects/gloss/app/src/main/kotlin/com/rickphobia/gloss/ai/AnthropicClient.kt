@@ -164,14 +164,17 @@ class AnthropicClient(
             connection.readTimeout = settings.readTimeoutMillis
             connection.setRequestProperty("x-api-key", key)
             connection.setRequestProperty("anthropic-version", settings.apiVersion)
+            // Before connect(): HttpURLConnection throws "Already connected" for either one after it.
+            if (body != null) {
+                connection.doOutput = true
+                connection.setRequestProperty("content-type", "application/json")
+            }
             try {
                 connection.connect()
             } catch (e: IOException) {
                 throw NotConnectedException(e)
             }
             if (body != null) {
-                connection.doOutput = true
-                connection.setRequestProperty("content-type", "application/json")
                 connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
             }
             val status = connection.responseCode
