@@ -69,44 +69,52 @@ class BooksViewModel(
         reload()
     }
 
-    /** Closes what is on screen; false on the Books screen, where back leaves the app. */
-    fun back(): Boolean {
-        if (stack.size == 1) return false
+    /** Closes what is on screen; the Books screen itself is left by Android's own back. */
+    fun back() {
+        if (stack.size == 1) return
         stack = stack.dropLast(1)
         reload()
-        return true
     }
 
     fun editNote(
         id: Long,
         text: String,
-    ) = change("note edited") { pages.editNote(id, text) }
+    ) = change("note edited id=$id") { pages.editNote(id, text) }
 
-    fun deleteNote(id: Long) = change("note deleted") { pages.deleteNote(id) }
+    fun deleteNote(id: Long) = change("note deleted id=$id") { pages.deleteNote(id) }
 
     fun deleteLookup(id: Long) {
         // An open Lookup that is deleted closes, back to where it was opened from.
         if (current == BooksPlace.Lookup(id)) stack = stack.dropLast(1)
-        change("lookup deleted") { pages.deleteLookup(id) }
+        change("lookup deleted id=$id") { pages.deleteLookup(id) }
     }
 
-    /** Loads what is on screen again, such as when the owner comes back from the card. */
+    /**
+     * Loads what is on screen again, such as when the owner comes back from the card. A load that
+     * finishes after the owner has moved on is dropped, so it can't show on another page. A Lookup
+     * that is gone, or a Book page left empty by a delete, closes.
+     */
     fun reload() {
         val place = current
         viewModelScope.launch {
             when (place) {
                 BooksPlace.Shelf -> {
                     val (shelf, latest) = io { pages.books() to pages.recent(recentSize) }
+                    if (current != place) return@launch
                     books = shelf
                     recent = latest
                 }
 
                 is BooksPlace.Book -> {
-                    page = io { pages.page(place.summary.bookUrl) }
+                    val loaded = io { pages.page(place.summary.bookUrl) }
+                    if (current != place) return@launch
+                    if (loaded.isEmpty()) back() else page = loaded
                 }
 
                 is BooksPlace.Lookup -> {
-                    lookup = io { pages.lookup(place.id) }
+                    val loaded = io { pages.lookup(place.id) }
+                    if (current != place) return@launch
+                    if (loaded == null) back() else lookup = loaded
                 }
             }
         }

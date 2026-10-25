@@ -39,9 +39,7 @@ fun ShelfScreen(
     books: List<BookSummary>,
     recent: List<Entry>,
     onOpenBook: (BookSummary) -> Unit,
-    onOpenLookup: (Long) -> Unit,
-    onEditNote: (Long, String) -> Unit,
-    onDeleteNote: (Long) -> Unit,
+    actions: EntryActions,
     onOpenSettings: () -> Unit,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -64,7 +62,7 @@ fun ShelfScreen(
         }
         when (tab) {
             0 -> BookList(books, onOpenBook)
-            else -> RecentList(recent, onOpenLookup, onEditNote, onDeleteNote)
+            else -> RecentList(recent, actions)
         }
     }
 }
@@ -88,16 +86,19 @@ private fun BookList(
 @Composable
 private fun RecentList(
     recent: List<Entry>,
-    onOpenLookup: (Long) -> Unit,
-    onEditNote: (Long, String) -> Unit,
-    onDeleteNote: (Long) -> Unit,
+    actions: EntryActions,
 ) {
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         items(recent, key = { "${it::class.simpleName}-${it.id}" }) { entry ->
             val where = whereLine(entry)
             when (entry) {
-                is LookupEntry -> LookupRow(entry, onOpen = { onOpenLookup(entry.id) }, onDelete = null, above = where)
-                is NoteEntry -> NoteRow(entry, onEditNote, onDeleteNote, above = where)
+                is LookupEntry -> {
+                    LookupRow(entry, onOpen = { actions.onOpenLookup(entry.id) }, onDelete = null, above = where)
+                }
+
+                is NoteEntry -> {
+                    NoteRow(entry, actions.onEditNote, actions.onDeleteNote, above = where)
+                }
             }
         }
     }

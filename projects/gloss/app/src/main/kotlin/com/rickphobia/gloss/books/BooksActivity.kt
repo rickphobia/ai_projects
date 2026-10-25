@@ -49,9 +49,7 @@ class BooksActivity : ComponentActivity() {
                             books = books.books,
                             recent = books.recent,
                             onOpenBook = { books.open(BooksPlace.Book(it)) },
-                            onOpenLookup = actions.onOpenLookup,
-                            onEditNote = actions.onEditNote,
-                            onDeleteNote = actions.onDeleteNote,
+                            actions = actions,
                             onOpenSettings = { startActivity(Intent(this, SettingsActivity::class.java)) },
                         )
                     }

@@ -41,7 +41,10 @@ fun BookPageScreen(
         }
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             chapters.forEach { section ->
-                section.chapter?.let { title -> item(key = "chapter-${section.chapterIndex}") { Heading(title) } }
+                val heading = section.chapter?.takeIf(String::isNotBlank)
+                heading?.let { title ->
+                    item(key = "chapter-${section.chapterIndex}") { Heading(title) }
+                }
                 items(section.entries, key = { "${it::class.simpleName}-${it.id}" }) { entry ->
                     when (entry) {
                         is LookupEntry -> {
