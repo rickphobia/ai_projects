@@ -28,9 +28,14 @@ class DefineTest {
             .let { SqlLookupStore(GlossDatabase(it)) }
 
     private fun glossWith(ai: Ai) =
-        Gloss(ai, FakeLegado.off, lookups, Clock.fixed(now, ZoneOffset.UTC), {
+        Gloss(
+            ai,
+            FakeLegado.off,
+            GlossStorage(lookups, FakeSpendStore(), FakeNoteStore()),
+            Clock.fixed(now, ZoneOffset.UTC),
+        ) {
             settings
-        }, FakeSpendStore())
+        }
 
     private fun define(
         ai: Ai,
@@ -43,7 +48,7 @@ class DefineTest {
     fun `shows the AI's answer without the space around it`() {
         val result = define(FakeAi(answer("  A small room under the roof of a house.\n")))
 
-        assertEquals(DefineResult.Answer("A small room under the roof of a house.", legadoOff), result)
+        assertEquals(DefineResult.Answer("A small room under the roof of a house.", legadoOff, lookupId = 1), result)
     }
 
     @Test

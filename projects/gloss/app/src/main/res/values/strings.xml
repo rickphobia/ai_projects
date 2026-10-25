@@ -4,6 +4,7 @@
   <!-- Entries in the text-selection menu. The Preview build labels its own (src/preview/res). -->
   <string name="menu_define">Define</string>
   <string name="menu_explain">Explain</string>
+  <string name="menu_note">Note</string>
 
   <!-- The card -->
   <string name="card_no_key">Add your Anthropic key to use Gloss.</string>
@@ -14,6 +15,11 @@
   <string name="card_explain_more">Explain more</string>
   <string name="card_follow_up_hint">Ask a follow-up question</string>
   <string name="card_ask">Ask</string>
+  <string name="card_note">Note</string>
+  <string name="card_note_hint">Your thoughts on this</string>
+  <string name="card_note_save">Save</string>
+  <string name="card_note_discard">Discard</string>
+  <string name="card_note_saved">Note saved.</string>
   <string name="card_near_limit">Over 80% of this month\'s spending limit.</string>
   <string name="card_limit_reached">This month\'s spending limit is reached. Gloss works again on %1$s, or raise the limit in Settings.</string>
   <string name="spend_this_month">%1$s of %2$s this month</string>
@@ -45,7 +51,7 @@
   <string name="legado_slow">Legado didn\'t answer in time. Try again in a moment.</string>
   <string name="legado_error">Legado answered with an error. Share log below shows more.</string>
   <string name="legado_check_again">Check again</string>
-  <string name="settings_where_define_is">Select text in Legado, Chrome or any app, then tap Define or Explain in the menu over the selection. It may be under ⋮ or More.</string>
+  <string name="settings_where_define_is">Select text in Legado, Chrome or any app, then tap Define, Explain or Note in the menu over the selection. It may be under ⋮ or More.</string>
   <string name="settings_log_explained">The log records what Gloss did (model, tokens, timings, errors), never what you selected or the answers.</string>
   <string name="add_key">Add key</string>
   <string name="change_key">Change key</string>

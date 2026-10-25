@@ -8,6 +8,8 @@ import com.rickphobia.gloss.core.context.Legado
 import com.rickphobia.gloss.core.context.LegadoFailure
 import com.rickphobia.gloss.core.context.LegadoReply
 import com.rickphobia.gloss.core.context.ShelfBook
+import com.rickphobia.gloss.core.note.Note
+import com.rickphobia.gloss.core.note.NoteStore
 import com.rickphobia.gloss.core.settings.GlossSettings
 import com.rickphobia.gloss.core.spending.ModelPrice
 import com.rickphobia.gloss.core.spending.SpendStore
@@ -107,4 +109,16 @@ class FakeSpendStore : SpendStore {
         from: Instant,
         until: Instant,
     ): Long = spends.filter { (_, at) -> at >= from && at < until }.sumOf { it.first }
+}
+
+/** Notes kept in a list, for tests that don't write any. */
+class FakeNoteStore : NoteStore {
+    private val notes = mutableListOf<Note>()
+
+    override suspend fun save(note: Note): Long {
+        notes += note
+        return notes.size.toLong()
+    }
+
+    override suspend fun all(): List<Note> = notes.toList()
 }

@@ -36,10 +36,9 @@ class SpendingTest {
     ) = Gloss(
         ai,
         FakeLegado.off,
-        lookups,
+        GlossStorage(lookups, spends, FakeNoteStore()),
         Clock.fixed(at, kualaLumpur),
         { testSettings.copy(spendingLimitMicros = limitMicros) },
-        spends,
     )
 
     private fun define(gloss: Gloss) = runBlocking { gloss.define(Selection.from("garret")!!) }

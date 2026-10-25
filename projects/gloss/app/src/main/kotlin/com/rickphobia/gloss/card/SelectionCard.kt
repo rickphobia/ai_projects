@@ -35,7 +35,8 @@ import java.time.format.FormatStyle
 /**
  * The card at the bottom of the screen: the Selection, then a loading bar, then the book and
  * chapter the answer used (or why it had none) and the answer, or a failure with Retry. A Define
- * card offers Explain more; an Explain card is a chat with a box for follow-ups. The card is as
+ * card offers Explain more; an Explain card is a chat with a box for follow-ups. Both offer Note,
+ * which opens a Note box under the answer; a Note card is only the Selection and that box. The card is as
  * tall as its content, up to the full screen, and scrolls. Tapping outside it, swiping it down or
  * pressing back calls [onClose].
  */
@@ -43,14 +44,20 @@ import java.time.format.FormatStyle
 @Composable
 fun SelectionCard(
     selection: Selection,
+    kind: CardKind,
     define: DefineResult?,
     explain: ExplainCardState?,
+    note: NoteCardState?,
     question: String,
     onQuestionChange: (String) -> Unit,
     onAsk: () -> Unit,
     onExplainMore: () -> Unit,
     onRetry: () -> Unit,
     onOpenKeySettings: () -> Unit,
+    onOpenNote: () -> Unit,
+    onNoteChange: (String) -> Unit,
+    onSaveNote: () -> Unit,
+    onDiscardNote: () -> Unit,
     onClose: () -> Unit,
 ) {
     // No half-open stop: a growing chat pushes the card up to full height instead of hiding below it.
@@ -75,7 +82,9 @@ fun SelectionCard(
                 style = MaterialTheme.typography.bodyLarge,
                 fontStyle = FontStyle.Italic,
             )
-            if (explain != null) {
+            if (kind == CardKind.Note) {
+                note?.let { NoteView(it, onNoteChange, onSaveNote, onDiscardNote) }
+            } else if (explain != null) {
                 // After Explain more, the Define's line stays above the chat it led to.
                 (define as? DefineResult.Answer)?.let {
                     Text(
@@ -85,9 +94,11 @@ fun SelectionCard(
                     )
                 }
                 ExplainChatView(explain, question, onQuestionChange, onAsk, onRetry, onOpenKeySettings)
+                if (explain.chat != null && note == null) NoteButton(onOpenNote)
             } else {
-                DefineView(define, onExplainMore, onRetry, onOpenKeySettings)
+                DefineView(define, showNoteButton = note == null, onExplainMore, onOpenNote, onRetry, onOpenKeySettings)
             }
+            if (kind != CardKind.Note) note?.let { NoteView(it, onNoteChange, onSaveNote, onDiscardNote) }
         }
     }
 }
@@ -95,7 +106,9 @@ fun SelectionCard(
 @Composable
 private fun DefineView(
     result: DefineResult?,
+    showNoteButton: Boolean,
     onExplainMore: () -> Unit,
+    onOpenNote: () -> Unit,
     onRetry: () -> Unit,
     onOpenKeySettings: () -> Unit,
 ) {
@@ -108,7 +121,10 @@ private fun DefineView(
             ContextLine(result.context)
             Text(text = result.text, style = MaterialTheme.typography.bodyLarge)
             if (result.nearLimit) NearLimitLine()
-            OutlinedButton(onClick = onExplainMore) { Text(stringResource(R.string.card_explain_more)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onExplainMore) { Text(stringResource(R.string.card_explain_more)) }
+                if (showNoteButton) NoteButton(onOpenNote)
+            }
         }
 
         is DefineResult.Failed -> {
@@ -119,6 +135,11 @@ private fun DefineView(
             LimitReachedLine(result.resetsOn)
         }
     }
+}
+
+@Composable
+private fun NoteButton(onOpenNote: () -> Unit) {
+    OutlinedButton(onClick = onOpenNote) { Text(stringResource(R.string.card_note)) }
 }
 
 @Composable

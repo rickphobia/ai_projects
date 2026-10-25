@@ -12,6 +12,9 @@ import com.rickphobia.gloss.core.lookup.FollowUp
 import com.rickphobia.gloss.core.lookup.Lookup
 import com.rickphobia.gloss.core.lookup.LookupKind
 import com.rickphobia.gloss.core.lookup.LookupStore
+import com.rickphobia.gloss.core.note.Note
+import com.rickphobia.gloss.core.note.NoteBook
+import com.rickphobia.gloss.core.note.NoteStore
 import com.rickphobia.gloss.core.settings.GlossSettings
 import com.rickphobia.gloss.core.settings.SettingsSource
 import com.rickphobia.gloss.core.spending.MonthSpend
@@ -26,18 +29,19 @@ import java.time.LocalDate
  *
  * Every call checks the Spending limit first and makes no AI call at or over it. Every call that
  * used tokens counts toward the limit, even one that then failed. An answer is saved; a failure
- * isn't, since there is nothing to look back at.
+ * isn't, since there is nothing to look back at. A Note never reaches the AI, so it costs nothing.
  */
 class Gloss(
     ai: Ai,
     legado: Legado,
-    private val lookups: LookupStore,
+    storage: GlossStorage,
     private val clock: Clock,
     private val settings: SettingsSource,
-    spends: SpendStore,
 ) {
+    private val lookups = storage.lookups
+    private val notes = storage.notes
     private val bookContext = BookContextFinder(legado)
-    private val spending = Spending(spends, clock)
+    private val spending = Spending(storage.spends, clock)
     private val metered = MeteredAi(ai, spending)
 
     /** This calendar month's spend against the Spending limit, for Settings. */
@@ -52,8 +56,8 @@ class Gloss(
         val prompt = DefinePrompt.forSelection(selection, found, current)
         return when (val reply = metered.ask(prompt, current.definePrice, current.spendingLimitMicros)) {
             is Metered.Answer -> {
-                lookups.save(Lookup(selection.text, reply.text, clock.instant()))
-                DefineResult.Answer(reply.text, context, reply.nearLimit)
+                val id = lookups.save(Lookup(selection.text, reply.text, clock.instant()))
+                DefineResult.Answer(reply.text, context, id, reply.nearLimit)
             }
 
             is Metered.Failed -> {
@@ -105,6 +109,28 @@ class Gloss(
         }
     }
 
+    /** The Book context for a Note from the menu: Legado only, no AI. */
+    suspend fun noteContext(selection: Selection): BookContextResult =
+        bookContext.find(selection, settings.current().contextWordLimit)
+
+    /**
+     * Saves the owner's [text] about [selection] with the book and chapter in [context], or under
+     * "No book" when there is none. [lookupId] attaches it to the Lookup whose card it was written on.
+     */
+    suspend fun note(
+        selection: Selection,
+        text: String,
+        context: BookContextResult,
+        lookupId: Long? = null,
+    ): Note {
+        val written = text.trim()
+        require(written.isNotEmpty()) { "A Note needs some text" }
+        val book = (context as? BookContextResult.Found)?.let { NoteBook.of(it.bookContext) }
+        val note = Note(selection.text, written, clock.instant(), book, lookupId)
+        notes.save(note)
+        return note
+    }
+
     private suspend fun startChat(
         selection: Selection,
         context: BookContextResult,
@@ -124,6 +150,13 @@ class Gloss(
     }
 }
 
+/** The storage ports: where Lookups, Notes and the monthly spend are kept. */
+data class GlossStorage(
+    val lookups: LookupStore,
+    val spends: SpendStore,
+    val notes: NoteStore,
+)
+
 /** What the card shows for a Define. */
 sealed interface DefineResult {
     /**
@@ -133,6 +166,8 @@ sealed interface DefineResult {
     data class Answer(
         val text: String,
         val context: BookContextResult,
+        /** The saved Lookup, for attaching a Note to it. */
+        val lookupId: Long,
         val nearLimit: Boolean = false,
     ) : DefineResult
 

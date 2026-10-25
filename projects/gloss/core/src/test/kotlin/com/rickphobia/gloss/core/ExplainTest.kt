@@ -50,10 +50,9 @@ class ExplainTest {
     ) = Gloss(
         ai,
         legado,
-        lookups,
+        GlossStorage(lookups, spends, FakeNoteStore()),
         Clock.fixed(now, ZoneOffset.UTC),
         { testSettings.copy(spendingLimitMicros = limitMicros) },
-        spends,
     )
 
     private fun selection(text: String = sentence) = Selection.from(text)!!
