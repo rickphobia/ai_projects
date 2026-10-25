@@ -118,6 +118,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.core)
+    testImplementation(libs.org.json)
 }
 
 // Without this, a release build with no key would quietly produce an unsigned APK.

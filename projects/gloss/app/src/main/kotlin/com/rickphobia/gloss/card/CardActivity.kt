@@ -30,7 +30,7 @@ class CardActivity : ComponentActivity() {
             return
         }
         app.log.info("Card opened from ${intent.component?.shortClassName}")
-        val factory = viewModelFactory { initializer { CardViewModel(app.gloss, selection) } }
+        val factory = viewModelFactory { initializer { CardViewModel(app.gloss, selection, app.log) } }
         val card: CardViewModel by viewModels { factory }
         setContent {
             GlossTheme {

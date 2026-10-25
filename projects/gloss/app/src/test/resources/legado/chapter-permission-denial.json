@@ -1,0 +1,1 @@
+{"isSuccess":false,"errorMsg":"java.lang.SecurityException: Permission Denial: reading com.android.externalstorage.ExternalStorageProvider uri content://com.android.externalstorage.documents/document/primary%3ABooks%2FCrime%20and%20Punishment.epub from pid=12345, uid=10234 requires android.permission.MANAGE_DOCUMENTS, or grantUriPermission()","data":null}

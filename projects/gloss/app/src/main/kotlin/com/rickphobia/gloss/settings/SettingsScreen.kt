@@ -28,10 +28,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.rickphobia.gloss.R
+import com.rickphobia.gloss.core.context.LegadoFailure
 
 /**
  * Gloss's own screen: on first run it asks for the Anthropic key; after that it is Settings, with
- * Change key and Share log.
+ * Change key and Share log. Both show how to switch on Legado's web service and whether Gloss can
+ * reach it.
  */
 @Composable
 fun SettingsScreen(
@@ -42,6 +44,8 @@ fun SettingsScreen(
     onSaveKey: (String) -> Unit,
     onChangeKey: () -> Unit,
     onCancelKeyEntry: () -> Unit,
+    legadoStatus: LegadoStatus,
+    onCheckLegado: () -> Unit,
     onShareLog: () -> Unit,
 ) {
     Surface(modifier = Modifier.fillMaxSize()) {
@@ -61,6 +65,8 @@ fun SettingsScreen(
                 OutlinedButton(onClick = onChangeKey) { Text(stringResource(R.string.change_key)) }
             }
             HorizontalDivider()
+            LegadoSection(legadoStatus, onCheckLegado)
+            HorizontalDivider()
             Text(stringResource(R.string.settings_where_define_is), style = MaterialTheme.typography.bodyMedium)
             HorizontalDivider()
             Text(stringResource(R.string.settings_log_explained), style = MaterialTheme.typography.bodyMedium)
@@ -68,6 +74,35 @@ fun SettingsScreen(
         }
     }
 }
+
+@Composable
+private fun LegadoSection(
+    status: LegadoStatus,
+    onCheck: () -> Unit,
+) {
+    Text(stringResource(R.string.legado_explained), style = MaterialTheme.typography.bodyMedium)
+    val (message, isProblem) =
+        when (status) {
+            LegadoStatus.Checking -> R.string.legado_checking to false
+            LegadoStatus.Reachable -> R.string.legado_reachable to false
+            is LegadoStatus.Unreachable -> legadoProblem(status.failure) to true
+        }
+    Text(
+        stringResource(message),
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (isProblem) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+    )
+    OutlinedButton(onClick = onCheck, enabled = status != LegadoStatus.Checking) {
+        Text(stringResource(R.string.legado_check_again))
+    }
+}
+
+private fun legadoProblem(failure: LegadoFailure): Int =
+    when (failure) {
+        LegadoFailure.Off -> R.string.legado_off
+        LegadoFailure.Slow -> R.string.legado_slow
+        LegadoFailure.NoFileAccess, LegadoFailure.Error -> R.string.legado_error
+    }
 
 @Composable
 private fun KeyEntry(
