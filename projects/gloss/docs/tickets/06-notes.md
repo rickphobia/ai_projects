@@ -4,15 +4,15 @@
 
 **Blocked by:** 05 Explain with follow-ups
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-notes, core-gloss, app-card, app-storage
 
 **Effort:** low
 
-- [ ] Note entry in the selection menu; the card shows the Selection, a text box and Save
-- [ ] A Note is saved with its book and chapter when there is Book context, under "No book" otherwise
-- [ ] Note button on Define and Explain cards attaches a Note to the Lookup
-- [ ] An unsaved Note survives the card closing by accident until saved or discarded
-- [ ] No AI call and no cost for a Note
-- [ ] Core tests: Note alone, Note on a Lookup, "No book", nothing sent to the AI
+- [x] Note entry in the selection menu; the card shows the Selection, a text box and Save
+- [x] A Note is saved with its book and chapter when there is Book context, under "No book" otherwise
+- [x] Note button on Define and Explain cards attaches a Note to the Lookup
+- [x] An unsaved Note survives the card closing by accident until saved or discarded
+- [x] No AI call and no cost for a Note
+- [x] Core tests: Note alone, Note on a Lookup, "No book", nothing sent to the AI

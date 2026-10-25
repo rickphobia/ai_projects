@@ -12,12 +12,13 @@ import com.rickphobia.gloss.core.Selection
 import com.rickphobia.gloss.core.context.BookContextResult
 import com.rickphobia.gloss.core.explain.ExplainChat
 import com.rickphobia.gloss.logging.RollingLog
+import com.rickphobia.gloss.storage.NoteDraftStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Which selection-menu entry opened the card. */
-enum class CardKind { Define, Explain }
+enum class CardKind { Define, Explain, Note }
 
 /** An Explain chat as the card shows it. */
 data class ExplainCardState(
@@ -32,7 +33,7 @@ data class ExplainCardState(
 )
 
 /**
- * Runs the Define or the Explain chat for one card. It outlives a screen rotation, so turning the
+ * Runs the Define, the Explain chat or the Note for one card. It outlives a screen rotation, so turning the
  * phone doesn't pay for a second call.
  */
 class CardViewModel(
@@ -40,6 +41,7 @@ class CardViewModel(
     val selection: Selection,
     startWith: CardKind,
     private val log: RollingLog,
+    private val drafts: NoteDraftStore,
 ) : ViewModel() {
     /** The Define's answer or failure, or null while the AI is answering. Unused on an Explain card. */
     var define: DefineResult? by mutableStateOf(null)
@@ -48,6 +50,9 @@ class CardViewModel(
     /** The Explain chat, once the card is one: from the Explain entry, or after Explain more. */
     var explain: ExplainCardState? by mutableStateOf(null)
         private set
+
+    /** The Note being written on this card, attached to its Lookup once it has an answer. */
+    val note = NoteEditor(gloss, selection, drafts, log, viewModelScope, ::lookupForNote)
 
     /** The follow-up question being typed. */
     var question: String by mutableStateOf("")
@@ -60,6 +65,7 @@ class CardViewModel(
         when (startWith) {
             CardKind.Define -> define()
             CardKind.Explain -> runTurn(null) { gloss.explain(selection) }
+            CardKind.Note -> note.startFromMenu()
         }
     }
 
@@ -142,6 +148,12 @@ class CardViewModel(
                     }
                 }
         }
+    }
+
+    /** The Lookup this card answered, with its Book context, or null before an answer. */
+    private fun lookupForNote(): NoteTarget? {
+        explain?.chat?.let { return NoteTarget(it.context, it.lookupId) }
+        return (define as? DefineResult.Answer)?.let { NoteTarget(it.context, it.lookupId) }
     }
 
     /** Whether the answer had Book context, and why not: never the book, the passage or the Selection. */

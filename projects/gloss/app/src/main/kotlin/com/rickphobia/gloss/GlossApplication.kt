@@ -4,7 +4,9 @@ import android.app.Application
 import android.util.Log
 import com.rickphobia.gloss.ai.AnthropicClient
 import com.rickphobia.gloss.core.Gloss
+import com.rickphobia.gloss.core.GlossStorage
 import com.rickphobia.gloss.core.lookup.SqlLookupStore
+import com.rickphobia.gloss.core.note.SqlNoteStore
 import com.rickphobia.gloss.core.spending.SqlSpendStore
 import com.rickphobia.gloss.legado.LegadoClient
 import com.rickphobia.gloss.logging.RollingLog
@@ -12,6 +14,7 @@ import com.rickphobia.gloss.settings.ApiKeyStore
 import com.rickphobia.gloss.settings.PhoneSettings
 import com.rickphobia.gloss.settings.PhoneSettingsSource
 import com.rickphobia.gloss.settings.SpendingLimitStore
+import com.rickphobia.gloss.storage.NoteDraftStore
 import com.rickphobia.gloss.storage.PhoneDatabase
 import java.io.File
 import java.time.Clock
@@ -30,6 +33,8 @@ class GlossApplication : Application() {
         private set
     lateinit var spendingLimit: SpendingLimitStore
         private set
+    lateinit var noteDrafts: NoteDraftStore
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -44,11 +49,11 @@ class GlossApplication : Application() {
             Gloss(
                 anthropic,
                 legado,
-                SqlLookupStore(database),
+                GlossStorage(SqlLookupStore(database), SqlSpendStore(database), SqlNoteStore(database)),
                 Clock.systemDefaultZone(),
                 PhoneSettingsSource(spendingLimit),
-                SqlSpendStore(database),
             )
+        noteDrafts = NoteDraftStore(this)
         log.info("$packageName ${packageManager.getPackageInfo(packageName, 0).versionName} started")
     }
 

@@ -3,4 +3,5 @@
   <string name="app_name">Gloss Preview</string>
   <string name="menu_define">Define (Preview)</string>
   <string name="menu_explain">Explain (Preview)</string>
+  <string name="menu_note">Note (Preview)</string>
 </resources>

@@ -44,7 +44,13 @@ class BookContextTest {
                 .also(GlossDatabase.Schema::create)
                 .let { SqlLookupStore(GlossDatabase(it)) }
         val gloss =
-            Gloss(ai, legado, lookups, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC), { settings }, FakeSpendStore())
+            Gloss(
+                ai,
+                legado,
+                GlossStorage(lookups, FakeSpendStore(), FakeNoteStore()),
+                Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+                { settings },
+            )
         return runBlocking { gloss.define(Selection.from(selection)!!) }
     }
 
@@ -210,7 +216,7 @@ class BookContextTest {
         for ((legado, reason) in reasons) {
             val result = define(legado, "garret")
 
-            assertEquals(DefineResult.Answer("Meaning.", BookContextResult.Missing(reason)), result)
+            assertEquals(DefineResult.Answer("Meaning.", BookContextResult.Missing(reason), lookupId = 1), result)
             assertEquals(DefinePrompt.SYSTEM, ai.prompts.last().system)
         }
     }

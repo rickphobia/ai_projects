@@ -59,6 +59,17 @@
         <data android:mimeType="text/plain" />
       </intent-filter>
     </activity-alias>
+    <activity-alias
+      android:name=".card.Note"
+      android:exported="true"
+      android:label="@string/menu_note"
+      android:targetActivity=".card.CardActivity">
+      <intent-filter>
+        <action android:name="android.intent.action.PROCESS_TEXT" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="text/plain" />
+      </intent-filter>
+    </activity-alias>
     <!-- Hands the exported log to the app chosen in "Share log", and nothing else. -->
     <provider
       android:name="androidx.core.content.FileProvider"
