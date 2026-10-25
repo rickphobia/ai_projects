@@ -30,7 +30,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.rickphobia.ricknotes.R
+import com.rickphobia.ricknotes.core.ink.PageBackground
 import com.rickphobia.ricknotes.core.studyfolder.TreeNode
+import com.rickphobia.ricknotes.viewer.label
 
 private val PICKER_MAX_HEIGHT = 360.dp
 private const val PDF_EXTENSION = ".pdf"
@@ -53,6 +55,16 @@ sealed interface TreeEditDialog {
         val outcome: TreeEditOutcome.NotDone,
     ) : TreeEditDialog
 
+    /** New Notebook made from the folder [folder]: asks for its background. */
+    data class NewNotebook(
+        val folder: String,
+    ) : TreeEditDialog
+
+    /** The new Notebook [notebook] is made: offers a new name, then opens it either way. */
+    data class NameNotebook(
+        val notebook: TreeNode.Document,
+    ) : TreeEditDialog
+
     /** Link to PDF… for [orphan], offering [candidates] (tree paths of its folder's PDFs without ink). */
     data class LinkToPdf(
         val orphan: TreeNode.OrphanedInk,
@@ -60,20 +72,41 @@ sealed interface TreeEditDialog {
     ) : TreeEditDialog
 }
 
+/**
+ * What the New Notebook dialogs do: [create] makes one from a folder with a background, and
+ * [name] opens the new Notebook, renamed first when the name given differs.
+ */
+class NotebookActions(
+    val create: (folder: String, background: PageBackground) -> Unit,
+    val name: (notebook: TreeNode.Document, name: String) -> Unit,
+)
+
 /** Shows [dialog]; [onEdit] gets the edit it asks for, and [onDismiss] closes it. */
 @Composable
 fun TreeEditDialogs(
     dialog: TreeEditDialog,
     tree: TreeNode.Folder,
+    notebooks: NotebookActions,
     onEdit: (TreeEdit) -> Unit,
     onDismiss: () -> Unit,
 ) {
     when (dialog) {
+        is TreeEditDialog.NewNotebook -> {
+            BackgroundDialog(dialog.folder, onPick = { notebooks.create(dialog.folder, it) }, onDismiss = onDismiss)
+        }
+
+        is TreeEditDialog.NameNotebook -> {
+            NameNotebookDialog(dialog.notebook, notebooks)
+        }
+
         is TreeEditDialog.NewFolder -> {
             NameDialog(
-                title = stringResource(R.string.new_folder_in, folderLabel(dialog.parent)),
+                labels =
+                    NameDialogLabels(
+                        stringResource(R.string.new_folder_in, folderLabel(dialog.parent)),
+                        stringResource(R.string.create),
+                    ),
                 initial = "",
-                confirm = stringResource(R.string.create),
                 onName = { onEdit(TreeEdit.NewFolder(dialog.parent, it)) },
                 onDismiss = onDismiss,
             )
@@ -81,9 +114,12 @@ fun TreeEditDialogs(
 
         is TreeEditDialog.Rename -> {
             NameDialog(
-                title = stringResource(R.string.rename_title, dialog.node.name),
+                labels =
+                    NameDialogLabels(
+                        stringResource(R.string.rename_title, dialog.node.name),
+                        stringResource(R.string.rename),
+                    ),
                 initial = dialog.node.name,
-                confirm = stringResource(R.string.rename),
                 onName = { onEdit(TreeEdit.Rename(dialog.node, it)) },
                 onDismiss = onDismiss,
             )
@@ -113,12 +149,18 @@ fun TreeEditDialogs(
 private fun folderLabel(path: String) =
     path.substringAfterLast('/').ifEmpty { stringResource(R.string.tree_study_folder_top) }
 
+/** A name dialog's [title] and button labels; with no [dismiss], its dismiss button says Cancel. */
+private class NameDialogLabels(
+    val title: String,
+    val confirm: String,
+    val dismiss: String? = null,
+)
+
 /** Asks for a name, starting from [initial] with its name before `.pdf` selected, ready to type over. */
 @Composable
 private fun NameDialog(
-    title: String,
+    labels: NameDialogLabels,
     initial: String,
-    confirm: String,
     onName: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -138,7 +180,7 @@ private fun NameDialog(
     val submit = { if (usable) onName(typed.text) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { Text(labels.title) },
         text = {
             OutlinedTextField(
                 value = typed,
@@ -149,10 +191,54 @@ private fun NameDialog(
                 modifier = Modifier.focusRequester(focus),
             )
         },
-        confirmButton = { TextButton(onClick = { submit() }, enabled = usable) { Text(confirm) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+        confirmButton = { TextButton(onClick = { submit() }, enabled = usable) { Text(labels.confirm) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(labels.dismiss ?: stringResource(R.string.cancel)) } },
     )
     LaunchedEffect(Unit) { focus.requestFocus() }
+}
+
+// Dismissing still opens it under the name it was given: it is made already.
+@Composable
+private fun NameNotebookDialog(
+    notebook: TreeNode.Document,
+    notebooks: NotebookActions,
+) {
+    NameDialog(
+        labels =
+            NameDialogLabels(
+                stringResource(R.string.notebook_made),
+                stringResource(R.string.open),
+                stringResource(R.string.keep_name),
+            ),
+        initial = notebook.name,
+        onName = { notebooks.name(notebook, it) },
+        onDismiss = { notebooks.name(notebook, notebook.name) },
+    )
+}
+
+/** Asks which background a new Notebook made from [folder] gets; tapping one makes it. */
+@Composable
+private fun BackgroundDialog(
+    folder: String,
+    onPick: (PageBackground) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.new_notebook_in, folderLabel(folder))) },
+        text = {
+            Column {
+                PageBackground.entries.forEach { background ->
+                    Text(
+                        text = stringResource(background.label()),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.fillMaxWidth().clickable { onPick(background) }.padding(vertical = 12.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 /**

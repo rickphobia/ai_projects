@@ -32,8 +32,9 @@ import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.ink.DocumentInk
 import kotlinx.coroutines.launch
 
+/** The name of [this] background, as the page menu and New Notebook show it. */
 @StringRes
-private fun PageBackground.label(): Int =
+internal fun PageBackground.label(): Int =
     when (this) {
         PageBackground.BLANK -> R.string.background_blank
         PageBackground.LINED -> R.string.background_lined
@@ -43,7 +44,8 @@ private fun PageBackground.label(): Int =
 
 /**
  * The page menu and the page indicator, for the page on screen, [current]. A new Inserted page is
- * scrolled to once it is laid out; a read-only Document has no page menu.
+ * scrolled to once it is laid out; a read-only Document has no page menu. On a Notebook's last
+ * page, Add page adds one with the Notebook's background.
  */
 @Composable
 internal fun PageControls(
@@ -63,6 +65,9 @@ internal fun PageControls(
         }
     }
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (ink.notebook != null && !ink.readOnly && current == pages.lastIndex) {
+            AddPageButton(onClick = { ink.addNotebookPage()?.let { scrollTo = it.id } })
+        }
         pages.getOrNull(current)?.takeIf { !ink.readOnly }?.let { page ->
             PageMenu(page, number = current + 1, ink, onInserted = { scrollTo = it })
         }
@@ -125,6 +130,22 @@ private fun PageMenu(
                 ink.removePage(id)
             },
             onDismiss = { confirming = null },
+        )
+    }
+}
+
+@Composable
+private fun AddPageButton(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = MENU_BUTTON_ALPHA),
+        contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+    ) {
+        Text(
+            stringResource(R.string.add_page),
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
         )
     }
 }

@@ -53,6 +53,9 @@ class DocumentSession private constructor(
 
     private val assets = PictureAssets(store.pdf)
     private val pageCount = pdfPageCount
+
+    /** The background printed into this Document's pages if the app made it as a Notebook, else null. */
+    val notebook: PageBackground? = loaded.notebook
     private val history =
         InkHistory(
             InkContent(
@@ -67,7 +70,7 @@ class DocumentSession private constructor(
             clock,
             listener,
             readOnly,
-            snapshot = { InkFile(pageCount, history.pages, history.strokes, history.pictures) },
+            snapshot = { InkFile(pageCount, history.pages, history.strokes, history.pictures, notebook) },
         ) { InkFileCodec.encode(it).toByteArray(Charsets.UTF_8) }
     private val lock = saving.lock
 
