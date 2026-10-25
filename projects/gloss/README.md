@@ -4,7 +4,7 @@ An Android app that explains English words and sentences you highlight in a book
 
 ## Status
 
-`in progress`: tickets 01 and 02. Selecting text in Legado, Chrome or any app that offers the selection menu shows **Define**; tapping it opens a card at the bottom of the screen with the Selection and, a moment later, its meaning in a line or two, from the Selection alone (no Book context yet: that is ticket 03). If there is no internet, the AI fails or Anthropic rejects the key, the card says so with **Retry**, and a rejected key also offers **Change key**. Every answer is saved as a Lookup on the phone. Tapping outside the card, swiping it down or pressing back closes it and leaves the app where it was. The card follows the phone's dark mode. Gloss's icon opens the first-run screen, which asks for your Anthropic API key, and after that Settings (Change key, Share log). Every merge to `main` that raises the version name is released on GitHub, and every pull request gets a separate Preview app.
+`in progress`: tickets 01 to 03. Selecting text in Legado, Chrome or any app that offers the selection menu shows **Define**; tapping it opens a card at the bottom of the screen with the Selection and, a moment later, its meaning in a line or two. When Legado's Web service is on and the Selection is in the chapter you're reading, the answer uses the book, the author, the chapter and the text before the Selection, never anything after it, and the card names the book and chapter; otherwise it answers from the Selection alone and says "No book context" and why. If there is no internet, the AI fails or Anthropic rejects the key, the card says so with **Retry**, and a rejected key also offers **Change key**. Every answer is saved as a Lookup on the phone. Tapping outside the card, swiping it down or pressing back closes it and leaves the app where it was. The card follows the phone's dark mode. Gloss's icon opens the first-run screen, which asks for your Anthropic API key and shows whether Gloss can reach Legado, and after that Settings (Change key, the Legado check, Share log). Every merge to `main` that raises the version name is released on GitHub, and every pull request gets a separate Preview app.
 
 ## Requirements
 
@@ -50,9 +50,9 @@ There are two apps from one codebase. They install side by side, each with its o
 scripts/tests/pr-try-link.test.sh   # the script CI uses to put the Preview link in a PR body
 ```
 
-`./gradlew lintAll` runs only the linters, `./gradlew :core:test` the core's tests and `./gradlew :app:testDebugUnitTest` the app's JVM tests. Reports are in `<module>/build/reports/`. The core's tests drive Define through `Gloss` with a fake AI, a real in-memory database and a stopped clock; they never call Anthropic.
+`./gradlew lintAll` runs only the linters, `./gradlew :core:test` the core's tests and `./gradlew :app:testDebugUnitTest` the app's JVM tests. Reports are in `<module>/build/reports/`. The core's tests drive Define through `Gloss` with a fake AI, a fake Legado, a real in-memory database and a stopped clock; they never call Anthropic. The Legado client's tests (`app/src/test/.../legado/`) run it against a local HTTP server that answers with the replies in `app/src/test/resources/legado/` (its README says how to record fresh ones from the phone).
 
-The Anthropic client, the card and the screens are checked by hand on the phone (spec, "Testing Decisions"): open Gloss and save your key (a wrong key is refused), then select a word and a whole sentence in Legado and in Chrome, tap **Define**, and check the card shows the Selection, a loading bar, then a one- or two-line meaning, and closes on an outside tap and on back. Turn on airplane mode and check the card says it couldn't reach Anthropic, with Retry. In Settings, **Share log** should send a log with lines like `messages model=claude-haiku-5-5 status=200 input_tokens=… output_tokens=… latency_ms=…` and no Selection or answer.
+The Anthropic client, the card and the screens are checked by hand on the phone (spec, "Testing Decisions"): open Gloss and save your key (a wrong key is refused), then select a word and a whole sentence in Legado and in Chrome, tap **Define**, and check the card shows the Selection, a loading bar, then a one- or two-line meaning, and closes on an outside tap and on back. Turn on airplane mode and check the card says it couldn't reach Anthropic, with Retry. For Book context: with Legado's Web service on, Define a word in a book in Legado and check the card names the book and chapter; Define a word in Chrome and check it says "No book context: not found in the chapter"; switch the Web service off and check it says "No book context: Legado's Web service is off". In Settings, **Share log** should send a log with lines like `legado bookshelf: ok latency_ms=…`, `book context: found, passage_chars=…` and `messages model=claude-haiku-5-5 status=200 input_tokens=… output_tokens=… latency_ms=…`, and no Selection, book name or answer.
 
 ## Releases
 
@@ -76,6 +76,18 @@ Gloss asks only for internet access, which Android grants at install without a p
 ### First run: your Anthropic key
 
 Open **Gloss** from the app drawer and paste an Anthropic API key (create one at console.anthropic.com → API keys). Gloss checks it with a one-token call to the Define model (a tiny fraction of a cent) and saves it only if Anthropic answers, so a mistyped key, or one with no credit, is caught here and not on the first Define. The key is encrypted with an AES key kept in the Android Keystore, so the stored copy is useless off this phone, and it is never backed up. To replace it, open Gloss and tap **Change key**; the card's **Change key** button (shown when Anthropic rejects the key) opens the same box and returns to the card once the new key is saved. Each Define is one call to Claude Haiku 5.5, a fraction of a cent.
+
+### First run: Legado's Web service
+
+For answers that know your book, Gloss reads the book you're reading from Legado's Web service (decision 0001): in Legado, open **My** (我的) and turn on **Web service** (Web服务). Gloss's first screen, and Settings after it, say whether Gloss can reach it right now, and check again each time you return to the screen. Gloss asks Legado for the book you read most recently and its current chapter, finds your Selection in it, and sends the AI the book's name, author, chapter title and up to about 3,000 words before the Selection plus the rest of its paragraph. With the Web service off, Define still works, without Book context.
+
+### Reading on public Wi-Fi
+
+While Legado's Web service is on, it listens on the Wi-Fi too, not only inside the phone (Legado has no local-only setting): anyone on the same Wi-Fi who finds port 1122 can read your bookshelf and change your book sources.
+
+- On Wi-Fi you don't control (a campus such as USM's, a café, a hotel), switch the Web service off, or turn Wi-Fi off and read on mobile data. Gloss then answers without Book context.
+- Set up Legado's WebDav backup once (My → Backup and restore → WebDav), so a book source someone changed can be restored.
+- If a local EPUB gives "No book context: Legado can't open the book's file", Legado has lost its permission to read the book's folder ("Permission Denial"): open the book in Legado again, or import its folder again.
 
 ### Gloss Preview, from a pull request
 
@@ -123,7 +135,7 @@ Until they are set, CI's signed build fails with `The GLOSS_KEYSTORE_BASE64 secr
 
 ## Configuration
 
-The app has no environment variables. The Anthropic key is entered on the phone (see [First run](#first-run-your-anthropic-key)). The model, Anthropic's address and API version, timeouts and the retry wait are in the settings module, `app/src/main/kotlin/com/rickphobia/gloss/settings/PhoneSettings.kt`; changing one is a code change and a new build. Build-time values come from environment variables listed in `.env.example`:
+The app has no environment variables. The Anthropic key is entered on the phone (see [First run](#first-run-your-anthropic-key)). The model, Anthropic's address and API version, Legado's address (`127.0.0.1:1122`), timeouts, the retry wait and the Book context word limit are in the settings module, `app/src/main/kotlin/com/rickphobia/gloss/settings/PhoneSettings.kt`; changing one is a code change and a new build. Build-time values come from environment variables listed in `.env.example`:
 
 | Variable | Required | What it does |
 |----------|----------|--------------|
@@ -140,22 +152,24 @@ In CI the keystore comes from the `GLOSS_KEYSTORE_BASE64` secret, decoded to a t
 
 Two Gradle modules, set up like duit-log's (copied, not shared):
 
-- **`core`**: plain Kotlin on the JVM with no Android code: the Gloss core (spec, "Seam 1"). `Gloss` is the one entry point the card uses: `define(Selection)` builds the prompt (`define/DefinePrompt`), asks the AI, saves an answer as a Lookup and returns what the card shows, an answer or a failure (`DefineResult`). It reaches the outside world only through ports: `ai/Ai` (one prompt in, the answer and token usage or an `AiFailure` out), `lookup/LookupStore`, `settings/SettingsSource` and a `java.time.Clock`. A failure is not saved as a Lookup. `lookup/SqlLookupStore` is the store on SQLite: the schema is `src/main/sqldelight/` (`lookup`: Selection, answer, time as epoch milliseconds), compiled by SQLDelight against Android 10's SQLite as in duit-log, so SQL the oldest supported phone can't run fails the build. A build check (`:core:checkNoAndroidDependencies`, part of `lintAll`) fails if an Android library or an `android`/`androidx` import gets into `core`.
+- **`core`**: plain Kotlin on the JVM with no Android code: the Gloss core (spec, "Seam 1"). `Gloss` is the one entry point the card uses: `define(Selection)` finds the Book context (`context/BookContextFinder`), builds the prompt (`define/DefinePrompt`), asks the AI, saves an answer as a Lookup and returns what the card shows, an answer with the Book context it used or why there was none, or a failure (`DefineResult`). The Book context rule takes the book with the newest `durChapterTime`, fetches its current chapter and finds the Selection in it with `context/ChapterMatch`, which compares both in a canonical form (one space for any run of whitespace, straight quotes, one `-` for any dash) and, when the Selection occurs more than once, takes the occurrence nearest the reading position (`durChapterPos`). It reaches the outside world only through ports: `ai/Ai` (one prompt in, the answer and token usage or an `AiFailure` out), `context/Legado` (the bookshelf, and a chapter's text, or a `LegadoFailure`), `lookup/LookupStore`, `settings/SettingsSource` and a `java.time.Clock`. A failure is not saved as a Lookup. `lookup/SqlLookupStore` is the store on SQLite: the schema is `src/main/sqldelight/` (`lookup`: Selection, answer, time as epoch milliseconds), compiled by SQLDelight against Android 10's SQLite as in duit-log, so SQL the oldest supported phone can't run fails the build. A build check (`:core:checkNoAndroidDependencies`, part of `lintAll`) fails if an Android library or an `android`/`androidx` import gets into `core`.
 - **`app`**: the Android app, thin adapters around the core, wired together in `GlossApplication`.
   - `card/CardActivity` is the card: a translucent window, kept out of Recents, that reads the text Android hands it with `PROCESS_TEXT` and shows `card/SelectionCard` (a Material 3 bottom sheet) in `card/GlossTheme` (light or dark, following the phone). `card/CardViewModel` runs the Define on a background thread and survives rotation, so turning the phone doesn't pay twice. Each selection-menu entry is an `<activity-alias>` of it in the manifest (only `.card.Define` so far). It never sets a result: a `PROCESS_TEXT` activity that returns text would replace the Selection in the reader.
   - `ai/AnthropicClient` is the AI port on Anthropic's Messages API (`HttpURLConnection` and Android's `org.json`, no SDK): connect and read timeouts, one retry after a second when it couldn't connect (not after the request went out, since Anthropic may already have run and billed it), HTTP 401 or 403 as a rejected key, anything else as an AI error. It also checks a new key with a one-token Messages call.
-  - `settings/` holds `PhoneSettings` (the settings module), `ApiKeyStore` (the key, AES-GCM with a Keystore key, ciphertext in private shared preferences) and the launcher screen `SettingsActivity`: the key box on first run or after Change key, then Settings.
+  - `legado/LegadoClient` is the Legado port on Legado's web service, `GET /getBookshelf` and `GET /getBookContent?url=…&index=…` on `127.0.0.1:1122` (`HttpURLConnection` and `org.json`): a refused connection is "Web service off", a timeout is "slow", `isSuccess: false` with "Permission Denial" is "can't open the book's file", and any other `isSuccess: false`, HTTP error or unreadable reply is an error. `res/xml/network_security_config.xml` allows plain HTTP to `127.0.0.1` only, since the web service has no HTTPS; everything else stays HTTPS-only.
+  - `settings/` holds `PhoneSettings` (the settings module), `ApiKeyStore` (the key, AES-GCM with a Keystore key, ciphertext in private shared preferences) and the launcher screen `SettingsActivity`: the key box on first run or after Change key, then Settings, both with the Legado check.
   - `logging/RollingLog` is the log "Share log" sends: `files/logs/gloss.log` plus the one file before it, about 256 KB each, also echoed to logcat (tag `Gloss`). It records the model, tokens, latency, retries, HTTP status and Anthropic's error type, the card opening, and crashes, never the Selection, the answer or the key. Share log copies it to the cache and hands it out through a `FileProvider` limited to that copy.
   - `storage/PhoneDatabase` opens `gloss.db` with SQLDelight's Android driver.
   - Nothing is backed up (`res/xml/data_extraction_rules.xml`, and `backup_rules.xml` for Android 10 and 11): the key, the database and the log stay on the phone.
 
 ```
-core/src/main/kotlin/com/rickphobia/gloss/core/   Gloss, Selection, and the ports: ai/, lookup/, settings/; define/ prompts
+core/src/main/kotlin/com/rickphobia/gloss/core/   Gloss, Selection, and the ports: ai/, context/ (Legado, the Book context rule), lookup/, settings/; define/ prompts
 core/src/main/sqldelight/                         the database schema and queries (.sq files)
 core/src/test/kotlin/...                          the core's JVM tests
-app/src/main/kotlin/com/rickphobia/gloss/         GlossApplication and the adapters: card/, ai/, settings/, logging/, storage/
-app/src/test/kotlin/...                           the app's JVM tests (the rolling log)
-app/src/main/res/                                 strings, themes, icon, backup rules, the log's FileProvider paths
+app/src/main/kotlin/com/rickphobia/gloss/         GlossApplication and the adapters: card/, ai/, legado/, settings/, logging/, storage/
+app/src/test/kotlin/...                           the app's JVM tests (the rolling log, the Legado client)
+app/src/test/resources/legado/                    Legado's replies the Legado client's tests serve
+app/src/main/res/                                 strings, themes, icon, backup rules, the log's FileProvider paths, the network security config
 app/src/preview/res/                              Gloss Preview's labels
 scripts/                                          SDK setup, the PR-body link script and its test
 config/detekt.yml                                 detekt rules on top of its defaults
@@ -169,6 +183,10 @@ Open Gloss, tap **Share log** and read the newest lines.
 - **"Anthropic didn't accept your key":** the log has `status=401` (wrong or revoked key) or `status=403` (the key's workspace can't use the model). Tap **Change key** and paste a working key.
 - **"Couldn't reach Anthropic":** the log has `couldn't connect` or `network error` lines with the reason (no route, DNS, timeout). Gloss retries a failed connection once after a second; check the phone's connection and tap Retry.
 - **"The AI couldn't answer just now":** the log has the HTTP status and Anthropic's error type, such as `overloaded_error` (529, busy: try again) or `invalid_request_error` (400: the request itself is wrong, which needs a code fix, such as a retired model name in `PhoneSettings`).
+- **"No book context: Legado's Web service is off":** the log has `legado bookshelf: web service off`. Turn on the Web service in Legado (My → Web service); Gloss's own screen shows whether it can reach it.
+- **"No book context: Legado didn't answer in time":** the log has `no answer within the timeout`. Legado was busy (a large local EPUB's chapter on first open); Define again. The timeouts are in `PhoneSettings.legado`.
+- **"No book context: Legado can't open the book's file":** the log has `Permission Denial`. Open the book in Legado again, or import its folder again.
+- **"No book context: not found in the chapter":** the log has `book context: none, reason=NotInChapter`. Expected outside Legado; in Legado, the Selection wasn't in the current chapter of the book read most recently.
 - **The key box appears again after a phone restore:** the Keystore key doesn't survive a restore, so the saved key can't be decrypted; the log says so. Paste the key again.
 
 ## Pinned versions
@@ -188,6 +206,7 @@ Every version is pinned: tools and libraries in `gradle/libs.versions.toml`, Gra
 | kotlinx.coroutines | 1.11.0 (checked 2026-10-25) | Maven Central `org.jetbrains.kotlinx:kotlinx-coroutines-core` |
 | SQLDelight | 2.4.1 (checked 2026-10-25) | Maven Central `app.cash.sqldelight` |
 | JUnit | 4.13.2 | Maven Central `junit:junit` |
+| org.json (app JVM tests only) | 20260814 (checked 2026-10-25) | Maven Central `org.json:json` |
 | ktlint / ktlint Gradle plugin | 1.8.0 / 14.2.0 | Maven Central `com.pinterest.ktlint`, Gradle Plugin Portal |
 | detekt | 1.23.8 (2.0 is still alpha) | Maven Central and Gradle Plugin Portal |
 | foojay toolchain resolver | 1.0.0 | Gradle Plugin Portal (version in `settings.gradle.kts`) |

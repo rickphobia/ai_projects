@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.rickphobia.gloss.core.DefineResult
 import com.rickphobia.gloss.core.Gloss
 import com.rickphobia.gloss.core.Selection
+import com.rickphobia.gloss.core.context.BookContextResult
+import com.rickphobia.gloss.logging.RollingLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -19,6 +21,7 @@ import kotlinx.coroutines.withContext
 class CardViewModel(
     private val gloss: Gloss,
     val selection: Selection,
+    private val log: RollingLog,
 ) : ViewModel() {
     /** The answer or failure, or null while the AI is answering. */
     var result: DefineResult? by mutableStateOf(null)
@@ -35,7 +38,24 @@ class CardViewModel(
     private fun define() {
         result = null
         viewModelScope.launch {
-            result = withContext(Dispatchers.IO) { gloss.define(selection) }
+            val defined = withContext(Dispatchers.IO) { gloss.define(selection) }
+            if (defined is DefineResult.Answer) logBookContext(defined.context)
+            result = defined
+        }
+    }
+
+    /** Whether the answer had Book context, and why not: never the book, the passage or the Selection. */
+    private fun logBookContext(context: BookContextResult) {
+        when (context) {
+            is BookContextResult.Found -> {
+                log.info(
+                    "book context: found, passage_chars=${context.context.passage.length}",
+                )
+            }
+
+            is BookContextResult.Missing -> {
+                log.info("book context: none, reason=${context.reason}")
+            }
         }
     }
 }

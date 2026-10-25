@@ -23,10 +23,13 @@ import com.rickphobia.gloss.R
 import com.rickphobia.gloss.core.DefineResult
 import com.rickphobia.gloss.core.Selection
 import com.rickphobia.gloss.core.ai.AiFailure
+import com.rickphobia.gloss.core.context.BookContextResult
+import com.rickphobia.gloss.core.context.NoBookContextReason
 
 /**
- * The card at the bottom of the screen: the Selection, then a loading bar, then the answer or a
- * failure with Retry. Tapping outside it, swiping it down or pressing back calls [onClose].
+ * The card at the bottom of the screen: the Selection, then a loading bar, then the book and
+ * chapter the answer used (or why it had none) and the answer, or a failure with Retry. Tapping
+ * outside it, swiping it down or pressing back calls [onClose].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,13 +55,51 @@ fun SelectionCard(
                 fontStyle = FontStyle.Italic,
             )
             when (result) {
-                null -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                is DefineResult.Answer -> Text(text = result.text, style = MaterialTheme.typography.bodyLarge)
-                is DefineResult.Failed -> FailureMessage(result.failure, onRetry, onOpenKeySettings)
+                null -> {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+
+                is DefineResult.Answer -> {
+                    ContextLine(result.context)
+                    Text(text = result.text, style = MaterialTheme.typography.bodyLarge)
+                }
+
+                is DefineResult.Failed -> {
+                    FailureMessage(result.failure, onRetry, onOpenKeySettings)
+                }
             }
         }
     }
 }
+
+@Composable
+private fun ContextLine(context: BookContextResult) {
+    val text =
+        when (context) {
+            is BookContextResult.Found -> {
+                listOf(context.context.book, context.context.chapter).filter(String::isNotEmpty).joinToString(" · ")
+            }
+
+            is BookContextResult.Missing -> {
+                stringResource(R.string.card_no_book_context, stringResource(reasonText(context.reason)))
+            }
+        }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+private fun reasonText(reason: NoBookContextReason): Int =
+    when (reason) {
+        NoBookContextReason.LegadoOff -> R.string.no_context_legado_off
+        NoBookContextReason.LegadoSlow -> R.string.no_context_legado_slow
+        NoBookContextReason.LegadoCantOpenBook -> R.string.no_context_legado_cant_open_book
+        NoBookContextReason.LegadoError -> R.string.no_context_legado_error
+        NoBookContextReason.NoBookRead -> R.string.no_context_no_book_read
+        NoBookContextReason.NotInChapter -> R.string.no_context_not_in_chapter
+    }
 
 @Composable
 private fun FailureMessage(

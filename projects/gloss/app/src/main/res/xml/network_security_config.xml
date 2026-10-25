@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Plain HTTP only to Legado's web service on this phone (127.0.0.1:1122), which has no HTTPS.
+     Everything else, Anthropic included, stays HTTPS-only, Android's default. -->
+<network-security-config>
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="false">127.0.0.1</domain>
+  </domain-config>
+</network-security-config>

@@ -11,6 +11,9 @@ object PhoneSettings : SettingsSource {
     const val DEFINE_MODEL = "claude-haiku-5-5"
     const val DEFINE_MAX_TOKENS = 150
 
+    /** About 4,000 tokens of the chapter: enough for references back, and a Define stays cheap. */
+    const val CONTEXT_WORD_LIMIT = 3_000
+
     val anthropic =
         AnthropicSettings(
             baseUrl = "https://api.anthropic.com",
@@ -20,8 +23,24 @@ object PhoneSettings : SettingsSource {
             retryDelayMillis = 1_000,
         )
 
+    /**
+     * Legado's web service, on this phone. 1122 is Legado's fixed port. Short timeouts: a slow
+     * Legado must not hold up the card, which then answers without Book context. The read timeout
+     * is longer because reading a local EPUB's chapter is the slow call.
+     */
+    val legado =
+        LegadoSettings(
+            baseUrl = "http://127.0.0.1:1122",
+            connectTimeoutMillis = 1_000,
+            readTimeoutMillis = 3_000,
+        )
+
     override fun current(): GlossSettings =
-        GlossSettings(defineModel = DEFINE_MODEL, defineMaxTokens = DEFINE_MAX_TOKENS)
+        GlossSettings(
+            defineModel = DEFINE_MODEL,
+            defineMaxTokens = DEFINE_MAX_TOKENS,
+            contextWordLimit = CONTEXT_WORD_LIMIT,
+        )
 }
 
 /** How Gloss reaches Anthropic's Messages API. */
@@ -33,4 +52,11 @@ data class AnthropicSettings(
     val readTimeoutMillis: Int,
     /** The wait before the one retry after a network error. */
     val retryDelayMillis: Long,
+)
+
+/** How Gloss reaches Legado's web service. */
+data class LegadoSettings(
+    val baseUrl: String,
+    val connectTimeoutMillis: Int,
+    val readTimeoutMillis: Int,
 )

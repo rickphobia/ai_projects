@@ -10,6 +10,14 @@
   <string name="card_no_internet">Couldn\'t reach Anthropic. Check your internet connection.</string>
   <string name="card_ai_error">The AI couldn\'t answer just now.</string>
   <string name="card_retry">Retry</string>
+  <!-- %1$s is one of the no_context_* reasons below. -->
+  <string name="card_no_book_context">No book context: %1$s</string>
+  <string name="no_context_legado_off">Legado\'s Web service is off</string>
+  <string name="no_context_legado_slow">Legado didn\'t answer in time</string>
+  <string name="no_context_legado_cant_open_book">Legado can\'t open the book\'s file; re-open the book in Legado</string>
+  <string name="no_context_legado_error">Legado sent an error</string>
+  <string name="no_context_no_book_read">no book open in Legado</string>
+  <string name="no_context_not_in_chapter">not found in the chapter</string>
 
   <!-- First run and Settings -->
   <string name="key_explained">Gloss answers with your own Anthropic API key. Paste it here: it is checked with a small test call, then stored encrypted on this phone and never backed up.</string>
@@ -21,6 +29,13 @@
   <string name="key_check_failed">Anthropic refused the test call (Share log below shows why, such as no credit). Try again in a moment.</string>
   <string name="key_not_stored">The key was accepted but couldn\'t be stored securely on this phone. Try again.</string>
   <string name="settings_key_saved">Your Anthropic key is saved.</string>
+  <string name="legado_explained">For answers that know your book, switch on Legado\'s Web service: in Legado, tap My, then turn on Web service. While it\'s on, others on the same Wi-Fi can see your bookshelf, so turn it off on Wi-Fi you don\'t control.</string>
+  <string name="legado_checking">Checking for Legado…</string>
+  <string name="legado_reachable">Gloss can reach Legado. Define will use the book you\'re reading.</string>
+  <string name="legado_off">Gloss can\'t reach Legado: its Web service is off, or Legado isn\'t running.</string>
+  <string name="legado_slow">Legado didn\'t answer in time. Try again in a moment.</string>
+  <string name="legado_error">Legado answered with an error. Share log below shows more.</string>
+  <string name="legado_check_again">Check again</string>
   <string name="settings_where_define_is">Select text in Legado, Chrome or any app, then tap Define in the menu over the selection. It may be under ⋮ or More.</string>
   <string name="settings_log_explained">The log records what Gloss did (model, tokens, timings, errors), never what you selected or the answers.</string>
   <string name="add_key">Add key</string>

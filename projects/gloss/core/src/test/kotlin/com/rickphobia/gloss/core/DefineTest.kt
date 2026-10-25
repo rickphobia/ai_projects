@@ -3,9 +3,10 @@ package com.rickphobia.gloss.core
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.rickphobia.gloss.core.ai.Ai
 import com.rickphobia.gloss.core.ai.AiFailure
-import com.rickphobia.gloss.core.ai.AiPrompt
 import com.rickphobia.gloss.core.ai.AiReply
 import com.rickphobia.gloss.core.ai.TokenUsage
+import com.rickphobia.gloss.core.context.BookContextResult
+import com.rickphobia.gloss.core.context.NoBookContextReason
 import com.rickphobia.gloss.core.lookup.Lookup
 import com.rickphobia.gloss.core.lookup.SqlLookupStore
 import com.rickphobia.gloss.core.settings.GlossSettings
@@ -20,38 +21,27 @@ import java.time.ZoneOffset
 
 class DefineTest {
     private val now = Instant.parse("2026-10-25T09:30:00Z")
-    private val settings = GlossSettings(defineModel = "claude-haiku-5-5", defineMaxTokens = 150)
+    private val settings =
+        GlossSettings(defineModel = "claude-haiku-5-5", defineMaxTokens = 150, contextWordLimit = 3000)
     private val lookups =
         JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             .also(GlossDatabase.Schema::create)
             .let { SqlLookupStore(GlossDatabase(it)) }
 
-    /** Records the prompts it was sent and answers each with [reply]. */
-    private class FakeAi(
-        private val reply: AiReply,
-    ) : Ai {
-        val prompts = mutableListOf<AiPrompt>()
-
-        override suspend fun ask(prompt: AiPrompt): AiReply {
-            prompts += prompt
-            return reply
-        }
-    }
-
-    private fun glossWith(ai: Ai) = Gloss(ai, lookups, Clock.fixed(now, ZoneOffset.UTC)) { settings }
+    private fun glossWith(ai: Ai) = Gloss(ai, FakeLegado.off, lookups, Clock.fixed(now, ZoneOffset.UTC)) { settings }
 
     private fun define(
         ai: Ai,
         text: String = "garret",
     ): DefineResult = runBlocking { glossWith(ai).define(Selection.from(text)!!) }
 
-    private fun answer(text: String) = AiReply.Answer(text, TokenUsage(inputTokens = 80, outputTokens = 20))
+    private val legadoOff = BookContextResult.Missing(NoBookContextReason.LegadoOff)
 
     @Test
     fun `shows the AI's answer without the space around it`() {
         val result = define(FakeAi(answer("  A small room under the roof of a house.\n")))
 
-        assertEquals(DefineResult.Answer("A small room under the roof of a house."), result)
+        assertEquals(DefineResult.Answer("A small room under the roof of a house.", legadoOff), result)
     }
 
     @Test

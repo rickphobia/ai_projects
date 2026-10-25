@@ -18,16 +18,21 @@ import java.io.File
 
 /** Gloss's launcher screen: the first-run key screen, then Settings. */
 class SettingsActivity : ComponentActivity() {
+    private val openedForKey get() = intent.getBooleanExtra(EXTRA_CHANGE_KEY, false)
+
+    private val settings: SettingsViewModel by viewModels {
+        val app = application as GlossApplication
+        viewModelFactory {
+            initializer {
+                SettingsViewModel(app.apiKeys, app.anthropic, app.legado, PhoneSettings.DEFINE_MODEL, openedForKey)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val app = application as GlossApplication
-        val openedForKey = intent.getBooleanExtra(EXTRA_CHANGE_KEY, false)
-        val settings: SettingsViewModel by viewModels {
-            viewModelFactory {
-                initializer { SettingsViewModel(app.apiKeys, app.anthropic, PhoneSettings.DEFINE_MODEL, openedForKey) }
-            }
-        }
         setContent {
             // Opened from the card to fix the key: go straight back to it, where Retry waits.
             LaunchedEffect(settings.keySaved) { if (settings.keySaved && openedForKey) finish() }
@@ -40,10 +45,18 @@ class SettingsActivity : ComponentActivity() {
                     onSaveKey = settings::saveKey,
                     onChangeKey = settings::changeKey,
                     onCancelKeyEntry = settings::cancelKeyEntry,
+                    legadoStatus = settings.legadoStatus,
+                    onCheckLegado = settings::checkLegado,
                     onShareLog = { shareLog(app) },
                 )
             }
         }
+    }
+
+    /** The owner may have just switched Legado's web service on in Legado, so check again. */
+    override fun onResume() {
+        super.onResume()
+        settings.checkLegado()
     }
 
     private fun shareLog(app: GlossApplication) {
