@@ -16,9 +16,9 @@
     android:networkSecurityConfig="@xml/network_security_config"
     android:supportsRtl="true"
     android:theme="@style/Theme.Gloss.Card">
-    <!-- Gloss's own screen: the first-run key screen, then Settings. -->
+    <!-- Gloss's own screen: the Books screen, Book pages and Recent. -->
     <activity
-      android:name=".settings.SettingsActivity"
+      android:name=".books.BooksActivity"
       android:exported="true"
       android:theme="@style/Theme.Gloss.Screen">
       <intent-filter>
@@ -26,6 +26,11 @@
         <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
     </activity>
+    <!-- The first-run key screen, then Settings, opened from the Books screen and the card. -->
+    <activity
+      android:name=".settings.SettingsActivity"
+      android:exported="false"
+      android:theme="@style/Theme.Gloss.Screen" />
     <!-- The card. Translucent, so the reader stays visible behind it, and kept out of Recents so
          closing it leaves the reader exactly where it was. adjustResize hands the keyboard's
          height to the card, which moves Explain's follow-up box up above it. -->

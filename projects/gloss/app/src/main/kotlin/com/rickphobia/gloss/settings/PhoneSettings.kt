@@ -47,6 +47,9 @@ object PhoneSettings {
     /** About 4,000 tokens of the chapter: enough for references back, and a Define stays cheap. */
     const val CONTEXT_WORD_LIMIT = 3_000
 
+    /** How many of the newest Lookups and Notes the Recent list shows. */
+    const val RECENT_ENTRIES = 50
+
     val anthropic =
         AnthropicSettings(
             baseUrl = "https://api.anthropic.com",

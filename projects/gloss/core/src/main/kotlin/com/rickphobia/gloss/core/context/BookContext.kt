@@ -32,6 +32,21 @@ data class BookPlace(
     val position: Int,
 )
 
+/**
+ * The book and chapter a Lookup or Note was made in, and where: its Book context without the
+ * passage. Saved with it, so its Book page is built without asking Legado again.
+ */
+data class BookLocation(
+    val book: String,
+    val author: String,
+    val chapter: String,
+    val place: BookPlace,
+) {
+    companion object {
+        fun of(context: BookContext) = BookLocation(context.book, context.author, context.chapter, context.place)
+    }
+}
+
 /** The Book context a Lookup used, or why it had none. */
 sealed interface BookContextResult {
     data class Found(

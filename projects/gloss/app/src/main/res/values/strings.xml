@@ -35,6 +35,31 @@
   <string name="no_context_no_book_read">no book open in Legado</string>
   <string name="no_context_not_in_chapter">not found in the chapter</string>
 
+  <!-- Books, Book pages and Recent -->
+  <string name="settings">Settings</string>
+  <string name="back">Back</string>
+  <string name="books_tab">Books</string>
+  <string name="recent_tab">Recent</string>
+  <string name="books_empty">Nothing here yet. Select text in Legado and tap Define, Explain or Note: every answer and Note is kept here, by book.</string>
+  <string name="no_book">No book</string>
+  <string name="lookup_define">Define</string>
+  <plurals name="lookup_explain">
+    <item quantity="one">Explain · %d follow-up</item>
+    <item quantity="other">Explain · %d follow-ups</item>
+  </plurals>
+  <string name="note_label">Note</string>
+  <string name="edit">Edit</string>
+  <string name="delete">Delete</string>
+  <string name="save">Save</string>
+  <string name="edit_note_title">Edit Note</string>
+  <string name="delete_note_title">Delete this Note?</string>
+  <string name="delete_lookup">Delete Lookup</string>
+  <string name="delete_lookup_title">Delete this Lookup and its chat?</string>
+  <plurals name="delete_lookup_notes">
+    <item quantity="one">Its Note is deleted too.</item>
+    <item quantity="other">Its %d Notes are deleted too.</item>
+  </plurals>
+
   <!-- First run and Settings -->
   <string name="key_explained">Gloss answers with your own Anthropic API key. Paste it here: it is checked with a small test call, then stored encrypted on this phone and never backed up.</string>
   <string name="key_label">Anthropic API key</string>

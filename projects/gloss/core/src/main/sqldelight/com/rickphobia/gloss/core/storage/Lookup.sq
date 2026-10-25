@@ -1,11 +1,19 @@
 -- One row per Lookup. made_at is epoch milliseconds, so a change of time zone never moves one.
--- kind is 'define' or 'explain'.
+-- kind is 'define' or 'explain'. book, author, chapter, book_url (Legado's id for the book),
+-- chapter_index and position (characters into the chapter) are null for a Lookup made without Book
+-- context ("No book"), as in the note table.
 CREATE TABLE lookup (
   id INTEGER NOT NULL PRIMARY KEY,
   selection TEXT NOT NULL,
   answer TEXT NOT NULL,
   made_at INTEGER NOT NULL,
-  kind TEXT NOT NULL DEFAULT 'define'
+  kind TEXT NOT NULL DEFAULT 'define',
+  book TEXT,
+  author TEXT,
+  chapter TEXT,
+  book_url TEXT,
+  chapter_index INTEGER,
+  position INTEGER
 );
 
 -- An Explain chat's follow-up questions and answers, in the order asked (by id).
@@ -19,7 +27,8 @@ CREATE TABLE follow_up (
 CREATE INDEX follow_up_lookup_id ON follow_up(lookup_id);
 
 insert:
-INSERT INTO lookup(selection, answer, made_at, kind) VALUES (?, ?, ?, ?);
+INSERT INTO lookup(selection, answer, made_at, kind, book, author, chapter, book_url, chapter_index, position)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastId:
 SELECT last_insert_rowid();
@@ -28,7 +37,14 @@ insertFollowUp:
 INSERT INTO follow_up(lookup_id, question, answer) VALUES (?, ?, ?);
 
 all:
-SELECT id, selection, answer, made_at, kind FROM lookup ORDER BY made_at, id;
+SELECT id, selection, answer, made_at, kind, book, author, chapter, book_url, chapter_index, position
+FROM lookup ORDER BY made_at, id;
 
 allFollowUps:
 SELECT lookup_id, question, answer FROM follow_up ORDER BY id;
+
+delete:
+DELETE FROM lookup WHERE id = ?;
+
+deleteFollowUps:
+DELETE FROM follow_up WHERE lookup_id = ?;

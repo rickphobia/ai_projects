@@ -113,12 +113,24 @@ class FakeSpendStore : SpendStore {
 
 /** Notes kept in a list, for tests that don't write any. */
 class FakeNoteStore : NoteStore {
-    private val notes = mutableListOf<Note>()
+    private val notes = mutableListOf<Saved<Note>>()
 
     override suspend fun save(note: Note): Long {
-        notes += note
-        return notes.size.toLong()
+        val id = notes.size + 1L
+        notes += Saved(id, note)
+        return id
     }
 
-    override suspend fun all(): List<Note> = notes.toList()
+    override suspend fun all(): List<Saved<Note>> = notes.toList()
+
+    override suspend fun edit(
+        id: Long,
+        text: String,
+    ) {
+        notes.replaceAll { if (it.id == id) Saved(id, it.value.copy(text = text)) else it }
+    }
+
+    override suspend fun delete(id: Long) {
+        notes.removeAll { it.id == id }
+    }
 }

@@ -2,8 +2,10 @@ package com.rickphobia.gloss.core
 
 import com.rickphobia.gloss.core.ai.Ai
 import com.rickphobia.gloss.core.ai.AiFailure
+import com.rickphobia.gloss.core.bookpage.BookPages
 import com.rickphobia.gloss.core.context.BookContextFinder
 import com.rickphobia.gloss.core.context.BookContextResult
+import com.rickphobia.gloss.core.context.BookLocation
 import com.rickphobia.gloss.core.context.Legado
 import com.rickphobia.gloss.core.define.DefinePrompt
 import com.rickphobia.gloss.core.explain.ExplainChat
@@ -13,7 +15,6 @@ import com.rickphobia.gloss.core.lookup.Lookup
 import com.rickphobia.gloss.core.lookup.LookupKind
 import com.rickphobia.gloss.core.lookup.LookupStore
 import com.rickphobia.gloss.core.note.Note
-import com.rickphobia.gloss.core.note.NoteBook
 import com.rickphobia.gloss.core.note.NoteStore
 import com.rickphobia.gloss.core.settings.GlossSettings
 import com.rickphobia.gloss.core.settings.SettingsSource
@@ -44,6 +45,9 @@ class Gloss(
     private val spending = Spending(storage.spends, clock)
     private val metered = MeteredAi(ai, spending)
 
+    /** The Books screen, Book pages and Recent, and tidying them up. */
+    val bookPages = BookPages(lookups, notes)
+
     /** This calendar month's spend against the Spending limit, for Settings. */
     suspend fun monthSpend(): MonthSpend = spending.thisMonth(settings.current().spendingLimitMicros)
 
@@ -56,7 +60,7 @@ class Gloss(
         val prompt = DefinePrompt.forSelection(selection, found, current)
         return when (val reply = metered.ask(prompt, current.definePrice, current.spendingLimitMicros)) {
             is Metered.Answer -> {
-                val id = lookups.save(Lookup(selection.text, reply.text, clock.instant()))
+                val id = lookups.save(Lookup(selection.text, reply.text, clock.instant(), book = locationOf(context)))
                 DefineResult.Answer(reply.text, context, id, reply.nearLimit)
             }
 
@@ -125,8 +129,7 @@ class Gloss(
     ): Note {
         val written = text.trim()
         require(written.isNotEmpty()) { "A Note needs some text" }
-        val book = (context as? BookContextResult.Found)?.let { NoteBook.of(it.bookContext) }
-        val note = Note(selection.text, written, clock.instant(), book, lookupId)
+        val note = Note(selection.text, written, clock.instant(), locationOf(context), lookupId)
         notes.save(note)
         return note
     }
@@ -139,7 +142,9 @@ class Gloss(
         val prompt = ExplainPrompt.first(selection, context, current)
         return when (val reply = metered.ask(prompt, current.explainPrice, current.spendingLimitMicros)) {
             is Metered.Answer -> {
-                val id = lookups.save(Lookup(selection.text, reply.text, clock.instant(), LookupKind.Explain))
+                val lookup =
+                    Lookup(selection.text, reply.text, clock.instant(), LookupKind.Explain, book = locationOf(context))
+                val id = lookups.save(lookup)
                 ExplainResult.Answer(ExplainChat(id, selection, context, reply.text), reply.nearLimit)
             }
 
@@ -149,6 +154,10 @@ class Gloss(
         }
     }
 }
+
+/** Where a Lookup or Note made with [context] is kept: its book and chapter, or "No book". */
+private fun locationOf(context: BookContextResult): BookLocation? =
+    (context as? BookContextResult.Found)?.let { BookLocation.of(it.bookContext) }
 
 /** The storage ports: where Lookups, Notes and the monthly spend are kept. */
 data class GlossStorage(

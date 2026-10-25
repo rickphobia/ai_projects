@@ -8,6 +8,8 @@ import com.rickphobia.gloss.core.ai.ChatMessage.Speaker
 import com.rickphobia.gloss.core.ai.TokenUsage
 import com.rickphobia.gloss.core.context.BookContextPrompt
 import com.rickphobia.gloss.core.context.BookContextResult
+import com.rickphobia.gloss.core.context.BookLocation
+import com.rickphobia.gloss.core.context.BookPlace
 import com.rickphobia.gloss.core.context.Legado
 import com.rickphobia.gloss.core.context.NoBookContextReason
 import com.rickphobia.gloss.core.explain.ExplainPrompt
@@ -59,7 +61,7 @@ class ExplainTest {
 
     private fun chatOf(result: ExplainResult) = (result as ExplainResult.Answer).chat
 
-    private fun saved() = runBlocking { lookups.all() }
+    private fun saved() = runBlocking { lookups.all().map { it.value } }
 
     @Test
     fun `Explain gives a short ELI5 paragraph from Sonnet, with the Book context marked for caching`() {
@@ -95,10 +97,15 @@ class ExplainTest {
     }
 
     @Test
-    fun `Explain is saved as an Explain Lookup`() {
+    fun `Explain is saved as an Explain Lookup with its book and chapter`() {
         runBlocking { gloss(FakeAi(answer("He sneaked past her."))).explain(selection()) }
 
-        assertEquals(listOf(Lookup(sentence, "He sneaked past her.", now, LookupKind.Explain)), saved())
+        val place = BookPlace(book.bookUrl, book.chapterIndex, chapter.indexOf(sentence))
+        val location = BookLocation("Crime and Punishment", "Fyodor Dostoevsky", "Part I, Chapter 1", place)
+        assertEquals(
+            listOf(Lookup(sentence, "He sneaked past her.", now, LookupKind.Explain, book = location)),
+            saved(),
+        )
     }
 
     @Test

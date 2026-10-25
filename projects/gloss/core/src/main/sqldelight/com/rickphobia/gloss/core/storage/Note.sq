@@ -25,4 +25,14 @@ lastId:
 SELECT last_insert_rowid();
 
 all:
-SELECT selection, text, written_at, book, author, chapter, book_url, chapter_index, position, lookup_id FROM note ORDER BY written_at, id;
+SELECT id, selection, text, written_at, book, author, chapter, book_url, chapter_index, position, lookup_id
+FROM note ORDER BY written_at, id;
+
+updateText:
+UPDATE note SET text = ? WHERE id = ?;
+
+delete:
+DELETE FROM note WHERE id = ?;
+
+deleteForLookup:
+DELETE FROM note WHERE lookup_id = ?;
