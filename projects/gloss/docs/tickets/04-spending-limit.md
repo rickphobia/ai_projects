@@ -4,15 +4,15 @@
 
 **Blocked by:** 03 Book context from Legado
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-spending, core-gloss, app-settings, app-card
 
 **Effort:** low
 
-- [ ] Cost from token usage and per-model prices in the settings module; monthly spend stored, summed per calendar month in the phone's time zone
-- [ ] Limit checked before every call; at or over it no call is made and the card says the limit is reached and the date it resets
-- [ ] A failed call that still cost money counts toward the limit
-- [ ] A warning line in the card once this month's spend passes 80%
-- [ ] Settings shows "$X of $Y this month", lets the owner change the limit, and has Change key
-- [ ] Core tests: under, past 80%, at the limit, a failed call with cost, month rollover in the time zone
+- [x] Cost from token usage and per-model prices in the settings module; monthly spend stored, summed per calendar month in the phone's time zone
+- [x] Limit checked before every call; at or over it no call is made and the card says the limit is reached and the date it resets
+- [x] A failed call that still cost money counts toward the limit
+- [x] A warning line in the card once this month's spend passes 80%
+- [x] Settings shows "$X of $Y this month", lets the owner change the limit, and has Change key
+- [x] Core tests: under, past 80%, at the limit, a failed call with cost, month rollover in the time zone

@@ -2,13 +2,20 @@ package com.rickphobia.gloss.settings
 
 import com.rickphobia.gloss.core.settings.GlossSettings
 import com.rickphobia.gloss.core.settings.SettingsSource
+import com.rickphobia.gloss.core.spending.ModelPrice
 
 /**
  * The settings module: every model name, address and timeout Gloss uses, with its defaults built
- * in. Nothing here can be changed on the phone yet.
+ * in. Only the Spending limit can be changed on the phone ([SpendingLimitStore]).
  */
-object PhoneSettings : SettingsSource {
+object PhoneSettings {
     const val DEFINE_MODEL = "claude-haiku-5-5"
+
+    /** Claude Haiku 5.5's price for prompts up to 100K tokens, which a Define always is. */
+    val definePrice = ModelPrice(inputMicrosPerMillion = 100_000, outputMicrosPerMillion = 500_000)
+
+    /** $10 a month until the owner changes it in Settings. */
+    const val DEFAULT_SPENDING_LIMIT_MICROS = 10_000_000L
     const val DEFINE_MAX_TOKENS = 150
 
     /** About 4,000 tokens of the chapter: enough for references back, and a Define stays cheap. */
@@ -35,12 +42,19 @@ object PhoneSettings : SettingsSource {
             connectTimeoutMillis = 500,
             readTimeoutMillis = 2_000,
         )
+}
 
+/** The settings the core reads on every call: the built-in ones, and the limit the owner set. */
+class PhoneSettingsSource(
+    private val limits: SpendingLimitStore,
+) : SettingsSource {
     override fun current(): GlossSettings =
         GlossSettings(
-            defineModel = DEFINE_MODEL,
-            defineMaxTokens = DEFINE_MAX_TOKENS,
-            contextWordLimit = CONTEXT_WORD_LIMIT,
+            defineModel = PhoneSettings.DEFINE_MODEL,
+            definePrice = PhoneSettings.definePrice,
+            defineMaxTokens = PhoneSettings.DEFINE_MAX_TOKENS,
+            contextWordLimit = PhoneSettings.CONTEXT_WORD_LIMIT,
+            spendingLimitMicros = limits.limitMicros(),
         )
 }
 

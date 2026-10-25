@@ -9,7 +9,6 @@ import com.rickphobia.gloss.core.context.BookContextResult
 import com.rickphobia.gloss.core.context.NoBookContextReason
 import com.rickphobia.gloss.core.lookup.Lookup
 import com.rickphobia.gloss.core.lookup.SqlLookupStore
-import com.rickphobia.gloss.core.settings.GlossSettings
 import com.rickphobia.gloss.core.storage.GlossDatabase
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -22,13 +21,16 @@ import java.time.ZoneOffset
 class DefineTest {
     private val now = Instant.parse("2026-10-25T09:30:00Z")
     private val settings =
-        GlossSettings(defineModel = "claude-haiku-5-5", defineMaxTokens = 150, contextWordLimit = 3000)
+        testSettings
     private val lookups =
         JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             .also(GlossDatabase.Schema::create)
             .let { SqlLookupStore(GlossDatabase(it)) }
 
-    private fun glossWith(ai: Ai) = Gloss(ai, FakeLegado.off, lookups, Clock.fixed(now, ZoneOffset.UTC)) { settings }
+    private fun glossWith(ai: Ai) =
+        Gloss(ai, FakeLegado.off, lookups, Clock.fixed(now, ZoneOffset.UTC), {
+            settings
+        }, FakeSpendStore())
 
     private fun define(
         ai: Ai,

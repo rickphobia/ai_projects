@@ -5,10 +5,13 @@ import android.util.Log
 import com.rickphobia.gloss.ai.AnthropicClient
 import com.rickphobia.gloss.core.Gloss
 import com.rickphobia.gloss.core.lookup.SqlLookupStore
+import com.rickphobia.gloss.core.spending.SqlSpendStore
 import com.rickphobia.gloss.legado.LegadoClient
 import com.rickphobia.gloss.logging.RollingLog
 import com.rickphobia.gloss.settings.ApiKeyStore
 import com.rickphobia.gloss.settings.PhoneSettings
+import com.rickphobia.gloss.settings.PhoneSettingsSource
+import com.rickphobia.gloss.settings.SpendingLimitStore
 import com.rickphobia.gloss.storage.PhoneDatabase
 import java.io.File
 import java.time.Clock
@@ -25,6 +28,8 @@ class GlossApplication : Application() {
         private set
     lateinit var gloss: Gloss
         private set
+    lateinit var spendingLimit: SpendingLimitStore
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -33,8 +38,17 @@ class GlossApplication : Application() {
         apiKeys = ApiKeyStore(this, log)
         anthropic = AnthropicClient(PhoneSettings.anthropic, apiKeys::read, log)
         legado = LegadoClient(PhoneSettings.legado, log)
-        val lookups = SqlLookupStore(PhoneDatabase.create(this))
-        gloss = Gloss(anthropic, legado, lookups, Clock.systemDefaultZone(), PhoneSettings)
+        val database = PhoneDatabase.create(this)
+        spendingLimit = SpendingLimitStore(this, PhoneSettings.DEFAULT_SPENDING_LIMIT_MICROS)
+        gloss =
+            Gloss(
+                anthropic,
+                legado,
+                SqlLookupStore(database),
+                Clock.systemDefaultZone(),
+                PhoneSettingsSource(spendingLimit),
+                SqlSpendStore(database),
+            )
         log.info("$packageName ${packageManager.getPackageInfo(packageName, 0).versionName} started")
     }
 

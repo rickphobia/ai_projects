@@ -29,10 +29,13 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.rickphobia.gloss.R
 import com.rickphobia.gloss.core.context.LegadoFailure
+import com.rickphobia.gloss.core.spending.MonthSpend
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 /**
  * Gloss's own screen: on first run it asks for the Anthropic key; after that it is Settings, with
- * Change key and Share log. Both show how to switch on Legado's web service and whether Gloss can
+ * Change key, the Spending limit and Share log. Both show how to switch on Legado's web service and whether Gloss can
  * reach it.
  */
 @Composable
@@ -46,6 +49,8 @@ fun SettingsScreen(
     onCancelKeyEntry: () -> Unit,
     legadoStatus: LegadoStatus,
     onCheckLegado: () -> Unit,
+    monthSpend: MonthSpend?,
+    onSaveLimit: (String) -> Unit,
     onShareLog: () -> Unit,
 ) {
     Surface(modifier = Modifier.fillMaxSize()) {
@@ -65,6 +70,8 @@ fun SettingsScreen(
                 OutlinedButton(onClick = onChangeKey) { Text(stringResource(R.string.change_key)) }
             }
             HorizontalDivider()
+            SpendingSection(monthSpend, onSaveLimit)
+            HorizontalDivider()
             LegadoSection(legadoStatus, onCheckLegado)
             HorizontalDivider()
             Text(stringResource(R.string.settings_where_define_is), style = MaterialTheme.typography.bodyMedium)
@@ -73,6 +80,45 @@ fun SettingsScreen(
             OutlinedButton(onClick = onShareLog) { Text(stringResource(R.string.share_log)) }
         }
     }
+}
+
+@Composable
+private fun SpendingSection(
+    monthSpend: MonthSpend?,
+    onSaveLimit: (String) -> Unit,
+) {
+    if (monthSpend == null) return
+    Text(
+        stringResource(R.string.spend_this_month, dollars(monthSpend.spentMicros), dollars(monthSpend.limitMicros)),
+        style = MaterialTheme.typography.bodyLarge,
+    )
+    var entered by remember(monthSpend.limitMicros) { mutableStateOf("") }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = entered,
+            onValueChange = { entered = it },
+            label = { Text(stringResource(R.string.spend_limit_label)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.weight(1f),
+        )
+        OutlinedButton(onClick = { onSaveLimit(entered) }, enabled = entered.isNotBlank()) {
+            Text(stringResource(R.string.spend_limit_save))
+        }
+    }
+}
+
+private const val MICROS_DIGITS = 6
+private const val CENTS_DIGITS = 2
+
+/**
+ * "$0.84" from millionths of a dollar, rounded up so a small spend never shows as $0.00, and "$10"
+ * for a whole amount.
+ */
+private fun dollars(micros: Long): String {
+    val amount = BigDecimal.valueOf(micros, MICROS_DIGITS).setScale(CENTS_DIGITS, RoundingMode.UP)
+    val whole = amount.remainder(BigDecimal.ONE).signum() == 0
+    return "$" + (if (whole) amount.setScale(0) else amount).toPlainString()
 }
 
 @Composable

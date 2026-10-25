@@ -1,0 +1,8 @@
+-- Version 1 (tickets 01 to 03) had only the lookup table: add the spend table (Spend.sq).
+CREATE TABLE spend (
+  id INTEGER NOT NULL PRIMARY KEY,
+  cost_micros INTEGER NOT NULL,
+  spent_at INTEGER NOT NULL
+);
+
+CREATE INDEX spend_spent_at ON spend(spent_at);

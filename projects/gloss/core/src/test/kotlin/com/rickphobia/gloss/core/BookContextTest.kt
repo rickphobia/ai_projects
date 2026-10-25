@@ -10,7 +10,6 @@ import com.rickphobia.gloss.core.context.NoBookContextReason
 import com.rickphobia.gloss.core.context.ShelfBook
 import com.rickphobia.gloss.core.define.DefinePrompt
 import com.rickphobia.gloss.core.lookup.SqlLookupStore
-import com.rickphobia.gloss.core.settings.GlossSettings
 import com.rickphobia.gloss.core.storage.GlossDatabase
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -23,7 +22,7 @@ import java.time.ZoneOffset
 
 class BookContextTest {
     private val settings =
-        GlossSettings(defineModel = "claude-haiku-5-5", defineMaxTokens = 150, contextWordLimit = 3000)
+        testSettings
     private val ai = FakeAi()
     private val book = shelfBook()
 
@@ -43,7 +42,8 @@ class BookContextTest {
             JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
                 .also(GlossDatabase.Schema::create)
                 .let { SqlLookupStore(GlossDatabase(it)) }
-        val gloss = Gloss(ai, legado, lookups, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC)) { settings }
+        val gloss =
+            Gloss(ai, legado, lookups, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC), { settings }, FakeSpendStore())
         return runBlocking { gloss.define(Selection.from(selection)!!) }
     }
 
