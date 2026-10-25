@@ -55,7 +55,7 @@ class DefineTest {
     fun `saves the answer as a Lookup with the Selection and the time`() {
         define(FakeAi(answer("A small room under the roof.")), text = "garret")
 
-        val saved = runBlocking { lookups.all() }
+        val saved = runBlocking { lookups.all().map { it.value } }
         assertEquals(listOf(Lookup("garret", "A small room under the roof.", now)), saved)
     }
 
@@ -80,7 +80,7 @@ class DefineTest {
 
             assertEquals(DefineResult.Failed(failure), result)
         }
-        assertEquals(emptyList<Lookup>(), runBlocking { lookups.all() })
+        assertEquals(emptyList<Lookup>(), runBlocking { lookups.all().map { it.value } })
     }
 
     @Test
@@ -95,7 +95,7 @@ class DefineTest {
         val result = define(FakeAi(answer(" \n")))
 
         assertEquals(DefineResult.Failed(AiFailure.AiError), result)
-        assertEquals(emptyList<Lookup>(), runBlocking { lookups.all() })
+        assertEquals(emptyList<Lookup>(), runBlocking { lookups.all().map { it.value } })
     }
 
     @Test
@@ -108,6 +108,6 @@ class DefineTest {
             gloss.define(Selection.from("axe")!!)
         }
 
-        assertEquals(listOf("garret", "axe"), runBlocking { lookups.all() }.map { it.selection })
+        assertEquals(listOf("garret", "axe"), runBlocking { lookups.all().map { it.value } }.map { it.selection })
     }
 }

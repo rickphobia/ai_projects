@@ -2,11 +2,11 @@ package com.rickphobia.gloss.core
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.rickphobia.gloss.core.context.BookContextResult
+import com.rickphobia.gloss.core.context.BookLocation
 import com.rickphobia.gloss.core.context.BookPlace
 import com.rickphobia.gloss.core.context.NoBookContextReason
 import com.rickphobia.gloss.core.lookup.SqlLookupStore
 import com.rickphobia.gloss.core.note.Note
-import com.rickphobia.gloss.core.note.NoteBook
 import com.rickphobia.gloss.core.note.SqlNoteStore
 import com.rickphobia.gloss.core.spending.SqlSpendStore
 import com.rickphobia.gloss.core.storage.GlossDatabase
@@ -30,7 +30,7 @@ class NoteTest {
     private val legado =
         FakeLegado(listOf(book), mapOf((book.bookUrl to book.chapterIndex) to "Part I, Chapter 1\n$sentence"))
     private val crimeAndPunishment =
-        NoteBook(
+        BookLocation(
             "Crime and Punishment",
             "Fyodor Dostoevsky",
             "Part I, Chapter 1",
@@ -44,7 +44,7 @@ class NoteTest {
 
     private fun selection(text: String = sentence) = Selection.from(text)!!
 
-    private fun saved() = runBlocking { notes.all() }
+    private fun saved() = runBlocking { notes.all().map { it.value } }
 
     private fun nothingSentToTheAi() {
         assertTrue(ai.prompts.isEmpty())

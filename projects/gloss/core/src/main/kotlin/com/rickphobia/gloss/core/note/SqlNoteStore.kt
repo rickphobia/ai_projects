@@ -1,6 +1,7 @@
 package com.rickphobia.gloss.core.note
 
-import com.rickphobia.gloss.core.context.BookPlace
+import com.rickphobia.gloss.core.Saved
+import com.rickphobia.gloss.core.context.BookLocationColumns
 import com.rickphobia.gloss.core.storage.GlossDatabase
 import java.time.Instant
 
@@ -10,6 +11,7 @@ class SqlNoteStore(
 ) : NoteStore {
     override suspend fun save(note: Note): Long =
         database.noteQueries.transactionWithResult {
+            val place = note.book?.place
             database.noteQueries.insert(
                 note.selection,
                 note.text,
@@ -17,36 +19,35 @@ class SqlNoteStore(
                 note.book?.book,
                 note.book?.author,
                 note.book?.chapter,
-                note.book?.place?.bookUrl,
-                note.book
-                    ?.place
-                    ?.chapterIndex
-                    ?.toLong(),
-                note.book
-                    ?.place
-                    ?.position
-                    ?.toLong(),
+                place?.bookUrl,
+                place?.chapterIndex?.toLong(),
+                place?.position?.toLong(),
                 note.lookupId,
             )
             database.noteQueries.lastId().executeAsOne()
         }
 
-    override suspend fun all(): List<Note> =
+    override suspend fun all(): List<Saved<Note>> =
         database.noteQueries
-            .all { selection, text, writtenAt, book, author, chapter, bookUrl, chapterIndex, position, lookupId ->
-                val place = bookUrl?.let { BookPlace(it, chapterIndex?.toInt() ?: 0, position?.toInt() ?: 0) }
-                Note(
-                    selection,
-                    text,
-                    Instant.ofEpochMilli(writtenAt),
-                    if (book != null &&
-                        place != null
-                    ) {
-                        NoteBook(book, author.orEmpty(), chapter.orEmpty(), place)
-                    } else {
-                        null
-                    },
-                    lookupId,
-                )
+            .all { id, selection, text, writtenAt, book, author, chapter, bookUrl, chapterIndex, position, lookupId ->
+                val location =
+                    BookLocationColumns.read(
+                        book,
+                        author,
+                        chapter,
+                        BookLocationColumns.place(bookUrl, chapterIndex, position),
+                    )
+                Saved(id, Note(selection, text, Instant.ofEpochMilli(writtenAt), location, lookupId))
             }.executeAsList()
+
+    override suspend fun edit(
+        id: Long,
+        text: String,
+    ) {
+        database.noteQueries.updateText(text, id)
+    }
+
+    override suspend fun delete(id: Long) {
+        database.noteQueries.delete(id)
+    }
 }

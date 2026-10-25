@@ -1,0 +1,17 @@
+-- Version 4 (ticket 06) kept no book for a Lookup: add its Book context's book, chapter and place
+-- (Lookup.sq). A Lookup with a Note on it gets the Note's, which was saved from the same Book
+-- context; the others stay under "No book".
+ALTER TABLE lookup ADD COLUMN book TEXT;
+ALTER TABLE lookup ADD COLUMN author TEXT;
+ALTER TABLE lookup ADD COLUMN chapter TEXT;
+ALTER TABLE lookup ADD COLUMN book_url TEXT;
+ALTER TABLE lookup ADD COLUMN chapter_index INTEGER;
+ALTER TABLE lookup ADD COLUMN position INTEGER;
+
+UPDATE lookup SET
+  book = (SELECT note.book FROM note WHERE note.lookup_id = lookup.id AND note.book_url IS NOT NULL ORDER BY note.id LIMIT 1),
+  author = (SELECT note.author FROM note WHERE note.lookup_id = lookup.id AND note.book_url IS NOT NULL ORDER BY note.id LIMIT 1),
+  chapter = (SELECT note.chapter FROM note WHERE note.lookup_id = lookup.id AND note.book_url IS NOT NULL ORDER BY note.id LIMIT 1),
+  book_url = (SELECT note.book_url FROM note WHERE note.lookup_id = lookup.id AND note.book_url IS NOT NULL ORDER BY note.id LIMIT 1),
+  chapter_index = (SELECT note.chapter_index FROM note WHERE note.lookup_id = lookup.id AND note.book_url IS NOT NULL ORDER BY note.id LIMIT 1),
+  position = (SELECT note.position FROM note WHERE note.lookup_id = lookup.id AND note.book_url IS NOT NULL ORDER BY note.id LIMIT 1);
