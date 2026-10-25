@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
@@ -55,9 +56,10 @@ fun SelectionCard(
     // No half-open stop: a growing chat pushes the card up to full height instead of hiding below it.
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scroll = rememberScrollState()
-    // Keep the newest turn in view as the chat grows.
-    LaunchedEffect(explain?.chat?.followUps?.size, explain?.waiting, explain?.problem) {
-        if (explain != null) scroll.animateScrollTo(scroll.maxValue)
+    // Keep the newest turn in view as the chat grows: scroll once the longer content is laid out.
+    val chatting = explain != null
+    LaunchedEffect(chatting) {
+        if (chatting) snapshotFlow { scroll.maxValue }.collect { scroll.animateScrollTo(it) }
     }
     ModalBottomSheet(onDismissRequest = onClose, sheetState = sheet) {
         Column(
@@ -74,6 +76,14 @@ fun SelectionCard(
                 fontStyle = FontStyle.Italic,
             )
             if (explain != null) {
+                // After Explain more, the Define's line stays above the chat it led to.
+                (define as? DefineResult.Answer)?.let {
+                    Text(
+                        text = it.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 ExplainChatView(explain, question, onQuestionChange, onAsk, onRetry, onOpenKeySettings)
             } else {
                 DefineView(define, onExplainMore, onRetry, onOpenKeySettings)

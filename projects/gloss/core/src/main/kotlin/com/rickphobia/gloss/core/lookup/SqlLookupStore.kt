@@ -51,7 +51,8 @@ class SqlLookupStore(
     private fun kindOf(column: String): LookupKind =
         when (column) {
             EXPLAIN -> LookupKind.Explain
-            else -> LookupKind.Define
+            DEFINE -> LookupKind.Define
+            else -> error("Unknown Lookup kind in the database: $column")
         }
 
     private companion object {
