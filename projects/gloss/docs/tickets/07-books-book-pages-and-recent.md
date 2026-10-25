@@ -4,15 +4,15 @@
 
 **Blocked by:** 06 Notes
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-bookpages, app-books, app-storage
 
 **Effort:** medium
 
-- [ ] Books screen, most recent first, including a "No book" entry for Lookups and Notes without Book context
-- [ ] Book page ordered by chapter, then position in the chapter
-- [ ] Recent: newest Lookups and Notes across books
-- [ ] A past Lookup opens to its whole chat
-- [ ] Edit and delete a Note; delete a Lookup, which also deletes its Notes after a confirmation
-- [ ] Core tests: ordering, Recent, "No book", deleting
+- [x] Books screen, most recent first, including a "No book" entry for Lookups and Notes without Book context
+- [x] Book page ordered by chapter, then position in the chapter
+- [x] Recent: newest Lookups and Notes across books
+- [x] A past Lookup opens to its whole chat
+- [x] Edit and delete a Note; delete a Lookup, which also deletes its Notes after a confirmation
+- [x] Core tests: ordering, Recent, "No book", deleting
