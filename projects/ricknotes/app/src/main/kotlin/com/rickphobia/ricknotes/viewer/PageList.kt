@@ -173,11 +173,12 @@ private class PageListView(
         val pages = pages()
         val index = pages.indexOfFirst { it.id == mark.pageId }
         val page = pages.getOrNull(index) ?: return
-        val view = zoom.value
-        val pixelsPerPoint = (zoomedListWidth(screen, view) - gapPx * 2) / page.size.widthPt.toFloat()
+        val pixelsPerPoint = (zoomedListWidth(screen, zoom.value) - gapPx * 2) / page.size.widthPt.toFloat()
         val area = withMargin(mark.box, page.size)
         val top = (area.top * pixelsPerPoint - screen.height / SCREEN_ABOVE_RED_MARK_SHARE).coerceAtLeast(0f)
         listState.scrollToItem(index, top.roundToInt())
+        // Read again after the scroll, so a pinch during it isn't undone.
+        val view = zoom.value
         val middle = gapPx + (area.left + area.right) / 2 * pixelsPerPoint
         zoom.value = view.panBy(view.panX - (middle - screen.width / 2f), screen.width.toFloat())
     }

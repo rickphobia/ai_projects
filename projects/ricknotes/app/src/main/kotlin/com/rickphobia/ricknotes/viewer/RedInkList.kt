@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -29,20 +30,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.redink.RedMark
-import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.logging.AppLog
-import com.rickphobia.ricknotes.revisionlog.CourseFolder
 
 private val PICTURE_SIZE = 120.dp
 private val LIST_MAX_HEIGHT = 560.dp
-
-/** What the Red ink badge works from: the open Document's pages, ink and Course folder. */
-internal class RedInkSource(
-    val pages: PdfPages,
-    val pageSizes: List<PageSize>,
-    val ink: DocumentInk,
-    val course: CourseFolder?,
-)
 
 /**
  * "Red ink · N" in the Document toolbar while [redInk] has Red marks, hidden when the Document or
@@ -51,10 +42,12 @@ internal class RedInkSource(
  */
 @Composable
 internal fun RedInkBadge(redInk: RedInk) {
-    val source = redInk.source
     var open by remember(redInk) { mutableStateOf(false) }
+    val offered = redInk.offered
+    // A list left open when the badge went away mustn't come back by itself with the next Red mark.
+    LaunchedEffect(offered) { if (!offered) open = false }
+    if (!offered) return
     val marks = redInk.marks
-    if (marks.isEmpty() || source.ink.readOnly || redInk.logReadOnly) return
     TextButton(onClick = {
         AppLog.i("Red ink list opened with ${marks.size} Red marks")
         open = true
@@ -67,7 +60,7 @@ internal fun RedInkBadge(redInk: RedInk) {
     }
     if (!open) return
     val close = { open = false }
-    if (source.course == null) {
+    if (redInk.course == null) {
         AlertDialog(
             onDismissRequest = close,
             title = { Text(stringResource(R.string.red_ink)) },
@@ -75,7 +68,7 @@ internal fun RedInkBadge(redInk: RedInk) {
             confirmButton = { TextButton(onClick = close) { Text(stringResource(R.string.ok)) } },
         )
     } else {
-        RedInkList(marks, source, onJump = redInk::jumpTo, onClose = close)
+        RedInkList(marks, redInk, onClose = close)
     }
 }
 
@@ -83,11 +76,10 @@ internal fun RedInkBadge(redInk: RedInk) {
 @Composable
 private fun RedInkList(
     marks: List<RedMark>,
-    source: RedInkSource,
-    onJump: (RedMark) -> Unit,
+    redInk: RedInk,
     onClose: () -> Unit,
 ) {
-    val shown = documentPages(source.ink.pages, source.pageSizes)
+    val pages = redInk.shownPages()
     AlertDialog(
         onDismissRequest = onClose,
         title = { Text(stringResource(R.string.red_ink)) },
@@ -97,11 +89,11 @@ private fun RedInkList(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(marks, key = { it.strokeIds.first().value }) { mark ->
-                    val index = shown.indexOfFirst { it.id == mark.pageId }
-                    shown.getOrNull(index)?.let { page ->
-                        RedMarkRow(mark, page, number = index + 1, source) {
+                    val index = pages.indexOfFirst { it.id == mark.pageId }
+                    pages.getOrNull(index)?.let { page ->
+                        RedMarkRow(mark, page, number = index + 1, redInk) {
                             AppLog.i("Red ink: jumping to a Red mark on page ${index + 1}")
-                            onJump(mark)
+                            redInk.jumpTo(mark)
                             onClose()
                         }
                     }
@@ -117,7 +109,7 @@ private fun RedMarkRow(
     mark: RedMark,
     page: DocumentPage,
     number: Int,
-    source: RedInkSource,
+    redInk: RedInk,
     onClick: () -> Unit,
 ) {
     Row(
@@ -126,7 +118,7 @@ private fun RedMarkRow(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Box(modifier = Modifier.size(PICTURE_SIZE), contentAlignment = Alignment.Center) {
-            redMarkPicture(mark, page, source)?.let { Image(it, contentDescription = null) }
+            redMarkPicture(mark, page, redInk)?.let { Image(it, contentDescription = null) }
         }
         Text(stringResource(R.string.red_mark_page, number), style = MaterialTheme.typography.bodyLarge)
     }
@@ -137,14 +129,14 @@ private fun RedMarkRow(
 private fun redMarkPicture(
     mark: RedMark,
     page: DocumentPage,
-    source: RedInkSource,
+    redInk: RedInk,
 ): ImageBitmap? {
     val picture by produceState<ImageBitmap?>(null, mark, page) {
         // Read here, on the main thread: the meshes are drawn again on the render thread.
-        val strokes = source.ink.on(mark.pageId).map { it.mesh }
+        val strokes = redInk.ink.on(mark.pageId).map { it.mesh }
         value =
             try {
-                renderRedMarkPicture(source.pages, page, mark.box, strokes).asImageBitmap()
+                renderRedMarkPicture(redInk.pages, page, mark.box, strokes).asImageBitmap()
             } catch (e: PageRenderException) {
                 AppLog.w("Red ink: the picture of a Red mark on page ${page.id.value} couldn't be drawn", e)
                 null

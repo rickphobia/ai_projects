@@ -102,8 +102,9 @@ fun DocumentScreen(
     DisposableEffect(pages) { onDispose { pages.close() } }
     val opening by rememberOpening(pdf, pages)
     (opening as? Opening.Ready)?.let { InkUpkeep(it.ink) }
-    if (!shown) return
+    // Counted in a hidden Tab too, so the badge is right as soon as it shows.
     val redInk = (opening as? Opening.Ready)?.let { rememberRedInk(pages, it.pageSizes, it.ink, settings.course) }
+    if (!shown) return
 
     Column(modifier = Modifier.fillMaxSize()) {
         DocumentTopBar(navigation) {
