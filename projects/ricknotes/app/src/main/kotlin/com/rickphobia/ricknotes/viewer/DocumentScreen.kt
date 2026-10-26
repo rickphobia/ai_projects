@@ -91,9 +91,7 @@ fun DocumentScreen(
     shown: Boolean,
 ) {
     val pdf = tab.pdf
-    val positions = tab.positions
-    val onBack = navigation.onBack
-    BackHandler(enabled = shown, onBack = onBack)
+    BackHandler(enabled = shown, onBack = navigation.onBack)
     val favouritePens = settings.favouritePens
     // Each Document opens with the first Favourite pen.
     val tool = remember(pdf.path) { mutableStateOf<InkTool>(InkTool.Pen(favouritePens.colours.first())) }
@@ -105,12 +103,13 @@ fun DocumentScreen(
     val opening by rememberOpening(pdf, pages)
     (opening as? Opening.Ready)?.let { InkUpkeep(it.ink) }
     if (!shown) return
+    val redInk = (opening as? Opening.Ready)?.let { rememberRedInk(pages, it.pageSizes, it.ink, settings.course) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        DocumentTopBar(onBack, navigation) {
+        DocumentTopBar(navigation) {
             SendToButton(File(pdf.path), settings.studyFolder)
             PenToolbar(tool, kind, favouritePens)
-            (opening as? Opening.Ready)?.let { InkControls(it.ink) }
+            (opening as? Opening.Ready)?.let { InkControls(it.ink, redInk) }
         }
         when (val current = opening) {
             Opening.InProgress -> {
@@ -135,12 +134,13 @@ fun DocumentScreen(
                         pages,
                         current.pageSizes,
                         pdf.path,
-                        positions,
+                        tab.positions,
                         current.ink,
                         settings.fingerGestures,
                         rememberRevisionLogAdder(pdf, settings.course, pages, current.pageSizes, current.ink),
                         openDropped = { copy -> navigation.openPdf(PdfEntry(copy.path, pdf.folder, copy.name)) },
                         sharedImage = shared?.placement,
+                        redInk = checkNotNull(redInk),
                     ) {
                         when (kind.value) {
                             PenKind.INK -> PenMode.Draw(tool.value)
@@ -174,12 +174,11 @@ private fun rememberOpening(
 /** Back, the tree drawer and split, then [tools] at the end; the tab bar above names the Document. */
 @Composable
 private fun DocumentTopBar(
-    onBack: () -> Unit,
     navigation: DocumentNavigation,
     tools: @Composable () -> Unit,
 ) {
     Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        BackButton(onBack)
+        BackButton(navigation.onBack)
         TreeButton(navigation.toggleTree)
         SplitButton(navigation.split)
         Spacer(modifier = Modifier.weight(1f))
@@ -187,9 +186,13 @@ private fun DocumentTopBar(
     }
 }
 
-/** Undo and redo, and "Not saved" while the ink isn't. */
+/** The Red ink badge, undo and redo, and "Not saved" while the ink isn't. */
 @Composable
-private fun InkControls(ink: DocumentInk) {
+private fun InkControls(
+    ink: DocumentInk,
+    redInk: RedInk?,
+) {
+    redInk?.let { RedInkBadge(it) }
     UndoRedoButtons(ink.canUndo, ink.canRedo, ink::undo, ink::redo)
     if (ink.saveStatus == SaveStatus.FAILED) {
         Text(
