@@ -35,12 +35,14 @@ One **Milestone** at a time. A milestone is several tickets (one PR each) and is
 | 2 | Pen on a Document, saved to its Ink file | Write, force-close, reopen: the ink is all there. A page of tutorial working feels as good as Nebo. Palm resting on the screen never marks or erases |
 | 3 | Folder tree editing, Notebooks, inserted pages, Send to app, sync set up | Ink written on the tablet shows up in the Drive copy within 15 minutes; a new Notebook opens in another PDF reader; a Document sent to Claude arrives with the preset prompt on the clipboard |
 | 4 | Split view | The split button or Ctrl+\ opens a second Pane (at most two); each Pane holds Tabs; dragging a Tab across moves it; the layout comes back after restarting the app |
-| 5 | Error log | 3 red marks on 2 pages make 3 labelled Entries; collecting again adds none; Review shows Entries due today |
+| 5 | Red ink and log PDF | 3 red marks on 2 pages show as 3 rows in the Red ink list; adding them makes 3 Mistakes and they aren't offered again; Not a mistake hides one for good; Export PDF writes a PDF that opens in another reader |
 | 6 | Export with ink and Version restore | An exported PDF opens with ink in another reader; an old Version restores correctly |
 | 7 | Snips | A slide diagram dragged onto a tutorial shows with a see-through background; a Snip sent to the error log appears as a Confused entry; the tutorial PDF itself is unchanged |
 | 8 | Office converter | A lecture pptx converted from the tablet at the dorm opens as a Document beside the original |
 
-**Before milestone 3:** the Revision log, Pictures and UI polish feature (`docs/specs/revision-log-and-polish.md`). It replaces the Error log below with one Revision log per Course folder, and brings Pictures forward from milestone 7. Milestone 5 now only adds automatic Red ink collection and a generated PDF of the log.
+**Before milestone 3:** the Revision log, Pictures and UI polish feature (`docs/specs/revision-log-and-polish.md`). It replaces the Error log below with one Revision log per Course folder, and brings Pictures forward from milestone 7. Milestone 5 now only adds Red ink to the Revision log and a PDF of the log.
+
+**Milestone 5:** grilled on 2026-10-25 and settled in `docs/specs/red-ink-and-log-pdf.md`, which replaces stories 74–83 below. Red ink is offered in a list and added with a tap, never collected automatically.
 
 **Milestones 3 and 4:** grilled on 2026-10-24 and settled in `docs/specs/milestones-3-4.md`, which wins where it differs from stories 53–73 below. Milestone 4 (split view, at most two Panes) is built before the rest of milestone 3, and Office files move from milestone 3 to milestone 8.
 
@@ -146,6 +148,8 @@ Milestones 1–2 are specified in detail below and ticketed now. Milestone 2 is 
 73. As a student, I want the layout (Documents, pages, Pane sizes) restored when I reopen the app, so that I continue where I left off.
 
 ### Error log (milestone 5)
+
+Replaced by `docs/specs/red-ink-and-log-pdf.md`; kept for history.
 
 74. As a student, I want red strokes drawn close together, within about a minute of each other, to count as one mistake, so that one wrong answer makes one Entry.
 75. As a student, I want a "Collect errors" button, which also runs when I close a Document, so that my red ink reaches the error log without copying.

@@ -60,6 +60,10 @@ _Avoid_: line, path, mark
 Strokes drawn with the red pen. Red ink means "I got this wrong".
 _Avoid_: correction, annotation
 
+**Red mark**:
+Red strokes on one page written close together in time and on the page, counted as one mistake. Offered in the Red ink list once its last stroke is over a minute old, until it is added as a Mistake or hidden as Not a mistake.
+_Avoid_: red group, error, correction
+
 **Finger erase**:
 An optional setting, off by default, where one finger on the page erases whole strokes instead of scrolling. Two fingers always scroll and zoom.
 _Avoid_: touch eraser, palm mode
