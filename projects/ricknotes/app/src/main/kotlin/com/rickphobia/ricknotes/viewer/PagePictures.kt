@@ -41,16 +41,18 @@ private val loadedImages =
         ): Int = value.width * value.height * BYTES_PER_PIXEL
     }
 
-/** What is drawn over a page: its Pictures, then its ink on top. */
+/** What is drawn over a page: its Pictures, then its ink on top, then the outline of a Red mark jumped to. */
 @Composable
 internal fun PageOverlay(
     ink: DocumentInk,
-    pageId: PageId,
-    pageWidthPt: Float,
+    redInk: RedInk,
+    page: DocumentPage,
     strokeRenderer: CanvasStrokeRenderer,
 ) {
-    PagePictures(ink, ink.picturesOn(pageId), pageWidthPt)
-    PageInk(ink, pageId, pageWidthPt, strokeRenderer)
+    val pageWidthPt = page.size.widthPt.toFloat()
+    PagePictures(ink, ink.picturesOn(page.id), pageWidthPt)
+    PageInk(ink, page.id, pageWidthPt, strokeRenderer)
+    RedMarkBox(redInk, page.id, pageWidthPt)
 }
 
 /**

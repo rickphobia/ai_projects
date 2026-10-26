@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-redink, app-viewer
 
@@ -12,15 +12,15 @@
 
 **Owner steps:** the on-tablet check in the PR, in the Preview app.
 
-- [ ] Red marks seam: only red pen strokes count, never the highlighter or other pens (tested)
-- [ ] Strokes on one page within the time limit (60 s after the group's last stroke) and the distance limit (a fifth of the page's shorter side) make one Red mark; a stroke past either limit starts another; pages stay separate (tested)
-- [ ] A group whose last stroke is under a minute old isn't offered (tested with a fake clock)
-- [ ] Left-out stroke IDs are skipped before grouping, and new ink beside them makes a new Red mark (tested)
-- [ ] Three red marks on two pages give three Red marks (tested)
-- [ ] Both limits are named constants
-- [ ] Red marks are recomputed off the main thread when strokes change and once a minute while the Document is open
-- [ ] Red ink drawn before this ticket is offered too
-- [ ] Outside any Course folder, the badge explains why and points to marking one; marking the folder makes the Red marks show up
-- [ ] No badge when the Document or its Revision log is open read-only
-- [ ] Logs the number of Red marks found; never strokes
-- [ ] On-tablet check written in the PR: mark two questions and a far-apart third on two pages, wait a minute, see "Red ink · 3", jump to each. Note whether the distance limit merges or splits marks wrongly on real tutorial pages
+- [x] Red marks seam: only red pen strokes count, never the highlighter or other pens (tested)
+- [x] Strokes on one page within the time limit (60 s after the group's last stroke) and the distance limit (a fifth of the page's shorter side) make one Red mark; a stroke past either limit starts another; pages stay separate (tested)
+- [x] A group whose last stroke is under a minute old isn't offered (tested with a fake clock)
+- [x] Left-out stroke IDs are skipped before grouping, and new ink beside them makes a new Red mark (tested)
+- [x] Three red marks on two pages give three Red marks (tested)
+- [x] Both limits are named constants
+- [x] Red marks are recomputed off the main thread when strokes change and once a minute while the Document is open
+- [x] Red ink drawn before this ticket is offered too
+- [x] Outside any Course folder, the badge explains why and points to marking one; marking the folder makes the Red marks show up
+- [x] No badge when the Document or its Revision log is open read-only
+- [x] Logs the number of Red marks found; never strokes
+- [x] On-tablet check written in the PR: mark two questions and a far-apart third on two pages, wait a minute, see "Red ink · 3", jump to each. Note whether the distance limit merges or splits marks wrongly on real tutorial pages

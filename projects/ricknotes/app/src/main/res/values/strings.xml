@@ -80,6 +80,11 @@
   <string name="delete_selection">Delete</string>
   <string name="add_mistake">Add mistake</string>
   <string name="add_key_point">Add key point</string>
+  <string name="red_ink">Red ink</string>
+  <string name="red_ink_badge">Red ink · %1$d</string>
+  <string name="red_mark_page">Page %1$d</string>
+  <string name="red_ink_no_course_folder">This Document has red ink, but it isn\'t inside a Course folder, so there is no Revision log to add it to. On the home screen, long-press its course\'s folder and pick "Mark as course"; its red ink shows up here then.</string>
+  <string name="close">Close</string>
   <string name="adding_to_course">Adding to %1$s…</string>
   <string name="added_to_course">Added to %1$s</string>
   <string name="no_course_folder">This Document isn\'t inside a Course folder, so it has no Revision log. On the home screen, long-press its course\'s folder and pick "Mark as course".</string>

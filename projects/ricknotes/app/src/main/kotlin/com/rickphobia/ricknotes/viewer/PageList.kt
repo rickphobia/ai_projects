@@ -36,6 +36,7 @@ import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
 import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.PagePlacement
+import com.rickphobia.ricknotes.core.redink.RedMark
 import com.rickphobia.ricknotes.core.revisionlog.EntryKind
 import com.rickphobia.ricknotes.core.touch.FingerGestures
 import com.rickphobia.ricknotes.ink.DocumentInk
@@ -64,6 +65,9 @@ private const val SAVE_DELAY_MS = 500L
 // A sharp part reaches this share of the screen past each edge, so small scrolls stay sharp.
 private const val SHARP_MARGIN_SHARE = 8
 
+// A Red mark jumped to sits a quarter of the screen down, with the question above it in view.
+private const val SCREEN_ABOVE_RED_MARK_SHARE = 4f
+
 /** Where the pages of one Document are being looked at from: what [PageList] needs from its screen. */
 internal data class OpenDocument(
     val pages: PdfPages,
@@ -75,6 +79,7 @@ internal data class OpenDocument(
     val revisionLog: RevisionLogAdder,
     val openDropped: (File) -> Unit,
     val sharedImage: SharedImagePlacement?,
+    val redInk: RedInk,
     val penMode: () -> PenMode,
 ) {
     /** A PDF dropped onto a page is copied into this Document's folder. */
@@ -129,7 +134,7 @@ internal fun PageList(document: OpenDocument) {
         ) {
             // Keyed by page ID, so a page keeps its drawn image when one is inserted above it.
             itemsIndexed(pagesState.value, key = { _, page -> page.id.value }) { index, page ->
-                val overlay = @Composable { PageOverlay(ink, page.id, page.size.widthPt.toFloat(), strokeRenderer) }
+                val overlay = @Composable { PageOverlay(ink, document.redInk, page, strokeRenderer) }
                 val background = page.background
                 if (background != null) {
                     InsertedPageView(background, page.size, number = index + 1, overlay)
@@ -162,9 +167,27 @@ private class PageListView(
         val pageWidth = zoomedListWidth(screen, view) - gapPx * 2
         return pagePlacements(visiblePages(listState.layoutInfo), pages(), pageWidth, gapPx, view)
     }
+
+    /** Scrolls to [mark] with it a little way down the screen, and pans sideways to its middle. */
+    suspend fun scrollTo(mark: RedMark) {
+        val pages = pages()
+        val index = pages.indexOfFirst { it.id == mark.pageId }
+        val page = pages.getOrNull(index) ?: return
+        val pixelsPerPoint = (zoomedListWidth(screen, zoom.value) - gapPx * 2) / page.size.widthPt.toFloat()
+        val area = withMargin(mark.box, page.size)
+        val top = (area.top * pixelsPerPoint - screen.height / SCREEN_ABOVE_RED_MARK_SHARE).coerceAtLeast(0f)
+        listState.scrollToItem(index, top.roundToInt())
+        // Read again after the scroll, so a pinch during it isn't undone.
+        val view = zoom.value
+        val middle = gapPx + (area.left + area.right) / 2 * pixelsPerPoint
+        zoom.value = view.panBy(view.panX - (middle - screen.width / 2f), screen.width.toFloat())
+    }
 }
 
-/** The ink layer over the pages: it takes every touch, writes with the pen and moves [list] with fingers. */
+/**
+ * The ink layer over the pages: it takes every touch, writes with the pen and moves [list] with
+ * fingers. [list] also moves to a Red mark picked in the Red ink list.
+ */
 @Composable
 private fun TouchLayer(
     document: OpenDocument,
@@ -176,6 +199,7 @@ private fun TouchLayer(
         remember(list.listState, list.screen, scope, flingBehavior) {
             PageNavigation(list.zoom, list.listState, list.screen, scope, flingBehavior)
         }
+    JumpToRedMark(document.redInk, list::scrollTo)
     InkLayer(
         ink = document.ink,
         placements = list::placements,
