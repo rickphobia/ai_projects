@@ -223,6 +223,27 @@ class DocumentSessionTest {
     }
 
     @Test
+    fun `strokes hidden as not a mistake are saved, aren't an undo step and survive reopening`() {
+        open().apply {
+            addStroke(stroke("a"))
+            hideNotMistakes(setOf(StrokeId("a"), StrokeId("erased later")))
+            assertEquals(setOf(StrokeId("a"), StrokeId("erased later")), hiddenStrokes)
+            assertTrue("only the stroke is an undo step", undo())
+            assertFalse(canUndo)
+            assertEquals(setOf(StrokeId("a"), StrokeId("erased later")), hiddenStrokes)
+            saveNow()
+        }
+
+        assertEquals(setOf(StrokeId("a"), StrokeId("erased later")), open().hiddenStrokes)
+    }
+
+    @Test
+    fun `an Ink file without hidden strokes opens with none hidden`() {
+        Files.writeString(inkFile, InkFileCodec.encode(InkFile.empty(1)))
+        assertEquals(emptySet<StrokeId>(), open(pageCount = 1).hiddenStrokes)
+    }
+
+    @Test
     fun `a Document that isn't a Notebook has no Notebook background`() {
         assertEquals(null, open().notebook)
     }

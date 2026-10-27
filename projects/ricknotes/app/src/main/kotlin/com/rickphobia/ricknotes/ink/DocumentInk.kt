@@ -97,6 +97,10 @@ internal class DocumentInk private constructor(
 
     /** The background printed into this Document if the app made it as a Notebook, else null. */
     val notebook: PageBackground? get() = session.notebook
+
+    /** The red strokes hidden as not a mistake; read again after each change, like [readOnly]. */
+    val hiddenStrokes: Set<StrokeId> get() = changes.intValue.let { session.hiddenStrokes }
+
     val assetsFolder: File get() = session.assetsFolder.toFile()
     val warnings: List<SessionWarning> get() = session.warnings
     val saveStatus: SaveStatus get() = held.status.current.value
@@ -110,6 +114,18 @@ internal class DocumentInk private constructor(
         session.addStroke(stroke.stroke)
         strokes.add(stroke)
         changed()
+    }
+
+    /**
+     * Hides these red strokes as not a mistake, for good; not an undo step. Every Tab of the
+     * Document counts its Red marks again.
+     */
+    fun hideNotMistakes(ids: Set<StrokeId>) {
+        session.hideNotMistakes(ids)
+        AppLog.i("Not a mistake: ${ids.size} strokes hidden")
+        held.revision.intValue++
+        drawnRevision = held.revision.intValue
+        changes.intValue++
     }
 
     /** Removes the strokes with these IDs, as one undo step. */

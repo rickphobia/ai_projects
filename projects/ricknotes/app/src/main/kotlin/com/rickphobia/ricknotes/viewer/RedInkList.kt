@@ -120,7 +120,12 @@ private fun RedMarkRow(
         Box(modifier = Modifier.size(PICTURE_SIZE), contentAlignment = Alignment.Center) {
             redMarkPicture(mark, page, redInk)?.let { Image(it, contentDescription = null) }
         }
-        Text(stringResource(R.string.red_mark_page, number), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            stringResource(R.string.red_mark_page, number),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = { redInk.hide(mark) }) { Text(stringResource(R.string.not_a_mistake)) }
     }
 }
 
