@@ -72,7 +72,10 @@ internal fun RedInkBadge(redInk: RedInk) {
     }
 }
 
-/** The Red marks in page order, each with a small picture and its page number; a row jumps to it. */
+/**
+ * The Red marks in page order, each with a small picture and its page number; a row jumps to it.
+ * Add mistake closes the list, so the "Added" note under the pages can be seen and edited.
+ */
 @Composable
 private fun RedInkList(
     marks: List<RedMark>,
@@ -91,11 +94,7 @@ private fun RedInkList(
                 items(marks, key = { it.strokeIds.first().value }) { mark ->
                     val index = pages.indexOfFirst { it.id == mark.pageId }
                     pages.getOrNull(index)?.let { page ->
-                        RedMarkRow(mark, page, number = index + 1, redInk) {
-                            AppLog.i("Red ink: jumping to a Red mark on page ${index + 1}")
-                            redInk.jumpTo(mark)
-                            onClose()
-                        }
+                        RedMarkRow(mark, page, number = index + 1, redInk, onClose)
                     }
                 }
             }
@@ -110,10 +109,15 @@ private fun RedMarkRow(
     page: DocumentPage,
     number: Int,
     redInk: RedInk,
-    onClick: () -> Unit,
+    onClose: () -> Unit,
 ) {
+    val jump = {
+        AppLog.i("Red ink: jumping to a Red mark on page $number")
+        redInk.jumpTo(mark)
+        onClose()
+    }
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(4.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = jump).padding(4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -125,6 +129,7 @@ private fun RedMarkRow(
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f),
         )
+        TextButton(onClick = { if (redInk.add(mark)) onClose() }) { Text(stringResource(R.string.add_mistake)) }
         TextButton(onClick = { redInk.hide(mark) }) { Text(stringResource(R.string.not_a_mistake)) }
     }
 }

@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.rickphobia.ricknotes.core.redink.RedMark
 import com.rickphobia.ricknotes.core.revisionlog.Entry
 import com.rickphobia.ricknotes.core.revisionlog.EntryKind
 import com.rickphobia.ricknotes.core.revisionlog.EntrySource
@@ -13,6 +14,7 @@ import com.rickphobia.ricknotes.core.revisionlog.MistakeCategory
 import com.rickphobia.ricknotes.core.revisionlog.RevisionLogSession
 import com.rickphobia.ricknotes.core.revisionlog.SnipSaveFailed
 import com.rickphobia.ricknotes.core.revisionlog.Snips
+import com.rickphobia.ricknotes.core.session.PageRect
 import com.rickphobia.ricknotes.core.studyfolder.CourseFolders
 import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.ink.DocumentInk
@@ -20,9 +22,11 @@ import com.rickphobia.ricknotes.ink.LassoSelection
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.snip.SnipRegion
 import com.rickphobia.ricknotes.snip.renderSnips
+import com.rickphobia.ricknotes.viewer.DocumentPage
 import com.rickphobia.ricknotes.viewer.PageRenderException
 import com.rickphobia.ricknotes.viewer.PageSize
 import com.rickphobia.ricknotes.viewer.PdfPages
+import com.rickphobia.ricknotes.viewer.RED_MARK_OUTLINE_MARGIN_PT
 import com.rickphobia.ricknotes.viewer.documentPages
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -88,8 +92,8 @@ internal fun rememberRevisionLogAdder(
 }
 
 /**
- * Adds the Lasso selection of one open Document to its Course folder's Revision log, as a Mistake
- * or a Key point, and holds the [note] that says so. Rendering the Snips and writing the files
+ * Adds the Lasso selection or a Red mark of one open Document to its Course folder's Revision log,
+ * as a Mistake or a Key point, and holds the [note] that says so. Rendering the Snips and writing the files
  * happen off the main thread; the Document's ink and its PDF are only read. Call on the main thread.
  */
 internal class RevisionLogAdder(
@@ -102,6 +106,9 @@ internal class RevisionLogAdder(
 ) {
     var note by mutableStateOf<RevisionLogNote?>(null)
         private set
+
+    /** The Document's path in the Study folder, as its Entries name it. */
+    val documentPath: String get() = document.treePath
 
     /** Adds the selection as an Entry of [kind], then lets go of it. */
     fun add(kind: EntryKind) {
@@ -150,6 +157,55 @@ internal class RevisionLogAdder(
         }
     }
 
+    /**
+     * Adds [mark] as a Mistake whose Snips are its whole page, the back with the Red mark outlined,
+     * and keeps its stroke IDs and box. [onDone] runs on the main thread with whether it was added.
+     * Returns false, doing nothing, when the Document is in no Course folder, another add is still
+     * running, or the mark's page isn't shown.
+     */
+    fun addRedMark(
+        mark: RedMark,
+        onDone: (added: Boolean) -> Unit,
+    ): Boolean {
+        val course = course
+        val shown = documentPages(ink.pages, pageSizes)
+        val pageIndex = shown.indexOfFirst { it.id == mark.pageId }
+        if (course == null || note is RevisionLogNote.Adding || pageIndex < 0) {
+            if (pageIndex < 0) AppLog.w("Add mistake from a Red mark: its page ${mark.pageId.value} isn't shown")
+            return false
+        }
+        addRedMark(mark, course, shown[pageIndex], pageIndex + 1, onDone)
+        return true
+    }
+
+    private fun addRedMark(
+        mark: RedMark,
+        course: CourseFolder,
+        page: DocumentPage,
+        pageNumber: Int,
+        onDone: (added: Boolean) -> Unit,
+    ) {
+        val area = PageRect(0f, 0f, page.size.widthPt.toFloat(), page.size.heightPt.toFloat())
+        val snip = checkNotNull(SnipRegion.of(area, page.size)) { "a whole page is on the page" }
+        // Read here, on the main thread: the meshes are drawn again on the render thread.
+        val strokes = ink.on(mark.pageId).map { it.mesh }
+        val source = EntrySource(document.treePath, mark.pageId, pageNumber, area)
+        val outline = mark.box.grownBy(RED_MARK_OUTLINE_MARGIN_PT)
+        note = RevisionLogNote.Adding(course.name)
+        scope.launch {
+            val result =
+                try {
+                    val snips = renderSnips(pages, page, snip, strokes, outline)
+                    added(course, EntryKind.MISTAKE, source, snips, fromMark = mark)
+                } catch (e: PageRenderException) {
+                    AppLog.e("Mistake not added to ${course.name} from a Red mark: its Snips couldn't be drawn", e)
+                    RevisionLogNote.Failed(course.name)
+                }
+            note = result
+            onDone(result is RevisionLogNote.Added)
+        }
+    }
+
     /** Sets the category and "why" line of the Entry just added. */
     fun edit(
         category: MistakeCategory?,
@@ -170,14 +226,19 @@ internal class RevisionLogAdder(
         kind: EntryKind,
         source: EntrySource,
         snips: Snips,
+        fromMark: RedMark? = null,
     ): RevisionLogNote =
         withContext(Dispatchers.IO) {
             val session = RevisionLogSessions.open(course.folder)
             val damaged = session.damaged
             if (damaged != null) return@withContext RevisionLogNote.LogUnreadable(course.name, damaged.reason)
             try {
-                val entry = session.addEntry(kind, source, snips)
-                AppLog.i("Entry added to ${course.name}: ${entry.id.value}, ${kind.name.lowercase()}")
+                val entry = session.addEntry(kind, source, snips, fromMark?.strokeIds.orEmpty(), fromMark?.box)
+                if (fromMark != null) {
+                    AppLog.i("Mistake added from a Red mark to ${course.name}: ${entry.id.value}")
+                } else {
+                    AppLog.i("Entry added to ${course.name}: ${entry.id.value}, ${kind.name.lowercase()}")
+                }
                 RevisionLogNote.Added(course.name, entry, session)
             } catch (e: SnipSaveFailed) {
                 AppLog.e("Entry not added to ${course.name}", e)

@@ -13,8 +13,8 @@ import androidx.compose.ui.unit.dp
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.redink.RedMark
 
-// The outline sits this far outside the Red mark, in PDF points, so it doesn't cover the ink.
-private const val BOX_MARGIN_PT = 12f
+/** A Red mark's outline sits this far outside it, in PDF points, so it doesn't cover the ink. */
+internal const val RED_MARK_OUTLINE_MARGIN_PT = 12f
 
 private val BOX_LINE = 3.dp
 
@@ -40,7 +40,7 @@ internal fun RedMarkBox(
     val colour = MaterialTheme.colorScheme.primary
     Canvas(modifier = Modifier.fillMaxSize()) {
         val pixelsPerPoint = size.width / pageWidthPt
-        val box = mark.box.grownBy(BOX_MARGIN_PT)
+        val box = mark.box.grownBy(RED_MARK_OUTLINE_MARGIN_PT)
         val topLeft = Offset(box.left * pixelsPerPoint, box.top * pixelsPerPoint)
         val boxSize = Size((box.right - box.left) * pixelsPerPoint, (box.bottom - box.top) * pixelsPerPoint)
         drawRect(colour, topLeft, boxSize, style = Stroke(width = BOX_LINE.toPx()))

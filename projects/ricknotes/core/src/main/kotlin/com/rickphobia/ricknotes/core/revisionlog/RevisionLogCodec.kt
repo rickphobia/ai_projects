@@ -65,6 +65,8 @@ internal object RevisionLogCodec {
             why = why,
             ratings = ratings.map { RatingJson(it.atMs, it.grade.name.lowercase()) },
             redos = redos.map { redo -> RedoJson(redo.atMs, redo.strokes.map { it.toJson() }) },
+            redStrokes = redStrokeIds.map { it.value },
+            box = box?.let { AreaJson(it.left, it.top, it.right, it.bottom) },
         )
 
     // No page: every Redo stroke is on Redo.PAGE.
@@ -108,6 +110,8 @@ internal object RevisionLogCodec {
             why = why,
             ratings = ratings.map { Rating(it.atMs, named(Grade.entries, it.grade, "grade")) },
             redos = redos.map { redo -> Redo(redo.atMs, redo.strokes.map { it.toStroke() }) },
+            redStrokeIds = redStrokes.map(::StrokeId),
+            box = box?.let { PageRect(it.left, it.top, it.right, it.bottom) },
         )
 
     private fun <E : Enum<E>> named(
@@ -150,6 +154,10 @@ private data class EntryJson(
     val ratings: List<RatingJson> = emptyList(),
     // Logs from before Redos have none.
     val redos: List<RedoJson> = emptyList(),
+    // Logs from before Red marks have neither. Defaults aren't written, so an Entry without them reads
+    // as before and the format version stays.
+    val redStrokes: List<String> = emptyList(),
+    val box: AreaJson? = null,
 )
 
 @Serializable

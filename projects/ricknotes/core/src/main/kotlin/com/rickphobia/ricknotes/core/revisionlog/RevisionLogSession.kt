@@ -1,8 +1,10 @@
 package com.rickphobia.ricknotes.core.revisionlog
 
 import com.rickphobia.ricknotes.core.ink.Stroke
+import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.session.AutoSave
 import com.rickphobia.ricknotes.core.session.Clock
+import com.rickphobia.ricknotes.core.session.PageRect
 import com.rickphobia.ricknotes.core.session.SaveListener
 import com.rickphobia.ricknotes.core.session.SaveStatus
 import com.rickphobia.ricknotes.core.session.writeSafely
@@ -57,6 +59,7 @@ class RevisionLogSession private constructor(
     /**
      * Adds an Entry of [kind] from [source], first due [ReviewSchedule.FIRST_GAP_DAYS] days from today. Its
      * [snips] are written before the Entry is, so the log never names a Snip that isn't there.
+     * [redStrokeIds] are the red strokes it came from and [box] the Red mark's box, if any.
      * Writes files: call it off the main thread.
      *
      * @throws SnipSaveFailed if a Snip can't be written; no Entry is added.
@@ -65,6 +68,8 @@ class RevisionLogSession private constructor(
         kind: EntryKind,
         source: EntrySource,
         snips: Snips,
+        redStrokeIds: List<StrokeId> = emptyList(),
+        box: PageRect? = null,
     ): Entry {
         check(!readOnly) { "$LOG_FILE in ${folder.parent.fileName} is open read-only" }
         val now = clock.nowMs()
@@ -75,6 +80,8 @@ class RevisionLogSession private constructor(
                 source = source,
                 addedAtMs = now,
                 schedule = ReviewSchedule.first(dayIn(zone, now)),
+                redStrokeIds = redStrokeIds,
+                box = box,
             )
         writeSnip(frontSnip(entry), snips.front)
         writeSnip(backSnip(entry), snips.back)
