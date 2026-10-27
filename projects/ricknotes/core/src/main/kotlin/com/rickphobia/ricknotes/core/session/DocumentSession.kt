@@ -67,7 +67,16 @@ class DocumentSession private constructor(
             clock,
             listener,
             unreadable,
-            snapshot = { InkFile(pageCount, history.pages, history.strokes, history.pictures, content.notebook) },
+            snapshot = {
+                InkFile(
+                    pageCount,
+                    history.pages,
+                    history.strokes,
+                    history.pictures,
+                    content.notebook,
+                    content.hiddenStrokes,
+                )
+            },
         ) { InkFileCodec.encode(it).toByteArray(Charsets.UTF_8) }
     private val lock = saving.lock
 
@@ -85,6 +94,22 @@ class DocumentSession private constructor(
 
     /** The background printed into this Document's pages if the app made it as a Notebook, else null. */
     val notebook: PageBackground? get() = synchronized(lock) { content.notebook }
+
+    /** The red strokes hidden as not a mistake, which no Red mark offers again. */
+    val hiddenStrokes: Set<StrokeId> get() = synchronized(lock) { content.hiddenStrokes }
+
+    /**
+     * Hides these stroke IDs as not a mistake, for good. It saves like any change but isn't an undo
+     * step: it is a Red ink list action, not an edit of the page.
+     */
+    fun hideNotMistakes(ids: Set<StrokeId>) {
+        checkWritable()
+        synchronized(lock) {
+            if (content.hiddenStrokes.containsAll(ids)) return
+            content = content.copy(hiddenStrokes = content.hiddenStrokes + ids)
+            saving.changed()
+        }
+    }
 
     /** Every page in the order it shows: the PDF's own pages with any Inserted pages between them. */
     val pages: List<InkPage> get() = synchronized(lock) { history.pages }

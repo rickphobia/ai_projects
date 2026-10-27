@@ -4,6 +4,7 @@ import com.rickphobia.ricknotes.core.ink.PageBackground
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.Picture
 import com.rickphobia.ricknotes.core.ink.Stroke
+import com.rickphobia.ricknotes.core.ink.StrokeId
 
 /**
  * One page of a Document as its Ink file lists it: one of the PDF's own pages, or an Inserted page,
@@ -20,7 +21,8 @@ data class InkPage(
  * Everything an Ink file holds: the PDF's page count when it was saved, the page list, the strokes
  * and the Pictures. The PDF itself is never written to (decision 0003). [notebook] is the
  * background printed into the PDF when the app made it as a Notebook, so Add page can match it;
- * null for every other Document.
+ * null for every other Document. [hiddenStrokes] are the red strokes the student said are not a
+ * mistake, so no Red mark offers them again; an ID may outlive its erased stroke.
  */
 data class InkFile(
     val pdfPageCount: Int,
@@ -28,6 +30,7 @@ data class InkFile(
     val strokes: List<Stroke>,
     val pictures: List<Picture> = emptyList(),
     val notebook: PageBackground? = null,
+    val hiddenStrokes: Set<StrokeId> = emptySet(),
 ) {
     companion object {
         /** A Document nobody has written on yet: one page per PDF page, no strokes and no Pictures. */

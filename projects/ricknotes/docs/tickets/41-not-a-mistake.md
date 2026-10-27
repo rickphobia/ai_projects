@@ -4,7 +4,7 @@
 
 **Blocked by:** 40 (Red ink list)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-session, core-inkfile, app-viewer
 
@@ -12,8 +12,8 @@
 
 **Owner steps:** the on-tablet check in the PR, in the Preview app.
 
-- [ ] Document session: hiding stroke IDs saves like any change, isn't an undo step, and survives reopening (tested)
-- [ ] An Ink file without the field opens with nothing hidden; the format version doesn't change (tested)
-- [ ] Hidden IDs are left out of the Red marks
-- [ ] Logs Not a mistake with the number of strokes; never strokes
-- [ ] On-tablet check written in the PR: hide a Red mark, close and reopen the Document, it stays hidden
+- [x] Document session: hiding stroke IDs saves like any change, isn't an undo step, and survives reopening (tested)
+- [x] An Ink file without the field opens with nothing hidden; the format version doesn't change (tested)
+- [x] Hidden IDs are left out of the Red marks
+- [x] Logs Not a mistake with the number of strokes; never strokes
+- [x] On-tablet check written in the PR: hide a Red mark, close and reopen the Document, it stays hidden

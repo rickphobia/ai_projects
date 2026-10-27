@@ -37,6 +37,7 @@ object InkFileCodec {
                 strokes = file.strokes.map { it.toJson() },
                 pictures = file.pictures.map { it.toJson() },
                 notebook = file.notebook?.name?.lowercase(),
+                hiddenStrokes = file.hiddenStrokes.map { it.value },
             ),
         )
 
@@ -79,7 +80,8 @@ object InkFileCodec {
                 }
             }
         val notebookValue = notebook?.let { backgroundNamed(it) { "the Notebook has an unknown background \"$it\"" } }
-        return InkFile(pdfPageCount, inkPages, inkStrokes, inkPictures, notebookValue)
+        val hidden = hiddenStrokes.map(::StrokeId).toSet()
+        return InkFile(pdfPageCount, inkPages, inkStrokes, inkPictures, notebookValue, hidden)
     }
 
     private fun PageJson.toPage(): InkPage {
@@ -136,6 +138,8 @@ private data class InkFileJson(
     val pictures: List<PictureJson> = emptyList(),
     // Only on a Notebook. An older app ignores it, so it isn't a format version of its own.
     val notebook: String? = null,
+    // Only once a red stroke is hidden as not a mistake; an older app ignores it too.
+    val hiddenStrokes: List<String> = emptyList(),
 )
 
 // [background] is set only on an Inserted page, and absent before format version 3.

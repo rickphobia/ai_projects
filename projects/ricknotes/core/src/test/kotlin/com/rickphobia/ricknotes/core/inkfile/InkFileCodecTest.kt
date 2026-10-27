@@ -9,6 +9,7 @@ import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.ink.StrokePoint
 import com.rickphobia.ricknotes.core.ink.Tool
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -109,6 +110,19 @@ class InkFileCodecTest {
         assertEquals(notebook, InkFileCodec.decode(text, "a.pdf.ink.json"))
         assertTrue(text, text.contains("\"notebook\": \"dotted\""))
         assertEquals(null, InkFileCodec.decode(InkFileCodec.encode(file), "a.pdf.ink.json").notebook)
+    }
+
+    @Test
+    fun `hidden strokes round-trip, are left out when there are none, and keep the format version`() {
+        val hidden = file.copy(hiddenStrokes = setOf(StrokeId("s1")))
+
+        val text = InkFileCodec.encode(hidden)
+
+        assertEquals(hidden, InkFileCodec.decode(text, "a.pdf.ink.json"))
+        assertTrue(text, text.contains("\"formatVersion\": ${InkFileCodec.FORMAT_VERSION}"))
+        assertFalse(InkFileCodec.encode(file).contains("hiddenStrokes"))
+        val none = InkFileCodec.decode(InkFileCodec.encode(file), "a.pdf.ink.json")
+        assertEquals(emptySet<StrokeId>(), none.hiddenStrokes)
     }
 
     @Test

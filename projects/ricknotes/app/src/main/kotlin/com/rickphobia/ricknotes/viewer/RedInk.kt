@@ -62,6 +62,12 @@ internal class RedInk(
         jumps++
     }
 
+    /** Not a mistake: hides [mark] for good, and drops it from the list at once. */
+    fun hide(mark: RedMark) {
+        ink.hideNotMistakes(mark.strokeIds.toSet())
+        marks = marks - mark
+    }
+
     /** Lets go of the outline, when the ink changes under it. */
     fun forgetJump() {
         jumpedTo = null
@@ -73,8 +79,9 @@ internal class RedInk(
         val strokes = shown.flatMap { page -> ink.on(page.id).map { it.stroke } }
         val marked = shown.map { MarkedPage(it.id, it.size.widthPt.toFloat(), it.size.heightPt.toFloat()) }
         val now = System.currentTimeMillis()
-        // Nothing is logged or hidden yet: tickets 41 and 42 add those stroke IDs here.
-        val found = withContext(Dispatchers.Default) { RedMarks.find(strokes, marked, now, leftOut = emptySet()) }
+        // Logged stroke IDs join the hidden ones in ticket 42.
+        val hidden = ink.hiddenStrokes
+        val found = withContext(Dispatchers.Default) { RedMarks.find(strokes, marked, now, leftOut = hidden) }
         if (found.size != marks.size) AppLog.i("Red ink: ${found.size} Red marks found")
         marks = found
     }
