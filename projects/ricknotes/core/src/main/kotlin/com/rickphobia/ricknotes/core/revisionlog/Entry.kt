@@ -2,6 +2,7 @@ package com.rickphobia.ricknotes.core.revisionlog
 
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.Stroke
+import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.session.PageRect
 import java.time.LocalDate
 
@@ -70,6 +71,8 @@ class Snips(
 /**
  * One item in a Revision log. [addedAtMs] is wall-clock epoch time; [category] is for Mistakes
  * only; [ratings] are every rating it got in Review and [redos] every Redo written, oldest first.
+ * [redStrokeIds] are the red strokes of its Document it was made from, so they aren't offered as a
+ * Red mark again; [box] is the Red mark's box in page points, for an Entry added from one.
  */
 data class Entry(
     val id: EntryId,
@@ -81,6 +84,8 @@ data class Entry(
     val why: String? = null,
     val ratings: List<Rating> = emptyList(),
     val redos: List<Redo> = emptyList(),
+    val redStrokeIds: List<StrokeId> = emptyList(),
+    val box: PageRect? = null,
 ) {
     init {
         require(kind == EntryKind.MISTAKE || category == null) { "a Key point has no category" }

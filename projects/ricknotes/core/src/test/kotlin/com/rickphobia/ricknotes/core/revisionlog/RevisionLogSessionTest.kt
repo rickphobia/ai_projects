@@ -1,6 +1,7 @@
 package com.rickphobia.ricknotes.core.revisionlog
 
 import com.rickphobia.ricknotes.core.ink.PageId
+import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.session.Clock
 import com.rickphobia.ricknotes.core.session.InkSaveFailed
 import com.rickphobia.ricknotes.core.session.PageRect
@@ -368,5 +369,59 @@ class RevisionLogSessionTest {
         Files.write(logFolder.resolve(".revision_log.json.tmp"), byteArrayOf())
 
         assertEquals(emptyList<String>(), open().conflictCopies)
+    }
+
+    @Test
+    fun `an Entry from a Red mark reopens with its red stroke IDs and its box`() {
+        val session = open()
+        val strokes = listOf(StrokeId("s-1"), StrokeId("s-2"))
+        val box = PageRect(120f, 300.5f, 260f, 410f)
+
+        val added = session.addEntry(EntryKind.MISTAKE, source, Snips(FRONT, BACK), strokes, box)
+        val entry = reopen(session).entries.single()
+
+        assertEquals(added, entry)
+        assertEquals(strokes, entry.redStrokeIds)
+        assertEquals(box, entry.box)
+    }
+
+    @Test
+    fun `the logged red stroke IDs are those of one Document's Entries only`() {
+        val session = open()
+        val other = source.copy(documentPath = "Y1/Sem1/EE2001/tutorial/tuto4.pdf")
+        session.addEntry(EntryKind.MISTAKE, source, Snips(FRONT, BACK), listOf(StrokeId("a"), StrokeId("b")))
+        session.addEntry(EntryKind.MISTAKE, other, Snips(FRONT, BACK), listOf(StrokeId("c")))
+        session.addEntry(EntryKind.MISTAKE, source, Snips(FRONT, BACK), listOf(StrokeId("d")))
+        session.addEntry(EntryKind.KEY_POINT, source, Snips(FRONT, BACK))
+
+        val logged = reopen(session).loggedRedStrokes(source.documentPath)
+
+        assertEquals(setOf(StrokeId("a"), StrokeId("b"), StrokeId("d")), logged)
+    }
+
+    @Test
+    fun `a log from before Red marks opens with no stroke IDs or boxes and keeps its format version`() {
+        Files.createDirectories(logFolder)
+        Files.write(
+            logFile,
+            """
+            {"formatVersion": 1, "entries": [{"id": "e-1", "kind": "mistake",
+              "document": "Y1/Sem1/EE2001/tutorial/tuto3.pdf", "page": "pdf-4", "pageNumber": 4,
+              "area": {"left": 0, "top": 0, "right": 10, "bottom": 10},
+              "addedAtMs": 1, "dueDate": "2026-10-26", "gapDays": 3}]}
+            """.trimIndent().toByteArray(),
+        )
+        val session = open()
+
+        val entry = session.entries.single()
+        session.edit(entry.id, MistakeCategory.ALGEBRA, null)
+        session.saveNow()
+
+        assertEquals(emptyList<StrokeId>(), entry.redStrokeIds)
+        assertNull(entry.box)
+        assertEquals(emptySet<StrokeId>(), session.loggedRedStrokes(entry.source.documentPath))
+        val written = String(Files.readAllBytes(logFile), Charsets.UTF_8)
+        assertTrue(written.contains("\"formatVersion\": 1"))
+        assertFalse(written.contains("box"))
     }
 }
