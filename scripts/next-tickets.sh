@@ -21,6 +21,8 @@
 #   NEXT_TICKETS_REF              git ref to read tickets from (default origin/main)
 #   NEXT_TICKETS_FETCH            1 to `git fetch` the ref's remote first, 0 to skip (default 1)
 #   NEXT_TICKETS_MAX_SESSIONS     ticket sessions running at once, all projects (default 3)
+#   NEXT_TICKETS_OWN_SCOPE        1 to start each session in its own systemd user scope when
+#                                 systemd-run exists, 0 to start it directly (default 1)
 set -euo pipefail
 
 model="${NEXT_TICKETS_MODEL:-claude-opus-5-5}"
@@ -28,6 +30,7 @@ permission_mode="${NEXT_TICKETS_PERMISSION_MODE:-auto}"
 ref="${NEXT_TICKETS_REF:-origin/main}"
 fetch="${NEXT_TICKETS_FETCH:-1}"
 max_sessions="${NEXT_TICKETS_MAX_SESSIONS:-3}"
+own_scope="${NEXT_TICKETS_OWN_SCOPE:-1}"
 [[ $max_sessions =~ ^[0-9]+$ ]] || { printf 'next-tickets: NEXT_TICKETS_MAX_SESSIONS must be a number\n' >&2; exit 1; }
 
 die() {
@@ -215,9 +218,17 @@ main() {
     return 0
   fi
 
+  # The first `claude --bg` starts the background service, which stays in its caller's cgroup.
+  # When that caller is a systemd unit (the after-merge timer's oneshot run, a remote-control
+  # session), the unit ending or restarting kills the service and every ticket session in it:
+  # on 2026-10-27 the timer started ricknotes-42 three times and each died within seconds.
+  local -a scope=()
+  if [[ $own_scope == 1 ]] && command -v systemd-run >/dev/null; then
+    scope=(systemd-run --user --scope --quiet --collect)
+  fi
   local -a commands=()
   for nn in "${start[@]}"; do
-    commands+=("$(printf '%q ' claude --bg --name "$project-$nn" --model "$model" \
+    commands+=("$(printf '%q ' "${scope[@]}" claude --bg --name "$project-$nn" --model "$model" \
       --effort "${effort[$nn]}" --permission-mode "$permission_mode" \
       "/implement ${path[$nn]} (work on branch $project/$nn-${slug[$nn]})")")
   done

@@ -52,7 +52,15 @@ else
 fi
 EOF
 printf '#!/usr/bin/env bash\necho ""\n' >"$work/bin/gh"
-chmod +x "$work/bin/claude" "$work/bin/gh"
+# `systemd-run` logs its options, then runs the command after them.
+cat >"$work/bin/systemd-run" <<'EOF'
+#!/usr/bin/env bash
+options=()
+while [[ $1 == --* ]]; do options+=("$1"); shift; done
+printf 'scope:%s|' "${options[*]}" >>"$CLAUDE_STUB_LOG"
+exec "$@"
+EOF
+chmod +x "$work/bin/claude" "$work/bin/gh" "$work/bin/systemd-run"
 export PATH="$work/bin:$PATH" CLAUDE_STUB_LOG="$work/claude.log"
 # A limit high enough that only the ticket rules decide; the limits have their own checks below.
 export NEXT_TICKETS_REF=main NEXT_TICKETS_FETCH=0 NEXT_TICKETS_MAX_SESSIONS=10
@@ -104,6 +112,18 @@ check "--yes launches ticket 04 at medium" "--name|fixture-04|--model|claude-opu
 check "--yes launches ticket 09" "--name|fixture-09|" "$launched"
 count=$(grep -c . "$CLAUDE_STUB_LOG")
 check "exactly 3 sessions were launched" "3" "$count"
+check "each session starts in its own systemd scope" "scope:--user --scope --quiet --collect|--bg|--name|fixture-02|" "$launched"
+
+rm "$CLAUDE_STUB_LOG"
+NEXT_TICKETS_OWN_SCOPE=0 "$script" fixture 2 --yes >/dev/null
+unscoped="$(cat "$CLAUDE_STUB_LOG")"
+check "NEXT_TICKETS_OWN_SCOPE=0 still launches the session" "--bg|--name|fixture-02|" "$unscoped"
+if [[ $unscoped == *scope:* ]]; then
+  echo "FAIL NEXT_TICKETS_OWN_SCOPE=0 still used systemd-run"
+  failures=$((failures + 1))
+else
+  echo "ok   NEXT_TICKETS_OWN_SCOPE=0 starts the session directly"
+fi
 
 # after-merge.sh runs next-tickets.sh inside a loop reading project names from stdin; a launched
 # session must not read the next name as part of its prompt.
