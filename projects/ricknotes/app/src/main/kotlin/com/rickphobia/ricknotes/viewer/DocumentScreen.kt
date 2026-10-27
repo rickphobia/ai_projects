@@ -31,7 +31,6 @@ import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.PenMode
 import com.rickphobia.ricknotes.logging.AppLog
-import com.rickphobia.ricknotes.revisionlog.rememberRevisionLogAdder
 import com.rickphobia.ricknotes.sendto.SendToButton
 import com.rickphobia.ricknotes.toolbar.BackButton
 import com.rickphobia.ricknotes.toolbar.PenKind
@@ -103,7 +102,7 @@ fun DocumentScreen(
     val opening by rememberOpening(pdf, pages)
     (opening as? Opening.Ready)?.let { InkUpkeep(it.ink) }
     // Counted in a hidden Tab too, so the badge is right as soon as it shows.
-    val redInk = (opening as? Opening.Ready)?.let { rememberRedInk(pages, it.pageSizes, it.ink, settings.course) }
+    val redInk = (opening as? Opening.Ready)?.let { rememberRedInk(pdf, pages, it.pageSizes, it.ink, settings.course) }
     if (!shown) return
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -138,7 +137,7 @@ fun DocumentScreen(
                         tab.positions,
                         current.ink,
                         settings.fingerGestures,
-                        rememberRevisionLogAdder(pdf, settings.course, pages, current.pageSizes, current.ink),
+                        checkNotNull(redInk).adder,
                         openDropped = { copy -> navigation.openPdf(PdfEntry(copy.path, pdf.folder, copy.name)) },
                         sharedImage = shared?.placement,
                         redInk = checkNotNull(redInk),

@@ -4,7 +4,7 @@
 
 **Blocked by:** 41 (Not a mistake)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-revisionlog, app-revisionlog, app-snip, app-viewer
 
@@ -12,12 +12,12 @@
 
 **Owner steps:** the on-tablet check in the PR, in the Preview app.
 
-- [ ] Revision log session: an Entry with red stroke IDs and a box reopens with them (tested)
-- [ ] New query: every logged red stroke ID for one Document; IDs from another Document aren't included (tested)
-- [ ] A log written before this ticket opens, with no stroke IDs or boxes; the format version doesn't change (tested)
-- [ ] Logged stroke IDs are left out of the Red marks, together with the hidden ones from 41
-- [ ] Snips of the whole page rendered off the main thread with the capped long edge; the back has the box outlined; Snips are written before the Entry
-- [ ] Category and "why" start empty
-- [ ] "Open in Document" on the Entry opens its page
-- [ ] Logs Mistake added from a Red mark (course folder name, Entry ID); never Snips or strokes
-- [ ] On-tablet check written in the PR: add a Red mark, find the Entry in the Revision log with the whole page and the box, the badge count drops
+- [x] Revision log session: an Entry with red stroke IDs and a box reopens with them (tested)
+- [x] New query: every logged red stroke ID for one Document; IDs from another Document aren't included (tested)
+- [x] A log written before this ticket opens, with no stroke IDs or boxes; the format version doesn't change (tested)
+- [x] Logged stroke IDs are left out of the Red marks, together with the hidden ones from 41
+- [x] Snips of the whole page rendered off the main thread with the capped long edge; the back has the box outlined; Snips are written before the Entry
+- [x] Category and "why" start empty
+- [x] "Open in Document" on the Entry opens its page
+- [x] Logs Mistake added from a Red mark (course folder name, Entry ID); never Snips or strokes
+- [x] On-tablet check written in the PR: add a Red mark, find the Entry in the Revision log with the whole page and the box, the badge count drops
