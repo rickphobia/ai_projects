@@ -12,7 +12,13 @@ import kotlinx.serialization.json.Json
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
-/** Turns a Revision log's Entries into the text of `revision_log.json`, and back. */
+/** What `revision_log.json` holds: the Entries, and the red stroke IDs of deleted ones by Document path. */
+internal data class RevisionLog(
+    val entries: List<Entry>,
+    val deletedRedStrokes: Map<String, Set<StrokeId>> = emptyMap(),
+)
+
+/** Turns a Revision log into the text of `revision_log.json`, and back. */
 internal object RevisionLogCodec {
     /** Raised whenever the layout below changes in a way an older app couldn't read. */
     const val FORMAT_VERSION = 1
@@ -24,26 +30,35 @@ internal object RevisionLogCodec {
             ignoreUnknownKeys = true
         }
 
-    fun encode(entries: List<Entry>): String =
-        json.encodeToString(RevisionLogJson.serializer(), RevisionLogJson(FORMAT_VERSION, entries.map { it.toJson() }))
+    fun encode(log: RevisionLog): String =
+        json.encodeToString(
+            RevisionLogJson.serializer(),
+            RevisionLogJson(
+                FORMAT_VERSION,
+                log.entries.map { it.toJson() },
+                log.deletedRedStrokes.mapValues { (_, ids) -> ids.map { it.value } },
+            ),
+        )
 
     /** @throws RevisionLogDamaged if [text] isn't a Revision log this version of the app can read. */
     fun decode(
         text: String,
         fileName: String,
-    ): List<Entry> =
+    ): RevisionLog =
         try {
             val log = json.decodeFromString(RevisionLogJson.serializer(), text)
             require(log.formatVersion <= FORMAT_VERSION) {
                 "format version ${log.formatVersion} is newer than this app reads"
             }
-            log.entries.map { entry ->
-                try {
-                    entry.toEntry()
-                } catch (e: IllegalArgumentException) {
-                    throw IllegalArgumentException("Entry ${entry.id}: ${e.message}", e)
+            val entries =
+                log.entries.map { entry ->
+                    try {
+                        entry.toEntry()
+                    } catch (e: IllegalArgumentException) {
+                        throw IllegalArgumentException("Entry ${entry.id}: ${e.message}", e)
+                    }
                 }
-            }
+            RevisionLog(entries, log.deletedRedStrokes.mapValues { (_, ids) -> ids.mapTo(mutableSetOf(), ::StrokeId) })
         } catch (e: SerializationException) {
             throw RevisionLogDamaged(fileName, "not valid Revision log JSON", e)
         } catch (e: IllegalArgumentException) {
@@ -135,6 +150,8 @@ internal object RevisionLogCodec {
 private data class RevisionLogJson(
     val formatVersion: Int,
     val entries: List<EntryJson>,
+    // Logs from before deletes kept red strokes have none; not written while empty, so the format version stays.
+    val deletedRedStrokes: Map<String, List<String>> = emptyMap(),
 )
 
 @Serializable

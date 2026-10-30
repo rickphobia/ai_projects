@@ -4,7 +4,7 @@
 
 **Blocked by:** 42 (Add mistake from a Red mark)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-revisionlog, app-ink
 
@@ -12,7 +12,7 @@
 
 **Owner steps:** the on-tablet check in the PR, in the Preview app.
 
-- [ ] Lasso Add mistake stores the red stroke IDs inside its loop, and no box (tested at the Revision log seam)
-- [ ] Delete moves an Entry's red stroke IDs to the log's deleted list; they stay among the logged IDs after reopening (tested)
-- [ ] A log without the deleted list opens (tested)
-- [ ] On-tablet check written in the PR: Lasso a red-marked question and Add mistake, the badge drops; delete a Red mark Entry, it doesn't come back
+- [x] Lasso Add mistake stores the red stroke IDs inside its loop, and no box (tested at the Revision log seam)
+- [x] Delete moves an Entry's red stroke IDs to the log's deleted list; they stay among the logged IDs after reopening (tested)
+- [x] A log without the deleted list opens (tested)
+- [x] On-tablet check written in the PR: Lasso a red-marked question and Add mistake, the badge drops; delete a Red mark Entry, it doesn't come back

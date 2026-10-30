@@ -18,6 +18,7 @@ import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.revisionlog.CourseFolder
 import com.rickphobia.ricknotes.revisionlog.RevisionLogAdder
+import com.rickphobia.ricknotes.revisionlog.RevisionLogNote
 import com.rickphobia.ricknotes.revisionlog.RevisionLogSessions
 import com.rickphobia.ricknotes.revisionlog.rememberRevisionLogAdder
 import kotlinx.coroutines.Dispatchers
@@ -148,7 +149,8 @@ internal fun rememberRedInk(
     val adder = rememberRevisionLogAdder(document, course, pages, pageSizes, ink)
     val redInk = remember(pages, pageSizes, ink, course, adder) { RedInk(pages, pageSizes, ink, course, adder) }
     LaunchedEffect(redInk) {
-        snapshotFlow { ink.revision }.collectLatest {
+        // An Entry added from the Lasso logs red ink without changing any, so it recounts too.
+        snapshotFlow { ink.revision to (adder.note as? RevisionLogNote.Added)?.entry?.id }.collectLatest {
             // A changed page may have moved or ended the outlined Red mark.
             redInk.forgetJump()
             delay(RECOUNT_DELAY_MS)
