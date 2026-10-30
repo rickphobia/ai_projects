@@ -72,7 +72,7 @@ object LogPdfLayout {
     /** A tall Snip is capped here, so a page always holds it whole with room for others. */
     const val MAX_SNIP_HEIGHT_PT = PRINTABLE_HEIGHT_PT / 2
 
-    /** The label lines above each Snip: kind and category, source, and up to two lines of "why". */
+    /** The label lines above each Snip: kind, Document, page and date, then up to three of category and "why". */
     const val LABEL_LINES = 4
     const val LABEL_LINE_HEIGHT_PT = 14f
     const val TEXT_BLOCK_HEIGHT_PT = LABEL_LINES * LABEL_LINE_HEIGHT_PT

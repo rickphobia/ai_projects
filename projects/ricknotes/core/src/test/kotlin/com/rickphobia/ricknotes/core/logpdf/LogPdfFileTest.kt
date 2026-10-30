@@ -58,4 +58,17 @@ class LogPdfFileTest {
         assertArrayEquals(byteArrayOf(1, 2, 3), Files.readAllBytes(LogPdfFile.of(course)))
         assertEquals(listOf("EE2001 revision log.pdf"), namesIn(course))
     }
+
+    @Test
+    fun `the PDF writer giving up is a failed write too`() {
+        val course = course()
+        LogPdfFile.write(course) { it.write(byteArrayOf(1, 2, 3)) }
+
+        assertThrows(LogPdfWriteFailed::class.java) {
+            LogPdfFile.write(course) { error("page not finished") }
+        }
+
+        assertArrayEquals(byteArrayOf(1, 2, 3), Files.readAllBytes(LogPdfFile.of(course)))
+        assertEquals(listOf("EE2001 revision log.pdf"), namesIn(course))
+    }
 }
