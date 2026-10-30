@@ -65,7 +65,6 @@ internal class VersionStore(
     private fun dropOldest() {
         val ours =
             Files.list(folder).use { files ->
-                // Not Stream.toList(): Android only has it from API 34, and core sticks to API 26.
                 files
                     .iterator()
                     .asSequence()

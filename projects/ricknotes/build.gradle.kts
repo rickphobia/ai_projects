@@ -15,12 +15,14 @@ ktlint {
 
 tasks.register("lintAll") {
     group = "verification"
-    description = "Runs ktlint, detekt and Android lint on every module, and checks core has no Android dependencies."
+    description = "Runs ktlint, detekt and Android lint on every module, and checks core has no Android dependencies " +
+        "and calls no Java API the tablet lacks."
     dependsOn(
         ":ktlintCheck",
         ":core:ktlintCheck",
         ":core:detekt",
         ":core:checkNoAndroidDependencies",
+        ":core:checkAndroidApis",
         ":app:ktlintCheck",
         ":app:detekt",
         ":app:lintDebug",
