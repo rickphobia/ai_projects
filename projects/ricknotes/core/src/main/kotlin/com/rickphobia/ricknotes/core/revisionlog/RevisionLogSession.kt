@@ -40,19 +40,26 @@ class RevisionLogSession private constructor(
 
     val readOnly: Boolean = damaged != null
 
-    private val all = loaded.entries.toMutableList()
+    private val all = loaded.log.entries.toMutableList()
+
+    // Red stroke IDs of deleted Entries, by Document path: they stay logged, so their red ink doesn't come back.
+    private val deleted = loaded.log.deletedRedStrokes.mapValuesTo(mutableMapOf()) { it.value.toMutableSet() }
     private val saving =
         AutoSave(
             folder.resolve(LOG_FILE),
             clock,
             listener,
             readOnly,
-            snapshot = { all.toList() },
+            snapshot = { RevisionLog(all.toList(), deletedRedStrokes) },
         ) { RevisionLogCodec.encode(it).toByteArray(Charsets.UTF_8) }
     private val lock = saving.lock
 
     /** Every Entry, oldest first. */
     val entries: List<Entry> get() = synchronized(lock) { all.toList() }
+
+    /** The red stroke IDs of deleted Entries, by the path of the Document they came from. */
+    val deletedRedStrokes: Map<String, Set<StrokeId>>
+        get() = synchronized(lock) { deleted.mapValues { it.value.toSet() } }
 
     val status: SaveStatus get() = saving.status
 
@@ -114,14 +121,18 @@ class RevisionLogSession private constructor(
 
     /**
      * Deletes Entry [id] from the log. Its Snips stay on disk: a Version of the log restored later
-     * still names them.
+     * still names them. Its red stroke IDs stay too, so its red ink isn't offered as a Red mark again.
      *
      * @throws IllegalArgumentException if there is no such Entry.
      */
     fun delete(id: EntryId) {
         check(!readOnly) { "$LOG_FILE in ${folder.parent.fileName} is open read-only" }
         synchronized(lock) {
-            require(all.removeAll { it.id == id }) { "no Entry ${id.value}" }
+            val entry = requireNotNull(all.firstOrNull { it.id == id }) { "no Entry ${id.value}" }
+            all.remove(entry)
+            if (entry.redStrokeIds.isNotEmpty()) {
+                deleted.getOrPut(entry.source.documentPath) { mutableSetOf() }.addAll(entry.redStrokeIds)
+            }
             saving.changed()
         }
     }
@@ -195,7 +206,7 @@ class RevisionLogSession private constructor(
 
     // What open found on disk.
     private class Loaded(
-        val entries: List<Entry>,
+        val log: RevisionLog,
         val damaged: RevisionLogDamaged?,
         val conflictCopies: List<String>,
     )
@@ -228,9 +239,21 @@ class RevisionLogSession private constructor(
                     load(folder.resolve(LOG_FILE))
                 } catch (e: RevisionLogDamaged) {
                     // No Version of a damaged file: it would push a good Version out of the newest 10.
-                    return RevisionLogSession(folder, clock, zone, listener, Loaded(emptyList(), e, conflicts))
+                    return RevisionLogSession(
+                        folder,
+                        clock,
+                        zone,
+                        listener,
+                        Loaded(RevisionLog(emptyList()), e, conflicts),
+                    )
                 }
-            return RevisionLogSession(folder, clock, zone, listener, Loaded(loaded.orEmpty(), null, conflicts)).also {
+            return RevisionLogSession(
+                folder,
+                clock,
+                zone,
+                listener,
+                Loaded(loaded ?: RevisionLog(emptyList()), null, conflicts),
+            ).also {
                 if (loaded != null) it.saving.takeVersion()
             }
         }
@@ -252,8 +275,8 @@ class RevisionLogSession private constructor(
             }
         }
 
-        // The log's Entries, or null if there is no log yet.
-        private fun load(file: Path): List<Entry>? {
+        // The log, or null if there is no log yet.
+        private fun load(file: Path): RevisionLog? {
             val text =
                 try {
                     // Not Files.readString: Android only has it from API 36.1, and the tablet is on 36.
