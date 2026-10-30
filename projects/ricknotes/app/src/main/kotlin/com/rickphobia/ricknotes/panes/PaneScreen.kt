@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.rickphobia.ricknotes.core.layout.MIN_PANE_SHARE
 import com.rickphobia.ricknotes.core.layout.makeEqual
+import com.rickphobia.ricknotes.core.layout.otherPaneDocument
 import com.rickphobia.ricknotes.core.layout.setDivider
 import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.home.DocumentDrag
@@ -40,6 +41,7 @@ import com.rickphobia.ricknotes.viewer.DocumentSettings
 import com.rickphobia.ricknotes.viewer.DocumentTab
 import com.rickphobia.ricknotes.viewer.ReadingPositions
 import com.rickphobia.ricknotes.viewer.SharedImage
+import java.io.File
 
 // Thin enough not to cover the page, but visible beside the other Pane.
 private val FOCUS_MARK_WIDTH = 2.dp
@@ -260,7 +262,10 @@ private fun PaneTabs(
                     val document =
                         remember {
                             val pdf = pdfAt(context.studyFolder, tab.path)
-                            DocumentTab(pdf, TabPositions(layout, index, tab.path, context.positions))
+                            DocumentTab(pdf, TabPositions(layout, index, tab.path, context.positions)) {
+                                // Read as Send to opens, so it follows the Layout as it is then.
+                                layout.layout.otherPaneDocument(index)?.let { File(context.studyFolder, it.path) }
+                            }
                         }
                     DocumentScreen(
                         document,

@@ -1,6 +1,7 @@
 package com.rickphobia.ricknotes.core.presets
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -33,11 +34,25 @@ class PresetsFileTest {
     }
 
     @Test
-    fun `the Default Presets are the four from the spec, ink on for the tutorial ones`() {
+    fun `the Default Presets are the specs' five, ink on for the tutorial ones`() {
         assertEquals(
-            listOf("Chapter overview" to false, "Answer only" to true, "Hint" to true, "Full explanation" to true),
+            listOf(
+                "Chapter overview" to false,
+                "Overview with tutorial" to false,
+                "Answer only" to true,
+                "Hint" to true,
+                "Full explanation" to true,
+            ),
             DEFAULT_PRESETS.map { it.name to it.inkOn },
         )
+    }
+
+    @Test
+    fun `a new Presets file has Overview with tutorial, ink off`() {
+        val preset = load().presets.single { it.name == "Overview with tutorial" }
+
+        assertFalse(preset.inkOn)
+        assertTrue(preset.prompt.contains("Do not solve the tutorial questions."))
     }
 
     @Test

@@ -10,7 +10,10 @@ data class Preset(
     val inkOn: Boolean,
 )
 
-/** The main spec's Default Presets, written to the Presets file the first time. */
+/**
+ * The Default Presets of the main spec and of Send both Panes, written to the Presets file the first
+ * time. An existing file never gets new ones: the README gives them for pasting in.
+ */
 val DEFAULT_PRESETS =
     listOf(
         Preset(
@@ -18,6 +21,17 @@ val DEFAULT_PRESETS =
             "These are lecture slides. Give me a chapter overview: list the major concepts; under each, the " +
                 "smaller concepts; for each smaller concept, an explain-like-I'm-five explanation, the key " +
                 "formula, and one example question with its worked answer. Use the notation on the slides.",
+            inkOn = false,
+        ),
+        // For Both Panes; Android doesn't promise the order the two PDFs arrive in, so it never relies on it.
+        Preset(
+            "Overview with tutorial",
+            "One PDF is lecture slides and the other is the tutorial for the same topic; tell them apart by " +
+                "their content. Give me a chapter overview of the lecture: list the major concepts; under " +
+                "each, the smaller concepts; for each smaller concept, an explain-like-I'm-five explanation, " +
+                "the key formula, and the tutorial questions that use it, by their number in the tutorial. " +
+                "Then list any tutorial question that no concept covers. Use the notation on the slides. Do " +
+                "not solve the tutorial questions.",
             inkOn = false,
         ),
         Preset(
