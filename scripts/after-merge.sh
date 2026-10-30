@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Runs what a merged ticket PR calls for, every 5 minutes on the Beelink, so nobody has to say
-# "merged": stop-merged.sh stops finished ticket sessions (every project), then next-tickets.sh
-# --yes starts the next unblocked tickets of each project that is switched on. No Claude: a
-# systemd user timer runs the scripts, and only the ticket sessions it starts cost tokens.
+# Runs the ticket loop every 5 minutes on the Beelink, so nobody has to say "merged" or watch a
+# PR: stop-merged.sh stops finished ticket sessions (every project), next-tickets.sh --yes starts
+# the next unblocked tickets of each project that is switched on, and pr-alerts.sh tells the
+# owner's phone when a ticket PR is ready, failed CI or has a merge conflict. No Claude: a systemd
+# user timer runs the scripts, and only the ticket sessions it starts cost tokens.
 #
 # Usage: scripts/after-merge.sh <command>
 #   install       copy the scripts to ~/.local/state/ai-projects-after-merge, run every 5 minutes
@@ -15,7 +16,7 @@
 # Settings (environment variables, all optional):
 #   AFTER_MERGE_REPO     the ai_projects checkout to work from (default ~/homelab/code/ai_projects)
 #   AFTER_MERGE_STATE    where the switched-on list and script copies live (default above)
-#   AFTER_MERGE_SCRIPTS  run stop-merged.sh and next-tickets.sh from this folder instead of
+#   AFTER_MERGE_SCRIPTS  run stop-merged.sh, next-tickets.sh and pr-alerts.sh from this folder instead of
 #                        main's latest versions (for tests)
 set -euo pipefail
 
@@ -45,7 +46,7 @@ switched_on() {
   fi
 }
 
-# The folder holding the stop-merged.sh and next-tickets.sh to run: main's latest versions, so
+# The folder holding the stop-merged.sh, next-tickets.sh and pr-alerts.sh to run: main's latest versions, so
 # the repo checkout (which nobody pulls) can't run stale ones.
 scripts_dir() {
   if [[ -n ${AFTER_MERGE_SCRIPTS:-} ]]; then
@@ -55,7 +56,7 @@ scripts_dir() {
   git -C "$repo" fetch -q origin main
   local file
   mkdir -p "$state/scripts"
-  for file in stop-merged.sh next-tickets.sh; do
+  for file in stop-merged.sh next-tickets.sh pr-alerts.sh; do
     git -C "$repo" show "origin/main:scripts/$file" >"$state/scripts/$file.new"
     chmod +x "$state/scripts/$file.new"
     mv "$state/scripts/$file.new" "$state/scripts/$file"
@@ -75,6 +76,8 @@ cmd_run() {
   while read -r project; do
     "$dir/next-tickets.sh" "$project" --yes || { echo "next-tickets.sh $project failed"; failed=1; }
   done < <(switched_on)
+  # Last, so a PR merged and replaced in this pass isn't reported on stale data.
+  "$dir/pr-alerts.sh" || { echo "pr-alerts.sh failed"; failed=1; }
   return "$failed"
 }
 
@@ -118,7 +121,7 @@ cmd_install() {
   # The timer runs without a login shell, so it gets this shell's PATH (claude, gh, jq).
   cat >"$units/$timer.service" <<EOF
 [Unit]
-Description=Stop merged ticket sessions and start the next ai_projects tickets
+Description=Stop merged ticket sessions, start the next ai_projects tickets, alert on ticket PRs
 
 [Service]
 Type=oneshot

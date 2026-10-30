@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests scripts/after-merge.sh's run, on and off with stop-merged.sh and next-tickets.sh replaced
+# Tests scripts/after-merge.sh's run, on and off with stop-merged.sh, next-tickets.sh and pr-alerts.sh replaced
 # by stubs that log their arguments, so nothing real is stopped or started.
 # Run: scripts/tests/after-merge.test.sh
 set -euo pipefail
@@ -21,7 +21,7 @@ check() { # check <description> <expected substring> <actual text>
 mkdir -p "$work/stubs" "$work/repo/projects/alpha" "$work/repo/projects/beta"
 # The stubs' own $* and $STUB_LOG must stay unexpanded here.
 # shellcheck disable=SC2016
-for stub in stop-merged.sh next-tickets.sh; do
+for stub in stop-merged.sh next-tickets.sh pr-alerts.sh; do
   printf '#!/usr/bin/env bash\necho "%s $*" >>"$STUB_LOG"\n' "$stub" >"$work/stubs/$stub"
   chmod +x "$work/stubs/$stub"
 done
@@ -30,7 +30,8 @@ export AFTER_MERGE_REPO="$work/repo" AFTER_MERGE_STATE="$work/state" \
 
 "$script" run >/dev/null
 check "with no project on, a pass only stops merged sessions" "stop-merged.sh " "$(cat "$work/log")"
-check "with no project on, no tickets start" "1" "$(grep -c . "$work/log")"
+check "with no project on, no tickets start" "0" "$(grep -c next-tickets "$work/log" || true)"
+check "every pass sends PR alerts" "pr-alerts.sh" "$(cat "$work/log")"
 
 check "a project can be switched on" "On: alpha" "$("$script" on alpha)"
 "$script" on beta >/dev/null
@@ -43,6 +44,7 @@ log="$(cat "$work/log")"
 check "a pass stops merged sessions first" "stop-merged.sh " "$(head -1 "$work/log")"
 check "a pass starts alpha's next tickets" "next-tickets.sh alpha --yes" "$log"
 check "a pass starts beta's next tickets" "next-tickets.sh beta --yes" "$log"
+check "a pass sends PR alerts last" "pr-alerts.sh" "$(tail -1 "$work/log")"
 
 "$script" off alpha >/dev/null
 : >"$work/log"
