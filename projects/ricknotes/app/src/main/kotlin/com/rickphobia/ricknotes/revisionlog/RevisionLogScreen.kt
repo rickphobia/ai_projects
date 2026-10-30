@@ -73,7 +73,7 @@ fun RevisionLogScreen(
         RevisionLogWarnings(current)
         val entry = showing
         if (entry == null) {
-            EntryList(current, kind, onFilter = { kind = it }, onShow = { showing = it })
+            EntryList(current, courseFolder, kind, onFilter = { kind = it }, onShow = { showing = it })
         } else {
             EntryDetail(
                 current,
@@ -102,11 +102,17 @@ private fun RevisionLogWarnings(session: RevisionLogSession) {
 @Composable
 private fun EntryList(
     session: RevisionLogSession,
+    courseFolder: File,
     kind: EntryKind?,
     onFilter: (EntryKind?) -> Unit,
     onShow: (Entry) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+    val entries = session.newestFirst(kind)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 8.dp),
+    ) {
         listOf(
             null to R.string.all_entries,
             EntryKind.MISTAKE to R.string.mistakes,
@@ -118,8 +124,8 @@ private fun EntryList(
                 label = { Text(stringResource(label)) },
             )
         }
+        ExportPdfButton(session, courseFolder, entries)
     }
-    val entries = session.newestFirst(kind)
     if (entries.isEmpty()) {
         Text(stringResource(R.string.no_entries), modifier = Modifier.padding(top = 16.dp))
         return

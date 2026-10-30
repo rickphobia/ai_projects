@@ -97,6 +97,10 @@ _Avoid_: template, mode
 One course's list of things to revise: Mistakes to redo and Key points to remember. It lives in its Course folder.
 _Avoid_: error log, correction book, mistake book, error_logs.pdf
 
+**Log PDF**:
+A Revision log exported for print or sharing: `<course> revision log.pdf` in its Course folder, with the Entries the Revision log screen's filter shows. Each export replaces the last one.
+_Avoid_: report, printout, export file
+
 **Entry**:
 One item in a Revision log: a Snip of where it came from, labelled with Document, page and date, with an optional category and "why" line. Every Entry is either a Mistake or a Key point.
 _Avoid_: error, record, card
