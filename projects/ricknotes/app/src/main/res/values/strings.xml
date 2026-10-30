@@ -110,6 +110,9 @@
   <string name="mistakes">Mistakes</string>
   <string name="key_points">Key points</string>
   <string name="no_entries">No Entries yet.</string>
+  <string name="export_pdf">Export PDF</string>
+  <string name="export_pdf_nothing">Nothing to export: there are no Entries in this list.</string>
+  <string name="export_pdf_failed">Couldn\'t write the PDF. The last export is unchanged; see the log for why.</string>
   <string name="entry_title">%1$s · %2$s p. %3$d · %4$s</string>
   <string name="entry_source">%1$s, page %2$d</string>
   <string name="entry_why">Why: %1$s</string>
