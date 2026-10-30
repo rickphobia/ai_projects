@@ -32,7 +32,8 @@ class PresetsFile(
     fun load(): LoadedPresets {
         if (!Files.exists(file)) return writeDefaults()
         return try {
-            LoadedPresets(parse(Files.readString(file)), problem = null)
+            // Not Files.readString: Android only has it from API 36.1, and the tablet is on 36.
+            LoadedPresets(parse(String(Files.readAllBytes(file), Charsets.UTF_8)), problem = null)
         } catch (e: IOException) {
             fallBack("$FILE_NAME can't be read (${e::class.simpleName})")
         } catch (e: SerializationException) {

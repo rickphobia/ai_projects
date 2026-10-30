@@ -36,7 +36,6 @@ internal class InkFileStore(
      */
     fun conflictCopies(): List<Path> =
         Files.list(inkFile.parent).use { files ->
-            // Not Stream.toList(): Android only has it from API 34, and core sticks to API 26.
             files
                 .iterator()
                 .asSequence()

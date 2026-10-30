@@ -46,7 +46,6 @@ private fun versionMoves(
     val targetVersions = targetInk.resolveSibling(VersionStore.FOLDER)
     val names =
         Files.list(versions).use { files ->
-            // Not Stream.toList(): Android only has it from API 34, and core sticks to API 26.
             files
                 .iterator()
                 .asSequence()
