@@ -4,7 +4,7 @@
 
 **Blocked by:** 42 (Add mistake from a Red mark)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** app-revisionlog
 
@@ -12,7 +12,7 @@
 
 **Owner steps:** the on-tablet check in the PR, in the Preview app.
 
-- [ ] Review's front and back and the Entry screen open on the box plus a margin (a named constant)
-- [ ] Pinch zooms out to the whole page and back in
-- [ ] Lasso Entries and older Entries look unchanged
-- [ ] On-tablet check written in the PR: review a Red mark Entry, the question is readable without zooming
+- [x] Review's front and back and the Entry screen open on the box plus a margin (a named constant)
+- [x] Pinch zooms out to the whole page and back in
+- [x] Lasso Entries and older Entries look unchanged
+- [x] On-tablet check written in the PR: review a Red mark Entry, the question is readable without zooming
