@@ -153,13 +153,25 @@ private fun ReviewCard(
         Text(entryTitle(card.entry), style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
-                Snip(session.frontSnip(card.entry), R.string.review_front, Modifier.fillMaxWidth())
+                Snip(
+                    session.frontSnip(card.entry),
+                    R.string.review_front,
+                    Modifier.fillMaxWidth(),
+                    card.entry.snipFocus(),
+                )
                 if (card.entry.kind == EntryKind.MISTAKE) {
                     Text(stringResource(R.string.redo_area), style = MaterialTheme.typography.labelMedium)
                     RedoPad(redo, Modifier.weight(1f).fillMaxWidth())
                 }
             }
-            if (answered) Snip(session.backSnip(card.entry), R.string.review_back, Modifier.weight(1f))
+            if (answered) {
+                Snip(
+                    session.backSnip(card.entry),
+                    R.string.review_back,
+                    Modifier.weight(1f),
+                    card.entry.snipFocus(),
+                )
+            }
         }
         if (answered) {
             card.entry.why?.let { Text(stringResource(R.string.entry_why, it)) }
