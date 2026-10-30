@@ -61,6 +61,9 @@ object RedMarks {
         }
     }
 
+    /** The IDs of the red ink among [strokes], in their order: what a Lasso's Add mistake logs. */
+    fun redInk(strokes: List<Stroke>): List<StrokeId> = strokes.filter { it.isRedInk() }.map(Stroke::id)
+
     private fun Stroke.isRedInk(): Boolean = tool == Tool.PEN && colourArgb == PenColour.RED.argb
 
     // Each stroke joins the group before it when close enough in time and on the page, else starts a new one.

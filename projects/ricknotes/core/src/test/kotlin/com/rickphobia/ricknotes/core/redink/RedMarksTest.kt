@@ -61,6 +61,7 @@ class RedMarksTest {
             )
 
         assertEquals(listOf(listOf("red")), marks(strokes))
+        assertEquals(listOf(StrokeId("red")), RedMarks.redInk(strokes))
     }
 
     @Test

@@ -386,6 +386,18 @@ class RevisionLogSessionTest {
     }
 
     @Test
+    fun `an Entry from the Lasso keeps the red stroke IDs in its loop and has no box`() {
+        val session = open()
+        val strokes = listOf(StrokeId("s-1"))
+
+        session.addEntry(EntryKind.MISTAKE, source, Snips(FRONT, BACK), strokes)
+        val reopened = reopen(session)
+
+        assertNull(reopened.entries.single().box)
+        assertEquals(strokes.toSet(), reopened.loggedRedStrokes(source.documentPath))
+    }
+
+    @Test
     fun `the logged red stroke IDs are those of one Document's Entries only`() {
         val session = open()
         val other = source.copy(documentPath = "Y1/Sem1/EE2001/tutorial/tuto4.pdf")
@@ -423,5 +435,34 @@ class RevisionLogSessionTest {
         val written = String(Files.readAllBytes(logFile), Charsets.UTF_8)
         assertTrue(written.contains("\"formatVersion\": 1"))
         assertFalse(written.contains("box"))
+        assertFalse(written.contains("deletedRedStrokes"))
+    }
+
+    @Test
+    fun `a deleted Entry's red stroke IDs stay logged after reopening, for its Document only`() {
+        val session = open()
+        val other = source.copy(documentPath = "Y1/Sem1/EE2001/tutorial/tuto4.pdf")
+        val gone = session.addEntry(EntryKind.MISTAKE, source, Snips(FRONT, BACK), listOf(StrokeId("a"), StrokeId("b")))
+        session.addEntry(EntryKind.MISTAKE, source, Snips(FRONT, BACK), listOf(StrokeId("c")))
+        val goneElsewhere = session.addEntry(EntryKind.MISTAKE, other, Snips(FRONT, BACK), listOf(StrokeId("d")))
+
+        session.delete(gone.id)
+        session.delete(goneElsewhere.id)
+        val reopened = reopen(session)
+
+        assertEquals(1, reopened.entries.size)
+        assertEquals(setOf(StrokeId("a"), StrokeId("b"), StrokeId("c")), reopened.loggedRedStrokes(source.documentPath))
+        assertEquals(setOf(StrokeId("d")), reopened.loggedRedStrokes(other.documentPath))
+    }
+
+    @Test
+    fun `deleting an Entry without red strokes writes no deleted list`() {
+        val session = open()
+        val entry = session.addEntry(EntryKind.KEY_POINT, source, Snips(FRONT, BACK))
+
+        session.delete(entry.id)
+        session.saveNow()
+
+        assertFalse(String(Files.readAllBytes(logFile), Charsets.UTF_8).contains("deletedRedStrokes"))
     }
 }

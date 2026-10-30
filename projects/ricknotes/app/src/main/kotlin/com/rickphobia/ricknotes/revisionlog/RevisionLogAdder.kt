@@ -6,7 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.redink.RedMark
+import com.rickphobia.ricknotes.core.redink.RedMarks
 import com.rickphobia.ricknotes.core.revisionlog.Entry
 import com.rickphobia.ricknotes.core.revisionlog.EntryKind
 import com.rickphobia.ricknotes.core.revisionlog.EntrySource
@@ -142,14 +144,28 @@ internal class RevisionLogAdder(
             return
         }
         // Read here, on the main thread: the meshes are drawn again on the render thread.
-        val strokes = ink.on(selection.pageId).map { it.mesh }
+        val onPage = ink.on(selection.pageId)
+        val strokes = onPage.map { it.mesh }
+        // A Mistake logs the red ink in its loop, so the same question isn't offered as a Red mark too.
+        val redStrokeIds =
+            if (kind == EntryKind.MISTAKE) {
+                RedMarks.redInk(onPage.map { it.stroke }.filter { it.id in selection.ids })
+            } else {
+                emptyList()
+            }
         val source = EntrySource(document.treePath, selection.pageId, pageIndex + 1, area)
         ink.lasso.clear()
         note = RevisionLogNote.Adding(course.name)
         scope.launch {
             note =
                 try {
-                    added(course, kind, source, renderSnips(pages, page, snip, strokes))
+                    added(
+                        course,
+                        kind,
+                        source,
+                        renderSnips(pages, page, snip, strokes),
+                        FromRedInk(redStrokeIds, box = null),
+                    )
                 } catch (e: PageRenderException) {
                     AppLog.e("Entry not added to ${course.name}: its Snips couldn't be drawn", e)
                     RevisionLogNote.Failed(course.name)
@@ -196,7 +212,7 @@ internal class RevisionLogAdder(
             val result =
                 try {
                     val snips = renderSnips(pages, page, snip, strokes, outline)
-                    added(course, EntryKind.MISTAKE, source, snips, fromMark = mark)
+                    added(course, EntryKind.MISTAKE, source, snips, FromRedInk(mark.strokeIds, mark.box))
                 } catch (e: PageRenderException) {
                     AppLog.e("Mistake not added to ${course.name} from a Red mark: its Snips couldn't be drawn", e)
                     RevisionLogNote.Failed(course.name)
@@ -226,18 +242,21 @@ internal class RevisionLogAdder(
         kind: EntryKind,
         source: EntrySource,
         snips: Snips,
-        fromMark: RedMark? = null,
+        redInk: FromRedInk,
     ): RevisionLogNote =
         withContext(Dispatchers.IO) {
             val session = RevisionLogSessions.open(course.folder)
             val damaged = session.damaged
             if (damaged != null) return@withContext RevisionLogNote.LogUnreadable(course.name, damaged.reason)
             try {
-                val entry = session.addEntry(kind, source, snips, fromMark?.strokeIds.orEmpty(), fromMark?.box)
-                if (fromMark != null) {
+                val entry = session.addEntry(kind, source, snips, redInk.strokeIds, redInk.box)
+                if (redInk.box != null) {
                     AppLog.i("Mistake added from a Red mark to ${course.name}: ${entry.id.value}")
                 } else {
-                    AppLog.i("Entry added to ${course.name}: ${entry.id.value}, ${kind.name.lowercase()}")
+                    AppLog.i(
+                        "Entry added to ${course.name}: ${entry.id.value}, ${kind.name.lowercase()}, " +
+                            "${redInk.strokeIds.size} red strokes",
+                    )
                 }
                 RevisionLogNote.Added(course.name, entry, session)
             } catch (e: SnipSaveFailed) {
@@ -246,3 +265,9 @@ internal class RevisionLogAdder(
             }
         }
 }
+
+/** The red ink an Entry logs: the strokes, and the Red mark's box when it was added from one. */
+private class FromRedInk(
+    val strokeIds: List<StrokeId>,
+    val box: PageRect?,
+)
