@@ -88,7 +88,7 @@ A picture cut out of part of a rendered page, including the slide and any ink on
 _Avoid_: clip, crop, screenshot, region, lasso
 
 **Preset**:
-A named prompt, such as "Answer only" or "Chapter overview", sent along with a Document or snip to the Gemini or Claude app.
+A named prompt, such as "Answer only" or "Chapter overview", sent along with one Document, the two Documents in the Panes, or a Snip to the Gemini or Claude app.
 _Avoid_: template, mode
 
 ## Revision log
