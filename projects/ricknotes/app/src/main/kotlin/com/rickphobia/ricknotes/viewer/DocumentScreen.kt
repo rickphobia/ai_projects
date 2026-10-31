@@ -55,10 +55,14 @@ private sealed interface Opening {
     ) : Opening
 }
 
-/** The Document a Tab shows, and where the Tab keeps its reading position. */
+/**
+ * The Document a Tab shows, where the Tab keeps its reading position, and [otherPane]: the PDF the
+ * other Pane shows when Send to can send Both Panes, or null.
+ */
 class DocumentTab(
     val pdf: PdfEntry,
     val positions: ReadingPositions,
+    val otherPane: () -> File?,
 )
 
 /**
@@ -107,7 +111,7 @@ fun DocumentScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         DocumentTopBar(navigation) {
-            SendToButton(File(pdf.path), settings.studyFolder)
+            SendToButton(File(pdf.path), tab.otherPane, settings.studyFolder)
             PenToolbar(tool, kind, favouritePens)
             (opening as? Opening.Ready)?.let { InkControls(it.ink, redInk) }
         }

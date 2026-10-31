@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-layout, core-presets, app-share, app-viewer
 
@@ -12,11 +12,11 @@
 
 **Owner steps:** the on-tablet check below in the Preview app, then paste "Overview with tutorial" from the README into `_ricknotes/presets.json` on the laptop.
 
-- [ ] The Layout gives the other Pane's Document only when two Panes show different Documents and the other isn't missing (tested)
-- [ ] A new Presets file has "Overview with tutorial", ink off (tested)
-- [ ] Send to shows This Document / Both Panes only in that case, This Document selected each time it opens
-- [ ] Both Panes sends both PDFs in one share, the Document Send to was opened from first, readable only by the app it goes to
-- [ ] Direct sends open the AI app beside RickNotes, and still open full screen where the tablet doesn't split
-- [ ] Logs the target, the Preset name and the number of Documents, never the prompt or names
-- [ ] README: Send to describes Both Panes and split screen, and gives the "Overview with tutorial" JSON to paste
-- [ ] On-tablet check written in the PR: lecture and tutorial in two Panes, Both Panes → Gemini → Overview with tutorial, paste: both PDFs are in a new chat beside RickNotes; the same to Claude; with one Pane, no Both Panes choice
+- [x] The Layout gives the other Pane's Document only when two Panes show different Documents and the other isn't missing (tested)
+- [x] A new Presets file has "Overview with tutorial", ink off (tested)
+- [x] Send to shows This Document / Both Panes only in that case, This Document selected each time it opens
+- [x] Both Panes sends both PDFs in one share, the Document Send to was opened from first, readable only by the app it goes to
+- [x] Direct sends open the AI app beside RickNotes, and still open full screen where the tablet doesn't split
+- [x] Logs the target, the Preset name and the number of Documents, never the prompt or names
+- [x] README: Send to describes Both Panes and split screen, and gives the "Overview with tutorial" JSON to paste
+- [x] On-tablet check written in the PR: lecture and tutorial in two Panes, Both Panes → Gemini → Overview with tutorial, paste: both PDFs are in a new chat beside RickNotes; the same to Claude; with one Pane, no Both Panes choice
