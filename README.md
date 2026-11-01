@@ -37,20 +37,11 @@ ai_projects/
 
 ## Working on a project
 
-Start Claude Code **inside the project folder**:
-
-```bash
-cd ai_projects/projects/my-project
-claude
-```
-
-Claude Code loads every `CLAUDE.md` from the folder you start in up to the repo root. So it reads the shared rules in `ai_projects/CLAUDE.md` **and** the project's own `projects/my-project/CLAUDE.md` (if it has one). It also picks up that project's `.mcp.json`, so each project only gets its own tools.
+Start Claude Code at the repo root, locally or in the cloud (claude.ai/code, which always starts there), and name the project in your first message, e.g. "work on `projects/my-project`". `scripts/next-tickets.sh` starts its sessions from the root too.
 
 The rules are shared; the code is not. Like a company handbook that every team follows, while each team keeps its own codebase.
 
-In a cloud session (claude.ai/code) the session always starts at the repo root. Name the project in your first message, e.g. "work on `projects/my-project`".
-
-Claude Code reads `.claude/settings.json` (the guardrails: no reading `.env`, ask before force-pushes and `rm -rf`) only from the folder you start in, so each project keeps a copy of the root one.
+A session started inside a project folder would also load that project's own `CLAUDE.md` and `.mcp.json`; no project has either yet (checked 1 Nov 2026). It reads `.claude/settings.json` (the guardrails: no reading `.env`, ask before force-pushes and `rm -rf`) only from the folder it starts in, so each project keeps a copy of the root one.
 
 **Two local sessions at once** (on the Beelink) must not share a checkout, or they switch branches under each other. Start the second one from the repo root in its own worktree:
 
@@ -76,14 +67,14 @@ Follow [`docs/new-project.md`](docs/new-project.md). It is ticket 01 of the proj
 | Project | What it does | Stack | Status |
 |---------|--------------|-------|--------|
 | [pawn-swarm](projects/pawn-swarm) | Chess-board auto-battler where pawns are army and money | TypeScript, Vite, Canvas | working |
-| [my-piggy](projects/my-piggy) | First-person horror game: a human head on a pig's body, hunted by family in one night | Godot 4 (GDScript), web export | in progress |
+| [my-piggy](projects/my-piggy) | First-person horror game: a human head on a pig's body, hunted by family in one night | Godot 4 (GDScript), web export | working |
 | [ricknotes](projects/ricknotes) | Android tablet app for writing on study PDFs with a pen, with ink saved beside each PDF | Kotlin, Jetpack Compose, Android | in progress |
-| [court-booker](projects/court-booker) | Books a badminton court on Picktime at midnight when a date opens, for one Operator | Python, FastAPI, SQLite, Playwright, Docker | in progress |
+| [court-booker](projects/court-booker) | Books a badminton court on Picktime at midnight when a date opens, for one Operator | Python, FastAPI, SQLite, Playwright, Docker | working |
 | [happy-cotton](projects/happy-cotton) | Browser farm game in the style of Hay Day that satirises forced labour in Xinjiang's cotton fields | Godot 4 (GDScript), web export | in progress |
-| [rss-news](projects/rss-news) | Personal news briefing: reads many feeds for one owner and writes a short Briefing on request | Python, FastAPI, SQLite, TypeScript PWA, Docker | in progress |
-| [ascii-sky](projects/ascii-sky) | Browser flight simulator drawn entirely in printable ASCII, from the cockpit to the instruments | TypeScript, Vite, three.js | in progress |
+| [rss-news](projects/rss-news) | Personal news briefing: reads many feeds for one owner and writes a short Briefing on request | Python, FastAPI, SQLite, TypeScript PWA, Docker | working |
+| [ascii-sky](projects/ascii-sky) | Browser flight simulator drawn entirely in printable ASCII, from the cockpit to the instruments | TypeScript, Vite, three.js | working |
 | [duit-log](projects/duit-log) | Android money log that turns e-wallet payment notifications into sorted Income and Expenses, on the phone only | Kotlin, Jetpack Compose, SQLDelight, Android | in progress |
-| [against-all-tod](projects/against-all-tod) | Solo Tower Offense Defense: build a Maze, then switch sides and break it, on a Board that never resets | TypeScript, Vite, PixiJS | in progress |
-| [gloss](projects/gloss) | Android selection-menu helper that defines and explains words in the book open in Legado, using what the book has said so far | Kotlin, Jetpack Compose, Android | in progress |
+| [against-all-tod](projects/against-all-tod) | Solo Tower Offense Defense: build a Maze, then switch sides and break it, on a Board that never resets | TypeScript, Vite, PixiJS | working |
+| [gloss](projects/gloss) | Android selection-menu helper that defines and explains words in the book open in Legado, using what the book has said so far | Kotlin, Jetpack Compose, Android | working |
 
-Status values: `idea`, `in progress`, `working`, `abandoned`.
+Status values: `idea`, `in progress`, `working`, `abandoned`. Statuses checked 1 Nov 2026.

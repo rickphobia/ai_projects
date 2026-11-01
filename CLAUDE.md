@@ -1,12 +1,10 @@
 # CLAUDE.md
 
-This repo holds many independent AI projects. Read `README.md` for the layout.
+This repo holds many independent AI projects. Read `README.md` for the layout. Why the root docs and the shared skills in `.claude/skills/` say what they do, and what they said before, is in `history.md`: read it before changing or questioning a rule there.
 
 **Work here the way an engineer at a real software company would.** Every project must be easy for a stranger to set up, understand, change, and debug. Quick hacks that only work on the day they were written are not acceptable. If a rule below gets in the way of a task, say so instead of quietly skipping it.
 
-## Your role: senior DevOps engineer, not an amateur vibe coder
-
-Act like a senior engineer who will be paged at 3am if this breaks. In practice:
+## How to work here
 
 - **Understand before changing.** Read the existing code and docs first. Don't guess at APIs or library behavior — check the docs or the source.
 - **Plan before building.** For anything bigger than a small fix, write a short plan (what changes, in which files, how it will be tested) and agree it before coding.
@@ -23,7 +21,7 @@ Act like a senior engineer who will be paged at 3am if this breaks. In practice:
 
 - **Hosting:** the owner runs their own nginx in Docker on a home server (Beelink, Ubuntu), site root `~/homelab/html`, public at `rickphobia.com`. Web projects go under `/ai-projects/<name>/`. GitHub can't reach the server, so it pulls: `projects/<name>/deploy/update-site.sh` builds `main` and swaps it in (it keeps its own checkout in `~/homelab/dev`). A fix reaches the site by merging the PR, then running that script on the server. See `projects/pawn-swarm/README.md` ("Deploy") as the model.
 - **Sessions:** in the cloud (claude.ai/code) or locally on the Beelink in `~/homelab/code/ai_projects`. A local session can run the deploy script and `gh` itself; a second local session at the same time needs its own worktree (`claude -w <name>`). One ticket per session, branch and PR, on Opus 5.5 with the effort the ticket needs (see `docs/workflow.md`). The owner reviews and merges. Never merge for them. **When the owner says a PR is merged, the first thing you do is run `scripts/stop-merged.sh <project>`**, before starting more tickets or anything else, so finished background sessions stop holding RAM (the `after-merge` timer on the Beelink also does it every 5 minutes; see `docs/workflow.md`). If the script is missing, the root checkout is stale: `git fetch origin main && git merge --ff-only origin/main` in `~/homelab/code/ai_projects`, then run it.
-- **Every PR has a preview:** if the project has anything to look at or play (a web page, a game, an app), the PR body's second line is `▶ Try this version: <link>`, so the owner can try it before merging. The session publishes an Artifact for it (`/implement` step 5). A build too big for an Artifact gets the "No Artifact preview" placeholder, and the Beelink preview timer (`scripts/previews.sh`, see "Previews on the Beelink" in `docs/workflow.md`) builds each green PR with `scripts/try-pr.sh`, writes its link into the PR body, and stops the preview and removes its worktree once the PR is merged or closed. RickNotes gets a Preview APK from CI instead. A new web project must be added to `scripts/try-pr.sh` to get previews. If a PR has nothing to see, its body says so.
+- **Every PR has a preview:** if the project has anything to look at or play (a web page, a game, an app), the PR body's second line is `▶ Try this version: <link>`, so the owner can try it before merging. The session publishes an Artifact for it (`/implement` step 5). For the web projects in `scripts/try-pr.sh`, the Beelink preview timer replaces that line with its own link once the PR is green. RickNotes gets a Preview APK from CI instead. If a PR has nothing to see, its body says so. **Before changing previews or adding a web project, read "Previews on the Beelink" in `docs/workflow.md`.**
 - **Keep dev cost low:** follow "Keeping token use down" in `docs/workflow.md`. In short: Opus 5.5 at low or medium effort (effort is the cost dial, not the model), short sessions, no PR event subscriptions for small changes, batch small fixes, `/review-diff` only for big changes, no agents or workflows unless asked (`/grilling`'s `fact-finder` lookups are the exception), read only the files the task needs.
 
 ## Before you start

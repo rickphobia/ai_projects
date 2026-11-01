@@ -4,7 +4,7 @@ description: "Turn the current conversation into a spec file in the project's do
 disable-model-invocation: true
 ---
 
-This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user; just synthesize what you already know.
+This skill takes the current conversation context and codebase understanding and produces a spec. Don't interview the user, apart from the seam check in step 2; synthesize what you already know.
 
 Specs are files in the project, not issues. If it's unclear which project under `projects/` this is for, ask.
 
@@ -50,7 +50,7 @@ A list of implementation decisions that were made. This can include:
 - API contracts
 - Specific interactions
 
-Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
+Don't include specific file paths or code snippets: they go out of date quickly.
 
 Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it within the relevant decision and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.
 

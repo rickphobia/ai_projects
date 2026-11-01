@@ -15,7 +15,7 @@ Experienced engineers all land on the same loop: **spec → plan → build in sm
 | 5 | Split into tickets | `/to-tickets` | `docs/tickets/01-…md`, `02-…md`, each with **Blocked by** and **Touches**, plus which can run in parallel. You approve the breakdown |
 | 6 | Build the skeleton | `scripts/next-tickets.sh <name>` (or a new session: `/implement projects/<name>/docs/tickets/01-…md`) | Project runs, one test passes, CI green. One PR |
 | 7 | Build in parallel | `scripts/next-tickets.sh <name>`: one background session per ticket that can start now | One PR per ticket |
-| 8 | Review and merge | Try the PR: its `▶ Try this version` link, or on the Beelink `pr-list` (every green PR is built and served automatically at `https://beelink-mini-s.taildfbd18.ts.net:<9000 + PR number>/` on your Tailscale devices; see "Previews on the Beelink"), skim the diff, check its `Review:` line, then merge. GitHub only allows it once `ci-gate` is green | Tickets marked `done` on `main` |
+| 8 | Review and merge | Try the PR: its `▶ Try this version` link, or on the Beelink `pr-list` (see "Previews on the Beelink"), skim the diff, check its `Review:` line, then merge. GitHub only allows it once `ci-gate` is green | Tickets marked `done` on `main` |
 | 9 | Deploy | On the Beelink: `projects/<name>/deploy/update-site.sh`, or ask a local session to run it | Live at `rickphobia.com/ai-projects/<name>/` |
 | 10 | Repeat 7–9 | Tell your main session "merged": it **first** runs `scripts/stop-merged.sh <name>` (stops the finished sessions), then `scripts/next-tickets.sh <name>` again | — |
 
@@ -41,7 +41,18 @@ scripts/next-tickets.sh my-piggy             # show the plan, ask, then start
 scripts/next-tickets.sh my-piggy 04 05       # consider only these tickets
 ```
 
-It reads the tickets from `origin/main` and starts a ticket when its status is `ready`, every ticket in **Blocked by** is `done`, nobody is working on it (no `<project>/<NN>-…` branch, no open PR, no running session named `<project>-<NN>`), and none of its **Touches** areas is taken by a running or starting ticket. It also keeps the Beelink usable (4 cores, 15 GB): at most 3 ticket sessions run at once across all projects (`NEXT_TICKETS_MAX_SESSIONS` changes that), and a project can set its own limit in `docs/tickets/.max-parallel`. RickNotes sets 1, because each Android build takes 2–4 GB and most of the CPU; on 2026-10-23 two at once, beside two web tickets, filled the swap. Each one runs as `claude --bg` with Opus 5.5 in auto permission mode, at the ticket's **Effort** (default: medium for 01, low otherwise), and moves into its own worktree before it edits anything. Each is started in its own systemd user scope (`systemd-run --user --scope`; `NEXT_TICKETS_OWN_SCOPE=0` turns that off): the first `claude --bg` starts the background service that hosts every session, and without its own scope that service dies with whatever started it, such as the after-merge timer's run or a restarted remote-control session.
+It reads the tickets from `origin/main` and starts a ticket when:
+
+- its status is `ready` and every ticket in **Blocked by** is `done`;
+- nobody is working on it: no `<project>/<NN>-…` branch, no open PR, no running session named `<project>-<NN>`;
+- none of its **Touches** areas is taken by a running or starting ticket.
+
+Limits keep the Beelink usable (4 cores, 15 GB):
+
+- At most 3 ticket sessions run at once across all projects (`NEXT_TICKETS_MAX_SESSIONS` changes that).
+- A project can set its own limit in `docs/tickets/.max-parallel`. RickNotes sets 1: each Android build takes 2–4 GB and most of the CPU, and two at once beside web tickets fill the swap.
+
+Each one runs as `claude --bg` with Opus 5.5 in auto permission mode, at the ticket's **Effort** (default: medium for 01, low otherwise), and moves into its own worktree before it edits anything. Each is started in its own systemd user scope (`systemd-run --user --scope`; `NEXT_TICKETS_OWN_SCOPE=0` turns that off): the first `claude --bg` starts the background service that hosts every session, and without its own scope that service dies with whatever started it, such as the after-merge timer's run or a restarted remote-control session.
 
 **Answering them.** Run `claude agents` (agent view). A session that needs you is under **Needs input** with the question or permission prompt on its row: press `Space` to reply in place, or `Enter` to open the full session. While agent view is open, Claude Code sends a terminal notification when a session needs input, finishes or fails; in any other session the footer shows `← N agents` waiting. Sessions stop and wait for the guardrail prompts (force-push, `rm -rf` …) and for questions `/implement` asks.
 
@@ -55,7 +66,7 @@ It reads the tickets from `origin/main` and starts a ticket when its status is `
 
 ## Previews on the Beelink
 
-my-piggy's build is too big for a `▶ Try this version` link, so the Beelink serves every PR itself. `scripts/previews.sh install` (once) starts a systemd user timer that, every minute, builds each open PR whose `ci-gate` is green and serves it at `https://beelink-mini-s.taildfbd18.ts.net:<9000 + PR number>/` (PR 41 → port 9041). Browsers only run a Godot build over HTTPS or on localhost, so it goes through Tailscale HTTPS: open it on a device signed in to your tailnet. Setup once: `sudo tailscale set --operator=$USER`, so the scripts can add the HTTPS ports without sudo. Without that, a preview only opens on the Beelink itself (`http://localhost:<port>/`). Once a preview answers (usually within a minute of `ci-gate` going green), the timer writes its link into the PR body as the `▶ Try this version:` line (replacing the session's "No Artifact preview" placeholder), so the link is on the PR itself. An rss-news preview signs in with the password `preview`. A new push is rebuilt once it is green; a merged or closed PR's preview stops. It runs only scripts, no Claude, so it costs no tokens.
+Some builds (my-piggy's) are too big for an Artifact link, so the Beelink serves the PRs of every web project in `scripts/try-pr.sh` itself. `scripts/previews.sh install` (once) starts a systemd user timer that, every minute, builds each such open PR whose `ci-gate` is green and serves it at `https://beelink-mini-s.taildfbd18.ts.net:<9000 + PR number>/` (PR 41 → port 9041). Browsers only run a Godot build over HTTPS or on localhost, so it goes through Tailscale HTTPS: open it on a device signed in to your tailnet. Setup once: `sudo tailscale set --operator=$USER`, so the scripts can add the HTTPS ports without sudo. Without that, a preview only opens on the Beelink itself (`http://localhost:<port>/`). Once a preview answers (usually within a minute of `ci-gate` going green), the timer writes its link into the PR body as the `▶ Try this version:` line, replacing whatever `▶` line the session wrote (an Artifact link or the "No Artifact preview" placeholder), so the link is on the PR itself. An rss-news preview signs in with the password `preview`. A new push is rebuilt once it is green; a merged or closed PR's preview stops and its worktree is removed. It runs only scripts, no Claude, so it costs no tokens.
 
 ```bash
 scripts/previews.sh list     # open PRs, ci-gate result, preview link (shell function: pr-list)
@@ -86,14 +97,13 @@ Each step in a session re-reads everything the session has seen so far, so long 
 - **Batch small changes.** Collect small fixes (a rename, a doc line) into one session instead of one session each.
 - **`/review-diff` only for big tickets** (see `/implement`). It starts two extra sessions.
 - **No agents or multi-agent workflows in parallel** unless the owner asks. Each one has its own full cost. The `fact-finder` lookups above are the one exception.
-- **Keep `CLAUDE.md` short.** It is loaded into every session, so each extra line is paid for every time.
 - **Check where the money goes** on the account usage page (cost per session and model) before guessing.
 
 ## Habits that prevent slop
 
 - **Read the code, not just the plan.** Dex Horthy's team stopped reading code for six months and had to rip out large parts.
 - **Fresh session per ticket.** Quality drops once the context is ~40% full. After two failed corrections, `/clear` and restate the problem instead of arguing.
-- **Keep CLAUDE.md short.** For each line ask "would Claude make a mistake without this?" Add a line each time Claude gets something wrong; prune after model upgrades.
+- **Keep CLAUDE.md short.** It loads into every session, so every line is paid for every time. For each line ask "would Claude make a mistake without this?" Add a line each time Claude gets something wrong; prune after model upgrades.
 - **Turn hard rules into settings.** CLAUDE.md is advice; permission rules in `.claude/settings.json` always apply (see "What protects `main`"). Format and lint run in CI and before every commit. Reach for a hook only when a rule needs logic a permission pattern can't express.
 - **Guard the tests.** Agents have been caught mocking, editing or hard-coding tests to go green. `/review-diff` checks the diff against the ticket.
 - **Give it the docs.** Paste URLs or use Context7 so it doesn't invent APIs.
