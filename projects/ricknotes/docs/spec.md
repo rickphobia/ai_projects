@@ -36,11 +36,13 @@ One **Milestone** at a time. A milestone is several tickets (one PR each) and is
 | 3 | Folder tree editing, Notebooks, inserted pages, Send to app, sync set up | Ink written on the tablet shows up in the Drive copy within 15 minutes; a new Notebook opens in another PDF reader; a Document sent to Claude arrives with the preset prompt on the clipboard |
 | 4 | Split view | The split button or Ctrl+\ opens a second Pane (at most two); each Pane holds Tabs; dragging a Tab across moves it; the layout comes back after restarting the app |
 | 5 | Red ink and log PDF | 3 red marks on 2 pages show as 3 rows in the Red ink list; adding them makes 3 Mistakes and they aren't offered again; Not a mistake hides one for good; Export PDF writes a PDF that opens in another reader |
-| 6 | Export with ink and Version restore | An exported PDF opens with ink in another reader; an old Version restores correctly |
+| 6 | Export with ink | A tutorial exported with ink opens in another reader with the ink, Pictures and Inserted pages there and the slide text still selectable; sent to Claude with Hint, it arrives with ink; an Ink file from yesterday comes back from Drive's Manage versions by following the README |
 | 7 | Snips | A slide diagram dragged onto a tutorial shows with a see-through background; a Snip sent to the error log appears as a Confused entry; the tutorial PDF itself is unchanged |
 | 8 | Office converter | A lecture pptx converted from the tablet at the dorm opens as a Document beside the original |
 
 **Before milestone 3:** the Revision log, Pictures and UI polish feature (`docs/specs/revision-log-and-polish.md`). It replaces the Error log below with one Revision log per Course folder, and brings Pictures forward from milestone 7. Milestone 5 now only adds Red ink to the Revision log and a PDF of the log.
+
+**Milestone 6:** grilled on 2026-11-01 and settled in `docs/specs/export-with-ink.md`, which replaces stories 84 and 87 below and drops 85–86: there is no Version restore screen, and old ink comes back through Drive's version history (story 49 points there instead of offering Versions). Whether Drive keeps that history for Ink files is still to be checked.
 
 **Milestone 5:** grilled on 2026-10-25 and settled in `docs/specs/red-ink-and-log-pdf.md`, which replaces stories 74–83 below. Red ink is offered in a list and added with a tap, never collected automatically.
 
