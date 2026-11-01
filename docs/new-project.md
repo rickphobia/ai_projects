@@ -35,7 +35,7 @@ This is ticket 01, the walking skeleton, done before any feature.
 
 1. Create `projects/<name>/` (lowercase, hyphens) with the layout above.
 2. Copy `templates/project/README.md` into it and fill it in.
-3. Copy `.claude/settings.json` into `projects/<name>/.claude/settings.json`. Claude Code reads that file only from the folder a session starts in, so without the copy a session started in the project has none of the guardrails. You may add project rules; CI (`.github/workflows/repo.yml`) fails if a root rule is missing.
+3. Copy `.claude/settings.json` into `projects/<name>/.claude/settings.json`. Claude Code reads that file only from the folder a session starts in. Sessions normally start at the repo root; the copy guards a session someone starts inside the project folder. You may add project rules; CI (`.github/workflows/repo.yml`) fails if a root rule is missing.
 4. Set up formatting, linting, type checks and a test runner before writing features.
 5. Add `.env.example` and a config module.
 6. Add `.github/workflows/<name>.yml` with `name: <name>`, scoped to `projects/<name>/**` with `paths:`. Copy an existing one. The file name must match the project folder: `ci-gate` uses it to know which workflow a PR must pass.

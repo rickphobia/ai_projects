@@ -96,7 +96,10 @@ Each step in a session re-reads everything the session has seen so far, so long 
 - **Watch a PR only when it matters.** Every GitHub event adds a few thousand tokens that are re-read for the rest of the session, so only big changes subscribe to PR activity (see `/implement` step 7). A local `gh pr checks --watch` is a single command and fine for any size. The planning session never watches PRs; a second watcher doubles the cost.
 - **Batch small changes.** Collect small fixes (a rename, a doc line) into one session instead of one session each.
 - **`/review-diff` only for big tickets** (see `/implement`). It starts two extra sessions.
-- **No agents or multi-agent workflows in parallel** unless the owner asks. Each one has its own full cost. The `fact-finder` lookups above are the one exception.
+- **No agents or multi-agent workflows in parallel** unless the owner asks. Each one has its own full cost. The exceptions, which start agents by design:
+  - the `fact-finder` lookups above;
+  - the two reviewers `/review-diff` starts, which is why it runs only on big tickets;
+  - the 3+ designers of Design It Twice (`codebase-design`), which runs only when the owner asks for alternative interfaces.
 - **Check where the money goes** on the account usage page (cost per session and model) before guessing.
 
 ## Habits that prevent slop
