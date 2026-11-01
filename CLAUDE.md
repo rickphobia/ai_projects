@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This repo holds many independent AI projects. Read `README.md` for the layout. Why the root docs say what they do, and what they said before, is in `history.md`: read it before changing or questioning a rule there.
+This repo holds many independent AI projects. Read `README.md` for the layout. Why the root docs and the shared skills in `.claude/skills/` say what they do, and what they said before, is in `history.md`: read it before changing or questioning a rule there.
 
 **Work here the way an engineer at a real software company would.** Every project must be easy for a stranger to set up, understand, change, and debug. Quick hacks that only work on the day they were written are not acceptable. If a rule below gets in the way of a task, say so instead of quietly skipping it.
 

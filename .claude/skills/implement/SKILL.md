@@ -10,7 +10,11 @@ Implement the ticket or spec the user names, usually `projects/<name>/docs/ticke
 
 1. Read the ticket, the project's spec in `projects/<name>/docs/`, `projects/<name>/GLOSSARY.md`, and any `CLAUDE.md` in the project. The root `CLAUDE.md` rules apply throughout.
 2. Check every ticket in **Blocked by** has status `done`. If any doesn't, stop and tell the user.
-3. If the prompt names a branch (`scripts/next-tickets.sh` does), use it. In a fresh worktree whose branch has no commits of its own (`git log origin/main..HEAD` is empty), rename that branch instead of making a new one: `git fetch origin && git branch -m <name> && git merge --ff-only origin/main`. Don't create a second branch and delete the worktree's one: `git branch -D` stops the session for approval. If you aren't in such a worktree, create the named branch from `origin/main`. Otherwise work on the branch the session gave you (cloud sessions and `claude -w` worktrees come with one). If there isn't one, create `<project-name>/<NN>-<slug>` from `origin/main`. Don't switch branches in a checkout another local session may be using: on the Beelink, a parallel ticket runs in its own worktree (`claude -w <project>-<NN>`).
+3. Pick the branch:
+   - If the prompt names a branch (`scripts/next-tickets.sh` does), use it. In a fresh worktree whose branch has no commits of its own (`git log origin/main..HEAD` is empty), rename that branch instead of making a new one: `git fetch origin && git branch -m <name> && git merge --ff-only origin/main`. Don't create a second branch and delete the worktree's one: `git branch -D` stops the session for approval. Outside such a worktree, create the named branch from `origin/main`.
+   - Otherwise work on the branch the session gave you (cloud sessions and `claude -w` worktrees come with one).
+   - If there isn't one, create `<project-name>/<NN>-<slug>` from `origin/main`.
+   - Don't switch branches in a checkout another local session may be using: on the Beelink, a parallel ticket runs in its own worktree (`claude -w <project>-<NN>`).
 
 ## Build
 
@@ -21,7 +25,7 @@ Implement the ticket or spec the user names, usually `projects/<name>/docs/ticke
 
 ## Finish
 
-1. If the change is big (roughly 400+ changed lines, or it changes core rules), use /review-diff against `main` and fix what it finds. Otherwise re-read your own diff against the ticket instead: /review-diff starts two extra sessions and costs a lot of tokens. Don't chase judgement-call nits. Either way, note which review ran for the PR's `Review:` line.
+1. If the change is big (roughly 400+ changed lines, or it changes core rules), use /review-diff against `main` and fix what it finds. That covers most full-size tickets (they aim for ~500 lines), on purpose. Otherwise re-read your own diff against the ticket instead: /review-diff starts two extra sessions and costs a lot of tokens. Don't chase judgement-call nits. Either way, note which review ran for the PR's `Review:` line.
 2. Tick the acceptance criteria in the ticket file and set its status to `done`. Status is only `ready` or `done`. Steps only the owner can do (a run on the server, a GitHub setting) stay on the ticket's **Owner steps** line and are repeated in the PR body; they don't hold the status back.
 3. Update the project README and `.env.example` if anything they describe changed.
 4. Stage files by name and check `git diff --cached --stat`: only files the ticket needs, no build output, downloaded tools, archives or binaries you didn't make on purpose. Commit with the project prefix: `<project-name>: <imperative summary>`.

@@ -9,7 +9,7 @@ metadata:
     url: "https://github.com/humanlayer/skills/blob/main/plugins/show-me/skills/show-me/SKILL.md"
 ---
 
-Title the PR `<project-name>: <imperative summary>` (e.g. `pdf-summarizer: Add retry to model adapter`). If the PR delivers a ticket, put `Ticket: projects/<name>/docs/tickets/<NN>-<slug>.md` as the first line of the body. If there is a playable or viewable build, its link goes on the next line: `▶ Try this version: <link>`.
+Title the PR `<project-name>: <imperative summary>` (e.g. `pdf-summarizer: Add retry to model adapter`). A repo-wide change (outside `projects/`) gets no prefix, as `CLAUDE.md` › Git says. If the PR delivers a ticket, put `Ticket: projects/<name>/docs/tickets/<NN>-<slug>.md` as the first line of the body. If there is a playable or viewable build, its link goes on the next line: `▶ Try this version: <link>`.
 
 Put a `Review:` line right after the Evidence section: which review ran and what came of it, e.g. `Review: /review-diff, 3 findings fixed, 1 judgement call left (see below)` or `Review: self-review (small change)`. The owner skims big PRs, so this line is how they know a real review happened.
 
