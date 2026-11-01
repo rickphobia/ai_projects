@@ -2,11 +2,13 @@
 
 Researched 2026-10-01 from GitHub and official docs. Reddit and YouTube were blocked from the research environment, so community opinion comes from Hacker News, blogs and talk transcripts. Star counts are approximate.
 
-**Rule of thumb: install the fewest tools that do the job, per project.** Every skill and MCP server costs context. One test of 47 marketplace skills found most made output worse. Add tools at project scope (`projects/<name>/.mcp.json`), not repo-wide, unless every project needs them.
+**Rule of thumb: install the fewest tools that do the job, per project.** Every skill and MCP server costs context. One test of 47 marketplace skills found most made output worse (source not recorded). Add tools at project scope (`projects/<name>/.mcp.json`), not repo-wide, unless every project needs them.
 
 **Desktop vs cloud:** tools marked 🖥️ connect to a running desktop app (Blender, Unity, Unreal, Godot editor). They only work when Claude Code runs on your own machine, not in a claude.ai/code cloud session.
 
 ## Every project
+
+Worth adding to any project. Apart from mattpocock/skills, none of these is set up in the repo (checked 1 Nov 2026).
 
 | Tool | What it does | Install |
 |------|--------------|---------|
