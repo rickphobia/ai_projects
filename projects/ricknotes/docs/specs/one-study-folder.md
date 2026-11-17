@@ -104,7 +104,7 @@ In this order. Steps 3 and 4 can run side by side.
 | 7 | `~/ee` | `~/ee` session | `ricknotes_file.py` out of the daily job; item 6 closed and item 7 dropped, with `history.md` entries | The daily job runs green without it |
 | 8 | Tablet and Drive | Owner, by hand | Remove the old pair, move `RickNotes Study` to Drive's Trash, delete the tablet's copy | Neither RickNotes nor Nebo uses the old folder |
 
-- **Ticket files are written when a step is reached, not now.** RickNotes is switched on in the after-merge loop, which starts every `ready` ticket at once, and steps 2, 5 and 8 are owner steps that a session can't do. Step 5's README ticket is written after step 2, since step 2's results decide its rename rule.
+- **Only step 5's README part is a RickNotes ticket** (ticket 47). Steps 2, 5 and 8 are owner steps a session can't do, so they are its Owner steps, and the README's FolderSync behaviour table waits for step 2's results.
 - Steps 3, 4, 6 and 7 are done in sessions in `~/ee` and `~/homelab`, each pointing back to this spec.
 
 ## Testing Decisions
