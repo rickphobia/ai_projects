@@ -177,7 +177,7 @@ Ink is saved by `core`'s Document session (`session/DocumentSession`), which `in
 | One per Course folder | `usm/Year 1/Sem 1/EEE105 Circuit Theory/` | `usm/Year 1/Sem 1/EEE105 Circuit Theory/` |
 | Presets | `usm/_ricknotes/` | `usm/_ricknotes/` |
 
-The paired courses (17 Nov 2026) are EBB113, EEE105, EMM101 and EUM113 in `Year 1/Sem 1`; EEE123 holds code repos and isn't paired. To add a course, copy an existing pair (FolderSync's Copy) and change its two folders. To leave part of a course off the tablet (say `Labs/`), add an exclude filter for that folder to its pair. RickNotes' Study folder ("Change folder" in Settings) is the tablet's `usm` folder itself, not a course; it stays on internal storage, since RickNotes refuses an SD card.
+The starting set of courses (chosen 17 Nov 2026) is EBB113, EEE105, EMM101 and EUM113 in `Year 1/Sem 1`; EEE123 holds code repos and isn't paired. To add a course, copy an existing pair (FolderSync's Copy) and change its two folders. To leave part of a course off the tablet (say `Labs/`), add an exclude filter for that folder to its pair. RickNotes' Study folder ("Change folder" in Settings) is the tablet's `usm` folder itself, not a course; it stays on internal storage, since RickNotes refuses an SD card.
 
 Set up every pair the same way:
 
@@ -206,7 +206,7 @@ Set up every pair the same way:
 
 **Cut-over to the `usm` folder** (the spec's steps 5 and 8), in this order:
 
-1. With the behaviour table filled in and nothing coming back where it shouldn't, make the four course pairs and the `_ricknotes` pair with the settings above, and let them sync. Drive's `usm/_ricknotes/` starts empty; RickNotes writes the Default Presets there the first time Send to opens.
+1. With the behaviour table filled in and nothing coming back where it shouldn't, make the four course pairs and the `_ricknotes` pair with the settings above, and let them sync. Neither side has `usm/_ricknotes/` yet: make it on both while setting up the pair. RickNotes writes the Default Presets there the first time Send to opens.
 2. In RickNotes, Settings → "Change folder" → the tablet's `usm` folder. The tree should show the four Course folders, and ink written on one PDF should reach Drive `usm/` within 15 minutes. Reading positions start fresh, since they are keyed by the PDF's path. Ink written in the old folder before the cut-over moves by hand with its PDF; the old folder's names differ, so it shows as Orphaned ink until linked.
 3. By hand, once `~/ee` has stopped filling the old folder and neither RickNotes nor Nebo uses it: remove the old `RickNotes Study` pair in FolderSync, move Drive's `usm/RickNotes Study/` to Drive's Trash, and delete the tablet's copy.
 
@@ -329,4 +329,4 @@ ZUXOS keeps the side button for itself: by default, hold creates a note and pres
 
 ## Decisions
 
-See [`docs/decisions/`](docs/decisions/) for why things are the way they are, starting with [0001 (native Kotlin and Compose)](docs/decisions/0001-native-kotlin-compose.md). The latest is [0009 (the Study folder mirrors chosen course folders of Drive `usm/`)](docs/decisions/0009-study-folder-mirrors-usm.md).
+See [`docs/decisions/`](docs/decisions/) for why things are the way they are, starting with [0001 (native Kotlin and Compose)](docs/decisions/0001-native-kotlin-compose.md). The Study folder's layout and sync pairs: [0009 (the Study folder mirrors chosen course folders of Drive `usm/`)](docs/decisions/0009-study-folder-mirrors-usm.md).
