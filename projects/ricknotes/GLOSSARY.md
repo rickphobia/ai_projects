@@ -5,7 +5,7 @@ An Android tablet app for studying lecture and tutorial PDFs with a pen, with a 
 ## Files
 
 **Study folder**:
-The one folder of courses, chapters and PDFs that the app shows. The app is a window onto it and keeps no library of its own.
+The one folder of courses, chapters and PDFs that the app shows. The app is a window onto it and keeps no library of its own. On the tablet it is a `usm` folder that mirrors chosen Course folders of Drive `usm/` at the same paths, one sync pair each.
 _Avoid_: vault, library, workspace
 
 **Course folder**:
