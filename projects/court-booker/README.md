@@ -4,7 +4,7 @@ Books the badminton Court at 1120 Park Avenue on Picktime the moment a date open
 
 ## Status
 
-`in progress`: walking skeleton, Operator login, the encrypted Profile, Booking Requests, the Picktime browser adapter with `dry-run`, and booking at Release Time. The Operator saves the Profile and creates Booking Requests; a background scheduler books each one's Slots on Picktime at its run time, and the list shows each Slot as Booked, Taken or Failed. It recovers after downtime, deletes old data after 30 days, shows each attempt's screenshot, and tries a date again if Picktime hasn't opened it in the first minute after Release Time.
+`working`: walking skeleton, Operator login, the encrypted Profile, Booking Requests, the Picktime browser adapter with `dry-run`, and booking at Release Time. The Operator saves the Profile and creates Booking Requests; a background scheduler books each one's Slots on Picktime at its run time, and the list shows each Slot as Booked, Taken or Failed. It recovers after downtime, deletes old data after 30 days, shows each attempt's screenshot, and tries a date again if Picktime hasn't opened it in the first minute after Release Time.
 
 ## Requirements
 

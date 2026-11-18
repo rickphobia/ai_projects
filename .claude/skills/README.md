@@ -18,7 +18,9 @@ The first commit that added them (`Vendor 11 skills from mattpocock/skills (unmo
 - `tdd` counts the seams agreed in a spec as confirmed, so `/implement` sessions don't stop to ask again.
 - `pr` adds a `Review:` line saying which review ran.
 - `code-review` is renamed `review-diff` (Claude Code has a built-in `code-review`), reviews against `CLAUDE.md` and the ticket, and defaults to `main` as the fixed point.
-- Upstream CAPS ("Do NOT", "COMPLETE") are plain wording in `to-spec` and `to-tickets`.
+- `review-diff`'s sub-agents report one line per finding instead of "under 400 words".
+- Upstream CAPS ("Do NOT", "COMPLETE") are plain wording in `to-spec` and `to-tickets`, and `diagnosing-bugs`' "Be aggressive. Be creative. Refuse to give up." is a plain instruction.
+- `codebase-design/DEEPENING.md` deletes old shallow-module tests only once the new interface tests cover the same behaviour.
 - `ADR` is renamed "decision record" in `docs/decisions/`, to match `CLAUDE.md`.
 - `setup-matt-pocock-skills` is not included; the conventions above replace it.
 

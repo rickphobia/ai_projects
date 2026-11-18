@@ -12,6 +12,14 @@ Why things in the root docs (`CLAUDE.md`, `README.md`, `docs/`) and the shared s
 
 - **2026-11-01: "Every PR has a preview" cut to the rule plus a pointer.** Was: "…The session publishes an Artifact for it (`/implement` step 5). A build too big for an Artifact gets the "No Artifact preview" placeholder, and the Beelink preview timer (`scripts/previews.sh`, see "Previews on the Beelink" in `docs/workflow.md`) builds each green PR with `scripts/try-pr.sh`, writes its link into the PR body, and stops the preview and removes its worktree once the PR is merged or closed. … A new web project must be added to `scripts/try-pr.sh` to get previews." Why: the file loads every session and only PR-opening tasks need the detail, which lives in `/implement` step 5, `docs/workflow.md` ("Previews on the Beelink", now also saying the worktree is removed) and `docs/new-project.md`. It also implied the timer only acts on the placeholder; `scripts/previews.sh` replaces any `▶` line, Artifact link included, and the owner confirmed the Beelink link should win (doc-audit).
 
+### Hosting and how we work here › Keep dev cost low
+
+- **2026-11-01: names the agent exceptions.** Was "no agents or workflows unless asked (`/grilling`'s `fact-finder` lookups are the exception)". Why: `/review-diff` always starts two sub-agents (and `/implement` runs it on its own above 400 lines), and Design It Twice starts 3+, so the rule contradicted the skills. Owner's call: name them as exceptions rather than cut the agents (doc-audit).
+
+### When finishing work on a project
+
+- **2026-11-01: the project README's status counts too.** Was "Status in the root index is up to date." Why: the root index said `working` for six projects whose own README › Status still said `in progress`, because only the index was named. In the same change those six READMEs (against-all-tod, ascii-sky, court-booker, gloss, my-piggy, rss-news) became `working`, and duit-log's list now says ticket 06 is done apart from TNG's wordings (its ticket is still `ready`, waiting on recorded samples) and adds tickets 21 and 22. Owner's call: keep status in both places (doc-audit).
+
 ## README.md
 
 ### Working on a project
@@ -34,6 +42,7 @@ Why things in the root docs (`CLAUDE.md`, `README.md`, `docs/`) and the shared s
 
 ### Keeping token use down
 
+- **2026-11-01: lists the agent exceptions.** Was "The `fact-finder` lookups above are the one exception." Why: see `CLAUDE.md` › Keep dev cost low.
 - **2026-11-01: "Keep `CLAUDE.md` short" merged into "Habits that prevent slop".** It was in both sections; its cost reason ("loaded into every session, so each extra line is paid for every time") moved with it.
 
 ## .claude/skills/to-tickets/SKILL.md
@@ -69,3 +78,15 @@ Why things in the root docs (`CLAUDE.md`, `README.md`, `docs/`) and the shared s
 ### Title
 
 - **2026-11-01: repo-wide PRs get no prefix.** Was only "`<project-name>: <imperative summary>`". Why: repo-wide PR titles were mixed (#313 "repo: …", #320 none). The owner chose no prefix, matching `CLAUDE.md` › Git (doc-audit).
+
+## docs/new-project.md
+
+### Steps, step 3
+
+- **2026-11-01: says why the settings copy still matters.** Was "Claude Code reads that file only from the folder a session starts in, so without the copy a session started in the project has none of the guardrails." Why: sessions now start at the repo root (see `README.md` › Working on a project), so the copy only guards a session started inside the project folder. Owner's call: keep the copies and the CI check (doc-audit).
+
+## .claude/skills/codebase-design/DEEPENING.md
+
+### Testing strategy: replace, don't layer
+
+- **2026-11-01: deleting old tests waits for coverage.** Was "Old unit tests on shallow modules become waste once tests at the deepened module's interface exist; delete them." Why: read against `CLAUDE.md`'s "Never delete, skip or weaken a test", nothing said the new tests must cover the same behaviour first. Owner's call (doc-audit).
