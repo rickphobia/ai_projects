@@ -4,17 +4,17 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** README
 
 **Effort:** low
 
-- [ ] README "Sync app": the `usm` mirror, one pair per Course folder plus `_ricknotes`, and each pair's settings as above
-- [ ] README: the rename and move rule, and the Notebooks and dropped PDFs rule
-- [ ] README: a FolderSync behaviour table for the spec's step 2 checks, each one "not yet checked": delete on the tablet, delete on Drive, rename on Drive, Move… in RickNotes, Keep mine on a Conflict copy, and a PDF in `needs review` on Drive
-- [ ] README: a short cut-over list, in the spec's order: course pairs and the `_ricknotes` pair, "Change folder" to `usm`, then retiring the old `RickNotes Study` pair and folder by hand
-- [ ] `GLOSSARY.md` Study folder entry updated; README Decisions lists 0009
-- [ ] The README's Status paragraph says nothing that contradicts the new setup
+- [x] README "Sync app": the `usm` mirror, one pair per Course folder plus `_ricknotes`, and each pair's settings as above
+- [x] README: the rename and move rule, and the Notebooks and dropped PDFs rule
+- [x] README: a FolderSync behaviour table for the spec's step 2 checks, each one "not yet checked": delete on the tablet, delete on Drive, rename on Drive, Move… in RickNotes, Keep mine on a Conflict copy, and a PDF in `needs review` on Drive
+- [x] README: a short cut-over list, in the spec's order: course pairs and the `_ricknotes` pair, "Change folder" to `usm`, then retiring the old `RickNotes Study` pair and folder by hand
+- [x] `GLOSSARY.md` Study folder entry updated; README Decisions lists 0009
+- [x] The README's Status paragraph says nothing that contradicts the new setup
 
 **Owner steps:** the spec's step 2 (the throwaway pair on the tablet), with each result written into the README's behaviour table; then step 5 (the cut-over) and step 8 (retiring `RickNotes Study`) by hand.
