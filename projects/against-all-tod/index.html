@@ -43,21 +43,24 @@
         /* How long a screen fades; matches SCREEN_TRANSITION_MS in src/ui/title-screen.ts. */
         --screen-ms: 250ms;
         --font-display: "Fredoka", system-ui, sans-serif;
-        /* A first guess for the band's height; the Hud then sets it to the band's real height. */
-        --hud-height: 72px;
+        /* The band's real height, which the Hud measures into --hud-band-height; until it has, a guess. */
+        --hud-height: var(--hud-band-height, 72px);
         /* The same for the bottom tray. */
-        --tray-height: 140px;
+        --tray-height: var(--hud-tray-height, 140px);
+        /* Rails beside the Board instead of bands above and below it: only on a phone on its side. */
+        --hud-width: 0px;
+        --tray-width: 0px;
       }
       @media (pointer: coarse) {
         :root {
-          --hud-height: 80px;
-          --tray-height: 150px;
+          --hud-height: var(--hud-band-height, 80px);
+          --tray-height: var(--hud-tray-height, 150px);
         }
       }
       @media (max-height: 500px) {
         :root {
-          --hud-height: 64px;
-          --tray-height: 110px;
+          --hud-height: var(--hud-band-height, 64px);
+          --tray-height: var(--hud-tray-height, 110px);
         }
       }
       /* Bundled, so the game looks the same offline and on itch.io (OFL, see assets/fonts/fredoka). */
@@ -87,7 +90,8 @@
       /* PixiJS sizes its canvas to this box; pinch and drag belong to the game, not the browser. */
       #game {
         position: fixed;
-        inset: var(--hud-height) 0 var(--tray-height) 0;
+        inset: var(--hud-height) var(--tray-width) var(--tray-height)
+          var(--hud-width);
         touch-action: none;
       }
       #game canvas {
@@ -415,9 +419,14 @@
       #dude-info {
         position: fixed;
         top: calc(var(--hud-height) + 8px);
-        left: 50%;
+        left: calc(
+          var(--hud-width) + (100% - var(--hud-width) - var(--tray-width)) / 2
+        );
         transform: translateX(-50%);
-        width: min(20rem, calc(100% - 32px));
+        width: min(
+          20rem,
+          calc(100% - var(--hud-width) - var(--tray-width) - 32px)
+        );
         max-height: calc(100% - var(--hud-height) - 20px);
         overflow-y: auto;
         text-align: center;
@@ -521,7 +530,7 @@
       }
       #piece-info {
         position: fixed;
-        left: 12px;
+        left: calc(var(--hud-width) + 12px);
         bottom: calc(var(--tray-height) + 12px);
         max-width: 18rem;
         text-align: center;
@@ -579,8 +588,8 @@
         /* Drops over the Board, so opening it doesn't shrink the Board. */
         .settings-panel {
           position: fixed;
-          left: 12px;
-          right: 12px;
+          left: calc(var(--hud-width) + 12px);
+          right: calc(var(--tray-width) + 12px);
           top: calc(var(--hud-height) + 4px);
           z-index: 2;
           display: block;
@@ -730,9 +739,12 @@
       /* The pause menu, with the honest volume slider. */
       #pause {
         position: fixed;
-        left: 12px;
+        left: calc(var(--hud-width) + 12px);
         bottom: calc(var(--tray-height) + 12px);
-        max-width: min(22rem, calc(100% - 24px));
+        max-width: min(
+          22rem,
+          calc(100% - var(--hud-width) - var(--tray-width) - 24px)
+        );
         font-size: 0.85rem;
       }
       .pause-panel {
@@ -752,7 +764,7 @@
       /* The swarm debug scene's frame rate. */
       #fps {
         position: fixed;
-        right: 12px;
+        right: calc(var(--tray-width) + 12px);
         bottom: 12px;
         padding: 4px 8px;
         border-radius: 6px;
@@ -765,7 +777,7 @@
       /* The ?debug=1 buttons. */
       #debug-panel {
         position: fixed;
-        right: 12px;
+        right: calc(var(--tray-width) + 12px);
         top: calc(var(--hud-height) + 8px);
         display: flex;
         flex-direction: column;
@@ -782,10 +794,15 @@
          stay in view while you choose. */
       #crate {
         position: fixed;
-        left: 50%;
+        left: calc(
+          var(--hud-width) + (100% - var(--hud-width) - var(--tray-width)) / 2
+        );
         bottom: calc(var(--tray-height) + 12px);
         transform: translateX(-50%);
-        width: min(620px, calc(100% - 32px));
+        width: min(
+          620px,
+          calc(100% - var(--hud-width) - var(--tray-width) - 32px)
+        );
         padding: 22px 10px 12px;
         text-align: center;
       }
@@ -906,6 +923,106 @@
           min-height: 0;
           padding: 2px 8px;
           font-size: 0.8rem;
+        }
+      }
+      /* A phone on its side is too short for bands above and below the Board (a 750×280 page
+         left it 43px). The bands become rails beside it, so the Board gets the full height;
+         the Board is wide, so the width is what it can spare. */
+      @media (max-height: 500px) and (orientation: landscape) {
+        :root {
+          --hud-height: 0px;
+          --tray-height: 0px;
+          --hud-width: 150px;
+          --tray-width: 210px;
+        }
+        .hud-band,
+        .hud-tray {
+          position: fixed;
+          top: 0;
+          bottom: 0;
+          overflow-y: auto;
+          scrollbar-width: none;
+          background: rgb(0 0 0 / 0.35);
+        }
+        .hud-band {
+          left: 0;
+          width: var(--hud-width);
+          padding: 6px 6px;
+          border-right: 3px solid var(--outline);
+        }
+        .hud-top,
+        .hud-status {
+          flex-direction: column;
+          flex-wrap: nowrap;
+          align-items: stretch;
+          gap: 3px;
+        }
+        #hud .chip,
+        #hud[data-side] .chip-defense-gold,
+        #hud[data-side] .chip-attack-gold {
+          height: 26px;
+          padding: 0 8px;
+          font-size: 0.8rem;
+        }
+        .hud-tricks .settings-toggle {
+          width: 100%;
+          white-space: normal;
+        }
+        #hud .hud-message {
+          font-size: 0.75rem;
+        }
+        /* Hints scroll in the middle; the shop and Fight stay at the bottom, under the thumb. */
+        .hud-tray {
+          left: auto;
+          right: 0;
+          width: var(--tray-width);
+          display: flex;
+          flex-direction: column;
+          padding: 6px 8px 8px;
+          border-top: none;
+          border-left: 3px solid var(--outline);
+          overflow-y: hidden;
+        }
+        #hud .hud-tray p {
+          flex: 0 1 auto;
+          min-height: 0;
+          margin: 0;
+          overflow-y: auto;
+        }
+        .hud-controls {
+          flex-wrap: wrap;
+          justify-content: center;
+          margin-top: auto;
+        }
+        .hud-controls:has(.hud-choices) {
+          justify-content: center;
+        }
+        .hud-choices {
+          flex-basis: 100%;
+          margin-right: 0;
+        }
+        .hud-choices .shop-item {
+          width: 60px;
+          height: 60px;
+          font-size: 0.65rem;
+        }
+        .shop-portrait {
+          width: 28px;
+          height: 28px;
+        }
+        /* Take back and Fight share a row, leaving the hints more room. */
+        .hud-tray .hud-controls .btn {
+          padding: 4px 10px;
+        }
+        /* Left of the Reroll button, which sits in the panel's top-right corner. */
+        #crate .ribbon {
+          margin-left: 0;
+          padding: 2px 10px;
+          font-size: 0.85rem;
+        }
+        /* The Board is too short for Pause to sit clear of the Crate's Choose buttons. */
+        #crate {
+          z-index: 1;
         }
       }
       #crate[hidden],
