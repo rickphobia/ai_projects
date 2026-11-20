@@ -251,6 +251,8 @@ export class Hud {
   private readonly message: HTMLElement;
   /** Where the Settings menu sits, beside the status chips. */
   readonly tricks: HTMLElement;
+  /** Where the Full screen button goes, beside the tricks. */
+  readonly fullScreen: HTMLElement;
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
   /** The Round whose Curse was last announced, so each Round's is announced once. */
   private announcedRound: number | null = null;
@@ -279,7 +281,10 @@ export class Hud {
     this.tricks = this.doc.createElement("section");
     this.tricks.className = "hud-tricks";
     this.tricks.setAttribute("aria-label", "Settings");
-    top.append(this.status, this.heading, this.tricks);
+    this.fullScreen = this.doc.createElement("div");
+    this.fullScreen.className = "hud-full-screen";
+    // Before the tricks, so it joins the chips' row rather than starting its own.
+    top.append(this.status, this.heading, this.fullScreen, this.tricks);
     const band = this.doc.createElement("div");
     band.className = "hud-band";
     const tray = this.doc.createElement("div");

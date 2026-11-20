@@ -950,12 +950,19 @@
           padding: 6px 6px;
           border-right: 3px solid var(--outline);
         }
-        .hud-top,
-        .hud-status {
+        .hud-top {
           flex-direction: column;
           flex-wrap: nowrap;
           align-items: stretch;
           gap: 3px;
+        }
+        /* Short chips (Lives, Score, Round) share a row, leaving room for the buttons. */
+        .hud-status {
+          gap: 3px;
+        }
+        .hud-status .chip {
+          flex: 1 1 auto;
+          justify-content: center;
         }
         #hud .chip,
         #hud[data-side] .chip-defense-gold,
@@ -964,8 +971,12 @@
           padding: 0 8px;
           font-size: 0.8rem;
         }
-        .hud-tricks .settings-toggle {
+        .hud-tricks .settings-toggle,
+        .full-screen-toggle {
           width: 100%;
+          min-height: 34px;
+          padding: 2px 6px;
+          font-size: 0.85rem;
           white-space: normal;
         }
         #hud .hud-message {
