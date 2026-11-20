@@ -17,6 +17,7 @@ import { FpsMeter } from "./ui/fps-meter";
 import { CratePanel } from "./ui/crate";
 import { Hud } from "./ui/hud";
 import { shopStock } from "./ui/shop";
+import { showFullScreenButton } from "./ui/full-screen";
 import { showPauseMenu } from "./ui/pause";
 import { PieceInfo } from "./ui/piece-info";
 import { RoundReportPanel } from "./ui/report";
@@ -131,6 +132,7 @@ async function start(): Promise<void> {
     },
   });
   const report = new RoundReportPanel(requireElement("round-report"));
+  showFullScreenButton(hud.fullScreen, logger);
   const settings = new SettingsMenu(hud.tricks, {
     onDrag: (slider, to) => {
       run.dragSlider(slider, to);
