@@ -298,8 +298,8 @@ export class Hud {
     tray.append(this.roundHint, this.hint, this.controls);
     host.replaceChildren(band, tray);
     this.dudeInfo = new DudeInfo(this.doc);
-    this.followHeight(band, "--hud-height");
-    this.followHeight(tray, "--tray-height");
+    this.followHeight(band, "--hud-band-height");
+    this.followHeight(tray, "--hud-tray-height");
     this.doc.addEventListener("keydown", (event) => {
       if (!(event.ctrlKey || event.metaKey) || event.shiftKey) return;
       if (event.key.toLowerCase() !== "z") return;
@@ -490,8 +490,9 @@ export class Hud {
   }
 
   /**
-   * Each band is as tall as its text needs, so nothing is clipped; the Board and the panels
-   * beside it read that height from `variable`.
+   * Each band is as tall as its text needs, so nothing is clipped. The page's CSS reads the
+   * height from `variable` to place the Board and the panels beside it, unless the bands are
+   * rails beside the Board (a phone on its side), where it ignores it.
    */
   private followHeight(band: HTMLElement, variable: string): void {
     const view = this.doc.defaultView;
