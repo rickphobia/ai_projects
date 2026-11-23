@@ -17,6 +17,7 @@
 - [ ] Strokes are drawn as vector shapes with the on-screen brushes; the highlighter stays see-through
 - [ ] Bare shares the PDF as it is
 - [ ] Ink unreadable says "Ink can't be read, so it can't be exported" and points to Getting old ink back; Pick a side first asks for Keep mine or Keep the other first; nothing is shared
+- [ ] Follows the Log PDF export's pattern (off the main thread, progress, share through the file provider) rather than a second copy of it
 - [ ] Written off the main thread to a cache folder emptied before each Export, named like the Document, shared through the app's file provider; a progress bar (pages done of all) with Cancel; a cancel or failure deletes the partial file, shares nothing and says why
 - [ ] Logs each Export (page count, Inserted pages, stroke count, time, size in bytes, Share sheet or Send to), a cancel, a failure with its step, and a refusal; never strokes, file names or prompts
 - [ ] README describes Export with ink
