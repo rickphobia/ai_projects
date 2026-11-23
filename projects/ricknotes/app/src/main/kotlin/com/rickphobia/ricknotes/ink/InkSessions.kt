@@ -77,4 +77,8 @@ internal class SaveStatusState(
     override fun saveFailed(error: InkSaveFailed) {
         AppLog.e("save failed for $documentName; will retry", error)
     }
+
+    override fun versionSkipped(fileName: String) {
+        AppLog.d("no Version of $fileName on open: same as the newest")
+    }
 }

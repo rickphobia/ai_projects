@@ -30,12 +30,37 @@ internal class VersionStore(
      * @throws IOException if the copy or the clean-up fails.
      */
     fun take(nowMs: Long) {
-        val bytes =
-            try {
-                Files.readAllBytes(file)
-            } catch (_: NoSuchFileException) {
-                return
-            }
+        val bytes = readFile() ?: return
+        write(bytes, nowMs)
+    }
+
+    /**
+     * Like [take], but takes no Version when the file is the same as the newest one, so the [KEEP]
+     * kept are different moments rather than the same ink opened again and again.
+     *
+     * @return true if no Version was taken because the file is the same as the newest one.
+     * @throws IOException if a read, the copy or the clean-up fails.
+     */
+    fun takeUnlessSame(nowMs: Long): Boolean {
+        val bytes = readFile() ?: return false
+        val same = newest()?.let { Files.readAllBytes(it).contentEquals(bytes) } ?: false
+        if (!same) write(bytes, nowMs)
+        return same
+    }
+
+    private fun newest(): Path? = if (Files.isDirectory(folder)) ours().maxByOrNull { it.first }?.second else null
+
+    private fun readFile(): ByteArray? =
+        try {
+            Files.readAllBytes(file)
+        } catch (_: NoSuchFileException) {
+            null
+        }
+
+    private fun write(
+        bytes: ByteArray,
+        nowMs: Long,
+    ) {
         Files.createDirectories(folder)
         writeSafely(freeVersion(nowMs), bytes)
         dropOldest()
@@ -62,16 +87,18 @@ internal class VersionStore(
             .map { folder.resolve("$prefix$it$SUFFIX") }
             .first { !Files.exists(it, LinkOption.NOFOLLOW_LINKS) }
 
+    // This file's Versions, each with the time it was taken.
+    private fun ours(): List<Pair<Long, Path>> =
+        Files.list(folder).use { files ->
+            files
+                .iterator()
+                .asSequence()
+                .mapNotNull { file -> takenAtMs(file.fileName.toString())?.let { it to file } }
+                .toList()
+        }
+
     private fun dropOldest() {
-        val ours =
-            Files.list(folder).use { files ->
-                files
-                    .iterator()
-                    .asSequence()
-                    .mapNotNull { file -> takenAtMs(file.fileName.toString())?.let { it to file } }
-                    .toList()
-            }
-        ours.sortedByDescending { it.first }.drop(KEEP).forEach { Files.deleteIfExists(it.second) }
+        ours().sortedByDescending { it.first }.drop(KEEP).forEach { Files.deleteIfExists(it.second) }
     }
 
     // Null for anything that isn't one of this file's Versions, such as another Document's.
