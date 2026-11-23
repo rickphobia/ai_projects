@@ -10,7 +10,7 @@ Experienced engineers all land on the same loop: **spec → plan → build in sm
 |---|------|----------|--------------|
 | 1 | Start a session on `main`: in the cloud (claude.ai/code), or on the Beelink in `~/homelab/code/ai_projects` | "New project: `pdf-summarizer`" (or "work on `projects/pdf-summarizer`") | Claude knows which folder it owns |
 | 2 | Describe it | What you want and what the finished product looks like | — |
-| 3 | Get grilled | `/grill-with-docs` | Rounds of numbered questions, each with a recommended answer. Builds `GLOSSARY.md` and decision records as you go |
+| 3 | Get grilled | `/grill-with-docs` | Rounds of questions in Claude Code's question picker, your recommended answer first. Builds `GLOSSARY.md` and decision records as you go |
 | 4 | Write the spec | `/to-spec` | `docs/spec.md`. **Read it.** |
 | 5 | Split into tickets | `/to-tickets` | `docs/tickets/01-…md`, `02-…md`, each with **Blocked by** and **Touches**, plus which can run in parallel. You approve the breakdown |
 | 6 | Build the skeleton | `scripts/next-tickets.sh <name>` (or a new session: `/implement projects/<name>/docs/tickets/01-…md`) | Project runs, one test passes, CI green. One PR |

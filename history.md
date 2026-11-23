@@ -32,6 +32,10 @@ Why things in the root docs (`CLAUDE.md`, `README.md`, `docs/`) and the shared s
 
 ## docs/workflow.md
 
+### The loop
+
+- **2026-11-23: step 3 says the questions come in the question picker.** Was "Rounds of numbered questions, each with a recommended answer." Why: see `.claude/skills/grilling/SKILL.md` › Rounds paragraph.
+
 ### Starting tickets with `scripts/next-tickets.sh`
 
 - **2026-11-01: split into lists; dated incident moved here.** Was "RickNotes sets 1, because each Android build takes 2–4 GB and most of the CPU; on 2026-10-23 two at once, beside two web tickets, filled the swap." Why: the main file keeps the guard ("two at once beside web tickets fill the swap"); the 2026-10-23 incident is the evidence behind it.
@@ -44,6 +48,12 @@ Why things in the root docs (`CLAUDE.md`, `README.md`, `docs/`) and the shared s
 
 - **2026-11-01: lists the agent exceptions.** Was "The `fact-finder` lookups above are the one exception." Why: see `CLAUDE.md` › Keep dev cost low.
 - **2026-11-01: "Keep `CLAUDE.md` short" merged into "Habits that prevent slop".** It was in both sections; its cost reason ("loaded into every session, so each extra line is paid for every time") moved with it.
+
+## .claude/skills/grilling/SKILL.md
+
+### Rounds paragraph
+
+- **2026-11-23: rounds use the `AskUserQuestion` tool.** Was "Ask the whole frontier in one round: number each question and give your recommended answer", with a text template: `❓ **Q1** - **<question title>**: <question body…>` then `➡️ <your recommended answer>`, rounds separated by `---`. Why: the owner didn't want to type answers to numbered text questions. They tried a mock round in the picker and asked for the rule (owner's call). The picker's limits (4 questions per call, 2–4 options each, and only the dialog visible while it's open) are why the rule splits big rounds and makes each question stand alone.
 
 ## .claude/skills/to-tickets/SKILL.md
 
