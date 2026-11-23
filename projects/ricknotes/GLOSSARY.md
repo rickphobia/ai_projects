@@ -106,7 +106,7 @@ What a Preset sends instead of a file: the exact file names (and page number) in
 _Avoid_: link, path
 
 **Match list**:
-`_ricknotes/matches.json`, written by `~/ee`: each question sheet's file name → its Answer pack's file name.
+`answer packs/matches.json` in each course, written by `~/ee`: each question sheet (by its path in the course) → its Answer pack and chapter notes files.
 _Avoid_: index, mapping
 
 **Revision log**:
