@@ -114,6 +114,10 @@ dependencies {
     implementation(libs.androidx.ink.brush)
     implementation(libs.androidx.ink.strokes)
     implementation(libs.androidx.ink.rendering)
+    implementation(libs.androidx.ink.geometry)
+    // Bouncy Castle is only for certificate-encrypted PDFs, which the viewer can't open either, and
+    // adds 9 MB to the APK (decision 0008).
+    implementation(libs.pdfbox.android) { exclude(group = "org.bouncycastle") }
 
     testImplementation(libs.junit)
 }

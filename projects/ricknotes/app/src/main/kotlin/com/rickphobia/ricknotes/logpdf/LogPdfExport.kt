@@ -1,10 +1,6 @@
 package com.rickphobia.ricknotes.logpdf
 
-import android.content.ActivityNotFoundException
-import android.content.ClipData
 import android.content.Context
-import android.content.Intent
-import androidx.core.content.FileProvider
 import com.rickphobia.ricknotes.core.logpdf.ExportedEntry
 import com.rickphobia.ricknotes.core.logpdf.LogPdfFile
 import com.rickphobia.ricknotes.core.logpdf.LogPdfLayout
@@ -55,25 +51,4 @@ internal fun exportLogPdf(
     return pdf
 }
 
-/** Opens the Share sheet for [pdf], through a content URI only the app it goes to can read. */
-internal fun shareLogPdf(
-    context: Context,
-    pdf: File,
-) {
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", pdf)
-    val share =
-        Intent(Intent.ACTION_SEND)
-            .setType(PDF_TYPE)
-            .putExtra(Intent.EXTRA_STREAM, uri)
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    // Some apps read the PDF from ClipData rather than EXTRA_STREAM.
-    share.clipData = ClipData.newRawUri(pdf.name, uri)
-    try {
-        context.startActivity(Intent.createChooser(share, pdf.name))
-    } catch (e: ActivityNotFoundException) {
-        AppLog.e("Log PDF: no app took the share", e)
-    }
-}
-
-private const val PDF_TYPE = "application/pdf"
 private const val NANOS_PER_MS = 1_000_000

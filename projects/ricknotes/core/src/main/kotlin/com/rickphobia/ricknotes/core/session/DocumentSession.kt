@@ -222,6 +222,19 @@ class DocumentSession private constructor(
         return edit { history.removePage(id) }
     }
 
+    /** The pages, strokes and Pictures as they are now, read together, for an Export. */
+    fun snapshot(): DocumentSnapshot =
+        synchronized(lock) {
+            DocumentSnapshot(
+                pageCount,
+                history.pages,
+                history.strokes,
+                history.pictures,
+                inkUnreadable = unreadable,
+                conflictWaiting = pendingConflicts.isNotEmpty(),
+            )
+        }
+
     /** True if page [id] has any strokes or Pictures on it: removing it then asks first. */
     fun hasInk(id: PageId): Boolean = synchronized(lock) { history.hasInk(id) }
 
