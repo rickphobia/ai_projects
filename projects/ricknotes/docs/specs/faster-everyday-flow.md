@@ -48,9 +48,10 @@ Getting the right file to the AI is most of the taps: the answer pack sits in `a
 
 ### The match list (`~/ee`)
 
-- One file per course: `~/ee` writes `answer packs/matches.json` inside the course's `_My class 2026-27/`, so it reaches the tablet with the course's own pair. It is rewritten whole through a safe write after every pack build, record and accept, and every chapter-notes build (a rebuild can change the number of parts).
-- `{"version": 1, "sheets": [{"sheet": "<the sheet PDF's path inside _My class>", "pack": "<pack file name>", "notes": ["<every chapter-notes file of the decks the pack used>"]}]}`. RickNotes looks up the open Document by its path inside its Course folder, which is the same path. Only complete packs: a pack in `needs review/` or a `(PREVIEW)` is left out. A pack whose decks have no notes yet has `"notes": []`, and the prompt names only the pack.
-- `~/ee` records which sheet each pack was built from and which decks it used, and finds the notes from those decks; it never matches by name or by "Chapter N". Today that record is missing for about 15 packs (all of EMM101's among them), so `~/ee` adds it at build time and fills in the old ones. That work is `~/ee`'s, sent to its session on 24 Nov 2026; the format above may change there, and this file follows.
+- One file per course: `~/ee` writes `answer packs/matches.json` inside the course's `_My class 2026-27/`, so it reaches the tablet with the course's own pair. It is live for EBB113, EEE105, EMM101, EUM113 and WAR122 (`~/ee` commit fd68e70, 24 Nov 2026; 21 sheets matched). EEE123 has no `_My class` yet, so no file. It is rewritten whole, under a lock, after any change to `~/ee`'s pack or notes records (build, record, accept, Drive moves, notes builds and rebuilds), and skipped when the bytes haven't changed.
+- Format, version 1: `{"version": 1, "sheets": [{"sheet": "<the sheet PDF's path inside _My class 2026-27/>", "pack": "<pack file name>", "notes": ["<chapter-notes file names>"]}]}`. RickNotes looks up the open Document by its path inside its Course folder, which is the same path (`eLearning/05 TUTORIAL/Tutorial #4 … (Question) 2026_2027.pdf`). `sheets` is sorted by sheet path; one pack can appear under several sheets. The file also carries `course`, `session` and `unmatched` (finished packs with no sheet, and why), which RickNotes ignores.
+- Only complete packs: a pack in `needs review/` or a `(PREVIEW)` is left out. `notes` holds only files present in `notes/`, NEEDS REVIEW ones included; a pack whose decks have no notes yet has `"notes": []`, and the prompt names only the pack.
+- `~/ee` records which sheet each pack was built from and which decks it used: the sheet by MD5 against Drive's own listing, the notes by the decks' SHA-256. It never matches by name or by "Chapter N". Assessment sheets match their `Assessment records/…/questions/` copy this way, which a name join would miss.
 - RickNotes reads the file each time Send to opens, like the Presets file. A file that is missing or can't be read means "No answer pack yet" for every sheet, with the reason in the log.
 
 ### Presets file
@@ -66,8 +67,8 @@ Getting the right file to the AI is most of the taps: the answer pack sits in `a
 ## Testing Decisions
 
 - **Prompt building** (pure, in `core`): given a Preset, the Document's name, the page and the match list, it gives the text to send, or "No answer pack yet". Tests: each placeholder filled; a sheet with no match refuses; a damaged match list refuses with a reason; an old Presets file without the new field sends the PDF.
-- **Match list reading** (prior art: the Presets file tests): valid, missing, not JSON, entry with no pack name.
-- **`~/ee`'s writer** is tested in `~/ee`, offline: complete packs listed, needs-review packs left out, an unreadable registry writes nothing.
+- **Match list reading** (prior art: the Presets file tests): valid, missing, not JSON, entry with no pack name, unknown extra keys ignored.
+- **`~/ee`'s writer** is tested in `~/ee`, offline (`test_pack_matches.py`).
 - **Not unit-tested:** the picture of the page, the share into the Gemini app, half width. Each ticket lists its on-tablet check.
 
 ## Out of Scope
