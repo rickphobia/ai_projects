@@ -46,6 +46,12 @@ private class RecordingListener : SaveListener {
     override fun versionFailed(error: VersionFailed) {
         versionFailures.add(error)
     }
+
+    var versionsSkipped = 0
+
+    override fun versionSkipped(fileName: String) {
+        versionsSkipped++
+    }
 }
 
 class DocumentSessionTest {
@@ -417,6 +423,28 @@ class DocumentSessionTest {
     }
 
     @Test
+    fun `opening again with no change takes no Version, and opening after a change takes one`() {
+        saveOneStroke("a")
+        val listener = RecordingListener()
+        clock.advance(1_000)
+        open()
+        clock.advance(1_000)
+        open(listener = listener)
+
+        assertEquals(listOf("Week 1.pdf.ink.json.1000.version"), versions())
+        assertEquals(1, listener.versionsSkipped)
+
+        open().apply {
+            addStroke(stroke("b"))
+            saveNow()
+        }
+        clock.advance(1_000)
+        open()
+
+        assertEquals(listOf(1000L, 3000L).map { "Week 1.pdf.ink.json.$it.version" }, versions())
+    }
+
+    @Test
     fun `no Version is taken of a Document with no Ink file or a damaged one`() {
         open()
         Files.writeString(inkFile, "{")
@@ -461,9 +489,12 @@ class DocumentSessionTest {
         Files.writeString(versionsFolder.resolve("Week 2.pdf.ink.json.5.version"), "other")
         saveOneStroke("a")
 
-        repeat(12) {
+        repeat(12) { i ->
             clock.advance(1_000)
-            open()
+            open().apply {
+                addStroke(stroke("n$i"))
+                saveNow()
+            }
         }
 
         val ours = versions().filter { it.startsWith("Week 1.pdf.") }
