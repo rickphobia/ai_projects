@@ -18,17 +18,19 @@ Getting the right file to the AI is most of the taps: the answer pack sits in `a
   - **Ask about this page** (on notes): sends "I'm reading `<file name>`, page N." and leaves Gemini waiting for my question. Gemini opens the file itself from Drive through its Drive connector.
   - **Answers only** (on a tutorial, test or assignment question sheet): sends the question sheet and its **Answer pack** by name and asks for the final answer to every question, taken from the pack.
   - **Where did I go wrong** (on my working): sends the current page with my ink as a picture, names the question sheet and its Answer pack again, and tells Gemini to find which question I'm on and guide me without giving the answer.
-- **`~/ee` writes a match list** saying which Answer pack belongs to which question sheet, so RickNotes never guesses from names.
+- **The Answer pack and the chapter notes are the absolute reference.** Every Preset names them and tells Gemini to answer, explain and guide only from them: their method, notation and answers, never another method or its own answer.
+- **`~/ee` writes a match list** saying which Answer pack and which chapter notes belong to each question sheet, so RickNotes never guesses from names.
 
 ## User Stories
 
 1. As a student, I want to read chapter notes in RickNotes with the Gemini app beside it in split screen, so that I can ask about a page without leaving it.
 2. As a student, I want RickNotes to work at half the screen's width (tab bar, tools, Send to), so that split screen is usable.
 3. As a student, I want "Ask about this page" to send the notes file's exact name and the page I'm on to Gemini, then wait for me to type, so that Gemini reads the right page and I ask what I need.
+3a. As a student, I want Gemini told that the chapter notes and Answer packs are the absolute reference, so that it explains with the method and notation I'm taught and never contradicts them.
 4. As a student, I want "Answers only" on a question sheet to send it and its Answer pack to Gemini and get the final answers to the whole sheet, so that I can check my answers without opening the pack.
 5. As a student, I want "Answers only" on a sheet with no Answer pack to say "No answer pack yet" and send nothing, so that I never get an unchecked answer by mistake.
-6. As a student, I want "Where did I go wrong" to send the page I'm on with my ink as a picture, plus the sheet and its Answer pack by name, so that Gemini sees my working even in a new chat.
-7. As a student, I want Gemini told to find the question from my working and to guide me with hints, never the answer, so that I still work it out myself.
+6. As a student, I want "Where did I go wrong" to send the page I'm on with my ink as a picture, plus the sheet, its Answer pack and its chapter notes by name, so that Gemini sees my working even in a new chat.
+7. As a student, I want Gemini told to find the question from my working and to guide me with hints from the Answer pack's working and the notes' method, never the answer, so that I still work it out myself.
 8. As a student, I want the Send to menu to show only these three Presets, so that the choice is quick.
 9. As a student, I want each Preset's prompt in `_ricknotes/presets.json`, as today, so that I can reword one on the laptop without a new app.
 
@@ -39,17 +41,17 @@ Getting the right file to the AI is most of the taps: the answer pack sits in `a
 - A Preset gains **what it sends**: a **Drive reference** (file names and page number in the prompt text, no file attached), a **page picture** (the current page with its ink, as a PNG), or the PDF as today. The three new Presets are Drive reference, Drive reference, and page picture plus Drive reference.
 - **Drive references are exact file names only** (`EEE105 Ch2 Basic Laws notes part 1.pdf`, page 7), never a Drive path: `~/ee`'s names are unique within the courses the tablet mirrors, and the Gemini app's Drive connector finds a file by name. Nothing maps tablet folders to Drive folders.
 - The prompt text holds placeholders filled at send time: the Document's file name, the page number shown on screen, and the matched Answer pack's file name.
-- **Answers only trusts the pack:** the prompt asks for the pack's final answers, not a check of them.
+- **The Answer pack and the chapter notes are the absolute reference** (owner, 24 Nov 2026: the pack is built by Gemini and checked by another model, so its accuracy isn't a worry). Every prompt says so: answers come from the pack, explanations and hints follow the pack's working and the notes' method and notation, and Gemini doesn't bring in another method or check the pack. Ask about this page names the notes file it's on; Answers only and Where did I go wrong name the sheet, its Answer pack and its chapter notes.
 - **Where did I go wrong is self-contained:** it repeats the sheet's and the pack's names, so it works whether the Gemini app opens a new chat or continues the last one.
 - Sends go to the Gemini Android app with `ACTION_SEND` (text, plus the picture for Where did I go wrong). The Claude target and the Share sheet stay for Export with ink only.
 
 ### The match list (`~/ee`)
 
 - `~/ee`'s daily job writes `_ricknotes/matches.json` in Drive `usm/` (the folder the tablet's Presets pair already mirrors), rewritten whole each run through a safe write, after the answer-pack step.
-- One entry per question sheet that has a complete Answer pack: the sheet's file name → the pack's file name. A pack in `needs review/` is left out (the tablet doesn't mirror it). File names, not paths, as above.
+- One entry per question sheet that has a complete Answer pack: the sheet's file name → the pack's file name and the chapter notes files for the sheet's chapter(s). A pack in `needs review/` is left out (the tablet doesn't mirror it). A sheet whose chapter has no notes yet lists none, and the prompt names only the pack. File names, not paths, as above.
 - `~/ee` already knows each pair (its pack registry records which sheet a pack was built from); it doesn't match by name.
 - RickNotes reads the file each time Send to opens, like the Presets file. A file that is missing or can't be read means "No answer pack yet" for every sheet, with the reason in the log.
-- The deck → chapter notes match is left out: nothing uses it yet.
+- How `~/ee` finds a sheet's chapter is decided from its audit of 24 Nov 2026 (see Further Notes).
 
 ### Presets file
 
@@ -81,5 +83,6 @@ Getting the right file to the AI is most of the taps: the answer pack sits in `a
 - **To check on the tablet before the tickets are written**, by the owner:
   1. In the Gemini app, type `@Google Drive` with an exact file name (say `EEE105 Ch2 Basic Laws notes part 1.pdf`) and ask about page 7. Pass: Gemini answers from that page. Google documents `@file name` for Gemini *in Drive*; for the Gemini app's Drive connector only third-party pages say it reads PDFs (checked 24 Nov 2026). If it fails, Drive references come back for grilling.
   2. From any app, share a picture with text into the Gemini app. Pass: both arrive in one message. Note whether it starts a new chat.
+- **`~/ee` audit (24 Nov 2026):** the owner asked for a look at the whole eLearning job, chapter notes and Answer pack building before this is ticketed; its findings, and the source of each sheet's chapter for the Match list, are added here.
 - **Done when:** "In split screen with the Gemini app: Ask about this page on a notes page reaches Gemini with the file and page, and Gemini answers about that page; Answers only on EEE105 Tutorial 4 gives the pack's final answers; Where did I go wrong on a page of working gets a hint, not the answer; on a sheet with no pack it says No answer pack yet."
 - **Effect on the main spec:** milestone 7's row gets the done-when above for this part. The Default Presets and the Claude Presets are replaced by the three here once ticket 51 is done.
