@@ -28,8 +28,10 @@ import com.rickphobia.ricknotes.core.presets.DocumentSend
 import com.rickphobia.ricknotes.core.presets.Preset
 import com.rickphobia.ricknotes.core.presets.PresetSend
 import com.rickphobia.ricknotes.core.session.DocumentSnapshot
+import com.rickphobia.ricknotes.export.ExportDocument
 import com.rickphobia.ricknotes.export.ExportFailed
 import com.rickphobia.ricknotes.export.ExportPurpose
+import com.rickphobia.ricknotes.export.PictureMissing
 import com.rickphobia.ricknotes.export.exportWithInk
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.share.sharePdf
@@ -52,10 +54,16 @@ private sealed interface ExportState {
     ) : ExportState
 }
 
-/** One Export to make: [plan] drawn onto [pdf]. */
-private class ExportJob(
+/** Where Export with ink reads a Document from: its Pictures' [assetsFolder] and its ink's [snapshot]. */
+class ExportSource(
+    val assetsFolder: File,
+    val snapshot: () -> DocumentSnapshot,
+)
+
+/** A Document of a Preset send: its PDF, and its [source] or null when its ink hasn't loaded. */
+internal class SendDocument(
     val pdf: File,
-    val plan: ExportPlan.WithInk,
+    val source: ExportSource?,
 )
 
 /**
@@ -74,6 +82,7 @@ internal class InkExportRun(
     /** Export with ink: shares the PDF as it is when there is no ink, or says why it can't. */
     fun start(
         pdf: File,
+        assetsFolder: File,
         snapshot: DocumentSnapshot,
     ) {
         if (job?.isActive == true) return
@@ -92,46 +101,62 @@ internal class InkExportRun(
             }
 
             is ExportPlan.WithInk -> {
-                export(listOf(ExportJob(pdf, plan)), forSendTo = false) { sharePdf(context, it.single()) }
+                export(listOf(ExportDocument(pdf, assetsFolder, plan)), forSendTo = false) {
+                    sharePdf(context, it.single())
+                }
             }
         }
     }
 
     /**
-     * Sends [pdfs] (one Document, or Both Panes) with [preset] to [target]: each with its ink when
-     * the Preset is ink on and it has some, else as it is. [snapshots] match [pdfs]; null is ink
-     * not loaded yet.
+     * Sends [documents] (one, or Both Panes with the one Send to was opened from first) with
+     * [preset] to [target]: each with its ink when the Preset is ink on and it has some, else as it
+     * is. Their ink is read now, so ink written afterwards doesn't go.
      */
     fun send(
-        pdfs: List<File>,
-        snapshots: List<DocumentSnapshot?>,
+        documents: List<SendDocument>,
         target: SendTarget,
         preset: Preset,
     ) {
         if (job?.isActive == true) return
-        when (val plan = PresetSend.of(preset, snapshots)) {
+        when (val plan = PresetSend.of(preset, documents.map { it.source?.snapshot?.invoke() })) {
             PresetSend.PickASideFirst -> {
                 refuse("send to", "a Conflict copy is waiting", R.string.send_pick_a_side)
             }
 
             is PresetSend.Ready -> {
-                if (plan.inkLeftOut) {
-                    AppLog.i("send to: ink left out, sending the PDF as it is")
-                    Toast.makeText(context, R.string.send_ink_left_out, Toast.LENGTH_LONG).show()
-                }
-                val exports =
-                    plan.documents.zip(pdfs).mapNotNull { (document, pdf) ->
-                        (document as? DocumentSend.WithInk)?.let { ExportJob(pdf, it.plan) }
-                    }
-                if (exports.isEmpty()) {
-                    sendTo(context, pdfs, target, preset, inkWent = false)
+                sendReady(plan, documents, target, preset)
+            }
+        }
+    }
+
+    private fun sendReady(
+        plan: PresetSend.Ready,
+        documents: List<SendDocument>,
+        target: SendTarget,
+        preset: Preset,
+    ) {
+        if (plan.inkLeftOut) {
+            AppLog.i("send to: ink left out, sending the PDF as it is")
+            Toast.makeText(context, R.string.send_ink_left_out, Toast.LENGTH_LONG).show()
+        }
+        val pdfs = documents.map { it.pdf }
+        val exports =
+            plan.documents.zip(documents).mapNotNull { (send, document) ->
+                val source = document.source
+                if (send is DocumentSend.WithInk && source != null) {
+                    ExportDocument(document.pdf, source.assetsFolder, send.plan)
                 } else {
-                    export(exports, forSendTo = true) { made ->
-                        val exported = exports.map { it.pdf }.zip(made).toMap()
-                        sendTo(context, pdfs.map { exported[it] ?: it }, target, preset, inkWent = true)
-                    }
+                    null
                 }
             }
+        if (exports.isEmpty()) {
+            sendTo(context, pdfs, target, preset, inkWent = false)
+            return
+        }
+        export(exports, forSendTo = true) { made ->
+            val exported = exports.map { it.pdf }.zip(made).toMap()
+            sendTo(context, pdfs.map { exported[it] ?: it }, target, preset, inkWent = true)
         }
     }
 
@@ -146,7 +171,7 @@ internal class InkExportRun(
 
     // Makes every Export in order, each in its own cache subfolder, then hands them to [share].
     private fun export(
-        exports: List<ExportJob>,
+        exports: List<ExportDocument>,
         forSendTo: Boolean,
         share: (List<File>) -> Unit,
     ) {
@@ -159,7 +184,7 @@ internal class InkExportRun(
                     val made =
                         exports.mapIndexed { slot, export ->
                             val purpose = if (forSendTo) ExportPurpose.SendTo(slot) else ExportPurpose.ShareSheet
-                            exportWithInk(context, export.pdf, export.plan, purpose) { done ->
+                            exportWithInk(context, export, purpose) { done ->
                                 state = ExportState.Running(before + done, pages)
                             }.also { before += export.plan.pages.size }
                         }
@@ -168,9 +193,13 @@ internal class InkExportRun(
                 } catch (e: CancellationException) {
                     state = ExportState.Stopped(R.string.export_cancelled)
                     throw e
-                } catch (_: ExportFailed) {
+                } catch (e: ExportFailed) {
                     // exportWithInk has logged the step and why.
-                    state = ExportState.Stopped(R.string.export_failed)
+                    val missingPicture = e.cause is PictureMissing
+                    state =
+                        ExportState.Stopped(
+                            if (missingPicture) R.string.export_picture_missing else R.string.export_failed,
+                        )
                 }
             }
     }
