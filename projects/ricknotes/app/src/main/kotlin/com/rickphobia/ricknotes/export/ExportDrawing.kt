@@ -16,8 +16,10 @@ import com.tom_roush.pdfbox.util.Matrix
  * Draws one page of an Export into [document] (decision 0008). A PDF page, taken from [pdfPages]
  * (the PDF's own pages, listed before any page was added, since an Inserted page shifts the
  * document's page numbers), keeps its own content as it is, with the strokes appended over it; an
- * Inserted page is added new, right after [previous] (or first, when there is none). Returns the
- * page, so the next Inserted page can follow it.
+ * Inserted page is added new, right after [previous] (or first, when there is none), with its
+ * background's lines or dots. Returns the page, so the next Inserted page can follow it.
+ *
+ * Pictures go first, then the strokes over them, as on screen.
  *
  * Each stroke is the outline of the mesh Jetpack Ink builds with the on-screen brush, filled as a
  * vector shape in its colour, so the Export looks like the screen at any zoom. A stroke Ink can't
@@ -28,23 +30,25 @@ internal fun drawExportPage(
     pdfPages: List<PDPage>,
     page: ExportPage,
     previous: PDPage?,
-    alphaStates: AlphaStates,
+    shared: SharedResources,
 ): PDPage {
     val target =
         when (page) {
             is ExportPage.FromPdf -> pdfPages[page.index]
             is ExportPage.Inserted -> newPage(document, PDRectangle(page.widthPt, page.heightPt), previous)
         }
-    if (page.strokes.isEmpty()) return target
+    if (page is ExportPage.FromPdf && page.strokes.isEmpty() && page.pictures.isEmpty()) return target
     // Append, compressed, wrapping the page's own content in q…Q so a graphics state it leaves set
     // can't change how the strokes come out.
     PDPageContentStream(document, target, PDPageContentStream.AppendMode.APPEND, true, true).use { out ->
         out.saveGraphicsState()
         out.transform(appTopLeftToPdf(target))
+        if (page is ExportPage.Inserted) out.drawPaper(page.background, page.widthPt, page.heightPt)
+        page.pictures.forEach { out.drawPicture(it, shared.images) }
         val vertex = MutableVec()
         page.strokes.forEach { stroke ->
             val mesh = stroke.toMesh() ?: return@forEach
-            out.fillStroke(stroke, mesh.shape, vertex, alphaStates)
+            out.fillStroke(stroke, mesh.shape, vertex, shared.alphaStates)
         }
         out.restoreGraphicsState()
     }
@@ -120,6 +124,12 @@ private fun appTopLeftToPdf(page: PDPage): Matrix {
     }
 }
 
+/** What every page of an Export draws with, made once for the whole Export. */
+internal class SharedResources(
+    val alphaStates: AlphaStates,
+    val images: PictureImages,
+)
+
 /** One graphics state per see-through alpha, shared by every page of an Export. */
 internal class AlphaStates {
     private val states = mutableMapOf<Int, PDExtendedGraphicsState>()
@@ -135,15 +145,15 @@ internal class AlphaStates {
         }
 }
 
-private fun channel(
+internal fun channel(
     argb: Int,
     shift: Int,
 ): Float = ((argb shr shift) and OPAQUE) / CHANNEL_MAX
 
 private const val ALPHA_SHIFT = 24
-private const val RED_SHIFT = 16
-private const val GREEN_SHIFT = 8
-private const val BLUE_SHIFT = 0
+internal const val RED_SHIFT = 16
+internal const val GREEN_SHIFT = 8
+internal const val BLUE_SHIFT = 0
 private const val OPAQUE = 0xFF
 private const val CHANNEL_MAX = 255f
 private const val FULL_TURN = 360

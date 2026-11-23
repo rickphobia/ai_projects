@@ -25,13 +25,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.ink.InkTool
-import com.rickphobia.ricknotes.core.session.DocumentSnapshot
 import com.rickphobia.ricknotes.core.session.SaveStatus
 import com.rickphobia.ricknotes.core.session.SessionWarning
 import com.rickphobia.ricknotes.files.PdfEntry
 import com.rickphobia.ricknotes.ink.DocumentInk
 import com.rickphobia.ricknotes.ink.PenMode
 import com.rickphobia.ricknotes.logging.AppLog
+import com.rickphobia.ricknotes.sendto.ExportSource
 import com.rickphobia.ricknotes.sendto.SendToButton
 import com.rickphobia.ricknotes.toolbar.BackButton
 import com.rickphobia.ricknotes.toolbar.PenKind
@@ -55,8 +55,11 @@ private sealed interface Opening {
         val error: DocumentOpenException,
     ) : Opening
 
-    /** What Export with ink reads the ink from: null until the ink has loaded. */
-    fun snapshotSource(): (() -> DocumentSnapshot)? = (this as? Ready)?.let { ready -> { ready.ink.snapshot() } }
+    /** What Export with ink reads the ink and Pictures from: null until the ink has loaded. */
+    fun exportSource(): ExportSource? =
+        (this as? Ready)?.let { ready ->
+            ExportSource(ready.ink.assetsFolder, ready.ink::snapshot)
+        }
 }
 
 /**
@@ -115,7 +118,7 @@ fun DocumentScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         DocumentTopBar(navigation) {
-            SendToButton(File(pdf.path), tab.otherPane, settings.studyFolder, opening.snapshotSource())
+            SendToButton(File(pdf.path), tab.otherPane, settings.studyFolder, opening.exportSource())
             PenToolbar(tool, kind, favouritePens)
             (opening as? Opening.Ready)?.let { InkControls(it.ink, redInk) }
         }

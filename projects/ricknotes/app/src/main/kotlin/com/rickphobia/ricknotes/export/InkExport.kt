@@ -20,6 +20,7 @@ enum class ExportStep(
 ) {
     PREPARE("emptying the export folder"),
     READ("reading the PDF"),
+    PICTURES("reading a Picture"),
     DRAW("drawing the ink"),
     WRITE("writing the Export"),
 }
@@ -31,24 +32,28 @@ class ExportFailed(
 ) : Exception("Export with ink failed while ${step.label}", cause)
 
 /**
- * Makes an Export of [pdf] from [plan]: a new PDF named like the Document, in a cache folder emptied
- * first, so no copy is ever kept in the Study folder and [pdf] is only read. [progress] gets the
- * pages done so far after each page. Runs off the main thread; cancelling the caller's coroutine
- * stops it between pages.
+ * Makes an Export of [pdf] from [plan], its Pictures' images read from [assetsFolder]: a new PDF
+ * named like the Document, in a cache folder emptied first, so no copy is ever kept in the Study
+ * folder and [pdf] is only read. [progress] gets the pages done so far after each page. Runs off
+ * the main thread; cancelling the caller's coroutine stops it between pages.
  *
- * @throws ExportFailed with the step that failed; the partial file is deleted.
+ * @throws ExportFailed with the step that failed; the partial file is deleted. A Picture whose
+ *   image is missing fails it at [ExportStep.PICTURES] with [PictureMissing], rather than leaving a gap.
  * @throws CancellationException when cancelled; the partial file is deleted.
  */
 internal suspend fun exportWithInk(
     context: Context,
     pdf: File,
+    assetsFolder: File,
     plan: ExportPlan.WithInk,
     progress: (pagesDone: Int) -> Unit,
 ): File =
     withContext(Dispatchers.IO) {
         val started = System.nanoTime()
-        // Counts, sizes and times only: never strokes or file names.
-        val counts = "${plan.pages.size} pages (${plan.insertedCount} Inserted), ${plan.strokeCount} strokes"
+        // Counts, sizes and times only: never strokes, Picture images or file names.
+        val counts =
+            "${plan.pages.size} pages (${plan.insertedCount} Inserted), ${plan.strokeCount} strokes, " +
+                "${plan.pictureCount} Pictures"
         val out =
             try {
                 File(inStep(ExportStep.PREPARE) { emptyFolder(context) }, pdf.name)
@@ -61,7 +66,7 @@ internal suspend fun exportWithInk(
                 // The Export is for any reader and the AI apps, so it goes without the PDF's own
                 // permissions lock, which would stop the slide text being selected (decision 0008).
                 document.isAllSecurityToBeRemoved = true
-                draw(document, plan, progress) { ensureActive() }
+                draw(document, PictureImages(document, assetsFolder), plan, progress) { ensureActive() }
                 ensureActive()
                 inStep(ExportStep.WRITE) { document.save(out) }
             }
@@ -129,17 +134,20 @@ private fun read(
 
 private fun draw(
     document: PDDocument,
+    images: PictureImages,
     plan: ExportPlan.WithInk,
     progress: (Int) -> Unit,
     checkCancelled: () -> Unit,
 ) {
-    val alphaStates = AlphaStates()
+    val shared = SharedResources(AlphaStates(), images)
     // Listed before any Inserted page is added, which would shift the document's page numbers.
     val pdfPages = document.pages.toList()
     var previous: PDPage? = null
     plan.pages.forEachIndexed { index, page ->
         checkCancelled()
-        previous = inStep(ExportStep.DRAW) { drawExportPage(document, pdfPages, page, previous, alphaStates) }
+        // Read first, so a missing image fails as its own step, with nothing half drawn.
+        inStep(ExportStep.PICTURES) { page.pictures.forEach(images::of) }
+        previous = inStep(ExportStep.DRAW) { drawExportPage(document, pdfPages, page, previous, shared) }
         progress(index + 1)
     }
 }
