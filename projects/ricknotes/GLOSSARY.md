@@ -33,7 +33,7 @@ The app's hold on one Document's ink while it is open: it loads the Ink file, ke
 _Avoid_: editor, controller
 
 **Version**:
-One earlier copy of an Ink file, kept so it can be restored. One is taken when a Document is opened and at most every 15 minutes of writing after that.
+One earlier copy of an Ink file, kept on the tablet as a last resort. One is taken when a Document is opened, unless nothing changed since the last one, and at most every 15 minutes of writing after that. The app has no screen for them; getting old ink back goes through Drive's own version history first.
 _Avoid_: backup, snapshot
 
 **Conflict copy**:
@@ -45,10 +45,14 @@ A blank A4 page added between a Document's pages, with a blank, lined, grid or d
 _Avoid_: extra page, blank page
 
 **Office file**:
-A pptx or docx in the Study folder. It can't be opened, only converted into a Document.
+A pptx or docx in the Study folder. The app can't open it; `~/ee`'s daily job puts a PDF of it beside it in the paired courses.
 
 **Orphaned ink**:
 An Ink file whose PDF is missing, usually because the PDF was renamed or moved outside the app.
+
+**Export**:
+A new PDF of a whole Document with its ink drawn in: its pages, Inserted pages, Pictures and strokes, under the Document's own name. It is made to be shared, through the Share sheet or Send to, and never kept in the Study folder.
+_Avoid_: flatten, print, copy with ink
 
 ## Writing on a page
 
