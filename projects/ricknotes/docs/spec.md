@@ -37,10 +37,14 @@ One **Milestone** at a time. A milestone is several tickets (one PR each) and is
 | 4 | Split view | The split button or Ctrl+\ opens a second Pane (at most two); each Pane holds Tabs; dragging a Tab across moves it; the layout comes back after restarting the app |
 | 5 | Red ink and log PDF | 3 red marks on 2 pages show as 3 rows in the Red ink list; adding them makes 3 Mistakes and they aren't offered again; Not a mistake hides one for good; Export PDF writes a PDF that opens in another reader |
 | 6 | Export with ink | A tutorial exported with ink opens in another reader with the ink, Pictures and Inserted pages there and the slide text still selectable; sent to Claude with Hint, it arrives with ink; an Ink file from yesterday comes back from Drive's Manage versions by following the README |
-| 7 | Snips | A slide diagram dragged onto a tutorial shows with a see-through background; a Snip sent to the error log appears as a Confused entry; the tutorial PDF itself is unchanged |
-| 8 | Office converter | A lecture pptx converted from the tablet at the dorm opens as a Document beside the original |
+| 7 | Simple UI | Set when it is grilled |
+| 8 | Snips | A slide diagram dragged onto a tutorial shows with a see-through background; a Snip sent to the error log appears as a Confused entry; the tutorial PDF itself is unchanged |
 
 **Before milestone 3:** the Revision log, Pictures and UI polish feature (`docs/specs/revision-log-and-polish.md`). It replaces the Error log below with one Revision log per Course folder, and brings Pictures forward from milestone 7. Milestone 5 now only adds Red ink to the Revision log and a PDF of the log.
+
+**Milestone 7, Simple UI:** added on 2026-11-23, to be grilled before it is ticketed. It covers look and feel (closer to Nebo and GoodNotes) and fewer taps for everyday work, starting from how `~/ee`'s daily job puts course files on the tablet. Snips are milestone 8; specs and tickets written before 2026-11-23 call them milestone 7.
+
+**No Office converter:** `~/ee`'s daily job makes a PDF beside every Office file in the paired courses (`docs/specs/one-study-folder.md`), so the app has no converter and stories 97–99 are dropped. An Office file from anywhere else is converted on the laptop.
 
 **Milestone 6:** grilled on 2026-11-01 and settled in `docs/specs/export-with-ink.md`, which replaces stories 84 and 87 below and drops 85–86: there is no Version restore screen, and old ink comes back through Drive's version history (story 49 points there instead of offering Versions). Whether Drive keeps that history for Ink files is still to be checked.
 
@@ -171,7 +175,7 @@ Replaced by `docs/specs/red-ink-and-log-pdf.md`; kept for history.
 86. As a student, I want restoring to take a Version of the current state first, so that a restore is itself reversible.
 87. As a student, I want an "Include my ink" switch in Send to, off by default for Chapter overview and on for the others, so that the AI sees my working when it matters.
 
-### Snips (milestone 7)
+### Snips (milestone 8)
 
 88. As a student, I want a Snip tool that cuts a rectangle or a freehand loop from any page, including the slide and my ink, so that I can reuse part of a page.
 89. As a student, I want "make white see-through" on a Snip, so that a slide diagram pastes without a white box around it.
@@ -183,7 +187,7 @@ Replaced by `docs/specs/red-ink-and-log-pdf.md`; kept for history.
 95. As a student, I want to share a Snip to the Gemini or Claude app with a Preset on the clipboard, so that I ask about exactly one question.
 96. As a student, I want placed Snips saved as images beside the Document and recorded in its Ink file, so that the PDF still never changes.
 
-### Office converter (milestone 8)
+### Office converter (dropped: `~/ee` converts Office files)
 
 97. As a student, I want "Convert to PDF" on a pptx or docx to produce a PDF beside the original, so that new slides become Documents without the laptop.
 98. As a student, I want a clear message when the Beelink can't be reached, so that I know to try later or convert on the laptop.
@@ -206,7 +210,7 @@ Replaced by `docs/specs/red-ink-and-log-pdf.md`; kept for history.
 
 - **`core`**: a pure Kotlin module with no Android imports. It holds all the rules: the Ink file model and its encoding, the Document session (strokes, pages, undo/redo, save scheduling, Versions, safe writing), the touch interpreter, and settings models. Everything here is unit-tested on the JVM.
 - **`app`**: the Android module. Its adapters are thin: page rendering with `PdfRenderer`, stroke drawing with Jetpack Ink, conversion of Android touch events into the plain events `core` understands, settings storage, the rolling log file, and Compose screens. The Activity only wires things together.
-- Later milestones add to `core` by feature (error log, layout, export planning) and to `app` by adapter (share menu, PDF writer, converter client). The converter service in milestone 8 lives in its own folder inside the project with its own Dockerfile and deploy script.
+- Later milestones add to `core` by feature (error log, layout, export planning) and to `app` by adapter (share menu, PDF writer).
 
 ### Seam 1: Document session
 
@@ -226,7 +230,7 @@ Decision 0003 has the reasons. One file per Document, named `<pdf name>.ink.json
 - Readable JSON with a format version number, the PDF's page count when the file was last saved, the page list, and the strokes.
 - **Page list:** the PDF's own pages plus any inserted pages, each with a stable ID, so inserting a page never renumbers anything. An inserted page records its background (blank, lined, grid, dotted) and has A4 portrait size. A Notebook's Ink file also records the background printed into its PDF (`notebook`), so Add page can match it; older apps ignore the field.
 - **Each stroke:** a stable ID, the page ID it belongs to, tool (pen or highlighter), colour, width, time drawn, and its points (x, y, pressure, time) in page coordinates, packed by `core` itself as difference-encoded integers stored as text (decision 0003). Jetpack Ink's own encoding is not used, because it is Android-only and would keep Ink files out of the JVM tests. Page coordinates are PDF points (1/72 inch), so ink lines up at any zoom or screen size.
-- Placed Snips (milestone 7) are recorded as an image file name in `<pdf name>.assets/`, page ID, position and size.
+- Placed Snips (milestone 8) are recorded as an image file name in `<pdf name>.assets/`, page ID, position and size.
 - Hidden temporary files and `.versions` use names the sync app can be told to skip.
 
 ### Seam 2: Touch interpreter
@@ -255,7 +259,7 @@ The second test seam. It takes plain touch events (pointer ID, pen or finger, po
 
 - App settings (Study folder, Finger erase, tap gestures, Favourite pens, last page and zoom per Document) live in the app's private storage and are loaded and validated in one place.
 - Presets (milestone 3) are a JSON file listing each Preset's name, prompt and whether ink is included by default. The app ships a default file, and editing it needs no code change.
-- Build-time values (signing key location and passwords, and later the converter's Tailscale address) come from environment variables listed in `.env.example`, never from code.
+- Build-time values (signing key location and passwords) come from environment variables listed in `.env.example`, never from code.
 
 ### Logging
 
@@ -270,7 +274,7 @@ The second test seam. It takes plain touch events (pointer ID, pen or finger, po
 - **Error log:** `_error_log/error_log.json` is the source of truth, with one picture per Entry beside it (a Wrong entry's picture is the whole rendered page, and the Entry stores the box around its red ink in page coordinates); `error_log.pdf` is generated from them and never edited. Entries remember the stroke IDs they came from, which is how "no duplicates" is checked.
 - **Export** draws pages, inserted pages, strokes and Snips into a new PDF with Android's PDF writer. The exact file naming and location are decided when milestone 6 is grilled.
 - **Snips:** "Lift subject" uses Google's on-device ML Kit subject segmentation (the tablet has Google Play services); "make white see-through" is our own pixel step. Placed Snips are stored as described in the Ink file format.
-- **Converter:** LibreOffice in Docker on the Beelink, listening only on the Tailscale address, with a health check and a deploy script (decision 0006).
+- **Office files:** converted by `~/ee`'s daily job with LibreOffice on the Beelink (decision 0006); the app only shows the PDFs.
 
 ### Default Presets
 
@@ -314,4 +318,4 @@ Starting prompts, to be edited in the Presets file:
 
 - **Rules that protect notes**, which every ticket follows: never change an existing PDF; save within 2 seconds and on going to the background; always save via temporary file and swap; keep Versions and a restore screen; warn about Conflict copies, never merge; test in the Preview app on a copy of the Study folder; keep Nebo or Xodo installed for the first 2 weeks of the semester.
 - **To check before or during the relevant ticket, not assumed:** current Jetpack Ink and AndroidX versions; Obtainium's release-name filter; FolderSync's Conflict copy naming; whether adb over Tailscale connects to the tablet; how the Gemini and Claude apps accept shared files plus text.
-- The tablet is at the dorm and the Beelink at home. Anything that has to work day to day must work with only GitHub and the tablet; the Beelink is for development sessions (reachable over Tailscale and code-server) and, from milestone 8, the converter.
+- The tablet is at the dorm and the Beelink at home. Anything that has to work day to day must work with only GitHub and the tablet; the Beelink is for development sessions (reachable over Tailscale and code-server).

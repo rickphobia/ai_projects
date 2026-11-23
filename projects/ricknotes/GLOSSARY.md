@@ -45,7 +45,7 @@ A blank A4 page added between a Document's pages, with a blank, lined, grid or d
 _Avoid_: extra page, blank page
 
 **Office file**:
-A pptx or docx in the Study folder. It can't be opened, only converted into a Document.
+A pptx or docx in the Study folder. The app can't open it; `~/ee`'s daily job puts a PDF of it beside it in the paired courses.
 
 **Orphaned ink**:
 An Ink file whose PDF is missing, usually because the PDF was renamed or moved outside the app.

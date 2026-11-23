@@ -100,7 +100,7 @@ My ink lives in the **Ink file** beside each PDF, so only RickNotes can see it:
 - Restoring a Revision log from a Version.
 - Exporting part of a Document, or several Documents into one PDF.
 - An "Include my ink" switch, or changing a Preset's ink setting from the app.
-- Exporting Snips (milestone 7).
+- Exporting Snips (milestone 8).
 - Saving an Export into the Study folder.
 
 ## Further Notes
