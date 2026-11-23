@@ -22,7 +22,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -31,6 +30,7 @@ import com.rickphobia.ricknotes.core.presets.LoadedPresets
 import com.rickphobia.ricknotes.core.presets.Preset
 import com.rickphobia.ricknotes.core.presets.PresetsFile
 import com.rickphobia.ricknotes.core.session.DocumentSnapshot
+import com.rickphobia.ricknotes.ink.InkSessions
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.toolbar.ToolIcon
 import kotlinx.coroutines.Dispatchers
@@ -60,7 +60,6 @@ fun SendToButton(
     studyFolder: String,
     snapshot: (() -> DocumentSnapshot)?,
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val export = rememberInkExportRun()
     var menu by remember { mutableStateOf<SendToMenu?>(null) }
@@ -93,10 +92,12 @@ fun SendToButton(
                     BothPanesChoice(pdf, other, bothPanes) { bothPanes = it }
                     HorizontalDivider()
                 }
-                val pdfs = listOfNotNull(pdf, open.otherPane?.takeIf { bothPanes })
+                val other = open.otherPane?.takeIf { bothPanes }
                 PresetsByTarget(open.presets) { target, preset ->
                     menu = null
-                    sendTo(context, pdfs, target, preset)
+                    // Read now, as the Preset is picked, so ink written afterwards doesn't go.
+                    val snapshots = listOf(snapshot?.invoke()) + listOfNotNull(other).map { InkSessions.snapshot(it) }
+                    export.send(listOfNotNull(pdf, other), snapshots, target, preset)
                 }
                 HorizontalDivider()
                 // With Both Panes chosen too, it exports the Document Send to was opened from.
@@ -165,13 +166,8 @@ private fun PresetsByTarget(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
         loaded.presets.forEach { preset ->
-            val name =
-                if (preset.inkOn) {
-                    stringResource(R.string.preset_ink_with_export, preset.name)
-                } else {
-                    preset.name
-                }
-            DropdownMenuItem(text = { Text(name) }, onClick = { send(target, preset) })
+            val ink = if (preset.inkOn) R.string.preset_with_ink else R.string.preset_no_ink
+            DropdownMenuItem(text = { Text(stringResource(ink, preset.name)) }, onClick = { send(target, preset) })
         }
     }
 }

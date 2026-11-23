@@ -26,15 +26,18 @@ enum class SendTarget(
  * the one Send to was opened from first) in one share to [target]'s app, beside RickNotes where the
  * tablet splits the screen; or through the full share menu when that app isn't installed. Each PDF
  * goes through a content URI from the FileProvider, readable only by the app it is shared to.
+ * [pdfs] are the Exports when [inkWent], so the prompt goes on the clipboard only once they are ready.
  */
 fun sendTo(
     context: Context,
     pdfs: List<File>,
     target: SendTarget,
     preset: Preset,
+    inkWent: Boolean,
 ) {
     // The prompt is the owner's text, and the names are their files: neither goes in the log.
-    AppLog.i("send to: ${target.label}, Preset '${preset.name}', ${pdfs.size} Document(s)")
+    val ink = if (inkWent) "with ink" else "no ink"
+    AppLog.i("send to: ${target.label}, Preset '${preset.name}', ${pdfs.size} Document(s), $ink")
     val clipboard = context.getSystemService(ClipboardManager::class.java)
     clipboard.setPrimaryClip(ClipData.newPlainText(preset.name, preset.prompt))
     val share = shareIntent(pdfs.map { FileProvider.getUriForFile(context, "${context.packageName}.files", it) })

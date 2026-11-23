@@ -77,6 +77,18 @@ class DocumentSessionsTest {
     }
 
     @Test
+    fun `held finds an open session without counting a Tab, and nothing once it ends`() {
+        assertEquals(null, sessions.held(pdf))
+        val session = openTab()
+
+        assertSame(session, sessions.held(pdf))
+        closeTab()
+
+        assertFalse(sessions.isOpen(pdf))
+        assertEquals(null, sessions.held(pdf))
+    }
+
+    @Test
     fun `closing the last Tab saves the ink and ends the session`() {
         openTab().addStroke(stroke)
 

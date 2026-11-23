@@ -1,6 +1,7 @@
 package com.rickphobia.ricknotes.sendto
 
 import android.content.Context
+import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -23,8 +24,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.export.ExportPlan
+import com.rickphobia.ricknotes.core.presets.DocumentSend
+import com.rickphobia.ricknotes.core.presets.Preset
+import com.rickphobia.ricknotes.core.presets.PresetSend
 import com.rickphobia.ricknotes.core.session.DocumentSnapshot
 import com.rickphobia.ricknotes.export.ExportFailed
+import com.rickphobia.ricknotes.export.ExportPurpose
 import com.rickphobia.ricknotes.export.exportWithInk
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.share.sharePdf
@@ -47,11 +52,17 @@ private sealed interface ExportState {
     ) : ExportState
 }
 
+/** One Export to make: [plan] drawn onto [pdf]. */
+private class ExportJob(
+    val pdf: File,
+    val plan: ExportPlan.WithInk,
+)
+
 /**
- * Export with ink from the Send to menu: plans the Export from a snapshot of the Document's ink,
- * then shares the PDF as it is (no ink), makes the Export behind a progress dialog with Cancel and
- * shares it, or says why it can't. It outlives the menu, which closes as the Export starts; leaving
- * the Document screen cancels it.
+ * Exports with ink from the Send to menu, behind one progress dialog with Cancel: Export with ink
+ * on its own (then the Share sheet), or a Preset send whose Documents go with their ink (then the
+ * target app). It outlives the menu, which closes as the Export starts; leaving the Document
+ * screen cancels it. A cancel or failure shares nothing.
  */
 internal class InkExportRun(
     private val context: Context,
@@ -60,6 +71,7 @@ internal class InkExportRun(
     private var state by mutableStateOf<ExportState?>(null)
     private var job: Job? = null
 
+    /** Export with ink: shares the PDF as it is when there is no ink, or says why it can't. */
     fun start(
         pdf: File,
         snapshot: DocumentSnapshot,
@@ -72,39 +84,87 @@ internal class InkExportRun(
             }
 
             ExportPlan.InkUnreadable -> {
-                refuse("the Ink file can't be read", R.string.export_ink_unreadable)
+                refuse("Export with ink", "the Ink file can't be read", R.string.export_ink_unreadable)
             }
 
             ExportPlan.PickASideFirst -> {
-                refuse("a Conflict copy is waiting", R.string.export_pick_a_side)
+                refuse("Export with ink", "a Conflict copy is waiting", R.string.export_pick_a_side)
             }
 
             is ExportPlan.WithInk -> {
-                export(pdf, plan)
+                export(listOf(ExportJob(pdf, plan)), forSendTo = false) { sharePdf(context, it.single()) }
+            }
+        }
+    }
+
+    /**
+     * Sends [pdfs] (one Document, or Both Panes) with [preset] to [target]: each with its ink when
+     * the Preset is ink on and it has some, else as it is. [snapshots] match [pdfs]; null is ink
+     * not loaded yet.
+     */
+    fun send(
+        pdfs: List<File>,
+        snapshots: List<DocumentSnapshot?>,
+        target: SendTarget,
+        preset: Preset,
+    ) {
+        if (job?.isActive == true) return
+        when (val plan = PresetSend.of(preset, snapshots)) {
+            PresetSend.PickASideFirst -> {
+                refuse("send to", "a Conflict copy is waiting", R.string.send_pick_a_side)
+            }
+
+            is PresetSend.Ready -> {
+                if (plan.inkLeftOut) {
+                    AppLog.i("send to: ink left out, sending the PDF as it is")
+                    Toast.makeText(context, R.string.send_ink_left_out, Toast.LENGTH_LONG).show()
+                }
+                val exports =
+                    plan.documents.zip(pdfs).mapNotNull { (document, pdf) ->
+                        (document as? DocumentSend.WithInk)?.let { ExportJob(pdf, it.plan) }
+                    }
+                if (exports.isEmpty()) {
+                    sendTo(context, pdfs, target, preset, inkWent = false)
+                } else {
+                    export(exports, forSendTo = true) { made ->
+                        val exported = exports.map { it.pdf }.zip(made).toMap()
+                        sendTo(context, pdfs.map { exported[it] ?: it }, target, preset, inkWent = true)
+                    }
+                }
             }
         }
     }
 
     private fun refuse(
+        what: String,
         why: String,
         @StringRes message: Int,
     ) {
-        AppLog.i("Export with ink refused: $why")
+        AppLog.i("$what refused: $why")
         state = ExportState.Stopped(message)
     }
 
+    // Makes every Export in order, each in its own cache subfolder, then hands them to [share].
     private fun export(
-        pdf: File,
-        plan: ExportPlan.WithInk,
+        exports: List<ExportJob>,
+        forSendTo: Boolean,
+        share: (List<File>) -> Unit,
     ) {
-        val pages = plan.pages.size
+        val pages = exports.sumOf { it.plan.pages.size }
         state = ExportState.Running(0, pages)
         job =
             scope.launch {
                 try {
-                    val export = exportWithInk(context, pdf, plan) { done -> state = ExportState.Running(done, pages) }
+                    var before = 0
+                    val made =
+                        exports.mapIndexed { slot, export ->
+                            val purpose = if (forSendTo) ExportPurpose.SendTo(slot) else ExportPurpose.ShareSheet
+                            exportWithInk(context, export.pdf, export.plan, purpose) { done ->
+                                state = ExportState.Running(before + done, pages)
+                            }.also { before += export.plan.pages.size }
+                        }
                     state = null
-                    sharePdf(context, export)
+                    share(made)
                 } catch (e: CancellationException) {
                     state = ExportState.Stopped(R.string.export_cancelled)
                     throw e

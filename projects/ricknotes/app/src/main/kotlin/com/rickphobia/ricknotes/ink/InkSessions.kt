@@ -4,6 +4,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import com.rickphobia.ricknotes.core.session.DocumentSession
 import com.rickphobia.ricknotes.core.session.DocumentSessions
+import com.rickphobia.ricknotes.core.session.DocumentSnapshot
 import com.rickphobia.ricknotes.core.session.InkSaveFailed
 import com.rickphobia.ricknotes.core.session.SaveListener
 import com.rickphobia.ricknotes.core.session.SaveStatus
@@ -43,6 +44,13 @@ internal object InkSessions {
 
     /** True while a Tab shows [pdf], or its ink from a closed Tab is not yet saved. */
     fun isOpen(pdf: File) = sessions.isOpen(pdf.toPath())
+
+    /** The ink of [pdf] now, for Send to's other Pane; null when no Tab has it open. */
+    fun snapshot(pdf: File): DocumentSnapshot? =
+        sessions
+            .held(pdf.toPath())
+            ?.session
+            ?.snapshot()
 
     /** One Tab of [pdf] closed: the last one saves its ink and lets the session go once it is saved. */
     fun close(pdf: File) =
