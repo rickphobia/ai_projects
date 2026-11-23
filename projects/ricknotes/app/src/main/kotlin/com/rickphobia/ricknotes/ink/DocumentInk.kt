@@ -15,6 +15,7 @@ import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.ink.Tool
 import com.rickphobia.ricknotes.core.inkfile.InkPage
+import com.rickphobia.ricknotes.core.session.DocumentSnapshot
 import com.rickphobia.ricknotes.core.session.PageOffset
 import com.rickphobia.ricknotes.core.session.SaveStatus
 import com.rickphobia.ricknotes.core.session.SessionWarning
@@ -109,6 +110,9 @@ internal class DocumentInk private constructor(
 
     val eraser: EraserTool by lazy { EraserTool(this) }
     val lasso: LassoTool by lazy { LassoTool(this) }
+
+    /** The Document's pages, strokes and Pictures as saved in the session now, for an Export. */
+    fun snapshot(): DocumentSnapshot = session.snapshot()
 
     fun add(stroke: DrawnStroke) {
         session.addStroke(stroke.stroke)

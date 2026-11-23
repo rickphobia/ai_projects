@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.ink.InkTool
+import com.rickphobia.ricknotes.core.session.DocumentSnapshot
 import com.rickphobia.ricknotes.core.session.SaveStatus
 import com.rickphobia.ricknotes.core.session.SessionWarning
 import com.rickphobia.ricknotes.files.PdfEntry
@@ -53,6 +54,9 @@ private sealed interface Opening {
     data class Failed(
         val error: DocumentOpenException,
     ) : Opening
+
+    /** What Export with ink reads the ink from: null until the ink has loaded. */
+    fun snapshotSource(): (() -> DocumentSnapshot)? = (this as? Ready)?.let { ready -> { ready.ink.snapshot() } }
 }
 
 /**
@@ -111,7 +115,7 @@ fun DocumentScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         DocumentTopBar(navigation) {
-            SendToButton(File(pdf.path), tab.otherPane, settings.studyFolder)
+            SendToButton(File(pdf.path), tab.otherPane, settings.studyFolder, opening.snapshotSource())
             PenToolbar(tool, kind, favouritePens)
             (opening as? Opening.Ready)?.let { InkControls(it.ink, redInk) }
         }

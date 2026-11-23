@@ -65,6 +65,13 @@
   <string name="preset_ink_with_export">%1$s (ink comes with export)</string>
   <string name="send_this_document">This Document</string>
   <string name="send_both_panes">Both Panes (%1$s + %2$s)</string>
+  <string name="export_with_ink">Export with ink</string>
+  <string name="export_progress">Page %1$d of %2$d</string>
+  <string name="export_cancel">Cancel</string>
+  <string name="export_cancelled">Export cancelled. Nothing was shared.</string>
+  <string name="export_failed">Couldn\'t make the Export, so nothing was shared. The Document is unchanged; see the log for why.</string>
+  <string name="export_ink_unreadable">Ink can\'t be read, so it can\'t be exported. See \"Getting old ink back\" in the README.</string>
+  <string name="export_pick_a_side">This Document\'s ink has a Conflict copy. Pick Keep mine or Keep the other first, then export.</string>
   <string name="document_missing">This Document was moved or renamed</string>
   <string name="close_missing_tab">Close</string>
   <string name="close_tree">Close the tree</string>

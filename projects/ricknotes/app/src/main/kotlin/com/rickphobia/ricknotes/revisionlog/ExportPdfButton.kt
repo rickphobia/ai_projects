@@ -24,7 +24,7 @@ import com.rickphobia.ricknotes.core.logpdf.NothingToExport
 import com.rickphobia.ricknotes.core.revisionlog.Entry
 import com.rickphobia.ricknotes.core.revisionlog.RevisionLogSession
 import com.rickphobia.ricknotes.logpdf.exportLogPdf
-import com.rickphobia.ricknotes.logpdf.shareLogPdf
+import com.rickphobia.ricknotes.share.sharePdf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -68,7 +68,7 @@ internal fun ExportPdfButton(
                         } finally {
                             exporting = false
                         }
-                    pdf?.let { shareLogPdf(context, it) }
+                    pdf?.let { sharePdf(context, it) }
                 }
             },
         ) { Text(stringResource(R.string.export_pdf)) }

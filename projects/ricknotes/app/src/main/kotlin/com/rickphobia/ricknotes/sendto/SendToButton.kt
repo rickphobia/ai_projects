@@ -30,6 +30,7 @@ import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.presets.LoadedPresets
 import com.rickphobia.ricknotes.core.presets.Preset
 import com.rickphobia.ricknotes.core.presets.PresetsFile
+import com.rickphobia.ricknotes.core.session.DocumentSnapshot
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.toolbar.ToolIcon
 import kotlinx.coroutines.Dispatchers
@@ -49,16 +50,19 @@ private class SendToMenu(
  * Send to: a menu of the Presets under each target app. The Presets file in [studyFolder] is read
  * each time the menu opens, so edits synced from the laptop show at once; a broken file's problem
  * shows at the top of the menu. When [otherPane] gives the other Pane's PDF as the menu opens, a
- * This Document / Both Panes choice comes first, on This Document each time.
+ * This Document / Both Panes choice comes first, on This Document each time. Export with ink is the
+ * last row; [snapshot] reads the Document's ink for it, and is null until the ink has loaded.
  */
 @Composable
 fun SendToButton(
     pdf: File,
     otherPane: () -> File?,
     studyFolder: String,
+    snapshot: (() -> DocumentSnapshot)?,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val export = rememberInkExportRun()
     var menu by remember { mutableStateOf<SendToMenu?>(null) }
     var bothPanes by remember { mutableStateOf(false) }
     Box {
@@ -94,8 +98,19 @@ fun SendToButton(
                     menu = null
                     sendTo(context, pdfs, target, preset)
                 }
+                HorizontalDivider()
+                // With Both Panes chosen too, it exports the Document Send to was opened from.
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.export_with_ink)) },
+                    enabled = snapshot != null,
+                    onClick = {
+                        menu = null
+                        snapshot?.let { export.start(pdf, it()) }
+                    },
+                )
             }
         }
+        export.Dialog()
     }
 }
 
