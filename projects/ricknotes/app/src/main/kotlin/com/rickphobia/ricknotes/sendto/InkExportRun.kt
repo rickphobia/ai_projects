@@ -25,6 +25,7 @@ import com.rickphobia.ricknotes.R
 import com.rickphobia.ricknotes.core.export.ExportPlan
 import com.rickphobia.ricknotes.core.session.DocumentSnapshot
 import com.rickphobia.ricknotes.export.ExportFailed
+import com.rickphobia.ricknotes.export.PictureMissing
 import com.rickphobia.ricknotes.export.exportWithInk
 import com.rickphobia.ricknotes.logging.AppLog
 import com.rickphobia.ricknotes.share.sharePdf
@@ -47,6 +48,12 @@ private sealed interface ExportState {
     ) : ExportState
 }
 
+/** Where Export with ink reads a Document from: its Pictures' [assetsFolder] and its ink's [snapshot]. */
+class ExportSource(
+    val assetsFolder: File,
+    val snapshot: () -> DocumentSnapshot,
+)
+
 /**
  * Export with ink from the Send to menu: plans the Export from a snapshot of the Document's ink,
  * then shares the PDF as it is (no ink), makes the Export behind a progress dialog with Cancel and
@@ -62,6 +69,7 @@ internal class InkExportRun(
 
     fun start(
         pdf: File,
+        assetsFolder: File,
         snapshot: DocumentSnapshot,
     ) {
         if (job?.isActive == true) return
@@ -80,7 +88,7 @@ internal class InkExportRun(
             }
 
             is ExportPlan.WithInk -> {
-                export(pdf, plan)
+                export(pdf, assetsFolder, plan)
             }
         }
     }
@@ -95,6 +103,7 @@ internal class InkExportRun(
 
     private fun export(
         pdf: File,
+        assetsFolder: File,
         plan: ExportPlan.WithInk,
     ) {
         val pages = plan.pages.size
@@ -102,15 +111,23 @@ internal class InkExportRun(
         job =
             scope.launch {
                 try {
-                    val export = exportWithInk(context, pdf, plan) { done -> state = ExportState.Running(done, pages) }
+                    val export =
+                        exportWithInk(context, pdf, assetsFolder, plan) { done ->
+                            state =
+                                ExportState.Running(done, pages)
+                        }
                     state = null
                     sharePdf(context, export)
                 } catch (e: CancellationException) {
                     state = ExportState.Stopped(R.string.export_cancelled)
                     throw e
-                } catch (_: ExportFailed) {
+                } catch (e: ExportFailed) {
                     // exportWithInk has logged the step and why.
-                    state = ExportState.Stopped(R.string.export_failed)
+                    val missingPicture = e.cause is PictureMissing
+                    state =
+                        ExportState.Stopped(
+                            if (missingPicture) R.string.export_picture_missing else R.string.export_failed,
+                        )
                 }
             }
     }

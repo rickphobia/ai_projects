@@ -5,6 +5,7 @@ import com.rickphobia.ricknotes.core.ink.PageBackground
 import com.rickphobia.ricknotes.core.ink.PageId
 import com.rickphobia.ricknotes.core.ink.Paper
 import com.rickphobia.ricknotes.core.ink.PenColour
+import com.rickphobia.ricknotes.core.ink.PictureFrame
 import com.rickphobia.ricknotes.core.ink.Stroke
 import com.rickphobia.ricknotes.core.ink.StrokeId
 import com.rickphobia.ricknotes.core.ink.StrokePoint
@@ -81,9 +82,9 @@ class ExportPlanTest {
 
         assertEquals(
             listOf(
-                ExportPage.FromPdf(0, listOf(onPageOne)),
-                ExportPage.FromPdf(1, emptyList()),
-                ExportPage.FromPdf(2, listOf(first, second)),
+                ExportPage.FromPdf(0, listOf(onPageOne), emptyList()),
+                ExportPage.FromPdf(1, emptyList(), emptyList()),
+                ExportPage.FromPdf(2, listOf(first, second), emptyList()),
             ),
             plan.pages,
         )
@@ -118,10 +119,10 @@ class ExportPlanTest {
 
         assertEquals(
             listOf(
-                ExportPage.FromPdf(0, emptyList()),
-                ExportPage.Inserted(PageBackground.LINED, listOf(onIt)),
-                ExportPage.FromPdf(1, emptyList()),
-                ExportPage.FromPdf(2, emptyList()),
+                ExportPage.FromPdf(0, emptyList(), emptyList()),
+                ExportPage.Inserted(PageBackground.LINED, listOf(onIt), emptyList()),
+                ExportPage.FromPdf(1, emptyList(), emptyList()),
+                ExportPage.FromPdf(2, emptyList(), emptyList()),
             ),
             plan.pages,
         )
@@ -136,6 +137,53 @@ class ExportPlanTest {
         val session = open().apply { insertPageAfter(PageId.ofPdfPage(2), PageBackground.BLANK) }
 
         assertEquals(4, withInk(session).pages.size)
+    }
+
+    private fun placePicture(
+        session: DocumentSession,
+        page: PageId,
+        frame: PictureFrame = PictureFrame(left = 40f, top = 60f, widthPt = 200f, heightPt = 120f),
+    ) = session.placePicture(
+        folder.newFile().toPath().also { Files.write(it, byteArrayOf(1, 2, 3)) },
+        "png",
+        page,
+        frame,
+    )
+
+    @Test
+    fun `Pictures come out on their own page at their position and size, before its strokes`() {
+        val session = open()
+        val under = stroke("under", PageId.ofPdfPage(1))
+        session.addStroke(under)
+        val picture = placePicture(session, PageId.ofPdfPage(1))
+        val second = placePicture(session, PageId.ofPdfPage(1), PictureFrame(10f, 500f, 80f, 40f))
+
+        val plan = withInk(session)
+
+        val page = plan.pages[1]
+        assertEquals(listOf(picture, second), page.pictures)
+        assertEquals(listOf(under), page.strokes)
+        with(page.pictures[0]) { assertEquals(listOf(40f, 60f, 200f, 120f), listOf(left, top, widthPt, heightPt)) }
+        assertTrue(plan.pages[0].pictures.isEmpty() && plan.pages[2].pictures.isEmpty())
+        assertEquals(2, plan.pictureCount)
+    }
+
+    @Test
+    fun `a Picture on an Inserted page comes out on that page`() {
+        val session = open()
+        val inserted = session.insertPageAfter(PageId.ofPdfPage(0), PageBackground.GRID)
+        val picture = placePicture(session, inserted.id)
+
+        val plan = withInk(session)
+
+        assertEquals(ExportPage.Inserted(PageBackground.GRID, emptyList(), listOf(picture)), plan.pages[1])
+    }
+
+    @Test
+    fun `a Document with only Pictures goes with ink`() {
+        val session = open().apply { placePicture(this, PageId.ofPdfPage(2)) }
+
+        assertEquals(1, withInk(session).pictureCount)
     }
 
     @Test
