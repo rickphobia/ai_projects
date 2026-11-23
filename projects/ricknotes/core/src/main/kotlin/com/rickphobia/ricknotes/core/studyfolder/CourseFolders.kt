@@ -1,8 +1,8 @@
 package com.rickphobia.ricknotes.core.studyfolder
 
 /**
- * Which folders are Course folders. A folder three levels inside the Study folder
- * (`Y1/Sem1/EE2001`) is one unless it is in [unmarked]; any folder in [marked] is one too.
+ * Which folders are Course folders. A folder two levels inside the Study folder
+ * (`y1s1/circuit`) is one unless it is in [unmarked]; any folder in [marked] is one too.
  * Folders are named by tree path. Changing a mark only changes these lists, never any files.
  */
 data class CourseFolders(
@@ -41,8 +41,8 @@ data class CourseFolders(
         )
 
     companion object {
-        // Year → Sem → course.
-        const val COURSE_DEPTH = 3
+        // Semester → course, as the tablet's `usm` folder holds them (`y1s1/circuit`): decision 0011.
+        const val COURSE_DEPTH = 2
 
         fun depthOf(folder: String) = if (folder.isEmpty()) 0 else folder.count { it == '/' } + 1
 

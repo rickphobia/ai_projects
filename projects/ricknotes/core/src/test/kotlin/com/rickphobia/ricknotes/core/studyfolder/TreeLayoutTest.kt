@@ -23,30 +23,39 @@ class TreeLayoutTest {
             doc("top.pdf"),
         )
 
-    @Test
-    fun `opens on the semester of the most recent Document`() {
-        val expanded = TreeLayout.initiallyExpanded(tree, listOf("Y1/Sem1/EE2001/lec1.pdf", "Y1/Sem2/EE2002/lec1.pdf"))
+    // The tablet's layout: semesters at the top, Course folders inside them (decision 0011)
+    private val semesters =
+        dir(
+            "",
+            dir("y1s1", dir("y1s1/circuit", doc("y1s1/circuit/lec1.pdf"))),
+            dir("y1s2", dir("y1s2/signals", doc("y1s2/signals/lec1.pdf"))),
+            doc("top.pdf"),
+        )
 
-        assertEquals(setOf("Y1", "Y1/Sem1"), expanded)
+    @Test
+    fun `opens on the semester of the most recent Document, not its course`() {
+        val expanded = TreeLayout.initiallyExpanded(semesters, listOf("y1s1/circuit/lec1.pdf", "y1s2/signals/lec1.pdf"))
+
+        assertEquals(setOf("y1s1"), expanded)
     }
 
     @Test
     fun `skips a recent Document that is no longer in the tree`() {
-        val expanded = TreeLayout.initiallyExpanded(tree, listOf("Y9/Sem1/gone.pdf", "Y1/Sem2/EE2002/lec1.pdf"))
+        val expanded = TreeLayout.initiallyExpanded(semesters, listOf("y9s1/gone/gone.pdf", "y1s2/signals/lec1.pdf"))
 
-        assertEquals(setOf("Y1", "Y1/Sem2"), expanded)
+        assertEquals(setOf("y1s2"), expanded)
     }
 
     @Test
     fun `skips a recent Document that isn't inside a semester`() {
-        val expanded = TreeLayout.initiallyExpanded(tree, listOf("top.pdf", "Y1/Sem2/EE2002/lec1.pdf"))
+        val expanded = TreeLayout.initiallyExpanded(semesters, listOf("top.pdf", "y1s2/signals/lec1.pdf"))
 
-        assertEquals(setOf("Y1", "Y1/Sem2"), expanded)
+        assertEquals(setOf("y1s2"), expanded)
     }
 
     @Test
-    fun `with nothing recent, opens on the last semester of the last year`() {
-        assertEquals(setOf("Y2", "Y2/Sem2"), TreeLayout.initiallyExpanded(tree, emptyList()))
+    fun `with nothing recent, opens on the last semester`() {
+        assertEquals(setOf("y1s2"), TreeLayout.initiallyExpanded(semesters, emptyList()))
     }
 
     @Test

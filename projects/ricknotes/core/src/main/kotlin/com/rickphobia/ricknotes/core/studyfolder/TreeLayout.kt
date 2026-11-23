@@ -8,12 +8,12 @@ data class TreeRow(
 
 /** Which folders of the Study folder tree are open, and the rows that makes. Folders are named by tree path. */
 object TreeLayout {
-    // Year → Sem: the second level of the Study folder.
-    private const val SEMESTER_DEPTH = 2
+    // The semesters (`y1s1`) are the Study folder's own folders, one level above the Course folders.
+    private const val SEMESTER_DEPTH = 1
 
     /**
-     * The folders open when the home screen appears: the year and semester of the most recent
-     * Document still in the tree, or else the last semester of the last year.
+     * The folder open when the home screen appears: the semester of the most recent Document still
+     * in the tree, or else the last semester.
      */
     fun initiallyExpanded(
         tree: TreeNode.Folder,
@@ -26,17 +26,12 @@ object TreeLayout {
                 .filter { it.size > SEMESTER_DEPTH }
                 .map { it.take(SEMESTER_DEPTH).joinToString("/") }
                 .firstOrNull { it in folders }
-        return if (recentSemester != null) {
-            setOf(recentSemester.substringBefore('/'), recentSemester)
-        } else {
-            lastSemester(tree)
-        }
-    }
-
-    private fun lastSemester(tree: TreeNode.Folder): Set<String> {
-        val lastYear = tree.children.filterIsInstance<TreeNode.Folder>().lastOrNull() ?: return emptySet()
-        val lastSemester = lastYear.children.filterIsInstance<TreeNode.Folder>().lastOrNull()
-        return setOfNotNull(lastYear.path, lastSemester?.path)
+        val lastSemester =
+            tree.children
+                .filterIsInstance<TreeNode.Folder>()
+                .lastOrNull()
+                ?.path
+        return setOfNotNull(recentSemester ?: lastSemester)
     }
 
     /** The rows on screen: every entry whose folders above it are all open. */
