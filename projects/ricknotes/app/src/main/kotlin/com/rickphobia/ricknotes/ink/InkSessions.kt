@@ -44,6 +44,9 @@ internal object InkSessions {
     /** True while a Tab shows [pdf], or its ink from a closed Tab is not yet saved. */
     fun isOpen(pdf: File) = sessions.isOpen(pdf.toPath())
 
+    /** The open Document session of [pdf], for Send to's other Pane; null when no Tab has it open. */
+    fun session(pdf: File): DocumentSession? = sessions.held(pdf.toPath())?.session
+
     /** One Tab of [pdf] closed: the last one saves its ink and lets the session go once it is saved. */
     fun close(pdf: File) =
         sessions.close(pdf.toPath()) { saved ->

@@ -25,17 +25,40 @@ enum class ExportStep(
     WRITE("writing the Export"),
 }
 
+/**
+ * Who an Export is for (named in the log), and its [slot]: the subfolder of the export folder it
+ * goes in. Slot 0 empties the whole folder first; the next Document of the same send (Both Panes)
+ * takes slot 1, so two same-named PDFs don't clash.
+ */
+sealed class ExportPurpose(
+    val label: String,
+    val slot: Int,
+) {
+    data object ShareSheet : ExportPurpose("the Share sheet", 0)
+
+    class SendTo(
+        slot: Int,
+    ) : ExportPurpose("Send to", slot)
+}
+
 /** An Export that couldn't be made: its partial file is gone and nothing was shared. */
 class ExportFailed(
     val step: ExportStep,
     cause: Throwable,
 ) : Exception("Export with ink failed while ${step.label}", cause)
 
+/** A Document to export: [plan] drawn onto [pdf], its Pictures' images read from [assetsFolder]. */
+internal class ExportDocument(
+    val pdf: File,
+    val assetsFolder: File,
+    val plan: ExportPlan.WithInk,
+)
+
 /**
- * Makes an Export of [pdf] from [plan], its Pictures' images read from [assetsFolder]: a new PDF
- * named like the Document, in a cache folder emptied first, so no copy is ever kept in the Study
- * folder and [pdf] is only read. [progress] gets the pages done so far after each page. Runs off
- * the main thread; cancelling the caller's coroutine stops it between pages.
+ * Makes an Export of [document]: a new PDF named like it, in [purpose]'s slot of a cache folder, so
+ * no copy is ever kept in the Study folder and its PDF is only read. [progress] gets the pages done
+ * so far after each page. Runs off the main thread; cancelling the caller's coroutine stops it
+ * between pages.
  *
  * @throws ExportFailed with the step that failed; the partial file is deleted. A Picture whose
  *   image is missing fails it at [ExportStep.PICTURES] with [PictureMissing], rather than leaving a gap.
@@ -43,12 +66,13 @@ class ExportFailed(
  */
 internal suspend fun exportWithInk(
     context: Context,
-    pdf: File,
-    assetsFolder: File,
-    plan: ExportPlan.WithInk,
+    document: ExportDocument,
+    purpose: ExportPurpose,
     progress: (pagesDone: Int) -> Unit,
 ): File =
     withContext(Dispatchers.IO) {
+        val pdf = document.pdf
+        val plan = document.plan
         val started = System.nanoTime()
         // Counts, sizes and times only: never strokes, Picture images or file names.
         val counts =
@@ -56,19 +80,19 @@ internal suspend fun exportWithInk(
                 "${plan.pictureCount} Pictures"
         val out =
             try {
-                File(inStep(ExportStep.PREPARE) { emptyFolder(context) }, pdf.name)
+                File(inStep(ExportStep.PREPARE) { slotFolder(context, purpose.slot) }, pdf.name)
             } catch (e: ExportFailed) {
                 logFailure(e, counts)
                 throw e
             }
         try {
-            read(context, pdf).use { document ->
+            read(context, pdf).use { pdfDocument ->
                 // The Export is for any reader and the AI apps, so it goes without the PDF's own
                 // permissions lock, which would stop the slide text being selected (decision 0008).
-                document.isAllSecurityToBeRemoved = true
-                draw(document, PictureImages(document, assetsFolder), plan, progress) { ensureActive() }
+                pdfDocument.isAllSecurityToBeRemoved = true
+                draw(pdfDocument, PictureImages(pdfDocument, document.assetsFolder), plan, progress) { ensureActive() }
                 ensureActive()
-                inStep(ExportStep.WRITE) { document.save(out) }
+                inStep(ExportStep.WRITE) { pdfDocument.save(out) }
             }
             // Saving can't be stopped halfway, so a Cancel tapped meanwhile is honoured here.
             ensureActive()
@@ -82,7 +106,7 @@ internal suspend fun exportWithInk(
             throw e
         }
         AppLog.i(
-            "Export with ink for the Share sheet: $counts, ${out.length()} bytes in " +
+            "Export with ink for ${purpose.label}: $counts, ${out.length()} bytes in " +
                 "${(System.nanoTime() - started) / NANOS_PER_MS} ms",
         )
         out
@@ -115,10 +139,15 @@ private inline fun <T> inStep(
         throw ExportFailed(step, e)
     }
 
-// Empties the export folder, so the last Export is never left behind.
-private fun emptyFolder(context: Context): File {
-    val folder = File(context.cacheDir, EXPORT_FOLDER)
-    if (!folder.deleteRecursively() || !folder.mkdirs()) throw IOException("can't empty and make the export folder")
+// Slot 0 empties the export folder, so the last send's Exports are never left behind.
+private fun slotFolder(
+    context: Context,
+    slot: Int,
+): File {
+    val root = File(context.cacheDir, EXPORT_FOLDER)
+    if (slot == 0 && !root.deleteRecursively()) throw IOException("can't empty the export folder")
+    val folder = File(root, slot.toString())
+    if (!folder.isDirectory && !folder.mkdirs()) throw IOException("can't make the export folder")
     return folder
 }
 

@@ -1,8 +1,8 @@
 package com.rickphobia.ricknotes.core.presets
 
 /**
- * A named prompt sent along with a Document. [inkOn] says the AI should see the ink too, which
- * needs export (milestone 6); until then the bare PDF goes.
+ * A named prompt sent along with a Document. [inkOn] sends an Export of the Document with its ink
+ * instead of the bare PDF (see [PresetSend]).
  */
 data class Preset(
     val name: String,

@@ -76,4 +76,8 @@ class DocumentSessions<H : Any>(
     /** True while a Tab shows [pdf], or its ink is not yet saved. */
     @Synchronized
     fun isOpen(pdf: Path): Boolean = pdf in entries
+
+    /** The open session of [pdf] without counting a Tab, or null when it isn't open. */
+    @Synchronized
+    fun held(pdf: Path): H? = entries[pdf]?.held
 }
