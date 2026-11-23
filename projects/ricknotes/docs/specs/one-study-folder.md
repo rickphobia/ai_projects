@@ -10,7 +10,7 @@ My course material lives on Drive in `usm/`: `Year N/Sem N/<CODE name>/` holds t
 
 - **One folder.** The tablet keeps a `usm` folder on its own storage that mirrors the course folders I choose from Drive `usm/`, at the same paths. RickNotes' Study folder is that folder.
 - **FolderSync does the choosing.** One two-way folder pair per **Course folder**, so the tablet holds only the courses I pair, and RickNotes shows everything it finds, as today.
-- **Deletes on the tablet never reach Drive.** The pairs keep Sync deletions off, so the seniors' archive on Drive and its copy on my laptop (`F:\academic\usm`) can't lose a file to the tablet.
+- **Deletes, renames and moves follow through.** The pairs sync deletions and FolderSync signs in as yeapmagrick, so nothing comes back as a duplicate, while the seniors' archive, which yeapmagrick doesn't own, can't lose a file to the tablet (decision 0010).
 - **A nightly copy of what only I wrote.** The Beelink copies every Ink file, `.assets` folder, Revision log and the Presets file off Drive each night into dated folders.
 - **The copy job goes.** `~/ee` writes its own files straight into the course folders in `usm/`, Office files in the paired courses get a PDF beside them, and `ricknotes_file.py` and the `RickNotes Study` folder are retired.
 
@@ -49,17 +49,16 @@ Every pair, course pairs and the Presets pair alike:
 
 1. **Sync type:** two-way.
 2. **Schedule:** every 15 minutes, with **instant sync** on.
-3. **Sync deletions:** off (FolderSync's default). Deletions aren't synced, so nothing removed on the tablet is ever removed on Drive. Whether a file removed on one side is then copied back from the other is step 2's to confirm.
+3. **Sync deletions:** on, with the Drive account signed in as yeapmagrick (decision 0010; step 2's results are in the README's behaviour table).
 4. **Conflicts:** as in the README today (rename the oldest file, so both are kept; never an overwrite option).
-5. **Filters:** exclude files matching `.*.tmp` and folders named `.versions` (as today), and folders named `needs review` (story 10).
+5. **Filters:** exclude the file extensions `.tmp` and `.del` (the tablet's file manager trash) and the folders `.versions` and `needs review` (story 10).
 
 Plus one small pair for the Presets file: tablet `usm/_ricknotes` ↔ Drive `usm/_ricknotes`. Anything else outside a Course folder (a Notebook or dropped PDF at the top of the tree) stays on the tablet only, so the README's rule is: Notebooks and dropped PDFs go inside a Course folder.
 
 ### Renames and moves
 
-- With Sync deletions off, a rename or move on either side likely leaves the old name on the other side, which then copies it back: a duplicate, not a loss. This is unverified until step 2 of the plan.
-- The owner doesn't rename files, so the rule is: don't rename or move inside a paired course. If one is ever needed, do it on Drive, then delete the old name on the tablet with a file manager before the next sync. RickNotes' own Rename and Move… stay in the app, but the README says they make duplicates in a paired folder.
-- **Rejected: Sync deletions on.** Tablet-side deletes are rare (RickNotes has no Delete, and Nebo takes its PDFs from Drive, not this folder), but FolderSync's docs warn that with deletions on, a missing or renamed device folder can delete all the cloud files (the "Create local sync folder if missing" option, https://foldersync.io/docs/help/folderpairsettings/). A forgotten step under the rule costs a duplicate; deletions on can cost a course folder.
+- With Sync deletions on, a rename or move on either side follows through, with no duplicate (step 2, 23–24 Nov 2026). RickNotes' own Rename and Move… work in a paired folder.
+- **Rejected: Sync deletions off.** Step 2 showed every delete, rename and move coming back as a duplicate, and a Conflict copy resolved with Keep mine coming back from Drive on every sync. The risk of deletions on, an emptied tablet folder deleting yeapmagrick's files on Drive, is covered by the guards in decision 0010.
 
 ### Where RickNotes' own files live
 
@@ -75,8 +74,8 @@ Plus one small pair for the Presets file: tablet `usm/_ricknotes` ↔ Drive `usm
 - Chapter notes go to `<course>/_My class 2026-27/notes/`, revision guides to `<course>/_My class 2026-27/revision/`, both on Drive `usm/`, not `RickNotes Study`.
 - Answer packs that still need review, and preview packs (`(PREVIEW)` in the name, like `EMM101 Tutorial 8 answer pack (PREVIEW).pdf`, which sits in `answer packs/` on 17 Nov 2026), go to `<course>/_My class 2026-27/answer packs/needs review/`, which every pair excludes; a finished pack goes to `answer packs/` as now. This replaces the copy job's registry check and its `pack_skip_words`, the only things that hold such packs back today.
 - The copy job's other `skip_words` ("solution", "teaching plan", "lesson plan" …) stop applying: the seniors' worked solutions and lesson plans in a paired course reach the tablet. That is wanted; a pair's exclude filter trims anything that isn't.
-- `chapter_notes.py` removes an earlier set of notes PDFs when a deck's set changes. On Drive that is a delete, which a two-way pair with deletions off may copy back from the tablet. If step 2 shows it does, chapter notes keep stable names and are replaced in place instead of removed.
-- `ricknotes_file.py` leaves the daily job once the pairs are live. `~/ee` open item 6 (eLearning PDFs reach RickNotes) closes, since `eLearning/` is inside the paired course folder; open item 7 (renaming `_My class` files into chapter folders) is dropped, since renames make duplicates.
+- `chapter_notes.py` removes an earlier set of notes PDFs when a deck's set changes. On Drive that is a delete, which the pairs now carry to the tablet, so the old set leaves the tablet too.
+- `ricknotes_file.py` leaves the daily job once the pairs are live. `~/ee` open item 6 (eLearning PDFs reach RickNotes) closes, since `eLearning/` is inside the paired course folder; open item 7 (renaming `_My class` files into chapter folders) is dropped.
 
 ### `~/ee`: Office files to PDF
 
@@ -123,6 +122,6 @@ In this order. Steps 3 and 4 can run side by side.
 
 ## Further Notes
 
-- **Unverified until step 2:** what a two-way pair with Sync deletions off does on a delete or rename on either side (a delete on Drive matters for `chapter_notes.py`); whether Keep mine's Conflict copy comes back from Drive; that a `Folder name equals` exclude keeps `needs review` off the tablet. **Not needed by this plan, also unverified:** whether pairs can overlap under one local folder, whether there is a limit on pairs, whether FolderSync's deletes on Drive go to Trash.
+- **Checked in step 2 (23–24 Nov 2026):** the README's behaviour table. FolderSync's deletes on Drive go to the signed-in account's Trash. **Not needed by this plan, unverified:** whether pairs can overlap under one local folder, whether the free app limits the number of pairs.
 - FolderSync facts above are from its docs (checked 17 Nov 2026): https://foldersync.io/docs/help/v2/filters, https://foldersync.io/docs/help/v2/folderpairsettings/ and, for the deletions warning, https://foldersync.io/docs/help/folderpairsettings/. A second check with Gemini didn't run (it timed out).
 - Sizes and counts are from `rclone lsf` of `usmdrive:` on 17 Nov 2026.
