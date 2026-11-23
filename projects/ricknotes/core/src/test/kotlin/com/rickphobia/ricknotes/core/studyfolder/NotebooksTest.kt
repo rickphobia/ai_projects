@@ -58,29 +58,29 @@ class NotebooksTest {
 
     @Test
     fun `a Course folder with a pnotes folder gets it there`() {
-        folder("Y1/Sem1/EE2001/pnotes")
+        folder("y1s1/EE2001/pnotes")
 
-        val path = notebooks.create("Y1/Sem1/EE2001", CourseFolders(), PageBackground.LINED, today)
+        val path = notebooks.create("y1s1/EE2001", CourseFolders(), PageBackground.LINED, today)
 
-        assertEquals("Y1/Sem1/EE2001/pnotes/Notes 2026-10-24.pdf", path)
+        assertEquals("y1s1/EE2001/pnotes/Notes 2026-10-24.pdf", path)
     }
 
     @Test
     fun `a Course folder without pnotes gets it in the folder itself`() {
-        folder("Y1/Sem1/EE2001")
+        folder("y1s1/EE2001")
 
-        val path = notebooks.create("Y1/Sem1/EE2001", CourseFolders(), PageBackground.LINED, today)
+        val path = notebooks.create("y1s1/EE2001", CourseFolders(), PageBackground.LINED, today)
 
-        assertEquals("Y1/Sem1/EE2001/Notes 2026-10-24.pdf", path)
+        assertEquals("y1s1/EE2001/Notes 2026-10-24.pdf", path)
     }
 
     @Test
     fun `pnotes is only used in a Course folder`() {
-        folder("Y1/Sem1/pnotes")
+        folder("y1s1/pnotes")
 
-        val path = notebooks.create("Y1/Sem1", CourseFolders(), PageBackground.BLANK, today)
+        val path = notebooks.create("y1s1", CourseFolders(), PageBackground.BLANK, today)
 
-        assertEquals("Y1/Sem1/Notes 2026-10-24.pdf", path)
+        assertEquals("y1s1/Notes 2026-10-24.pdf", path)
     }
 
     @Test

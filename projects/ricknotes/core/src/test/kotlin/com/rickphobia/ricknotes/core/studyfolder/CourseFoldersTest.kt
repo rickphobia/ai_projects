@@ -10,21 +10,21 @@ class CourseFoldersTest {
     private val none = CourseFolders()
 
     @Test
-    fun `a folder three levels in is a course without any setup`() {
-        assertTrue(none.isCourse("Y1/Sem1/EE2001"))
-        assertFalse(none.isCourse("Y1/Sem1"))
-        assertFalse(none.isCourse("Y1/Sem1/EE2001/notes"))
+    fun `a folder two levels in is a course without any setup`() {
+        assertTrue(none.isCourse("y1s1/EE2001"))
+        assertFalse(none.isCourse("y1s1"))
+        assertFalse(none.isCourse("y1s1/EE2001/notes"))
     }
 
     @Test
-    fun `Documents anywhere inside a depth-3 folder share its course`() {
-        listOf("Y1/Sem1/EE2001/tutorial/tuto3.pdf", "Y1/Sem1/EE2001/notes/lec3.pdf", "Y1/Sem1/EE2001/pyp.pdf")
-            .forEach { assertEquals("Y1/Sem1/EE2001", none.courseFolderOfDocument(it)) }
+    fun `Documents anywhere inside a two-level folder share its course`() {
+        listOf("y1s1/EE2001/tutorial/tuto3.pdf", "y1s1/EE2001/notes/lec3.pdf", "y1s1/EE2001/pyp.pdf")
+            .forEach { assertEquals("y1s1/EE2001", none.courseFolderOfDocument(it)) }
     }
 
     @Test
     fun `a Document outside any course has none`() {
-        assertNull(none.courseFolderOfDocument("Y1/Sem1/timetable.pdf"))
+        assertNull(none.courseFolderOfDocument("y1s1/timetable.pdf"))
         assertNull(none.courseFolderOfDocument("readme.pdf"))
     }
 
@@ -32,31 +32,31 @@ class CourseFoldersTest {
     fun `a marked folder is the course of Documents inside it`() {
         val folders = none.mark("Calc")
 
-        assertEquals("Calc", folders.courseFolderOfDocument("Calc/week1/w1.pdf"))
+        assertEquals("Calc", folders.courseFolderOfDocument("Calc/w1.pdf"))
     }
 
     @Test
-    fun `the nearest course wins over a depth-3 folder above it`() {
-        val folders = none.mark("Y1/Sem1/EE2001/lab")
+    fun `the nearest course wins over a two-level folder above it`() {
+        val folders = none.mark("y1s1/EE2001/lab")
 
-        assertEquals("Y1/Sem1/EE2001/lab", folders.courseFolderOfDocument("Y1/Sem1/EE2001/lab/l1.pdf"))
-        assertEquals("Y1/Sem1/EE2001", folders.courseFolderOfDocument("Y1/Sem1/EE2001/notes/n.pdf"))
+        assertEquals("y1s1/EE2001/lab", folders.courseFolderOfDocument("y1s1/EE2001/lab/l1.pdf"))
+        assertEquals("y1s1/EE2001", folders.courseFolderOfDocument("y1s1/EE2001/notes/n.pdf"))
     }
 
     @Test
-    fun `an unmarked depth-3 folder is not a course, so its Documents look further up`() {
-        val folders = none.unmark("Y1/Sem1/EE2001")
+    fun `an unmarked two-level folder is not a course, so its Documents look further up`() {
+        val folders = none.unmark("y1s1/EE2001")
 
-        assertFalse(folders.isCourse("Y1/Sem1/EE2001"))
-        assertNull(folders.courseFolderOfDocument("Y1/Sem1/EE2001/notes/lec3.pdf"))
-        assertEquals("Y1/Sem1", folders.mark("Y1/Sem1").courseFolderOfDocument("Y1/Sem1/EE2001/notes/lec3.pdf"))
+        assertFalse(folders.isCourse("y1s1/EE2001"))
+        assertNull(folders.courseFolderOfDocument("y1s1/EE2001/notes/lec3.pdf"))
+        assertEquals("y1s1", folders.mark("y1s1").courseFolderOfDocument("y1s1/EE2001/notes/lec3.pdf"))
     }
 
     @Test
     fun `marking and unmarking keep the lists minimal`() {
-        assertEquals(none, none.unmark("Y1/Sem1/EE2001").mark("Y1/Sem1/EE2001"))
+        assertEquals(none, none.unmark("y1s1/EE2001").mark("y1s1/EE2001"))
         assertEquals(none, none.mark("Misc").unmark("Misc"))
-        assertEquals(CourseFolders(unmarked = setOf("Y1/Sem1/EE2001")), none.unmark("Y1/Sem1/EE2001"))
+        assertEquals(CourseFolders(unmarked = setOf("y1s1/EE2001")), none.unmark("y1s1/EE2001"))
     }
 
     @Test
@@ -64,13 +64,13 @@ class CourseFoldersTest {
         val folders =
             none
                 .mark("Misc")
-                .mark("Y1/labs")
-                .unmark("Y1/Sem1/EE2001")
-                .mark("Y10")
+                .mark("y1s1/EE2001/labs")
+                .unmark("y1s1/EE2001")
+                .mark("y1s10")
 
-        val renamed = folders.renamed("Y1", "Year 1")
+        val renamed = folders.renamed("y1s1", "y1 sem1")
 
-        assertEquals(setOf("Misc", "Year 1/labs", "Y10"), renamed.marked)
-        assertEquals(setOf("Year 1/Sem1/EE2001"), renamed.unmarked)
+        assertEquals(setOf("Misc", "y1 sem1/EE2001/labs", "y1s10"), renamed.marked)
+        assertEquals(setOf("y1 sem1/EE2001"), renamed.unmarked)
     }
 }

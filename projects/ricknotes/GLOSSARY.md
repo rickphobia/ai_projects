@@ -9,7 +9,7 @@ The one folder of courses, chapters and PDFs that the app shows. The app is a wi
 _Avoid_: vault, library, workspace
 
 **Course folder**:
-The folder for one course, such as `Y1/Sem1/EE2001`. Folders three levels inside the Study folder are Course folders, and any folder can be marked or unmarked as one by hand. Each Course folder has its own Revision log.
+The folder for one course, such as `y1s1/circuit`. Folders two levels inside the Study folder (semester, then course) are Course folders, and any folder can be marked or unmarked as one by hand. Each Course folder has its own Revision log.
 _Avoid_: subject, module
 
 **Document**:

@@ -35,7 +35,7 @@ My course material lives on Drive in `usm/`: `Year N/Sem N/<CODE name>/` holds t
 
 - The rclone remote `usmdrive:` on the Beelink is rooted at Drive `usm/`; paths here are relative to it.
 - On the tablet, a folder named `usm` on internal storage holds the pairs' local sides at the same relative paths: `usm/Year 1/Sem 1/EEE105 Circuit Theory/` ↔ Drive `usm/Year 1/Sem 1/EEE105 Circuit Theory/`. RickNotes' Study folder is that `usm` folder ("Change folder" in Settings). It stays on internal storage; RickNotes refuses an SD card.
-- Folders three levels in are Course folders (`CourseFolders.COURSE_DEPTH`), which matches `Year N/Sem N/<CODE name>`. Folders deeper in a course (`_My class 2026-27/eLearning/`) belong to that course, as today.
+- Folders three levels in are Course folders (`CourseFolders.COURSE_DEPTH`), which matches `Year N/Sem N/<CODE name>`. *(24 Nov 2026: the tablet uses short `y1s1/<course>` folders, so it is now two levels; decision 0011.)* Folders deeper in a course (`_My class 2026-27/eLearning/`) belong to that course, as today.
 
 ### Choosing what's on the tablet: one pair per Course folder
 
