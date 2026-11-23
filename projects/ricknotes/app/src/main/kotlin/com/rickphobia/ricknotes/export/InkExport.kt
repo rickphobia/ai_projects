@@ -47,26 +47,33 @@ internal suspend fun exportWithInk(
 ): File =
     withContext(Dispatchers.IO) {
         val started = System.nanoTime()
-        val out = File(prepareFolder(context), pdf.name)
         // Counts, sizes and times only: never strokes or file names.
         val counts = "${plan.pages.size} pages (${plan.insertedCount} Inserted), ${plan.strokeCount} strokes"
+        val out =
+            try {
+                File(inStep(ExportStep.PREPARE) { emptyFolder(context) }, pdf.name)
+            } catch (e: ExportFailed) {
+                logFailure(e, counts)
+                throw e
+            }
         try {
-            PDFBoxResourceLoader.init(context.applicationContext)
-            read(pdf).use { document ->
+            read(context, pdf).use { document ->
                 // The Export is for any reader and the AI apps, so it goes without the PDF's own
                 // permissions lock, which would stop the slide text being selected (decision 0008).
                 document.isAllSecurityToBeRemoved = true
                 draw(document, plan, progress) { ensureActive() }
                 ensureActive()
-                write(document, out)
+                inStep(ExportStep.WRITE) { document.save(out) }
             }
+            // Saving can't be stopped halfway, so a Cancel tapped meanwhile is honoured here.
+            ensureActive()
         } catch (e: CancellationException) {
             out.delete()
             AppLog.i("Export with ink cancelled: $counts")
             throw e
         } catch (e: ExportFailed) {
             out.delete()
-            AppLog.e("Export with ink failed while ${e.step.label}: $counts", e)
+            logFailure(e, counts)
             throw e
         }
         AppLog.i(
@@ -76,28 +83,50 @@ internal suspend fun exportWithInk(
         out
     }
 
-// Empties the export folder, so the last Export is never left behind.
-private fun prepareFolder(context: Context): File {
-    val folder = File(context.cacheDir, EXPORT_FOLDER)
-    if (!folder.deleteRecursively() || !folder.mkdirs()) {
-        throw ExportFailed(ExportStep.PREPARE, IOException("can't empty and make the export folder"))
+// Only the error's type, not its message: PDFBox and file errors put the path, with the Document's
+// name, in their messages.
+private fun logFailure(
+    e: ExportFailed,
+    counts: String,
+) = AppLog.e("Export with ink failed while ${e.step.label}: $counts (${e.cause?.javaClass?.name})")
+
+/**
+ * Runs [work] as [step] of an Export, turning whatever stops it into [ExportFailed]: PDFBox reports
+ * a damaged file as an IOException and some broken structures as runtime errors, and a huge page
+ * can run the app out of memory, which must fail the Export rather than crash the app.
+ */
+@Suppress("TooGenericExceptionCaught")
+private inline fun <T> inStep(
+    step: ExportStep,
+    work: () -> T,
+): T =
+    try {
+        work()
+    } catch (e: IOException) {
+        throw ExportFailed(step, e)
+    } catch (e: RuntimeException) {
+        throw ExportFailed(step, e)
+    } catch (e: OutOfMemoryError) {
+        throw ExportFailed(step, e)
     }
+
+// Empties the export folder, so the last Export is never left behind.
+private fun emptyFolder(context: Context): File {
+    val folder = File(context.cacheDir, EXPORT_FOLDER)
+    if (!folder.deleteRecursively() || !folder.mkdirs()) throw IOException("can't empty and make the export folder")
     return folder
 }
 
-// PDFBox reports a damaged file as an IOException, and some broken structures as runtime errors.
-@Suppress("TooGenericExceptionCaught")
-private fun read(pdf: File): PDDocument =
-    try {
+private fun read(
+    context: Context,
+    pdf: File,
+): PDDocument =
+    inStep(ExportStep.READ) {
+        PDFBoxResourceLoader.init(context.applicationContext)
         // Scratch data in temporary files, so a 100-page lecture doesn't run the app out of memory.
         PDDocument.load(pdf, MemoryUsageSetting.setupTempFileOnly())
-    } catch (e: IOException) {
-        throw ExportFailed(ExportStep.READ, e)
-    } catch (e: RuntimeException) {
-        throw ExportFailed(ExportStep.READ, e)
     }
 
-@Suppress("TooGenericExceptionCaught")
 private fun draw(
     document: PDDocument,
     plan: ExportPlan.WithInk,
@@ -105,32 +134,13 @@ private fun draw(
     checkCancelled: () -> Unit,
 ) {
     val alphaStates = AlphaStates()
+    // Listed before any Inserted page is added, which would shift the document's page numbers.
+    val pdfPages = document.pages.toList()
     var previous: PDPage? = null
     plan.pages.forEachIndexed { index, page ->
         checkCancelled()
-        previous =
-            try {
-                drawExportPage(document, page, previous, alphaStates)
-            } catch (e: IOException) {
-                throw ExportFailed(ExportStep.DRAW, e)
-            } catch (e: RuntimeException) {
-                throw ExportFailed(ExportStep.DRAW, e)
-            }
+        previous = inStep(ExportStep.DRAW) { drawExportPage(document, pdfPages, page, previous, alphaStates) }
         progress(index + 1)
-    }
-}
-
-@Suppress("TooGenericExceptionCaught")
-private fun write(
-    document: PDDocument,
-    out: File,
-) {
-    try {
-        document.save(out)
-    } catch (e: IOException) {
-        throw ExportFailed(ExportStep.WRITE, e)
-    } catch (e: RuntimeException) {
-        throw ExportFailed(ExportStep.WRITE, e)
     }
 }
 

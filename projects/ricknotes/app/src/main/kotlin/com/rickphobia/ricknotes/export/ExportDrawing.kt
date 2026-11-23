@@ -13,9 +13,11 @@ import com.tom_roush.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState
 import com.tom_roush.pdfbox.util.Matrix
 
 /**
- * Draws one page of an Export into [document] (decision 0008). A PDF page keeps its own content as
- * it is, with the strokes appended over it; an Inserted page is added new, right after [previous]
- * (or first, when there is none). Returns the page, so the next Inserted page can follow it.
+ * Draws one page of an Export into [document] (decision 0008). A PDF page, taken from [pdfPages]
+ * (the PDF's own pages, listed before any page was added, since an Inserted page shifts the
+ * document's page numbers), keeps its own content as it is, with the strokes appended over it; an
+ * Inserted page is added new, right after [previous] (or first, when there is none). Returns the
+ * page, so the next Inserted page can follow it.
  *
  * Each stroke is the outline of the mesh Jetpack Ink builds with the on-screen brush, filled as a
  * vector shape in its colour, so the Export looks like the screen at any zoom. A stroke Ink can't
@@ -23,13 +25,14 @@ import com.tom_roush.pdfbox.util.Matrix
  */
 internal fun drawExportPage(
     document: PDDocument,
+    pdfPages: List<PDPage>,
     page: ExportPage,
     previous: PDPage?,
     alphaStates: AlphaStates,
 ): PDPage {
     val target =
         when (page) {
-            is ExportPage.FromPdf -> document.getPage(page.index)
+            is ExportPage.FromPdf -> pdfPages[page.index]
             is ExportPage.Inserted -> newPage(document, PDRectangle(page.widthPt, page.heightPt), previous)
         }
     if (page.strokes.isEmpty()) return target
@@ -38,10 +41,10 @@ internal fun drawExportPage(
     PDPageContentStream(document, target, PDPageContentStream.AppendMode.APPEND, true, true).use { out ->
         out.saveGraphicsState()
         out.transform(appTopLeftToPdf(target))
-        val corner = MutableVec()
+        val vertex = MutableVec()
         page.strokes.forEach { stroke ->
             val mesh = stroke.toMesh() ?: return@forEach
-            out.fillStroke(stroke, mesh.shape, corner, alphaStates)
+            out.fillStroke(stroke, mesh.shape, vertex, alphaStates)
         }
         out.restoreGraphicsState()
     }
@@ -65,7 +68,7 @@ private fun newPage(
 private fun PDPageContentStream.fillStroke(
     stroke: Stroke,
     shape: PartitionedMesh,
-    corner: MutableVec,
+    vertex: MutableVec,
     alphaStates: AlphaStates,
 ) {
     val argb = stroke.colourArgb
@@ -74,7 +77,7 @@ private fun PDPageContentStream.fillStroke(
     alphaStates.forAlpha(argb ushr ALPHA_SHIFT)?.let(::setGraphicsStateParameters)
     setNonStrokingColor(channel(argb, RED_SHIFT), channel(argb, GREEN_SHIFT), channel(argb, BLUE_SHIFT))
     for (group in 0 until shape.getRenderGroupCount()) {
-        for (outline in 0 until shape.getOutlineCount(group)) addOutline(shape, group, outline, corner)
+        for (outline in 0 until shape.getOutlineCount(group)) addOutline(shape, group, outline, vertex)
     }
     // One fill per stroke with the non-zero rule: where its outlines overlap it is filled once, so a
     // highlighter stroke crossing itself doesn't darken, as on screen.
@@ -87,13 +90,13 @@ private fun PDPageContentStream.addOutline(
     shape: PartitionedMesh,
     group: Int,
     outline: Int,
-    corner: MutableVec,
+    vertex: MutableVec,
 ) {
     val vertices = shape.getOutlineVertexCount(group, outline)
     if (vertices == 0) return
-    for (vertex in 0 until vertices) {
-        shape.populateOutlinePosition(group, outline, vertex, corner)
-        if (vertex == 0) moveTo(corner.x, corner.y) else lineTo(corner.x, corner.y)
+    for (index in 0 until vertices) {
+        shape.populateOutlinePosition(group, outline, index, vertex)
+        if (index == 0) moveTo(vertex.x, vertex.y) else lineTo(vertex.x, vertex.y)
     }
     closePath()
 }
