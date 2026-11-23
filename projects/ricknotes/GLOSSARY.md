@@ -97,6 +97,18 @@ _Avoid_: template, mode
 
 ## Revision log
 
+**Answer pack**:
+A PDF `~/ee` builds with the worked answers to one question sheet (a tutorial, test or assignment), in the course's `answer packs/` folder. Which sheet it belongs to is in the Match list.
+_Avoid_: solution, answer key
+
+**Drive reference**:
+What a Preset sends instead of a file: the exact file names (and page number) in the prompt text, for the Gemini app to open from Drive itself.
+_Avoid_: link, path
+
+**Match list**:
+`answer packs/matches.json` in each course, written by `~/ee`: each question sheet (by its path in the course) → its Answer pack and chapter notes files.
+_Avoid_: index, mapping
+
 **Revision log**:
 One course's list of things to revise: Mistakes to redo and Key points to remember. It lives in its Course folder.
 _Avoid_: error log, correction book, mistake book, error_logs.pdf
