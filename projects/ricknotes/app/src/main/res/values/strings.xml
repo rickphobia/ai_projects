@@ -46,7 +46,7 @@
   <string name="tree_edit_partly_undone">Not everything could be put back</string>
   <string name="opening_document">Opening…</string>
   <string name="not_saved">Not saved</string>
-  <string name="ink_file_unreadable">Your ink file %1$s can\'t be read (%2$s), so this Document is open read-only. RickNotes won\'t write to that file.</string>
+  <string name="ink_file_unreadable">Your ink file %1$s can\'t be read (%2$s), so this Document is open read-only. RickNotes won\'t write to that file. To bring old ink back, see \"Getting old ink back\" in the RickNotes README.</string>
   <string name="ink_conflict_copy">The sync app made a Conflict copy of this Document\'s ink (%1$s): it changed here and on another device before they synced. Choose which to keep before writing. The other goes into Versions, so nothing is lost.</string>
   <string name="keep_mine">Keep mine</string>
   <string name="keep_the_other">Keep the other</string>

@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready
+**Status:** done
 
 **Touches:** core-session, README
 
@@ -12,10 +12,10 @@
 
 **Owner steps:** before merging, the Drive check in the spec's Further Notes: write on a Document, wait for a sync, then open Manage versions on its `.ink.json` in Drive on the laptop. If Drive shows no history, don't merge: the Version list goes back for grilling.
 
-- [ ] Opening twice with no change takes one Version; opening after a change takes a second (tested)
-- [ ] The 15-minute Version while writing still comes (tested)
-- [ ] A skipped Version on open is logged at debug level
-- [ ] README "Getting old ink back": close the Document on the tablet; in Drive on a laptop, Manage versions on its `.ink.json`, download yesterday's, put it back over the Ink file; let FolderSync bring it down before opening. Last resort: copy a file from `.versions` over the Ink file on the tablet
-- [ ] The damaged-Ink-file warning names "Getting old ink back"
-- [ ] README no longer says a restore screen comes in milestone 6
-- [ ] On-tablet check written in the PR: open and close a Document three times without writing, and `.versions` gains no new file; write a stroke, reopen, and it gains one
+- [x] Opening twice with no change takes one Version; opening after a change takes a second (tested)
+- [x] The 15-minute Version while writing still comes (tested)
+- [x] A skipped Version on open is logged at debug level
+- [x] README "Getting old ink back": close the Document on the tablet; in Drive on a laptop, Manage versions on its `.ink.json`, download yesterday's, put it back over the Ink file; let FolderSync bring it down before opening. Last resort: copy a file from `.versions` over the Ink file on the tablet
+- [x] The damaged-Ink-file warning names "Getting old ink back"
+- [x] README no longer says a restore screen comes in milestone 6
+- [x] On-tablet check written in the PR: open and close a Document three times without writing, and `.versions` gains no new file; write a stroke, reopen, and it gains one

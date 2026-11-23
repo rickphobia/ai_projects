@@ -37,6 +37,9 @@ interface SaveListener {
     fun saveFailed(error: InkSaveFailed) {}
 
     fun versionFailed(error: VersionFailed) {}
+
+    /** No Version was taken on open because the file is the same as its newest Version. */
+    fun versionSkipped(fileName: String) {}
 }
 
 /**
@@ -79,10 +82,11 @@ internal class AutoSave<T>(
 
     /**
      * Takes a Version of the file as it is on disk, for when it opens. Does nothing if there is no
-     * file; a failure is reported to the listener and must not stop the file opening.
+     * file, and tells the listener it skipped one if the file is the same as the newest Version; a
+     * failure is reported to the listener and must not stop the file opening.
      */
     fun takeVersion() {
-        takeVersion(clock.nowMs())
+        if (tryVersion { versions.takeUnlessSame(clock.nowMs()) } == true) listener.versionSkipped(fileName)
     }
 
     /** Call with [lock] held, after the owner's contents changed: schedules a save. */
@@ -145,16 +149,18 @@ internal class AutoSave<T>(
     }
 
     // True if the Version was taken; a failure is reported and must not stop the file opening or saving.
-    private fun takeVersion(nowMs: Long): Boolean =
+    private fun takeVersion(nowMs: Long): Boolean = tryVersion { versions.take(nowMs) } != null
+
+    // The result of [attempt], or null after reporting its failure to the listener.
+    private fun <R : Any> tryVersion(attempt: () -> R): R? =
         try {
-            versions.take(nowMs)
-            true
+            attempt()
         } catch (e: IOException) {
             listener.versionFailed(VersionFailed(fileName, e))
-            false
+            null
         } catch (e: SecurityException) {
             listener.versionFailed(VersionFailed(fileName, e))
-            false
+            null
         }
 
     // Call with [lock] held.
